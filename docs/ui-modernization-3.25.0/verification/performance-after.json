@@ -1,0 +1,188 @@
+{
+  "mode": "after",
+  "browser": "155.0.4283.45",
+  "viewport": "1440x1000",
+  "node": "v24.19.0",
+  "environment": "Windows desktop; production webpack; anonymous; placeholder Supabase; no CPU/network throttling; service workers blocked",
+  "metric": "Pointerdown capture to required time-panel DOM visible plus two RAFs; lab frame proxy, not actual presentation trace or INP",
+  "samples": [
+    63.69999998807907,
+    64.19999998807907,
+    63.70000001788139,
+    64.09999999403954,
+    65,
+    64,
+    63.79999998211861,
+    63.400000005960464,
+    63.400000005960464,
+    64,
+    64.90000000596046,
+    63.099999994039536,
+    63.80000001192093,
+    63.599999994039536,
+    63.5,
+    64.10000002384186,
+    64,
+    63.80000001192093,
+    64.09999999403954,
+    63.70000001788139,
+    63.69999998807907,
+    63.30000001192093,
+    62.900000005960464,
+    62.80000001192093,
+    63.900000005960464,
+    64.2999999821186,
+    63.099999994039536,
+    62.80000001192093,
+    63.599999994039536,
+    63.29999998211861,
+    63.60000002384186,
+    62.39999997615814,
+    63.70000001788139,
+    64,
+    62.099999994039536,
+    61.79999998211861,
+    63.29999998211861,
+    64.69999998807907,
+    62.900000005960464,
+    63.70000001788139,
+    62.79999998211861,
+    64.19999998807907,
+    63.900000005960464,
+    64,
+    63.69999998807907,
+    63.80000001192093,
+    65,
+    63.19999998807907,
+    64.09999999403954,
+    63.39999997615814
+  ],
+  "median": 63.70000001788139,
+  "p95": 64.90000000596046,
+  "max": 65,
+  "draftRetained": true,
+  "resources": [
+    {
+      "url": "/_next/static/chunks/webpack-1850247032b4dfd0.js",
+      "transferSize": 3007,
+      "encodedBodySize": 2707
+    },
+    {
+      "url": "/_next/static/chunks/4bd1b696-8a4ab4fdf0ae305a.js",
+      "transferSize": 63603,
+      "encodedBodySize": 63303
+    },
+    {
+      "url": "/_next/static/chunks/3794-83acfce05009cf38.js",
+      "transferSize": 66118,
+      "encodedBodySize": 65818
+    },
+    {
+      "url": "/_next/static/chunks/main-app-3f923e127c6c14e7.js",
+      "transferSize": 784,
+      "encodedBodySize": 484
+    },
+    {
+      "url": "/_next/static/chunks/app/layout-3c326653c23e177e.js",
+      "transferSize": 4497,
+      "encodedBodySize": 4197
+    },
+    {
+      "url": "/_next/static/chunks/b78e3e00-54d78568b2884f0a.js",
+      "transferSize": 31200,
+      "encodedBodySize": 30900
+    },
+    {
+      "url": "/_next/static/chunks/628fdacb-75807e8dfa4c130d.js",
+      "transferSize": 77097,
+      "encodedBodySize": 76797
+    },
+    {
+      "url": "/_next/static/chunks/8500-74c368e06d70378e.js",
+      "transferSize": 3723,
+      "encodedBodySize": 3423
+    },
+    {
+      "url": "/_next/static/chunks/8437-c29fc027b8f18fbb.js",
+      "transferSize": 5953,
+      "encodedBodySize": 5653
+    },
+    {
+      "url": "/_next/static/chunks/2619-9431a3f48da8eef4.js",
+      "transferSize": 7397,
+      "encodedBodySize": 7097
+    },
+    {
+      "url": "/_next/static/chunks/8409-5578c775c41f1e7a.js",
+      "transferSize": 7063,
+      "encodedBodySize": 6763
+    },
+    {
+      "url": "/_next/static/chunks/9922-bed3a769c775aed4.js",
+      "transferSize": 44148,
+      "encodedBodySize": 43848
+    },
+    {
+      "url": "/_next/static/chunks/6222-d16280a597e190af.js",
+      "transferSize": 4824,
+      "encodedBodySize": 4524
+    },
+    {
+      "url": "/_next/static/chunks/5441-bbe249af7849b30b.js",
+      "transferSize": 3710,
+      "encodedBodySize": 3410
+    },
+    {
+      "url": "/_next/static/chunks/1641-e1ba42617bbc8021.js",
+      "transferSize": 8095,
+      "encodedBodySize": 7795
+    },
+    {
+      "url": "/_next/static/chunks/7716-fea6c8df918e0ce7.js",
+      "transferSize": 47430,
+      "encodedBodySize": 47130
+    },
+    {
+      "url": "/_next/static/chunks/8410-30b2fc7ec8fb8d8c.js",
+      "transferSize": 120490,
+      "encodedBodySize": 120190
+    },
+    {
+      "url": "/_next/static/chunks/app/global-error-5a336575328b9677.js",
+      "transferSize": 2828,
+      "encodedBodySize": 2528
+    },
+    {
+      "url": "/_next/static/chunks/app/(portal)/error-bb3ec92a200e2e67.js",
+      "transferSize": 1267,
+      "encodedBodySize": 967
+    },
+    {
+      "url": "/_next/static/chunks/app/(portal)/tools/page-e0b3e4ebc5c3c735.js",
+      "transferSize": 4430,
+      "encodedBodySize": 4130
+    },
+    {
+      "url": "/_next/static/chunks/2746-6804037c1d7e16c6.js",
+      "transferSize": 19514,
+      "encodedBodySize": 19214
+    },
+    {
+      "url": "/_next/static/chunks/app/(portal)/layout-b4114ab7fe49cf03.js",
+      "transferSize": 39297,
+      "encodedBodySize": 38997
+    },
+    {
+      "url": "/_next/static/chunks/7603.72c7d1dca6d577b9.js",
+      "transferSize": 3937,
+      "encodedBodySize": 3637
+    },
+    {
+      "url": "/_next/static/chunks/8809.4b8d52cef6da47b9.js",
+      "transferSize": 2110,
+      "encodedBodySize": 1810
+    }
+  ],
+  "totalEncodedJSBytes": 565322,
+  "errors": []
+}

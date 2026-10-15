@@ -1,30 +1,32 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useToolDraft } from './tool-drafts';
+import { Input } from '@/components/ui/input';
 
 function Field({ label, value, onChange, min = 0, step = 1 }: { label: string; value: number; onChange: (value: number) => void; min?: number; step?: number }) {
   return (
     <label className="space-y-1 text-xs text-[var(--muted-foreground)]">
       <span>{label}</span>
-      <input type="number" min={min} step={step} value={value} onChange={event => onChange(Number(event.target.value) || 0)} className="min-h-11 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] outline-none focus:border-[#4285F4]" />
+      <Input type="number" min={min} step={step} value={value} onChange={event => onChange(Number(event.target.value) || 0)} />
     </label>
   );
 }
 
 export default function StudyDailyTools() {
-  const [pages, setPages] = useState(60);
-  const [minutesPerPage, setMinutesPerPage] = useState(2.5);
-  const [days, setDays] = useState(7);
-  const [studyMinutes, setStudyMinutes] = useState(120);
-  const [focusMinutes, setFocusMinutes] = useState(25);
-  const [breakMinutes, setBreakMinutes] = useState(5);
-  const [score, setScore] = useState(86);
-  const [total, setTotal] = useState(100);
-  const [currentGrade, setCurrentGrade] = useState(82);
-  const [completedWeight, setCompletedWeight] = useState(60);
-  const [targetGrade, setTargetGrade] = useState(85);
-  const [unitValue, setUnitValue] = useState(1);
-  const [conversion, setConversion] = useState<'km-mi' | 'kg-lb' | 'c-f'>('km-mi');
+  const [pages, setPages] = useToolDraft('study.pages', 60);
+  const [minutesPerPage, setMinutesPerPage] = useToolDraft('study.minutesPerPage', 2.5);
+  const [days, setDays] = useToolDraft('study.days', 7);
+  const [studyMinutes, setStudyMinutes] = useToolDraft('study.studyMinutes', 120);
+  const [focusMinutes, setFocusMinutes] = useToolDraft('study.focusMinutes', 25);
+  const [breakMinutes, setBreakMinutes] = useToolDraft('study.breakMinutes', 5);
+  const [score, setScore] = useToolDraft('study.score', 86);
+  const [total, setTotal] = useToolDraft('study.total', 100);
+  const [currentGrade, setCurrentGrade] = useToolDraft('study.currentGrade', 82);
+  const [completedWeight, setCompletedWeight] = useToolDraft('study.completedWeight', 60);
+  const [targetGrade, setTargetGrade] = useToolDraft('study.targetGrade', 85);
+  const [unitValue, setUnitValue] = useToolDraft('study.unitValue', 1);
+  const [conversion, setConversion] = useToolDraft<'km-mi' | 'kg-lb' | 'c-f'>('study.conversion', 'km-mi');
 
   const reading = useMemo(() => {
     const totalMinutes = pages * minutesPerPage;

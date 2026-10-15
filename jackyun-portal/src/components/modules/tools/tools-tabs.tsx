@@ -1,62 +1,50 @@
 'use client';
 
 import { useState } from 'react';
-import TextTools from '@/components/modules/tools/text-tools';
-import TimeSync from '@/components/modules/tools/time-sync';
-import ClipboardShare from '@/components/modules/tools/clipboard-share';
-import MarkdownToWord from '@/components/modules/tools/markdown-to-word';
-import StudyDailyTools from '@/components/modules/tools/study-daily-tools';
+import { ToolPanel } from './tool-panel';
+import TextTools from './text-tools';
+import { ToolDraftProvider } from './tool-drafts';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, getDialogContainer } from '@/components/ui/dialog';
 
 const TABS = [
-  { id: 'text', label: '文本工具', icon: 'text_snippet', color: '#4285F4' },
-  { id: 'time', label: '时间同步', icon: 'schedule', color: '#34A853' },
-  { id: 'clipboard', label: '剪贴板', icon: 'content_paste', color: '#FBBC05' },
-  { id: 'md2word', label: 'Markdown 转 Word', icon: 'description', color: '#8E24AA' },
-  { id: 'study', label: '学习与日常', icon: 'school', color: '#E37400' },
+  { id: 'text', label: '文本工具', icon: 'text_snippet' },
+  { id: 'time', label: '时间同步', icon: 'schedule' },
+  { id: 'clipboard', label: '剪贴板', icon: 'content_paste' },
+  { id: 'md2word', label: 'Markdown 转 Word', icon: 'description' },
+  { id: 'study', label: '学习与日常', icon: 'school' },
 ] as const;
 
-type TabId = (typeof TABS)[number]['id'];
-
 export default function ToolsTabs() {
-  const [active, setActive] = useState<TabId>('text');
-
-  const activeTab = TABS.find((t) => t.id === active)!;
-
-  return (
-    <div className="flex flex-col gap-5">
-      {/* Tab bar */}
-      <div className="flex gap-1 overflow-x-auto rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-1">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActive(tab.id)}
-            className="flex min-h-11 min-w-12 flex-1 items-center justify-center gap-2 rounded-[9px] px-3 py-2.5 text-sm font-medium transition-all"
-            style={{
-              backgroundColor: active === tab.id ? tab.color : 'transparent',
-              color: active === tab.id ? '#fff' : 'var(--muted-foreground)',
-            }}
-          >
-            <span className="material-icons-round text-base">{tab.icon}</span>
-            <span className="hidden sm:inline">{tab.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Content card */}
-      <div className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-3 sm:p-5">
-        <div className="flex items-center gap-2 mb-5">
-          <span className="material-icons-round text-xl" style={{ color: activeTab.color }}>
-            {activeTab.icon}
-          </span>
-          <h2 className="font-semibold text-[var(--foreground)]">{activeTab.label}</h2>
-        </div>
-
-        {active === 'text' && <TextTools />}
-        {active === 'time' && <TimeSync />}
-        {active === 'clipboard' && <ClipboardShare />}
-        {active === 'md2word' && <MarkdownToWord />}
-        {active === 'study' && <StudyDailyTools />}
-      </div>
+  const [active, setActive] = useState('text');
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+  return <ToolDraftProvider>
+    <div className="mb-3 flex justify-end">
+      <Dialog>
+        <DialogTrigger asChild><Button variant="ghost" size="sm" onClick={event => setPortalContainer(getDialogContainer(event.currentTarget))}>使用说明</Button></DialogTrigger>
+        <DialogContent portalContainer={portalContainer}>
+          <DialogTitle>工具箱使用说明</DialogTitle>
+          <DialogDescription>文本、文档和日常换算均可在本机使用。</DialogDescription>
+          <div className="mt-4 space-y-3 text-sm leading-6">
+            <p>切换工具会保留本次页面会话中的输入、结果和文件名。离开工具箱或刷新页面会结束本次会话，重要内容请及时复制或下载。</p>
+            <p>Tab 键移动焦点；工具标签可用方向键选择，再按 Enter 或空格打开。按 Escape 可关闭说明。</p>
+            <p>剪贴板读写需要浏览器授权。拒绝授权时，文本会保留，可手动选择和复制。</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-  );
+    <Tabs value={active} onValueChange={setActive} activationMode="manual">
+      <TabsList aria-label="工具分类">
+        {TABS.map(tab => <TabsTrigger key={tab.id} value={tab.id}>
+          <span className="material-icons-round text-base" aria-hidden="true">{tab.icon}</span>
+          <span>{tab.label}</span>
+        </TabsTrigger>)}
+      </TabsList>
+      {TABS.map(tab => <TabsContent key={tab.id} value={tab.id}>
+        <h2 className="mb-5 flex items-center gap-2 font-semibold"><span className="material-icons-round text-xl text-[var(--brand)]" aria-hidden="true">{tab.icon}</span>{tab.label}</h2>
+        {active === tab.id && (tab.id === 'text' ? <TextTools /> : <ToolPanel id={tab.id} />)}
+      </TabsContent>)}
+    </Tabs>
+  </ToolDraftProvider>;
 }

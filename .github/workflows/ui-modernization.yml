@@ -1,0 +1,61 @@
+name: UI modernization
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'jackyun-portal/**'
+      - '.github/workflows/ui-modernization.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui-batch-one:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: jackyun-portal
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ui-test-placeholder
+      NEXT_TELEMETRY_DISABLED: '1'
+      JACKYUN_TEST_URL: http://127.0.0.1:3150
+      JACKYUN_BROWSER_CHANNEL: chromium
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: jackyun-portal/.node-version
+          cache: npm
+          cache-dependency-path: jackyun-portal/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Type and scoped lint checks
+        run: |
+          npx tsc --noEmit
+          npx eslint src/components/ui src/components/modules/tools src/components/layout/keyboard-shortcuts.tsx src/lib/utils.ts src/lib/update-history.ts tests/ui-modernization.browser.mjs tests/ui-modernization-performance.browser.mjs
+          npm run check:secrets
+      - name: Existing data safety regressions
+        run: node --test tests/sync-v2.test.mts tests/workspace-sync-recovery.test.mts tests/practice-cloud-offline.test.mts tests/ielts-local-concurrency.test.mts
+      - name: Run production UI flows
+        run: |
+          mkdir -p artifacts
+          cp -r public .next/standalone/public
+          cp -r .next/static .next/standalone/.next/static
+          PORT=3150 HOSTNAME=127.0.0.1 node .next/standalone/server.js > artifacts/ui-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          node -e 'let ready=false; for(let n=0;n<60;n++){try{let r=await fetch("http://127.0.0.1:3150/tools");if(r.ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,1000))}if(!ready)process.exit(1)' --input-type=module
+          npm run test:ui-modernization
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-modernization-verification
+          path: |
+            jackyun-portal/artifacts/verification/ui-modernization/
+            jackyun-portal/artifacts/ui-server.log
+          retention-days: 14

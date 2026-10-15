@@ -1,0 +1,29 @@
+{
+  "base": "b6f3078dfcc00d614980b78452da2b783c01320d",
+  "branch": "feat/ui-modernization",
+  "candidateVersion": "3.25.0",
+  "productionBuild": true,
+  "typescript": true,
+  "scopedLint": true,
+  "privateKeyScan": true,
+  "dataRegressionTests": 36,
+  "browserGroups": 10,
+  "browserServer": "production standalone",
+  "remoteCI": "pending PR creation; not claimed passed",
+  "physicalAndroidIOS": "not verified",
+  "liveBackendMultiDevice": "not verified",
+  "actualPresentationTimingAndINP": "not verified",
+  "placeholderBackendNotice": "Existing AI shell can emit JY-5002 in baseline and candidate; not hidden or fixed here",
+  "documentQA": {
+    "pages": 7,
+    "renderer": "docx-preview in bundled Edge; LibreOffice unavailable",
+    "allPagesVisuallyInspected": true,
+    "wordNativePaginationVerified": false
+  },
+  "originalMain": {
+    "head": "b6f3078dfcc00d614980b78452da2b783c01320d",
+    "statusDigestMatchesPlanningBaseline": true,
+    "trackedChanges": 37,
+    "untrackedEntries": 227
+  }
+}

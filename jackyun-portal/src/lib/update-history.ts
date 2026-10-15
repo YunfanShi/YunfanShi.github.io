@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.25.0', date: '2026-10-16', dateLabel: '2026 年 10 月 16 日', title: '工具箱交互与基础组件更新', summary: '工具切换保留本次输入，常用控件统一三主题和键盘操作。', categories: ['平台体验', '稳定性'], accent: 'blue', highlights: ['文本、时间、剪贴板、文档和日常换算在页面会话中保留输入与结果，刷新或离开后结束。', '工具按需加载，Word 导出模块在下载时载入；加载失败可重试。', '剪贴板失败保留原文，过期响应不覆盖新输入；说明弹窗支持焦点恢复与全屏。'] },
   { version: '3.24.2', date: '2026-10-15', dateLabel: '2026 年 10 月 15 日', title: '计时器断线继续', summary: '断线时继续本机计时，恢复连接后自动补传；只有明确被接管才退出。', categories: ['稳定性'], accent: 'mint', highlights: ['网络错误和心跳超时不再暂停或退出，断线检查点单独保留。', '同一设备重连可恢复控制确认并上传离线用时，旧令牌仍不能覆盖接管设备。'] },
   { version: '3.24.1', date: '2026-10-15', dateLabel: '2026 年 10 月 15 日', title: '计时登录连接复核', summary: '登录验证服务暂不可用时暂停连接，不把已登录计时误降为本机模式。', categories: ['稳定性'], accent: 'mint', highlights: ['区分未登录与验证网络失败，避免绕过账号计时接管。'] },
   { version: '3.24.0', date: '2026-10-15', dateLabel: '2026 年 10 月 15 日', title: '逐题计时与设备接续', summary: '下一题先选题型后自动开始，云端每分钟保存并支持同账号安全接管。', categories: ['学习体验', '稳定性'], accent: 'mint', highlights: ['选题型时显示介绍与当前档位时长，常用六类优先。', '运行和暂停状态明确，三色阶段同时显示文字与剩余比例。', '账号级控制权与版本检查，另一设备接管后旧设备退出计时，断网暂停。'] },

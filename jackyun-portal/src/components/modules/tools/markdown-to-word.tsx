@@ -1,14 +1,12 @@
 'use client';
 
 import { siteAlert } from '@/lib/site-dialog';
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import MarkdownRenderer from '@/components/modules/markdown-renderer';
-import {
-  Document, Packer, Paragraph, TextRun, HeadingLevel as DocxHeadingLevel,
-  Table, TableRow, TableCell, WidthType, AlignmentType, convertInchesToTwip,
-} from 'docx';
 import { saveAs } from 'file-saver';
-
+import { Button } from '@/components/ui/button';
+import { Input, Textarea } from '@/components/ui/input';
+import { useToolDraft } from './tool-drafts';
 const EXAMPLE_MD = `# Markdown 转 Word 示例
 
 ## 基本格式
@@ -52,260 +50,29 @@ function hello() {
 ![占位图](https://via.placeholder.com/150)
 `;
 
-/** 将简化的 Markdown 行解析为 docx 元素 */
-function mdToDocxElements(md: string) {
-  const lines = md.split('\n');
-  const children: (Paragraph | Table)[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    // 空行
-    if (!trimmed) {
-      children.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
-      i++;
-      continue;
-    }
-
-    // 表格：检测以 | 开头
-    if (trimmed.startsWith('|') && line.includes('|')) {
-      // 收集表格行
-      const tableRows: { cells: string[]; isHeader: boolean }[] = [];
-      while (i < lines.length && lines[i].trim().startsWith('|')) {
-        const rowLine = lines[i].trim();
-        // 跳过分隔行（如 | --- | --- |）
-        if (/^\|[\s:-]+\|$/.test(rowLine) || rowLine.match(/^\|[\s:-]+\|[\s:-]+\|/)) {
-          i++;
-          continue;
-        }
-        const cells = rowLine.split('|').filter(c => c.trim() !== '').map(c => c.trim());
-        if (cells.length > 0) {
-          tableRows.push({ cells, isHeader: tableRows.length === 0 });
-        }
-        i++;
-      }
-
-      if (tableRows.length > 0) {
-        const rows = tableRows.map((row) => {
-          const cells = row.cells.map((cellText) => {
-            const runs = parseInlineMarkdown(cellText);
-            return new TableCell({
-              children: [new Paragraph({ children: runs })],
-              width: { size: 100 / row.cells.length, type: WidthType.PERCENTAGE },
-            });
-          });
-          return new TableRow({ children: cells });
-        });
-
-        children.push(new Table({ rows }));
-      }
-      continue;
-    }
-
-    // 标题
-    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)/);
-    if (headingMatch) {
-      const level = headingMatch[1].length as 1 | 2 | 3 | 4 | 5 | 6;
-      const text = headingMatch[2];
-      const runs = parseInlineMarkdown(text);
-      children.push(
-        new Paragraph({
-          children: runs,
-          heading: ([
-            , // index 0 unused
-            DocxHeadingLevel.HEADING_1,
-            DocxHeadingLevel.HEADING_2,
-            DocxHeadingLevel.HEADING_3,
-            DocxHeadingLevel.HEADING_4,
-            DocxHeadingLevel.HEADING_5,
-            DocxHeadingLevel.HEADING_6,
-          ])[level] ?? DocxHeadingLevel.HEADING_1,
-          spacing: { before: 240, after: 120 },
-        })
-      );
-      i++;
-      continue;
-    }
-
-    // 分隔线
-    if (/^(---+|___+|\*\*\*+)$/.test(trimmed)) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: '────────────────────────', color: 'B7B7B7' })],
-        spacing: { before: 120, after: 120 },
-      }));
-      i++;
-      continue;
-    }
-
-    // GitHub task list
-    const taskMatch = trimmed.match(/^[-*+]\s+\[([ xX])\]\s+(.+)/);
-    if (taskMatch) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: taskMatch[1].toLowerCase() === 'x' ? '☒  ' : '☐  ' }), ...parseInlineMarkdown(taskMatch[2])],
-        indent: { left: convertInchesToTwip(0.35) },
-        spacing: { before: 60, after: 60 },
-      }));
-      i++;
-      continue;
-    }
-
-    // 无序列表
-    const ulMatch = trimmed.match(/^[-*+]\s+(.+)/);
-    if (ulMatch) {
-      const text = ulMatch[1];
-      const runs = parseInlineMarkdown(text);
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: '•  ', font: 'Symbol' }), ...runs],
-          indent: { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.25) },
-          spacing: { before: 60, after: 60 },
-        })
-      );
-      i++;
-      continue;
-    }
-
-    // 有序列表
-    const olMatch = trimmed.match(/^(\d+)\.\s+(.+)/);
-    if (olMatch) {
-      const num = olMatch[1];
-      const text = olMatch[2];
-      const runs = parseInlineMarkdown(text);
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: `${num}. ` }), ...runs],
-          indent: { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.25) },
-          spacing: { before: 60, after: 60 },
-        })
-      );
-      i++;
-      continue;
-    }
-
-    // 引用
-    const quoteMatch = trimmed.match(/^>\s+(.+)/);
-    if (quoteMatch) {
-      const text = quoteMatch[1];
-      const runs = parseInlineMarkdown(text);
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: '│ ', font: 'Courier New', color: '888888' }), ...runs],
-          indent: { left: convertInchesToTwip(0.3) },
-          spacing: { before: 80, after: 80 },
-          style: 'Quote',
-        })
-      );
-      i++;
-      continue;
-    }
-
-    // 代码块（```）
-    if (trimmed.startsWith('```')) {
-      const codeLines: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].trim().startsWith('```')) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      i++; // 跳过结尾 ```
-      const codeText = codeLines.join('\n');
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: codeText, font: 'Courier New', size: 18 })],
-          indent: { left: convertInchesToTwip(0.3) },
-          spacing: { before: 120, after: 120 },
-          shading: { type: 'clear', fill: 'F5F5F5' },
-        })
-      );
-      continue;
-    }
-
-    // 普通段落 - 包含图片检测
-    const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
-    if (imgMatch) {
-      const alt = imgMatch[1];
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: `[图片: ${alt}]`, italics: true, color: '666666' })],
-          alignment: AlignmentType.CENTER,
-          spacing: { before: 120, after: 120 },
-        })
-      );
-      i++;
-      continue;
-    }
-
-    // 普通段落
-    const runs = parseInlineMarkdown(trimmed);
-    children.push(
-      new Paragraph({
-        children: runs,
-        spacing: { before: 60, after: 60 },
-      })
-    );
-    i++;
-  }
-
-  return children;
-}
-
-/** 解析行内 Markdown：粗体、斜体、行内代码、链接 */
-function parseInlineMarkdown(text: string): TextRun[] {
-  const runs: TextRun[] = [];
-  // 简单解析：交替匹配粗体、斜体、行内代码、链接
-  const regex = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|\[(.+?)\]\((.+?)\))/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(text)) !== null) {
-    // 普通文本
-    if (match.index > lastIndex) {
-      runs.push(new TextRun({ text: text.slice(lastIndex, match.index) }));
-    }
-
-    if (match[2]) {
-      // ***粗斜体***
-      runs.push(new TextRun({ text: match[2], bold: true, italics: true }));
-    } else if (match[3]) {
-      // **粗体**
-      runs.push(new TextRun({ text: match[3], bold: true }));
-    } else if (match[4]) {
-      // *斜体*
-      runs.push(new TextRun({ text: match[4], italics: true }));
-    } else if (match[5]) {
-      // `行内代码`
-      runs.push(new TextRun({ text: match[5], font: 'Courier New', size: 18 }));
-    } else if (match[6] && match[7]) {
-      // [链接](url)
-      runs.push(
-        new TextRun({
-          text: match[6],
-          style: 'Hyperlink',
-        })
-      );
-    }
-
-    lastIndex = match.index + match[0].length;
-  }
-
-  // 剩余文本
-  if (lastIndex < text.length) {
-    runs.push(new TextRun({ text: text.slice(lastIndex) }));
-  }
-
-  return runs.length > 0 ? runs : [new TextRun({ text })];
-}
-
 export default function MarkdownToWord() {
-  const [mdContent, setMdContent] = useState(EXAMPLE_MD);
+  const [mdContent, setMdContent] = useToolDraft('markdown.content', EXAMPLE_MD);
   const [converting, setConverting] = useState(false);
   const [copiedForWord, setCopiedForWord] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [outputName, setOutputName] = useState('学习笔记');
+  const [fileName, setFileName] = useToolDraft<string | null>('markdown.fileName', null);
+  const [outputName, setOutputName] = useToolDraft('markdown.outputName', '学习笔记');
+
+  const generation = useRef(0);
+  const readerRef = useRef<FileReader | null>(null);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    generation.current++;
+    readerRef.current?.abort();
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+  }, []);
+
+  function editContent(value: string) {
+    readerRef.current?.abort();
+    setMdContent(value);
+    setCopiedForWord(false);
+  }
 
   const lines = useMemo(() => mdContent.split('\n').length, [mdContent]);
 
@@ -319,14 +86,18 @@ export default function MarkdownToWord() {
       siteAlert('文件大小不能超过 10MB');
       return;
     }
-    setFileName(file.name);
+    readerRef.current?.abort();
     const reader = new FileReader();
+    readerRef.current = reader;
     reader.onload = (e) => {
       const text = e.target?.result as string;
       setMdContent(text);
+      setFileName(file.name);
+      setCopiedForWord(false);
     };
+    reader.onerror = () => { void siteAlert('文件读取失败，原内容已保留'); };
     reader.readAsText(file);
-  }, []);
+  }, [setMdContent, setFileName]);
 
   /** 下载为 .docx */
   const handleDownloadDocx = useCallback(async () => {
@@ -334,50 +105,19 @@ export default function MarkdownToWord() {
       siteAlert('请输入 Markdown 内容');
       return;
     }
+    const token = generation.current;
     setConverting(true);
     try {
-      const elements = mdToDocxElements(mdContent);
-      const doc = new Document({
-        title: 'Markdown 转 Word 文档',
-        description: '由 Markdown 转换生成的 Word 文档',
-        styles: {
-          default: {
-            document: {
-              run: {
-                font: 'Microsoft YaHei',
-                size: 22,
-              },
-              paragraph: {
-                spacing: { after: 120 },
-              },
-            },
-          },
-        },
-        sections: [
-          {
-            properties: {
-              page: {
-                margin: {
-                  top: convertInchesToTwip(1),
-                  right: convertInchesToTwip(1),
-                  bottom: convertInchesToTwip(1),
-                  left: convertInchesToTwip(1),
-                },
-              },
-            },
-            children: elements,
-          },
-        ],
-      });
-
-      const blob = await Packer.toBlob(doc);
+      const { createMarkdownDocx } = await import('./markdown-docx');
+      const blob = await createMarkdownDocx(mdContent);
+      if (token !== generation.current) return;
       const safeName = outputName.trim().replace(/[\\/:*?"<>|]/g, '-') || (fileName ? fileName.replace(/\.(md|markdown|txt)$/i, '') : 'markdown-to-word');
       saveAs(blob, `${safeName}.docx`);
     } catch (err) {
       console.error('DOCX 生成失败:', err);
-      siteAlert('文档生成失败，请检查 Markdown 格式');
+      if (token === generation.current) void siteAlert('文档生成失败，输入已保留，请重试');
     } finally {
-      setConverting(false);
+      if (token === generation.current) setConverting(false);
     }
   }, [mdContent, fileName, outputName]);
 
@@ -388,6 +128,7 @@ export default function MarkdownToWord() {
       return;
     }
 
+    const token = generation.current;
     // 使用简单的 HTML 转换，便于粘贴到 Word
     const html = simpleMdToHtml(mdContent);
 
@@ -396,16 +137,21 @@ export default function MarkdownToWord() {
       const blob = new Blob([html], { type: 'text/html' });
       const clipboardItem = new ClipboardItem({ 'text/html': blob });
       await navigator.clipboard.write([clipboardItem]);
+      if (token !== generation.current) return;
       setCopiedForWord(true);
-      setTimeout(() => setCopiedForWord(false), 2500);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopiedForWord(false), 2500);
     } catch {
+      if (token !== generation.current) return;
       // fallback: 复制纯文本
       try {
         await navigator.clipboard.writeText(mdContent);
+        if (token !== generation.current) return;
         setCopiedForWord(true);
-        setTimeout(() => setCopiedForWord(false), 2500);
+        if (copiedTimer.current) clearTimeout(copiedTimer.current);
+        copiedTimer.current = setTimeout(() => setCopiedForWord(false), 2500);
       } catch {
-        siteAlert('复制失败，请手动复制');
+        if (token === generation.current) void siteAlert('复制失败，请手动复制');
       }
     }
   }, [mdContent]);
@@ -434,7 +180,12 @@ export default function MarkdownToWord() {
     <div className="flex flex-col gap-5">
       {/* 上传区域 */}
       <div
-        role="presentation"
+        role="button"
+        tabIndex={0}
+        aria-label="上传 Markdown 文件"
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInputRef.current?.click(); }
+        }}
         onClick={() => fileInputRef.current?.click()}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -452,10 +203,11 @@ export default function MarkdownToWord() {
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) handleFile(file);
+            e.target.value = '';
           }}
           className="hidden"
         />
-        <span className="material-icons-round text-3xl text-[var(--muted-foreground)]">upload</span>
+        <span className="material-icons-round text-3xl text-[var(--muted-foreground)]" aria-hidden="true">upload</span>
         <p className="mt-1 text-sm font-medium text-[var(--muted-foreground)]">
           {fileName ? `已选择: ${fileName}` : '点击或拖拽上传 .md 文件'}
         </p>
@@ -466,7 +218,7 @@ export default function MarkdownToWord() {
       <label className="flex flex-col gap-1 text-sm font-medium text-[var(--foreground)] sm:max-w-sm">
         输出文件名
         <div className="flex items-center rounded-[10px] border border-[var(--card-border)] bg-[var(--background)] px-3 focus-within:ring-2 focus-within:ring-[#4285F4]">
-          <input value={outputName} onChange={event => setOutputName(event.target.value)} className="min-h-11 min-w-0 flex-1 bg-transparent text-sm outline-none" placeholder="学习笔记" />
+          <Input value={outputName} onChange={event => setOutputName(event.target.value)} className="min-w-0 flex-1 border-0" placeholder="学习笔记" />
           <span className="text-xs text-[var(--muted-foreground)]">.docx</span>
         </div>
       </label>
@@ -475,23 +227,25 @@ export default function MarkdownToWord() {
         {/* 左侧：编辑器 */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-[var(--foreground)]">Markdown 编辑</label>
+            <label htmlFor="tool-markdown-content" className="text-sm font-medium text-[var(--foreground)]">Markdown 编辑</label>
             <div className="flex items-center gap-2">
               <span className="text-xs text-[var(--muted-foreground)]">{lines} 行</span>
-              <button
-                onClick={() => setMdContent(EXAMPLE_MD)}
-                className="rounded-[8px] border border-[var(--card-border)] px-3 py-1 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors"
+              <Button
+                onClick={() => editContent(EXAMPLE_MD)}
+                variant="outline"
+                size="sm"
               >
                 加载示例
-              </button>
+              </Button>
             </div>
           </div>
-          <textarea
+          <Textarea
+            id="tool-markdown-content"
             value={mdContent}
-            onChange={(e) => setMdContent(e.target.value)}
+            onChange={(e) => editContent(e.target.value)}
             placeholder="在此输入 Markdown 内容..."
             rows={16}
-            className="w-full rounded-[10px] border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[#4285F4] resize-y font-mono"
+            className="font-mono"
           />
         </div>
 
@@ -510,30 +264,31 @@ export default function MarkdownToWord() {
 
       {/* 操作按钮 */}
       <div className="flex flex-wrap items-center gap-3">
-        <button
+        <Button
           onClick={handleDownloadDocx}
-          disabled={converting || !mdContent.trim()}
-          className="inline-flex items-center gap-2 rounded-[10px] bg-[#4285F4] px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          busy={converting}
+          disabled={!mdContent.trim()}
         >
-          <span className="material-icons-round text-base">{converting ? 'hourglass_top' : 'download'}</span>
+          <span className="material-icons-round text-base" aria-hidden="true">{converting ? 'hourglass_top' : 'download'}</span>
           {converting ? '生成中...' : '下载为 .docx'}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
           onClick={handleCopyForWord}
           disabled={!mdContent.trim()}
-          className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--card-border)] bg-[var(--card)] px-5 py-2.5 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-40"
         >
-          <span className="material-icons-round text-base">{copiedForWord ? 'check' : 'content_copy'}</span>
+          <span className="material-icons-round text-base" aria-hidden="true">{copiedForWord ? 'check' : 'content_copy'}</span>
           {copiedForWord ? '已复制，可粘贴到 Word' : '复制为 Word 格式'}
-        </button>
-        <button
-          onClick={() => { setMdContent(''); setFileName(null); }}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => { editContent(''); setFileName(null); }}
           disabled={!mdContent}
-          className="inline-flex items-center gap-2 rounded-[10px] border border-[var(--card-border)] bg-transparent px-5 py-2.5 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:opacity-40"
+
         >
-          <span className="material-icons-round text-base">delete_outline</span>
+          <span className="material-icons-round text-base" aria-hidden="true">delete_outline</span>
           清空
-        </button>
+        </Button>
       </div>
     </div>
   );

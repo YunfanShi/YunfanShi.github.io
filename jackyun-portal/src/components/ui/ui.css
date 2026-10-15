@@ -1,0 +1,49 @@
+/* Scoped component classes; keep existing data-theme and legacy page styles. */
+:root, [data-theme='light'] {
+  --ui-on-brand: #fff;
+  --ui-danger: #b3261e;
+  --ui-success: #137333;
+  --ui-warning: #8a4b00;
+}
+[data-theme='gray'], [data-theme='dark'] {
+  --ui-on-brand: #102a43;
+  --ui-danger: #ffb4ab;
+  --ui-success: #81c995;
+  --ui-warning: #fdd663;
+}
+.jy-button, .jy-input, .jy-textarea, .jy-tabs-trigger {
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.875rem;
+  transition: background-color var(--motion-fast, 120ms), border-color var(--motion-fast, 120ms), box-shadow var(--motion-fast, 120ms);
+}
+.jy-button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 44px; padding: .625rem 1rem; border: 1px solid transparent; font-weight: 500; cursor: pointer; touch-action: manipulation; }
+.jy-button-primary { background: var(--brand); color: var(--ui-on-brand); }
+.jy-button-primary:hover:not(:disabled) { background: var(--brand-strong); }
+.jy-button-outline { background: var(--card); border-color: var(--card-border); color: var(--foreground); }
+.jy-button-ghost { background: transparent; color: var(--foreground); }
+.jy-button-destructive { background: var(--ui-danger); color: var(--background); }
+.jy-button-outline:hover:not(:disabled), .jy-button-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--brand) 10%, var(--card)); }
+.jy-button:active:not(:disabled), .jy-tabs-trigger:active:not(:disabled) { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--foreground) 16%, transparent); }
+.jy-button-sm { padding: .5rem .75rem; font-size: .8125rem; }
+.jy-button-icon { width: 44px; padding: .5rem; font-size: 1.5rem; }
+.jy-button:disabled, .jy-button[aria-disabled='true'], .jy-input:disabled, .jy-textarea:disabled { opacity: .5; cursor: not-allowed; }
+.jy-button[aria-busy='true'] { cursor: progress; }
+.jy-button:focus-visible, .jy-input:focus-visible, .jy-textarea:focus-visible, .jy-tabs-trigger:focus-visible, .jy-tabs-content:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+.jy-input, .jy-textarea { width: 100%; min-height: 44px; border: 1px solid var(--card-border); background: var(--background); color: var(--foreground); padding: .625rem .75rem; }
+.jy-textarea { resize: vertical; }
+.jy-input::placeholder, .jy-textarea::placeholder { color: var(--muted-foreground); }
+.jy-input[aria-invalid='true'], .jy-textarea[aria-invalid='true'] { border-color: var(--ui-danger); }
+.jy-tabs-list { display: flex; flex-wrap: wrap; gap: .25rem; border: 1px solid var(--card-border); border-radius: 12px; background: var(--card); padding: .25rem; }
+.jy-tabs-trigger { display: flex; flex: 1 1 auto; align-items: center; justify-content: center; gap: .5rem; min-height: 44px; padding: .625rem .75rem; color: var(--muted-foreground); font-weight: 500; transition: none; }
+.jy-tabs-trigger:hover { background: color-mix(in srgb, var(--brand) 8%, var(--card)); }
+.jy-tabs-trigger[data-state='active'] { color: var(--ui-on-brand); background: var(--brand); }
+.jy-tabs-content { margin-top: 1.25rem; padding: 1.25rem; border: 1px solid var(--card-border); border-radius: 12px; background: var(--card); color: var(--foreground); }
+.jy-tabs-content[data-state='inactive'] { display: none; }
+.jy-dialog-overlay { position: fixed; inset: 0; z-index: 100; background: #0009; }
+.jy-dialog-content { position: fixed; z-index: 101; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(32rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow: auto; padding: 1.5rem; border: 1px solid var(--card-border); border-radius: 16px; background: var(--card); color: var(--foreground); box-shadow: var(--surface-shadow); }
+.jy-dialog-close { position: absolute; right: .5rem; top: .5rem; }
+.jy-notice-error { color: var(--ui-danger); border: 1px solid currentColor; border-radius: 8px; padding: .75rem; font-size: .875rem; }
+@media (max-width: 640px) { .jy-input, .jy-textarea { font-size: 16px; } .jy-tabs-content { padding: .75rem; } }
+@media (prefers-reduced-motion: reduce) { .jy-button, .jy-input, .jy-textarea, .jy-tabs-trigger { transition: none; } }
+[data-motion='false'] :is(.jy-button, .jy-input, .jy-textarea, .jy-tabs-trigger) { transition: none; }

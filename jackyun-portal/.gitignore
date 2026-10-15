@@ -44,3 +44,8 @@ next-env.d.ts
 # Local learning roadmap render and browser evidence
 /artifacts/verification/cue-roadmap/
 /artifacts/verification/device-layout/
+
+# Local UI modernization verification output
+/artifacts/verification/ui-modernization/
+/artifacts/ui-modernization-lint.json
+/artifacts/ui-modernization-*.log

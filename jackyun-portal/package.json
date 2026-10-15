@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.24.4",
+  "version": "3.25.0",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -67,17 +67,23 @@
     "test:device-ui": "node tests/device-layout.browser.mts",
     "test:device-pages": "node tests/device-pages.browser.mjs",
     "test:diagnosis": "node --test tests/exam-diagnosis.test.mts",
-    "test:diagnosis-ui": "node tests/exam-diagnosis.browser.mts"
+    "test:diagnosis-ui": "node tests/exam-diagnosis.browser.mts",
+    "test:ui-modernization": "node tests/ui-modernization.browser.mjs",
+    "test:ui-performance": "node tests/ui-modernization-performance.browser.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
     "@dnd-kit/sortable": "10.0.0",
     "@dnd-kit/utilities": "3.2.2",
     "@google/generative-ai": "^0.24.1",
+    "@radix-ui/react-dialog": "1.3.1",
+    "@radix-ui/react-slot": "1.5.0",
+    "@radix-ui/react-tabs": "1.2.1",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.48.1",
     "@tailwindcss/typography": "^0.5.19",
     "@types/katex": "^0.16.8",
+    "class-variance-authority": "0.7.1",
     "clsx": "^2.1.0",
     "docx": "^9.7.1",
     "file-saver": "^2.0.5",
@@ -107,6 +113,7 @@
     "eslint": "^9.39.3",
     "eslint-config-next": "16.3.8",
     "fake-indexeddb": "6.2.5",
+    "playwright": "1.62.1",
     "postcss": "^8.5.28",
     "supabase": "2.119.0",
     "tailwindcss": "^3.4.17",
