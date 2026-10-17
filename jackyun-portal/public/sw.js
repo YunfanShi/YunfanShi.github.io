@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'jackyun-pwa';
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const NAVIGATION_CACHE = `${CACHE_PREFIX}-pages-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';

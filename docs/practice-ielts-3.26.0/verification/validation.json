@@ -1,0 +1,22 @@
+{
+  "version": "3.26.0",
+  "date": "2026-10-17",
+  "baseline": "3089386",
+  "unitTests": { "passed": 68, "failed": 0 },
+  "typescript": "passed: node node_modules/typescript/bin/tsc --noEmit --pretty false",
+  "lint": "passed: navigation.ts, i18n.ts, learning/practice-timer.ts, update-history.ts",
+  "javascriptSyntax": "passed: practice-engine.js, practice-timer.js",
+  "productionBuild": "passed: Next.js 16.3.8 webpack build in current worktree",
+  "secretScan": "passed: no private key PEM markers",
+  "browser": "See results.json for desktop 1440 and mobile 390 tests using the real HTML, scripts, session/config validators and a local parent fixture",
+  "existingCloudBrowserRegression": "passed: next-question flow, pause, handoff, offline continuity, reconnect upload, occupied-draft local session",
+  "cloudRegressionTransport": "simulated HTTP; no real-account or physical-device test",
+  "documentPreview": {
+    "pages": 3,
+    "checked": "All three page PNGs visually inspected after style correction",
+    "renderer": "docx-preview through Edge",
+    "limitation": "Packaged render_docx.py attempted; LibreOffice soffice.exe unavailable on this Windows runtime"
+  },
+  "database": "No schema migration; existing practice_timer_control stores the whole JSON payload",
+  "scope": "Only this task's files and additions staged; unrelated pre-existing worktree changes retained"
+}

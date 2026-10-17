@@ -36,7 +36,7 @@ test('offline navigation retains exact pathname and query and never substitutes 
 });
 test('expired pages and redirected sign-in responses are never served as offline app pages', async () => {
   const sw = harness(); await sw.navigate('/schedule');
-  const pages = sw.stores.get('jackyun-pwa-pages-v9')!;
+  const pages = sw.stores.get('jackyun-pwa-pages-v10')!;
   pages.set('https://example.com/schedule', new Response('expired', { headers: { 'X-JackYun-Cached-At': String(Date.now() - 8 * 86400000) } }));
   sw.connect(false); assert.equal(await sw.navigate('/schedule'), 'offline fallback');
   sw.connect(true); sw.redirect(true); await sw.navigate('/study'); sw.connect(false);
@@ -44,14 +44,14 @@ test('expired pages and redirected sign-in responses are never served as offline
 });
 test('activation keeps current caches and account changes clear personal pages', async () => {
   const sw = harness(); await sw.navigate('/schedule'); sw.stores.set('jackyun-pwa-static-v4', new Map());
-  await sw.activate(); assert.ok(sw.stores.has('jackyun-pwa-pages-v9')); assert.ok(!sw.stores.has('jackyun-pwa-static-v4'));
+  await sw.activate(); assert.ok(sw.stores.has('jackyun-pwa-pages-v10')); assert.ok(!sw.stores.has('jackyun-pwa-static-v4'));
   await sw.message({ type: 'BIND_USER_CACHE', userId: 'first' });
   await sw.message({ type: 'BIND_USER_CACHE', userId: 'second' });
-  assert.ok(!sw.stores.has('jackyun-pwa-pages-v9'));
+  assert.ok(!sw.stores.has('jackyun-pwa-pages-v10'));
 });
 test('offline page storage stays bounded while preserving the newest pages', async () => {
   const sw = harness(); for (let index = 0; index < 30; index++) await sw.navigate(`/schedule?day=${index}`);
-  const pages = sw.stores.get('jackyun-pwa-pages-v9')!;
+  const pages = sw.stores.get('jackyun-pwa-pages-v10')!;
   assert.equal(pages.size, 24); assert.ok(pages.has('https://example.com/schedule?day=29')); assert.ok(!pages.has('https://example.com/schedule?day=0'));
 });
 
