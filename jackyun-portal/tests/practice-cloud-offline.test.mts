@@ -14,9 +14,9 @@ test('cold offline start never waits for discovery and silently permits local pr
  assert.equal(await h.cloud.claim('new-session'),null);assert.equal(h.cloud.localSessionId,'new-session');assert.equal(h.calls.length,0);
  h.cloud.mode='unavailable';assert.equal(await h.cloud.claim('second'),null);
 });
-test('a failed online claim falls back locally but explicit conflicts are retained',async()=>{
+test('an occupied cloud draft permits local practice without overwriting or releasing it',async()=>{
  const h=harness();h.cloud.token=null;assert.equal(await h.cloud.claim('new'),null);assert.equal(h.cloud.mode,'unavailable');
- h.cloud.mode='cloud';h.setHandler(()=>({status:409,data:{conflict:'ACTIVE_SESSION'}}));await assert.rejects(()=>h.cloud.claim('new'));
+ h.cloud.mode='cloud';h.setHandler(()=>({status:409,data:{conflict:'ACTIVE_SESSION'}}));assert.equal(await h.cloud.claim('new'),null);assert.equal(h.cloud.token,null);assert.equal(h.cloud.localSessionId,'new');await h.cloud.persist();await h.cloud.release();assert.equal(h.calls.some(c=>c?.action==='save'||c?.action==='release'),false);
 });
 test('tokenless recovery never claims another device or overwrites its payload',async()=>{
  const h=harness();h.cloud.token=null;h.cloud.localSessionId='local';h.setHandler(()=>({ownerId:'other',hasSession:true,revision:3,payload:{session:{id:'remote'}}}));
@@ -30,4 +30,8 @@ test('tokenless local start reconnects and saves only when cloud is empty',async
 test('cached remote sessions are not repeatedly downloaded by tokenless polling',async()=>{
  const h=harness();h.cloud.token=null;h.cloud.localSessionId='local';h.cloud.latest={revision:4,payload:{session:{id:'remote'}}};h.setHandler(()=>({ownerId:'other',hasSession:true,revision:4}));
  await h.cloud.touch();await h.cloud.touch();assert.equal(h.calls.length,2);assert.equal(h.cloud.latest.payload.session.id,'remote');
+});
+
+test('unknown claim conflicts remain visible to the caller',async()=>{
+ const h=harness();h.cloud.token=null;h.setHandler(()=>({status:409,data:{conflict:'UNKNOWN_CONFLICT'}}));await assert.rejects(()=>h.cloud.claim('new'));
 });

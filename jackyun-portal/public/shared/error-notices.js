@@ -69,6 +69,11 @@ window.JackyunResolveErrorCode=function resolveErrorCode(input                  
   }
   function path(url){try{return new URL(url,location.href).origin+new URL(url,location.href).pathname;}catch{return '';}}
   function isCancelled(input){return input?.name==='AbortError'||input?.error?.name==='AbortError'||input?.cancelled===true;}
+  function handledTimerConflict(response,url,body){
+    const target=new URL(url,location.href);
+    return response.status===409 && target.origin===location.origin && target.pathname==='/api/practice-timer/live'
+      && body?.handled===true && ['ACTIVE_SESSION','STALE_REVISION','LOST_CONTROL'].includes(body?.conflict);
+  }
   async function responseError(response){
     const reader=response.clone().body?.getReader();if(!reader)return null;
     const chunks=[];let size=0;
@@ -154,7 +159,7 @@ window.JackyunResolveErrorCode=function resolveErrorCode(input                  
         const responseEpoch=activityEpoch;
         const basic={tag:url.includes('/sync/')?'Sync':'Network',url,status:response.status,requestId:response.headers.get('x-request-id')||undefined,silent:!foreground()};
         if(response.headers.get('content-type')?.includes('json')){
-          void responseError(response).then(body=>{if(!response.ok||body?.ok===false||body?.success===false)report({...basic,silent:basic.silent||responseEpoch!==activityEpoch,code:body?.error?.siteCode||body?.siteCode||body?.error?.code||body?.code,apiCode:body?.error?.code||body?.code,message:typeof body?.error==='string'?body.error:body?.error?.message||body?.message,requestId:body?.requestId||basic.requestId});}).catch(()=>{if(!response.ok)report({...basic,silent:basic.silent||responseEpoch!==activityEpoch});});
+          void responseError(response).then(body=>{if(!response.ok||body?.ok===false||body?.success===false)report({...basic,silent:basic.silent||responseEpoch!==activityEpoch||handledTimerConflict(response,url,body),conflict:body?.conflict,code:body?.error?.siteCode||body?.siteCode||body?.error?.code||body?.code,apiCode:body?.error?.code||body?.code,message:typeof body?.error==='string'?body.error:body?.error?.message||body?.message,requestId:body?.requestId||basic.requestId});}).catch(()=>{if(!response.ok)report({...basic,silent:basic.silent||responseEpoch!==activityEpoch});});
         }else if(!response.ok)report(basic);
       }
       return response;

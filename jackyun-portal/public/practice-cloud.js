@@ -2,7 +2,7 @@
 (function(root){
   class PracticeCloud {
     constructor(options){this.options=options;this.owner=crypto.randomUUID();this.token=null;this.revision=0;this.mode='loading';this.latest=null;this.chain=Promise.resolve();this.lastMinute='';this.offline=false;this.dirty=false;this.releasePending=false;}
-    async request(body,statusOnly=false){const response=await fetch('/api/practice-timer/live'+(statusOnly?'?status=1':''),{method:body?'POST':'GET',cache:'no-store',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(8000)});let data;try{data=await response.json();}catch{throw Error('云端计时响应无效。');}if(response.status===401&&!this.token){this.mode='local';this.options.status('');return null;}if(!response.ok){const error=new Error(data.error||'云端暂不可用。');error.data=data;throw error;}return data;}
+    async request(body,statusOnly=false){const response=await fetch('/api/practice-timer/live'+(statusOnly?'?status=1':''),{method:body?'POST':'GET',cache:'no-store',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(8000)});let data;try{data=await response.json();}catch{throw Error('云端计时响应无效。');}if(response.status===401&&!this.token){this.mode='local';this.options.status('');return null;}if(!response.ok){const error=new Error(data.error||data.message||'云端暂不可用。');error.data=data;throw error;}return data;}
     async init(){clearInterval(this.timer);try{this.latest=await this.request();if(this.mode!=='local'){this.mode='cloud';this.options.status('');this.options.available(this.latest?.payload);}}catch{this.mode='unavailable';this.options.status('');}this.timer=setInterval(()=>void this.touch(),10000);}
     async claim(id){
       // Cloud discovery is optional; local work never waits for its initial request.
@@ -14,6 +14,12 @@
         if(!data)return null;
         this.token=data.token;this.revision=data.revision;this.lastMinute='';this.latest=data;this.offline=false;this.dirty=false;this.releasePending=false;this.options.status('');return data;
       } catch(error) {
+        if(error.data?.conflict==='ACTIVE_SESSION'){
+          // Preserve the remote draft; new local practice must remain usable.
+          this.token=null;this.releasePending=false;this.dirty=true;
+          this.latest={...this.latest,...error.data};this.options.available(this.latest?.payload);
+          this.options.status('');return null;
+        }
         if(error.data?.conflict)throw error;
         this.mode='unavailable';this.dirty=true;this.options.status('');return null;
       }

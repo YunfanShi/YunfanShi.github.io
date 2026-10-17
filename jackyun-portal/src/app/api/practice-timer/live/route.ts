@@ -33,5 +33,15 @@ async function control(value?: Record<string, unknown>, statusOnly = false) {
   } catch (error) { return Response.json({ error: error instanceof Error ? error.message : '计时记录无效。' }, { status: 400, headers }); }
   const { data, error } = statusOnly ? await supabase.rpc('practice_timer_status') : await supabase.rpc('practice_timer_control_compact', { p_action: action, p_owner: value?.owner ?? null, p_token: value?.token ?? null, p_revision: value?.revision ?? null, p_payload: payload ?? null, p_session: value?.sessionId ?? null });
   if (error) return Response.json({ error: '云端计时暂不可用，请保留本机记录后重试。' }, { status: 503, headers });
-  return Response.json(data, { status: data?.conflict ? 409 : 200, headers });
+  if (data?.conflict) {
+    const messages: Record<string, string> = {
+      ACTIVE_SESSION: '已有云端练习，新练习继续在本机保存。',
+      STALE_REVISION: '计时记录版本已更新，正在重新同步。',
+      LOST_CONTROL: '另一设备已接管，本设备已退出计时。',
+    };
+    const message = messages[data.conflict];
+    // Known conflicts are handled by the timer, without returning the large draft.
+    return Response.json({ conflict: data.conflict, code: 'JY-2103', message: message ?? '计时同步发生冲突。', handled: Boolean(message) }, { status: 409, headers });
+  }
+  return Response.json(data, { headers });
 }
