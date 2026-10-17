@@ -1,11 +1,14 @@
 const CACHE_PREFIX = 'jackyun-pwa';
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const NAVIGATION_CACHE = `${CACHE_PREFIX}-pages-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
   OFFLINE_URL,
+  '/PracticeTimer.html', '/practice-engine.js', '/practice-audio.js',
+  '/practice-cloud.js', '/practice-timer.js', '/practice-focus.css',
+  '/practice-motion.css', '/practice-workspace.css',
   '/shared/site-dialog.js',
   '/shared/error-notices.js',
   '/docs/errors.html',
@@ -16,7 +19,7 @@ const PRECACHE_URLS = [
 
 const STATIC_PATH_PREFIXES = ['/_next/static/'];
 const STATIC_FILE_PATTERN = /\.(?:css|js|mjs|woff2?|ttf|otf|png|jpg|jpeg|gif|webp|svg|ico)$/i;
-const OFFLINE_APP_ROUTES = new Set(['/dashboard', '/study/tasks', '/reading', '/review', '/schedule', '/study', '/goal', '/study-guide', '/vocab', '/memory', '/time-management', '/tools', '/sleep', '/relax', '/help', '/update']);
+const OFFLINE_APP_ROUTES = new Set(['/dashboard', '/study/tasks', '/reading', '/review', '/schedule', '/study', '/goal', '/study-guide', '/vocab', '/memory', '/time-management', '/tools', '/practice-timer', '/PracticeTimer.html', '/sleep', '/relax', '/help', '/update']);
 
 function validStaticResponse(response, pathname) {
   if (!response?.ok) return false;
@@ -126,12 +129,14 @@ self.addEventListener('fetch', (event) => {
             await storePage(cache, routeKey, response.clone());
           } catch {}
         }
+        if (response.status >= 500) throw new Error('Server unavailable');
         return response;
       } catch {
         let cachedRoute;
         try { const cache = await caches.open(NAVIGATION_CACHE); cachedRoute = await freshPage(cache, routeKey); } catch {}
         // Only the requested page is a valid fallback.
         if (cachedRoute) return cachedRoute;
+        if (url.pathname === '/PracticeTimer.html') { const timer = await caches.match('/PracticeTimer.html'); if (timer) return timer; }
 
         return (await caches.match(OFFLINE_URL)) ?? Response.error();
       }

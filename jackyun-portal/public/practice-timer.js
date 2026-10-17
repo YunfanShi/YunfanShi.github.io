@@ -15,7 +15,7 @@
   const sound=name=>{void globalThis.PracticeAudio?.play(name,config||{});};
   const cloud=new globalThis.PracticeCloud({
     capture:()=>session?{session:E.settle(session,Date.now()),config}:null,
-    status:text=>{$('cloudStatus').textContent=text;},
+    status:text=>{$('cloudStatus').textContent=text;$('cloudStatus').hidden=!text;},
     available:payload=>{if(payload?.session&&!payload.session.finished){$('resumeCloud').hidden=false;$('resumeCloud').textContent='接续云端练习 · '+payload.session.subject;}},
     lost:message=>{if(session&&!session.finished){session=E.settle(session,Date.now());current().startedAt=null;try{localStorage.setItem('jackyun_practice_recovery_'+session.id,JSON.stringify(session));}catch{}}editable=false;releaseLock?.();releaseLock=null;focus(false);for(const panel of document.querySelectorAll('dialog[open]')){panel.close();panel.hidden=true;}$('workspace').hidden=true;$('handoff').hidden=false;$('handoffMessage').textContent=message;notice(message);}
   });
@@ -79,7 +79,7 @@
   window.addEventListener('message',event=>{if(event.source!==parent||event.origin!==location.origin)return;const m=event.data;
     if(m.type==='practice-exit-focus'){focus(false);return;}
     if(m.type==='practice-state'){state=m.state;if(!ready){const upgraded=E.upgradeConfig(state.practiceTimerConfig||{subjects:{},green:30,red:10});config=upgraded.config;const bound=E.bindCourses(config,subjects());config=bound.config;ready=true;fillSubjects();if(!state.practiceTimerConfig||upgraded.changed||bound.changed)save({config});if(allowedSkills.includes(requestedSkill))notice('本次训练目标：'+requestedSkill+'。请选择相应题型与另一道未见题；开始前不要查看 MS。');if(m.requestedSession)void openSession(m.requestedSession);else if((state.practiceSessions||[]).some(s=>!s.finished)){history();notice('发现未完成练习，打开记录恢复；刷新后默认暂停。');}}else if(m.remote){if(session&&cloud.mode!=='cloud'){const incoming=state.practiceSessions?.find(s=>s.id===session.id);if(incoming&&incoming.updatedAt>session.updatedAt){if(current().startedAt!==null){session=E.toggle(session,Date.now());}editable=false;notice('检测到其他设备更新，请导出本地内容并重新打开记录。');}}} }
-    if(m.type==='practice-saved'){requests.delete(m.requestId);lastSaved=Date.now();saveFailed=false;applyExperience();notice(m.localOnly?'已保存本机恢复副本 · 计时继续，云端重连后补传':cloud.mode==='cloud'?'已保存本机 · 云端状态见上方':'已保存本机 · 登录后可跨设备接续');if(session){state.practiceSessions=[...(state.practiceSessions||[]).filter(s=>s.id!==session.id),structuredClone(session)];}}
+    if(m.type==='practice-saved'){requests.delete(m.requestId);lastSaved=Date.now();saveFailed=false;applyExperience();notice('已保存');if(session){state.practiceSessions=[...(state.practiceSessions||[]).filter(s=>s.id!==session.id),structuredClone(session)];}}
     if(m.type==='practice-control-lost'){cloud.lose('另一设备已接管，本设备已退出计时。');return;}
     if(m.type==='practice-error'){saveFailed=true;requests.delete(m.requestId);if(session&&!session.finished&&current().startedAt!==null)session=E.toggle(session,Date.now());notice(m.error+' 可先导出 JSON 保留内容。');tick();}
   });

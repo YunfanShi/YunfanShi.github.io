@@ -31,13 +31,13 @@
 <body>
   <main>
     <div class="icon" aria-hidden="true">↯</div>
-    <h1>当前处于离线状态</h1>
-    <p>JackYun 无法连接服务器。已经打开的本地内容和待同步修改不会丢失；网络恢复后可继续同步。</p>
+    <h1>打开工作区</h1>
+    <p>这个页面尚未保存在设备上。请返回已保存的工作区继续使用，本机内容与修改会保留。</p>
     <div class="actions">
-      <button type="button" onclick="location.reload()">重新连接</button>
+      <button type="button" onclick="location.reload()">重新打开</button>
       <a href="/dashboard">返回工作区</a>
     </div>
-    <small id="status">正在等待网络恢复…</small>
+    <small id="status">可以继续使用已保存的页面</small>
   </main>
   <script>
     addEventListener('online', function () {

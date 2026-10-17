@@ -62,7 +62,7 @@ export default function PwaLifecycle() {
     const followCachedRoute = (event: MouseEvent) => {
       if (navigator.onLine || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const anchor = (event.target as Element | null)?.closest('a[href]') as HTMLAnchorElement | null;
-      if (!anchor || anchor.origin !== window.location.origin || !['/dashboard', '/study/tasks', '/reading', '/review', '/schedule', '/study', '/goal', '/study-guide', '/vocab', '/memory', '/time-management', '/tools', '/sleep', '/relax', '/help', '/update'].includes(anchor.pathname)) return;
+      if (!anchor || anchor.origin !== window.location.origin || !['/dashboard', '/study/tasks', '/reading', '/review', '/schedule', '/study', '/goal', '/study-guide', '/vocab', '/memory', '/time-management', '/tools', '/practice-timer', '/sleep', '/relax', '/help', '/update'].includes(anchor.pathname)) return;
       event.preventDefault();
       window.location.assign(anchor.href);
     };
