@@ -43,3 +43,25 @@ test('signature is verified before authority; signed tokens still cannot bypass 
     .setIssuer(`${project}/auth/v1`).setAudience('authenticated').setIssuedAt().setExpirationTime('5m').sign(pair.privateKey);
   await assert.rejects(auth(`Bearer ${token}`),{status:403}); assert.equal(calls,1);
 });
+
+test('active sessions reuse verification, survive temporary outages, and stop at the original token expiry',async()=>{
+ let stamp=1000,calls=0,fail=false;const valid={expiresAt:3601};
+ const verify=createAccountStateVerifier({supabaseUrl:project,publishableKey:'public-key',now:()=>stamp,fetchImpl:async()=>{calls++;if(fail)throw Error('offline');return Response.json([active]);}});
+ await verify(identity,'token',valid);await verify(identity,'token',valid);assert.equal(calls,1);
+ stamp+=300001;fail=true;await verify(identity,'token',valid);assert.equal(calls,2);
+ await verify(identity,'token',valid);assert.equal(calls,2,'outage retries are bounded');
+ stamp=3601001;await assert.rejects(verify(identity,'token',valid),{status:503});
+});
+test('session caches do not authorize another account, and explicit suspension invalidates cached access',async()=>{
+ let stamp=1000,suspended=false;
+ const verify=createAccountStateVerifier({supabaseUrl:project,publishableKey:'public-key',now:()=>stamp,fetchImpl:async()=>Response.json(suspended?[{...active,account_status:'suspended'}]:[active])});
+ await verify(identity,'token',{expiresAt:3601});
+ await assert.rejects(verify({...identity,sub:randomUUID()},'other',{expiresAt:3601}),{status:403});
+ stamp+=300001;suspended=true;await assert.rejects(verify(identity,'token',{expiresAt:3601}),{status:403});
+ await assert.rejects(verify(identity,'token',{expiresAt:3601}),{status:403});
+});
+
+test('explicit HTTP permission denial never falls back to a cached active session',async()=>{
+ let stamp=1000,denied=false;const verify=createAccountStateVerifier({supabaseUrl:project,publishableKey:'public-key',now:()=>stamp,fetchImpl:async()=>denied?new Response('',{status:403}):Response.json([active])});
+ await verify(identity,'token',{expiresAt:3601});stamp+=300001;denied=true;await assert.rejects(verify(identity,'token',{expiresAt:3601}),{status:403});
+});

@@ -67,7 +67,7 @@ export default function PracticeTimerFrame() {
                 let live;
                 try {
                   if (Date.now() < liveRetryAt) throw Error('Cloud retry pending');
-                  const response = await fetch('/api/practice-timer/live', { cache:'no-store', signal:AbortSignal.timeout(4000) });
+                  const response = await fetch('/api/practice-timer/live?status=1', { cache:'no-store', signal:AbortSignal.timeout(4000) });
                   if (!response.ok) throw Error('Cloud unavailable');
                   live = await response.json();
                   if (!live?.ownerId) throw Error('Ownership not confirmed');

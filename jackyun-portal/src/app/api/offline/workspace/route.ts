@@ -1,3 +1,4 @@
+import { getVerifiedUser } from '@/lib/supabase/verified-user';
 import { fetchReviewSnapshot } from '@/lib/review-snapshot-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -7,7 +8,7 @@ import type { ReviewStatus } from '@/types/review';
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getVerifiedUser(supabase);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const now = new Date().toISOString();
   const [plans, inbox, review, reading] = await Promise.all([
@@ -32,7 +33,7 @@ function stringValue(value: unknown, max: number) {
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getVerifiedUser(supabase);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const body = await request.json().catch(() => null) as { kind?: string; payload?: Record<string, unknown> } | null;
   if (!body?.kind || !body.payload) return NextResponse.json({ error: 'Invalid mutation' }, { status: 400 });

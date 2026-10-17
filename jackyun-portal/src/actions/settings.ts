@@ -1,4 +1,5 @@
 'use server';
+import { getVerifiedUser } from '@/lib/supabase/verified-user';
 
 import { sanitizePagePreferences } from '@/lib/page-preferences';
 import { serviceErrorMessage } from '@/lib/service-errors';
@@ -14,7 +15,7 @@ async function getAuthenticatedUser() {
   const supabase = await createClient();
   const {
     data: { user }, error: authError,
-  } = await supabase.auth.getUser();
+  } = await getVerifiedUser(supabase);
   if (authError) throw new Error(serviceErrorMessage(authError, '认证服务'));
   if (!user) throw new Error('登录会话已失效，请重新登录。（SESSION_EXPIRED）');
   return { supabase, user };

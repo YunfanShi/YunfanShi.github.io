@@ -19,10 +19,15 @@ test('a failed online claim falls back locally but explicit conflicts are retain
  h.cloud.mode='cloud';h.setHandler(()=>({status:409,data:{conflict:'ACTIVE_SESSION'}}));await assert.rejects(()=>h.cloud.claim('new'));
 });
 test('tokenless recovery never claims another device or overwrites its payload',async()=>{
- const h=harness();h.cloud.token=null;h.cloud.localSessionId='local';h.setHandler(()=>({ownerId:'other',payload:{session:{id:'remote'}}}));
+ const h=harness();h.cloud.token=null;h.cloud.localSessionId='local';h.setHandler(()=>({ownerId:'other',hasSession:true,revision:3,payload:{session:{id:'remote'}}}));
  await h.cloud.touch();assert.equal(h.calls.some(c=>c?.action==='claim'),false);assert.equal(h.cloud.token,null);
 });
 test('tokenless local start reconnects and saves only when cloud is empty',async()=>{
  const h=harness();h.cloud.token=null;h.cloud.localSessionId='session';h.setHandler(body=>!body?{}:body.action==='claim'?{token:'new-token',revision:1}:{revision:2});
  await h.cloud.touch();assert.equal(h.cloud.token,'new-token');assert.ok(h.calls.some(c=>c?.action==='save'));
+});
+
+test('cached remote sessions are not repeatedly downloaded by tokenless polling',async()=>{
+ const h=harness();h.cloud.token=null;h.cloud.localSessionId='local';h.cloud.latest={revision:4,payload:{session:{id:'remote'}}};h.setHandler(()=>({ownerId:'other',hasSession:true,revision:4}));
+ await h.cloud.touch();await h.cloud.touch();assert.equal(h.calls.length,2);assert.equal(h.cloud.latest.payload.session.id,'remote');
 });

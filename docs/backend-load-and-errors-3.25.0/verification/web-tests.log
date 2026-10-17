@@ -1,0 +1,108 @@
+✔ ID login resolves credentials on the server without returning account email to the browser (3.5098ms)
+✔ admin can create a confirmed ID/password account with an optional recovery email (14.4745ms)
+✔ portal shell failures degrade to defaults and routes expose retry boundaries (8.0181ms)
+✔ temporary Auth and account lookup failures retain offline writes (7.9048ms)
+✔ offline account binding retains writes across auth failure and permits only safe account changes (55.8386ms)
+(node:18668) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/request-timeout.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ only explicit invalid credentials reports password error; service failures have stable codes (1.1881ms)
+✔ real SDK reproduces HTTP 500 session deletion, retains protected session and recovers without password (21.4718ms)
+✔ ID login distinguishes database lookup failure from absent account and incorrect password (43.2211ms)
+✔ login page retries existing session, pauses hidden checks, and returns safely on recovery (44.2408ms)
+✔ revoked session requires login and never retries credentials automatically (18.0226ms)
+[proxy] Authorization lookup failed
+✔ refresh forwards fresh request cookies and persists all response cookie batches (66.9663ms)
+✔ proxy retains rotated cookies on unauthorized response (26.9558ms)
+✔ proxy retains rotated cookies on restricted response (14.4277ms)
+✔ proxy retains rotated cookies on account-status response (13.5341ms)
+✔ proxy retains rotated cookies on non-admin response (9.7624ms)
+✔ proxy retains rotated cookies on lookup-failure response (10.892ms)
+✔ proxy retains rotated cookies on missing-session response (11.7037ms)
+✔ proxy retains rotated cookies on auth-failure response (8.5211ms)
+(node:61064) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/error-codes.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all error families have distinct documented codes and safe user messages (3.9501ms)
+✔ browser bundle and TypeScript resolve identical codes and repeated errors are bounded (30.5408ms)
+✔ notices expire after 30 seconds without extending on retries and never replay background errors (2.2197ms)
+✔ every standalone HTML page loads shared errors directly or through its dialog runtime (120.721ms)
+(node:7964) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/auth-cookies.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ logout expires SSR session chunks and verifier without touching application data (0.7489ms)
+✔ revoked devices pause retry and service failures use capped exponential backoff (0.8271ms)
+✔ network deadline aborts a hung fetch and preserves caller cancellation (23.7157ms)
+✔ forced logout skips remote auth and UI preserves pending data (11.6824ms)
+(node:64112) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/notification-snapshot.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ four foreground tabs share at most 61 snapshots in one idle hour (218.9772ms)
+✔ hidden/offline clients pause; recovery and focus storms cannot overlap requests (14.5315ms)
+✔ another account cannot receive shared notification content; logout removes cached content (23.7861ms)
+(node:41780) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/novel-export.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ TXT preserves Unicode, chapter order and body without repeated headings (0.9167ms)
+✔ TXT downloads share reading permissions for members and owned books (104.4219ms)
+✔ owned-book download streams UTF-8 TXT and retrieves all pages of chapters (19.9115ms)
+✔ legacy owned files without hosted chapters are converted to TXT (10.3781ms)
+(node:14940) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/novel-signed-links.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ real Storage SDK batches and deduplicates links without requesting file bytes (29.9634ms)
+✔ empty catalog makes no Storage requests (0.1547ms)
+✔ partial errors and unexpected response paths do not grant download links (0.1497ms)
+✔ large catalogs have bounded batches and a failed batch does not hide later successful links (0.3061ms)
+✔ separate users never reuse a previous request’s private links (0.1606ms)
+(node:59144) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/page-preferences.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ page preferences isolate pages, reject unknown values and never include admin or beta pages (1.1212ms)
+(node:15828) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/learning/practice-timer.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Schedule bridge keeps offline checkpoints private and only exits on confirmed other owner (136.7387ms)
+✔ network errors and expired local deadlines preserve clock ownership (6.9734ms)
+✔ reconnect automatically uploads the latest local elapsed time (24.9374ms)
+✔ a lost acknowledgement revision is recovered without exiting or force claiming (2.0081ms)
+✔ only an explicit server takeover conflict exits the timer (2.9639ms)
+✔ a finished offline session is uploaded before deferred release (4.9523ms)
+✔ cold offline start never waits for discovery and silently permits local practice (1.3398ms)
+✔ a failed online claim falls back locally but explicit conflicts are retained (1.7779ms)
+✔ tokenless recovery never claims another device or overwrites its payload (1.7475ms)
+✔ tokenless local start reconnects and saves only when cloud is empty (1.2612ms)
+✔ cached remote sessions are not repeatedly downloaded by tokenless polling (1.2021ms)
+(node:50452) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/supabase/verified-user.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cloud timer requires sign in and never trusts client user identifiers (65.873ms)
+✔ claims require a valid owner and session reference (14.5577ms)
+✔ cross origin mutations and malformed saves cannot reach the database (8.3391ms)
+✔ server conflicts are explicit and service errors never expose raw database details (7.0279ms)
+✔ authentication outages never downgrade a signed-in timer to guest mode (13.12ms)
+✔ ownership polling selects metadata only, while mutations use compact database responses (5.6466ms)
+(node:10388) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/supabase/verified-user.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ valid signed claims supply identity without remote getUser or unsigned session fallback (0.7853ms)
+✔ expired or privileged claims cannot become an ordinary identity (0.2168ms)
+✔ signature failures and missing sessions never fall back to unverified cached identity (0.1447ms)
+ℹ tests 59
+ℹ suites 0
+ℹ pass 59
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1103.3429

@@ -1,10 +1,11 @@
+import { getVerifiedUser } from '@/lib/supabase/verified-user';
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 
 /** Request-local only: never retain an identity or permissions across requests. */
 export const getRequestIdentity = cache(async () => {
   const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const { data: { user }, error } = await getVerifiedUser(supabase);
   if (error || !user) throw new Error('Unauthorized');
   return { supabase, user };
 });

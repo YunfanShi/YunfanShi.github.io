@@ -2,7 +2,7 @@
 (function(root){
   class PracticeCloud {
     constructor(options){this.options=options;this.owner=crypto.randomUUID();this.token=null;this.revision=0;this.mode='loading';this.latest=null;this.chain=Promise.resolve();this.lastMinute='';this.offline=false;this.dirty=false;this.releasePending=false;}
-    async request(body){const response=await fetch('/api/practice-timer/live',{method:body?'POST':'GET',cache:'no-store',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(8000)});let data;try{data=await response.json();}catch{throw Error('云端计时响应无效。');}if(response.status===401&&!this.token){this.mode='local';this.options.status('');return null;}if(!response.ok){const error=new Error(data.error||'云端暂不可用。');error.data=data;throw error;}return data;}
+    async request(body,statusOnly=false){const response=await fetch('/api/practice-timer/live'+(statusOnly?'?status=1':''),{method:body?'POST':'GET',cache:'no-store',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(8000)});let data;try{data=await response.json();}catch{throw Error('云端计时响应无效。');}if(response.status===401&&!this.token){this.mode='local';this.options.status('');return null;}if(!response.ok){const error=new Error(data.error||'云端暂不可用。');error.data=data;throw error;}return data;}
     async init(){clearInterval(this.timer);try{this.latest=await this.request();if(this.mode!=='local'){this.mode='cloud';this.options.status('');this.options.available(this.latest?.payload);}}catch{this.mode='unavailable';this.options.status('');}this.timer=setInterval(()=>void this.touch(),10000);}
     async claim(id){
       // Cloud discovery is optional; local work never waits for its initial request.
@@ -33,10 +33,11 @@
       if(!this.token){
         if(!this.localSessionId||this.mode==='local'||root.navigator?.onLine===false||this.touching)return;this.touching=true;
         try {
-          const live=await this.request();
-          if(live){this.mode='cloud';this.latest=live;this.options.available(live.payload);
+          const live=await this.request(undefined,true);
+          if(live){this.mode='cloud';
+            if(live.hasSession && this.latest?.revision!==live.revision){this.latest=await this.request();this.options.available(this.latest?.payload);}
             // Reconnection must never silently take over an existing cloud session.
-            if(this.localSessionId && !live.ownerId && !live.payload?.session){await this.claim(this.localSessionId);if(this.token)await this.persist();}
+            if(this.localSessionId && !live.ownerId && !live.hasSession){await this.claim(this.localSessionId);if(this.token)await this.persist();}
           }
         }catch{this.mode='unavailable';}finally{this.touching=false;}
         return;

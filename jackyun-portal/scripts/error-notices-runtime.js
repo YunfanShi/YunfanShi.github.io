@@ -6,6 +6,28 @@
   let host,shadow,logProvider,expiryTimer,activityEpoch=0;
   const notices=[],recent=[];
   const NOTICE_DURATION=30000;
+  const MUTE_DURATION=30*60*1000;
+  // Debug-prefixed UI preferences never enter workspace cloud synchronization.
+  const MUTE_PREFIX='jackyun_debug_error_notice_muted:v1:';
+  const muted=new Map();
+  function isMuted(code,now){
+    let until=muted.get(code)||0;
+    try{const saved=Number(localStorage.getItem(MUTE_PREFIX+code));if(Number.isFinite(saved))until=Math.max(until,saved);}catch{/* Memory-only fallback when storage is blocked. */}
+    if(until>now && until<=now+MUTE_DURATION){muted.set(code,until);return true;}
+    muted.delete(code);return false;
+  }
+  function dismissType(code){
+    const until=Date.now()+MUTE_DURATION;muted.set(code,until);
+    try{localStorage.setItem(MUTE_PREFIX+code,String(until));}catch{/* Closing still works with blocked storage. */}
+    for(let i=notices.length-1;i>=0;i--)if(notices[i].code===code)notices.splice(i,1);
+    render();
+  }
+  window.addEventListener('storage',event=>{
+    if(!event.key?.startsWith(MUTE_PREFIX))return;
+    const code=event.key.slice(MUTE_PREFIX.length);if(!Object.hasOwn(catalog,code))return;
+    muted.delete(code);
+    if(isMuted(code,Date.now())){for(let i=notices.length-1;i>=0;i--)if(notices[i].code===code)notices.splice(i,1);render();}
+  });
   function foreground(){return document.visibilityState!=='hidden' && (typeof document.hasFocus!=='function'||document.hasFocus());}
   function clearNotices(){activityEpoch++;notices.length=0;clearTimeout(expiryTimer);expiryTimer=undefined;shadow?.replaceChildren();}
   function expire(){const now=Date.now();for(let i=notices.length-1;i>=0;i--)if(notices[i].expiresAt<=now)notices.splice(i,1);}
@@ -37,7 +59,7 @@
     recent.push(detail);if(recent.length>80)recent.shift();
     // Background errors remain in diagnostics, but never queue a later popup.
     if(!foreground()){clearNotices();return;}
-    if(input.silent===true)return;
+    if(input.silent===true || isMuted(code,now))return;
     expire();
     if(existing && notices.includes(existing)){existing.count++;existing.lastAt=now;existing.detail=detail;}else{
       notices.push({id:crypto.randomUUID(),fingerprint,code,detail,count:1,lastAt:now,expiresAt:now+NOTICE_DURATION});
@@ -70,7 +92,7 @@
       const card=document.createElement('article');card.className='notice';card.dataset.code=notice.code;card.setAttribute('role','alert');
       const message=document.createElement('p');message.className='message';message.textContent=catalog[notice.code].message;card.appendChild(message);
       const code=document.createElement('p');code.className='code';code.textContent=notice.code+(notice.count>1?' · 重复 '+notice.count+' 次':'');card.appendChild(code);
-      const close=document.createElement('button');close.className='close';close.type='button';close.textContent='×';close.setAttribute('aria-label','关闭错误提示');close.onclick=()=>{notices.splice(notices.indexOf(notice),1);render();};card.appendChild(close);
+      const close=document.createElement('button');close.className='close';close.type='button';close.textContent='×';close.setAttribute('aria-label','关闭错误提示');close.title='关闭后相同类型的错误 30 分钟内不再弹出';close.onclick=()=>dismissType(notice.code);card.appendChild(close);
       const actions=document.createElement('div');actions.className='actions';card.appendChild(actions);
       const copy=document.createElement('button');copy.type='button';copy.textContent='复制日志';copy.onclick=async()=>{
         const text=snapshot(notice);

@@ -1,4 +1,5 @@
 'use server';
+import { getVerifiedUser } from '@/lib/supabase/verified-user';
 
 import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
@@ -67,7 +68,7 @@ function featureAccess(row: FeatureRow, plan: string, betaActive: boolean): Feat
 
 async function loadFeatureAccess(): Promise<{ snapshot: FeatureAccessSnapshot; admin: NonNullable<ReturnType<typeof createAdminClient>> | null }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getVerifiedUser(supabase);
   const admin = createAdminClient();
   if (!admin) return { snapshot: { signedIn: Boolean(user), userId: user?.id ?? null, plan: 'free', betaActive: false, features: {} }, admin: null };
 
@@ -135,7 +136,7 @@ export async function redeemCode(code: string): Promise<{ success: boolean; rewa
   const normalized = normalizeRedemptionCode(code);
   if (!/^[A-Z0-9]{6,32}$/u.test(normalized)) return { success: false, error: '请输入 6–32 位兑换码。' };
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getVerifiedUser(supabase);
   if (!user) return { success: false, error: '登录后才能兑换权益。' };
   const admin = createAdminClient();
   if (!admin) return { success: false, error: '兑换服务暂未配置。' };
@@ -151,7 +152,7 @@ export async function redeemCode(code: string): Promise<{ success: boolean; rewa
 export async function acknowledgeCatalogNovelImport(novelId: string): Promise<void> {
   if (!/^[0-9a-f-]{36}$/iu.test(novelId)) return;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getVerifiedUser(supabase);
   if (!user) return;
   const admin = createAdminClient();
   if (!admin) return;
@@ -160,7 +161,7 @@ export async function acknowledgeCatalogNovelImport(novelId: string): Promise<vo
 
 export async function getRedemptionHistory(): Promise<Array<{ id: string; reward: Record<string, unknown>; redeemedAt: string }>> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getVerifiedUser(supabase);
   if (!user) return [];
   const { data } = await supabase.from('redemption_uses').select('id, reward_snapshot, redeemed_at').eq('user_id', user.id).order('redeemed_at', { ascending: false }).limit(20);
   return (data ?? []).map((row) => ({ id: row.id, reward: row.reward_snapshot as Record<string, unknown>, redeemedAt: row.redeemed_at }));

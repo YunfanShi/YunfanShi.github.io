@@ -1,0 +1,52 @@
+✔ current account state uses verified identity and user token, without cross-user caching (15.0373ms)
+✔ missing, suspended, deleted or mismatched authoritative profile denies access (3.5999ms)
+✔ unavailable or malformed authority fails closed with no private diagnostics (0.9689ms)
+✔ signature is verified before authority; signed tokens still cannot bypass live suspension (8.1019ms)
+✔ active sessions reuse verification, survive temporary outages, and stop at the original token expiry (0.4234ms)
+✔ session caches do not authorize another account, and explicit suspension invalidates cached access (0.4ms)
+✔ explicit HTTP permission denial never falls back to a cached active session (0.2523ms)
+(node:58524) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/local-workspace.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ valid signature yields minimal identity; editable metadata and supplied DB role are excluded (4.3176ms)
+✔ expired, wrong issuer/audience, anonymous, privileged and forged JWTs are rejected (5.1429ms)
+✔ legacy token requires Auth approval, identity agreement and current issuer/claims (3.9281ms)
+✔ HTTP authentication, CORS, body limit and errors do not expose database diagnostics (46.4273ms)
+✔ one operation ID cannot acknowledge writes to two different keys (1.4698ms)
+(node:18448) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/local-workspace.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ capture proof uses the verified user token, a committed own-source receipt and no cache (14.1899ms)
+✔ missing, unavailable, malformed and unsaved capture proof fail closed without raw diagnostics (0.9602ms)
+✔ unproven acknowledgments never open an Azure transaction or delete a marker (0.5759ms)
+(node:60492) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/local-workspace.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"service":"azure-sync-api","requestId":"f5cd0748-dbaf-4229-8f90-65b3cd1bec0f","route":"/api/sync/v3","status":401,"reason":"unspecified","backendCalls":1,"durationMs":0}
+{"service":"azure-sync-api","requestId":"e7ce941c-648f-463d-b167-6c774e0c834d","route":"/api/sync/v2","status":200,"reason":"unspecified","backendCalls":1,"durationMs":1}
+{"service":"azure-sync-api","requestId":"8a2c6bec-5ba7-4067-9b16-87a83b2c78dd","route":"/api/sync/v2","status":401,"reason":"unspecified","backendCalls":1,"durationMs":0}
+{"service":"azure-sync-api","requestId":"0f7d067f-0a23-48a0-a36a-7ddb6855db44","route":"/api/sync/v2","status":403,"reason":"unspecified","backendCalls":1,"durationMs":0}
+{"service":"azure-sync-api","requestId":"e5032e25-9248-4bbb-a000-376ea066d971","route":"/api/sync/v2","status":204,"reason":"unspecified","backendCalls":1,"durationMs":0}
+{"service":"azure-sync-api","requestId":"642d5c72-3ca9-4292-a9f3-07141cc27fb3","route":"/api/sync/v2","status":415,"reason":"unspecified","backendCalls":1,"durationMs":0}
+{"service":"azure-sync-api","requestId":"ae34f2ea-dc84-4976-b219-381c91bbed60","route":"/api/sync/v2","status":413,"reason":"unspecified","backendCalls":1,"durationMs":0}
+{"service":"azure-sync-api","requestId":"9514e721-4874-4e50-9285-bc3d6e2213a3","route":"/api/sync/export","status":401,"reason":"unspecified","backendCalls":1,"durationMs":0}
+{"service":"azure-sync-api","requestId":"c62b1736-4cee-454f-a6ee-34d1e9675960","route":"/api/sync/export","status":200,"reason":"unspecified","backendCalls":1,"durationMs":0}
+{"service":"azure-sync-api","requestId":"b09923c6-f7fa-4a55-b4ff-06379375b336","route":"/api/sync/backup-markers","status":401,"reason":"unspecified","backendCalls":1,"durationMs":0}
+{"service":"azure-sync-api","requestId":"e68e75d4-c426-4e2c-a89e-17e506fd42b9","route":"/api/sync/backup-markers","status":200,"reason":"unspecified","backendCalls":1,"durationMs":0}
+{"service":"azure-sync-api","requestId":"587bfc59-b3e4-42c1-bf66-1566c0249510","route":"/api/sync/backup-markers","status":200,"reason":"unspecified","backendCalls":1,"durationMs":0}
+✔ runtime metadata proves the deployed version and original error codes remain compatible (2.6163ms)
+✔ Azure SDK request preserves routes, query, identity and JSON across the shared handler (3.0563ms)
+✔ Azure adapter keeps authentication, origin, JSON and streamed byte limits (1.9309ms)
+✔ Functions registration streams input and preserves exact public route prefix (0.1778ms)
+✔ export and backup marker routes reach the shared HTTP handler and retain authentication (1.471ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 458.6153

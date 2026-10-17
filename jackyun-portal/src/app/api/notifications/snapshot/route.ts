@@ -1,3 +1,4 @@
+import { getVerifiedUser } from '@/lib/supabase/verified-user';
 import { createClient } from '@/lib/supabase/server';
 import { randomUUID } from 'node:crypto';
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     backendCalls++;
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await getVerifiedUser(supabase);
     if (authError || !user) { status = 401; return Response.json({ error: 'Unauthorized' }, { status, headers }); }
     // Fresh account state remains authoritative on every request.
     backendCalls++; databaseCalls++;

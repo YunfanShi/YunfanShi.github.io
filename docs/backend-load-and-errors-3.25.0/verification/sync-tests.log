@@ -1,0 +1,113 @@
+(node:3216) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/sync/azure-records.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ due page merges both marker sources, preserves tombstones, and commits before ack (19.2932ms)
+✔ a failed source capture never acknowledges Azure changes (1.1199ms)
+✔ lost Azure acknowledgment is retried with the saved receipt and counted once (1.5791ms)
+✔ a changed Azure generation keeps newer changes pending without invalidating the saved version (0.602ms)
+✔ no due markers avoid data reads and malformed marker sources fail before capture (0.5566ms)
+✔ backend marker endpoints retain verified user context, validate input and use narrow functions (0.8742ms)
+✔ reverse evidence rejects missing restore proof, stale reports and changed backups (50.9857ms)
+✔ diagnostics identify connection failures without exposing database error details (0.633ms)
+✔ preflight only executes read-only transactions and catalogue queries (1.126ms)
+✔ success fences every write path, preserves trigger states and leaves old writes frozen (1.9752ms)
+✔ target failure rolls back and restores exactly recorded source write grants (1.1661ms)
+✔ post-commit disk failure cannot claim rollback or unfreeze the source (0.8421ms)
+✔ lost commit acknowledgements preserve freeze and require outcome inspection (1.7131ms)
+✔ failed permission recovery is explicitly reported rather than claimed restored (0.6537ms)
+✔ protected archives do not overwrite files; evidence validates age, scope and bytes (73.1407ms)
+✔ uninstalled backup guards fail before any production mutation (0.6591ms)
+✔ accepted Azure baseline freezes source without copying, truncating or updating target data (0.9196ms)
+✔ baseline acceptance is explicit and target data cannot be modified by an accidental mode switch (0.4374ms)
+✔ table ordering does not affect comparison (1.5824ms)
+✔ same count with changed content cannot pass (0.8431ms)
+✔ missing, additional and altered tables are all reported (0.1713ms)
+✔ malformed, duplicate and empty manifests fail closed (0.2342ms)
+✔ counts above JavaScript integer precision retain their exact value (0.1041ms)
+✔ private backup queue omissions and altered rows prevent migration acceptance (0.1718ms)
+✔ legacy public-only manifests cannot be compared as full application snapshots (0.286ms)
+(node:60724) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/sync/azure-records.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ schedule restore saves current Azure and source page snapshot before an optimistic write (21.8115ms)
+✔ a failed pre-restore RPC cannot mutate Azure or acknowledge recovery (1.7778ms)
+✔ a concurrent revision after pre-restore backup stops recovery before posting (1.1565ms)
+✔ unavailable Azure and empty schedule fail before saving or mutating anything (0.4584ms)
+✔ manual backup requires a valid committed ID and filters unselected pages (0.5544ms)
+✔ backend refuses a version changed after the final client read before any write (1.3244ms)
+(node:32044) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/sync/azure-records.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ export paginates beyond 500 equal timestamps, skips blocked keys and uses the user context (44.4633ms)
+✔ large Unicode export reloads a changed revision and verifies the complete value (104.5834ms)
+✔ count-only and page-filtered reads avoid downloading unrelated large values (1.0319ms)
+✔ large imports keep one operation ID, use current metadata, and preserve Unicode through chunks (112.8266ms)
+✔ unconfirmed writes and unavailable Azure never acknowledge an import or fall back (1.0269ms)
+✔ malformed cursor, chunk hash and an untrusted destination fail closed (0.5771ms)
+✔ a changing export never returns a successful mixed-revision backup (0.5547ms)
+✔ delete acknowledgments preserve tombstones and reject a different content hash (0.5886ms)
+✔ proxy transports only bearer and bounded JSON; preserves query, errors and no-store (16.6632ms)
+✔ proxy rejects untrusted endpoints and never retries a failed mutation on Supabase (4.5633ms)
+✔ streamed oversize JSON and missing login never reach Azure; unset endpoint keeps legacy path (2.6811ms)
+(node:65608) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/notification-snapshot.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ four foreground tabs share at most 61 snapshots in one idle hour (185.1009ms)
+✔ hidden/offline clients pause; recovery and focus storms cannot overlap requests (14.6834ms)
+✔ another account cannot receive shared notification content; logout removes cached content (33.192ms)
+(node:34120) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/sync/engine.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ concurrent field edits preserve insertion anchors on either device (1.8205ms)
+✔ stale device with year 2999 clock retains additions on both devices (26.4576ms)
+✔ same field changes persist both copies across restart and stop automatic writes (2.171ms)
+✔ resolve rechecks a newer cloud version and refuses to overwrite it (1.0162ms)
+✔ delete versus edit conflicts without resurrecting or deleting silently (0.5226ms)
+✔ lost post-commit response is retried with immutable operation ID once (1.7452ms)
+✔ edit after lost commit gets a new operation ID and is safely reconciled (1.0628ms)
+✔ backup failure prevents cloud replacement and keeps the old local value (0.5467ms)
+✔ metadata without startup data rehydrates instead of uploading a deletion (0.4317ms)
+✔ unchanged full records are downloaded and notified only once for 100 pulls (7.989ms)
+✔ JSON null is distinct from a tombstone when recreating deleted state (1.6047ms)
+✔ delta addresses IDs, handles deletion/reordering and blocks prototype pollution (0.4915ms)
+✔ independent field edits preserve a single-side reorder and reject conflicting orders (0.2402ms)
+✔ stale React snapshot cannot erase another tab additions and conflicting drafts remain downloadable (0.3625ms)
+✔ failed startup metadata read is retried without forgetting initial local intent (0.2835ms)
+✔ a failed local application preserves the pending operation and its baseline (0.5272ms)
+✔ remote conflict choice cannot discard intent when local storage rejects the write (0.6818ms)
+✔ queued same-tab edits retain latest text and remote-only fields after a held lock (0.2835ms)
+✔ accepting remote conflict sends an acknowledged resolution operation to the server (3.7212ms)
+(node:16032) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/sync/run-gate.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual requests during a running sync coalesce into one subsequent run (0.8143ms)
+✔ sync requests allow 45 seconds and retain caller cancellation (0.6579ms)
+✔ smaller chunks preserve Unicode while maximum payload stays within 200 database parts (568.2215ms)
+✔ smaller request batches can drain all operations without dropping any (8.1121ms)
+✔ late-mounted sync panels retrieve active upload progress (0.2322ms)
+(node:53920) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/sync/engine.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ acknowledgment retains a newer edit compacted into the uploaded ID and rebases its retry (1.1239ms)
+✔ in-flight edits and deletions never match an older upload, including JSON null and plain text (0.1735ms)
+✔ four tabs idle for an hour share 61 cloud reads and no full-value downloads or uploads (2156.46ms)
+✔ hidden and offline pages pause automatic requests; network recovery uploads edits inside the cooldown (110.0503ms)
+✔ a newer local edit during a conflict reply is preserved and requires an explicit choice (47.1923ms)
+✔ component unmount aborts an outstanding request without acknowledging its pending edit (46.7913ms)
+✔ idle read failures retry after backoff and resume without any local edits (61.2845ms)
+✔ a stationary foreground page receives another device edit without focus or local activity (60.6346ms)
+ℹ tests 77
+ℹ suites 0
+ℹ pass 77
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3239.2201
