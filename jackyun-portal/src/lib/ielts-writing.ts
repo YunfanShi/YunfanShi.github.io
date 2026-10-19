@@ -251,12 +251,60 @@ export function findQuotedTextRange(text: string, quote: string): QuoteRange | n
   return normalizedQuoteRanges(text, quote)[0] ?? null;
 }
 
-export function highlightQuotedText(text: string, quotes: Array<{ id: string; quote: string }>): QuoteHighlightChunk[] {
-  if (!text) return [];
-  const matches: Array<{ start: number; end: number; id: string }> = [];
-  for (const item of quotes) {
-    for (const range of normalizedQuoteRanges(text, item.quote)) matches.push({ ...range, id: item.id });
+export interface TrackedWritingQuote extends QuoteRange { id: string; }
+
+/** Map known source quotes through edits, rather than guessing similar sentences. */
+export function trackWritingQuotes(source: string, current: string, quotes: Array<{ id: string; quote: string }>): TrackedWritingQuote[] {
+  if (!quotes.length) return [];
+  if (source === current) return quotes.flatMap(({ id, quote }) => normalizedQuoteRanges(source, quote).map((range) => ({ ...range, id })));
+  const chunks = diffWriting(source, current);
+  const edits: Array<{ start: number; end: number; nextStart: number; nextEnd: number }> = [];
+  const unchanged: QuoteRange[] = [];
+  let before = 0; let after = 0;
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunk = chunks[index];
+    if (chunk.type === 'same') {
+      unchanged.push({ start: before, end: before + chunk.text.length });
+      before += chunk.text.length; after += chunk.text.length;
+    } else {
+      const edit = { start: before, end: before, nextStart: after, nextEnd: after };
+      while (index < chunks.length && chunks[index].type !== 'same') {
+        if (chunks[index].type === 'removed') before += chunks[index].text.length;
+        else after += chunks[index].text.length;
+        index += 1;
+      }
+      index -= 1;
+      edit.end = before; edit.nextEnd = after; edits.push(edit);
+    }
   }
+  function boundary(position: number, start: boolean): number {
+    let offset = 0;
+    for (const edit of edits) {
+      if (position < edit.start) break;
+      if (position > edit.end) { offset = edit.nextEnd - edit.end; continue; }
+      if (edit.start === edit.end) return start ? edit.nextEnd : edit.nextStart;
+      if (position === edit.start) return edit.nextStart;
+      if (position === edit.end) return edit.nextEnd;
+      return start ? edit.nextStart : edit.nextEnd;
+    }
+    return position + offset;
+  }
+  return quotes.flatMap(({ id, quote }) => normalizedQuoteRanges(source, quote).flatMap((range) => {
+    const survives = unchanged.some((part) => /[\p{L}\p{N}]/u.test(source.slice(Math.max(part.start, range.start), Math.min(part.end, range.end))));
+    // A whole-document paste cannot identify a small quote in unrelated new text.
+    const contextSurvives = unchanged.some((part) => /[\p{L}\p{N}]/u.test(source.slice(part.start, part.end)) && (part.end <= range.start || part.start >= range.end));
+    if (!survives && !contextSurvives && (range.start !== 0 || range.end !== source.length)) return [];
+    const touching = edits.filter((edit) => edit.start < range.end && edit.end > range.start);
+    if (!survives && (!touching.length || touching.some((edit) => edit.start < range.start || edit.end > range.end))) return [];
+    let start = boundary(range.start, true); let end = boundary(range.end, false);
+    while (start < end && /\s/u.test(current[start])) start += 1;
+    while (end > start && /\s/u.test(current[end - 1])) end -= 1;
+    return start < end ? [{ id, start, end }] : [];
+  }));
+}
+
+export function highlightWritingRanges(text: string, matches: TrackedWritingQuote[]): QuoteHighlightChunk[] {
+  if (!text) return [];
   if (!matches.length) return [{ text, highlighted: false, issueIds: [] }];
   const boundaries = new Set([0, text.length]);
   for (const match of matches) { boundaries.add(match.start); boundaries.add(match.end); }
@@ -266,6 +314,15 @@ export function highlightQuotedText(text: string, quotes: Array<{ id: string; qu
     const issueIds = [...new Set(matches.filter((match) => match.start < end && match.end > start).map((match) => match.id))];
     return { text: text.slice(start, end), highlighted: issueIds.length > 0, issueIds };
   });
+}
+
+export function highlightQuotedText(text: string, quotes: Array<{ id: string; quote: string }>): QuoteHighlightChunk[] {
+  if (!text) return [];
+  const matches: Array<{ start: number; end: number; id: string }> = [];
+  for (const item of quotes) {
+    for (const range of normalizedQuoteRanges(text, item.quote)) matches.push({ ...range, id: item.id });
+  }
+  return highlightWritingRanges(text, matches);
 }
 
 export function targetWords(task: WritingTask): number {

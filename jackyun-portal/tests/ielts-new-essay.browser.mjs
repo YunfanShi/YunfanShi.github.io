@@ -7,7 +7,7 @@ import {createServer} from 'node:http';
 const require=createRequire(import.meta.url),{webpack}=require('next/dist/compiled/webpack/webpack');
 const {chromium}=require(process.env.JACKYUN_PLAYWRIGHT_PATH||'playwright');
 const root=process.cwd(),temp=await mkdtemp(path.join(tmpdir(),'ielts-new-essay-'));
-const out=process.env.JACKYUN_SCREENSHOT_DIR||'../docs/ielts-reader-3.26.2/verification';await mkdir(out,{recursive:true});
+const out=process.env.JACKYUN_SCREENSHOT_DIR||'../docs/ielts-focus-3.27.0/verification';await mkdir(out,{recursive:true});
 await writeFile(temp+'/entry.tsx',`import React from 'react';import {createRoot} from 'react-dom/client';import Workbench from '${root}/src/components/modules/ielts/writing-workbench';createRoot(document.getElementById('root')!).render(<Workbench/>);`);
 await writeFile(temp+'/ai.ts','export function callAiApi(){return new Promise(()=>{});}');
 await writeFile(temp+'/link.tsx','export default function Link({children,...props}){return <a {...props}>{children}</a>;}');
@@ -27,9 +27,45 @@ try{for(const [width,lang] of [[1440,'en'],[390,'zh']]){
  await p.goto(base);await p.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(b=>!b.disabled&&b.textContent.includes('New essay')));await p.evaluate(({old,final,lang,key})=>{localStorage.clear();localStorage.setItem(key,JSON.stringify(old));localStorage.setItem('jackyun_ielts_writing_archive_v1',JSON.stringify([final]));localStorage.setItem('jackyun_ielts_writing_language',lang);localStorage.setItem('jackyun_ielts_writing_stage_v1','2');},{old,final,lang,key});await p.reload();
  const button=(en,zh)=>p.getByRole('button',{name:lang==='en'?en:zh,exact:true});const create=button('New essay','新建文章');const editor=p.getByRole('textbox',{name:lang==='en'?'Your essay':'你的作文',exact:true});
  const read=()=>p.evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
+ const panel=p.locator('[data-writing-external-ai]');await panel.waitFor();
+ await panel.locator('details summary').click();assert.match(await panel.locator('textarea[readonly]').inputValue(),/An unfinished draft/);
+ const imported={summary:'External feedback marker',issues:[{id:'external-1',category:'Grammar',severity:'medium',quote:'unfinished draft',explanation:'A test issue.',selfRevisionPrompt:'Revise independently.',ruleKey:'external-rule'}],upgrades:[],readyForUpgrade:false};
+ await panel.getByRole('textbox',{name:lang==='en'?'Paste the external AI reply here…':'把外部 AI 的回复粘贴到这里…',exact:true}).fill(JSON.stringify(imported));
+ await button('Import AI reply','导入 AI 回复').click();await p.getByText('External feedback marker',{exact:true}).waitFor();
+
+ const exampleQuote='the advantages for taking risks in the personal lives and professional lives can overwhelm the drawbacks';
+ await editor.fill('I believe '+exampleQuote+'.');if(!await panel.evaluate(el=>el.open))await panel.locator(':scope > summary').click();
+ await panel.locator('textarea:not([readonly])').fill(JSON.stringify({...imported,summary:'Tracked feedback marker',issues:[{...imported.issues[0],quote:exampleQuote}]}));
+ await button('Import AI reply','导入 AI 回复').click();await p.getByText('Tracked feedback marker',{exact:true}).waitFor();
+ const editedQuote='the advantages of taking risks in personal and professional lives outweigh the drawbacks';
+ await editor.fill('I believe '+editedQuote+'.');
+ const currentIssue=p.locator('button[title="'+(lang==='en'?'Show this issue in the editor':'在编辑框中定位这个问题')+'"]').first();
+ assert.ok((await currentIssue.textContent()).includes(editedQuote));
+ assert.equal(await p.locator('[data-issue-ids="external-1"]').textContent(),editedQuote);
+ await currentIssue.click();await p.waitForFunction(expected=>{const el=document.querySelector('textarea[aria-labelledby="ielts-essay-label"]');return el&&el.value.slice(el.selectionStart,el.selectionEnd)===expected;},editedQuote);assert.equal(await editor.evaluate(el=>el.value.slice(el.selectionStart,el.selectionEnd)),editedQuote);
+ await editor.fill('I believe '+exampleQuote+'.');assert.equal(await p.locator('[data-issue-ids="external-1"]').textContent(),exampleQuote);
+ await editor.fill(old.essay);if(!await panel.evaluate(el=>el.open))await panel.locator(':scope > summary').click();await panel.locator('textarea:not([readonly])').fill(JSON.stringify(imported));await button('Import AI reply','导入 AI 回复').click();
+ await p.screenshot({path:out+'/external-import-'+width+'.png',fullPage:true});
+ assert.equal(await p.getByText(/Finished revising|修改完成了吗/).count(),0);
+ await button('Fullscreen revision','全屏修改').click();const workspace=p.locator('[data-writing-workspace]');
+ await p.waitForFunction(()=>document.querySelector('[data-writing-workspace]')?.getAttribute('data-focus-mode')==='true');
+ assert.equal(await p.evaluate(()=>document.fullscreenElement?.hasAttribute('data-writing-workspace')),true);
+ assert.equal(await workspace.getByRole('button',{name:lang==='en'?'Restore snapshot':'恢复快照',exact:true}).isVisible(),false);
+ assert.equal(await workspace.getByRole('group',{name:lang==='en'?'Choose an IELTS Writing task':'选择雅思写作题型',includeHidden:true}).isVisible(),false);assert.equal(await panel.isVisible(),true);assert.equal(await workspace.getByText('External feedback marker',{exact:true}).isVisible(),true);assert.equal(await workspace.getByRole('textbox',{name:lang==='en'?'Your essay':'你的作文',exact:true}).isVisible(),true);
+ const focusBox=await workspace.boundingBox();assert.equal(focusBox.x,0);assert.equal(focusBox.y,0);assert.ok(focusBox.width>=width-1);
+ await workspace.getByRole('button',{name:lang==='en'?'Start timer':'开始计时',exact:true}).click();await workspace.getByRole('button',{name:lang==='en'?'Pause timer':'暂停计时',exact:true}).click();
+ await p.screenshot({path:out+'/focus-'+width+'.png',fullPage:true});
+ await button('Exit fullscreen','退出全屏').click();await p.waitForFunction(()=>!document.fullscreenElement&&document.querySelector('[data-writing-workspace]')?.getAttribute('data-focus-mode')==='false');
+ // Unsupported native fullscreen still provides a viewport-sized workspace and Escape exit.
+ await p.evaluate(()=>{window.originalFullscreen=Element.prototype.requestFullscreen;Element.prototype.requestFullscreen=()=>Promise.reject(Error('unsupported fixture'));});
+ await button('Fullscreen revision','全屏修改').click();await p.waitForFunction(()=>document.querySelector('[data-writing-workspace]')?.getAttribute('data-focus-mode')==='true');
+ await p.keyboard.press('Escape');await p.waitForFunction(()=>document.querySelector('[data-writing-workspace]')?.getAttribute('data-focus-mode')==='false');
+ await p.evaluate(()=>Element.prototype.requestFullscreen=window.originalFullscreen);
+
+
  await create.click();await p.waitForFunction(key=>JSON.parse(localStorage.getItem(key)).essayId!=='old',key);
- const first=await read();assert.equal(first.essay,'');assert.equal(first.question,'');assert.equal(first.originalEssay,'');assert.equal(first.task,'task1-academic');assert.equal(first.secondsLeft,1200);assert.equal(first.timerStarted,false);
- assert.deepEqual(await p.evaluate(key=>JSON.parse(localStorage.getItem(key))[0].draft,snap),old);assert.equal(await editor.inputValue(),'');
+ const first=await read();assert.equal(first.essay,'');assert.equal(first.question,'');assert.equal(first.originalEssay,'');assert.equal(await panel.locator('textarea:not([readonly])').inputValue(),'');assert.equal(await p.getByText('External feedback marker',{exact:true}).count(),0);assert.equal(first.task,'task1-academic');assert.equal(first.secondsLeft,1200);assert.equal(first.timerStarted,false);
+ const outgoing=await p.evaluate(key=>JSON.parse(localStorage.getItem(key))[0].draft,snap);assert.equal(outgoing.essay,old.essay);assert.equal(outgoing.essayId,old.essayId);assert.equal(outgoing.timerStarted,false);assert.equal(await editor.inputValue(),'');
  await p.reload();assert.equal((await read()).essayId,first.essayId);await button('Restore snapshot','恢复快照').click();assert.equal((await read()).essay,old.essay);
  await p.getByRole('button',{name:/Final library 1|最终稿文库 1/}).click();await create.click();assert.equal((await read()).essay,'');
  await p.getByRole('button',{name:/Final library 1|最终稿文库 1/}).click();await button('Open in reader','打开阅读器').click();await p.locator('[data-writing-reader-content]').waitFor();
@@ -52,7 +88,10 @@ try{for(const [width,lang] of [[1440,'en'],[390,'zh']]){
  await create.click();assert.equal((await read()).essay,'');
  await editor.fill('Transfer draft');await button('Start a new transfer essay','开始新题迁移').click();assert.equal((await read()).essay,'');assert.equal(await p.evaluate(key=>JSON.parse(localStorage.getItem(key))[0].draft.essay,snap),'Transfer draft');
  await editor.fill('Keep this when saving fails');await p.evaluate(()=>{window.originalSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='jackyun_ielts_writing_snapshots_v1')throw Error('snapshot full');return window.originalSet.call(this,k,v);};});await create.click();assert.equal(await editor.inputValue(),'Keep this when saving fails');assert.equal((await read()).essay,'Keep this when saving fails');await p.evaluate(()=>Storage.prototype.setItem=window.originalSet);
- await p.screenshot({path:out+'/workbench-'+width+'.png',fullPage:true});await editor.fill('An independently written real essay. '.repeat(5));await button('Find my key issues','让 AI 找关键问题').click();await p.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(b=>b.disabled&&/New essay|新建文章/.test(b.textContent)));assert.equal(await create.isDisabled(),true);assert.equal(await button('Start a new transfer essay','开始新题迁移').isDisabled(),true);
- assert.deepEqual(errors,[]);results.push({width,language:lang,passed:true,checks:['new essay','new identity','blank editor','task timer','outgoing snapshot','reload','restore','library','reader','transfer','save failure','AI busy guard','four reader paragraphs','paragraph spacing','three reader themes on dark site','long title wraps','title edit preserves essay'],errors});await ctx.close();
+ await p.screenshot({path:out+'/workbench-'+width+'.png',fullPage:true});await editor.fill('An independently written real essay. '.repeat(5));
+ await button('Fullscreen revision','全屏修改').click();await button('Save final version','保存最终稿').click();await p.locator('[data-writing-reader-content]').waitFor();await p.waitForFunction(()=>!document.fullscreenElement);assert.notEqual(await p.evaluate(()=>document.body.style.overflow),'hidden');
+ await p.getByRole('button',{name:/edit_note.*Workbench|edit_note.*写作工作台/}).click();
+ await button('Find my key issues','让 AI 找关键问题').click();await p.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(b=>b.disabled&&/New essay|新建文章/.test(b.textContent)));assert.equal(await create.isDisabled(),true);assert.equal(await button('Import AI reply','导入 AI 回复').isDisabled(),true);assert.equal(await button('Start a new transfer essay','开始新题迁移').isDisabled(),true);
+ assert.deepEqual(errors,[]);results.push({width,language:lang,passed:true,checks:['new essay','new identity','blank editor','task timer','outgoing snapshot','reload','restore','library','reader','transfer','save failure','AI busy guard','four reader paragraphs','paragraph spacing','three reader themes on dark site','long title wraps','title edit preserves essay','external import visible without AI failure','prompt preview includes draft','external JSON import','new essay clears imported feedback','no top completion banner','native fullscreen editor and tools','supplementary cards hidden','focus timer controls','exit button','fullscreen fallback and Escape','save from fullscreen exits to reader','edited quote remains highlighted','feedback quote follows revised wording','locate selects revised span','undo restores tracked quote'],errors});await ctx.close();
 }}finally{await browser.close();await new Promise(r=>server.close(r));}
 await writeFile(out+'/results.json',JSON.stringify({scope:'Real component and local persistence; AI and navigation mocked. No production or cloud-account acceptance.',results},null,2));console.log(JSON.stringify(results));

@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.27.0', date: '2026-10-19', dateLabel: '2026 年 10 月 19 日', title: '写作全屏修改与外部 AI 入口', summary: '作文与批改工具可全屏使用，保存最终稿收进编辑工具栏；外部 AI 导入常驻可见。', categories: ['学习体验', '稳定性'], accent: 'mint', highlights: ['移除顶部完成提示，正文与批改工具获得更多空间。', '全屏保留编辑、反馈和外部 AI，收起迁移说明和草稿安全等辅助卡片。', '直接复制提示词并导入外部回复，无需先触发站内 AI 报错。', '支持退出按钮及 Esc；不支持浏览器全屏时使用窗口内专注视图。', '引用高亮跟随删词与替换，反馈中的对应引用同步显示当前文字。'] },
   { version: '3.26.2', date: '2026-10-19', dateLabel: '2026 年 10 月 19 日', title: '雅思阅读器段落显示修复', summary: '正文按原文换行分段并增加段间距，标题编辑框在深色网站主题下保持清晰。', categories: ['稳定性'], accent: 'mint', highlights: ['兼容 Windows、Mac 及 Unicode 换行，不改动保存的文章内容。', '长标题使用适合阅读的字号并自动换行。', '标题输入框显式使用与背景匹配的文字颜色。'] },
   { version: '3.26.1', date: '2026-10-19', dateLabel: '2026 年 10 月 19 日', title: '雅思写作新建文章修复', summary: '工作台、文库和阅读器顶部均可直接新建文章，先保存旧稿恢复快照，再进入空白编辑器。', categories: ['稳定性'], accent: 'mint', highlights: ['新文章清空题目、正文、原稿和批改状态，保留题型并重置计时。', '旧稿保存失败时保留当前文章，AI 分析期间禁止切换文章。', '迁移练习沿用相同的旧稿保护流程。'] },
   { version: '3.26.0', date: '2026-10-17', dateLabel: '2026 年 10 月 17 日', title: '练习计时入口与雅思四科计时', summary: '学习侧边栏直接进入计时器，答题途中可更正题型并保留用时；雅思按 Part 或 Task 练习。', categories: ['学习体验'], accent: 'mint', highlights: ['更正题型保留已有用时与运行状态，剩余时间按新时限重新计算。', '雅思无需课表科目：写作 20 / 40 分钟，阅读三个 Part，口语三个 Part。', '听力四个 Part 整场 30 分钟加机考检查 2 分钟，检查阶段单独提示。', '各 Part 可切换、暂停并恢复，刷新后保留已保存用时。'] },

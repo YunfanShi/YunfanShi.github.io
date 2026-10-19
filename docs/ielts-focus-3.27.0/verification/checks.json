@@ -1,0 +1,13 @@
+{
+ "version":"3.27.0",
+ "baseline":"912f56b",
+ "unitTests":{"passed":28,"failed":0,"command":"npm run test:ielts-writing"},
+ "browser":"desktop 1440 English and mobile 390 Chinese; native fullscreen, viewport fallback, Escape, save to reader, external JSON import, editing quote tracking, selection and undo",
+ "build":"npm run build with TypeScript",
+ "lint":"targeted source and test ESLint passed",
+ "secretScan":"passed",
+ "document":"three pages rendered with bundled LibreOffice and CJK font configuration, all visually inspected",
+ "reactReview":"memoized quote tracking, source context restored with feedback history, accessible controls, fullscreen listeners and page-scroll cleanup",
+ "scope":"local real-component harness; external AI and navigation mocked; no production or real cloud-account acceptance",
+ "fullRepositoryVerify":"not run; targeted regression and production build used"
+}
