@@ -1,0 +1,13 @@
+{
+  "version": "3.26.1",
+  "date": "2026-10-19",
+  "baseline": "4a4c0426a93564cfb6f988bf493aa43ce388f7fd",
+  "unitTests": { "passed": 24, "failed": 0, "command": "npm run test:ielts-writing" },
+  "targetedLint": "passed: workbench, update-history, utils, new browser regression",
+  "productionBuild": "passed: npm run build, includes TypeScript",
+  "secretScan": "passed: npm run check:secrets",
+  "browser": "passed: real WritingWorkbench, desktop English and mobile Chinese, 12 checks per viewport",
+  "browserScope": "isolated component harness with real local persistence and React; navigation and external AI mocked; no cloud-account or production acceptance",
+  "document": "two pages rendered using bundled LibreOffice and system CJK fonts; visually inspected",
+  "fullRepositoryVerify": "not run; targeted regression and production build used for this patch"
+}
