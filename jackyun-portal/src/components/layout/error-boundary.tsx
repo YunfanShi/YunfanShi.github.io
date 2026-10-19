@@ -1,5 +1,7 @@
 'use client';
 
+import { reopenWorkspace } from '@/lib/pwa-recovery';
+
 import { Component, ReactNode } from 'react';
 import logger from '@/lib/logger';
 
@@ -92,7 +94,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             <button
               onClick={() => {
                 this.setState({ hasError: false, error: null, errorInfo: '' });
-                window.location.reload();
+                void reopenWorkspace();
               }}
               className="px-5 py-2.5 rounded-lg bg-[#4285F4] text-sm font-medium text-white hover:bg-[#3367d6] transition-colors"
             >

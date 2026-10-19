@@ -1,0 +1,33 @@
+{
+  "version": "3.28.0",
+  "unitTests": 68,
+  "typecheck": "passed",
+  "productionBuild": "passed",
+  "targetedEslint": "passed",
+  "browser": "guest local production, 390x844",
+  "warmedPages": 66,
+  "warmedAssets": 107,
+  "offlineRoutes": [
+    "/schedule",
+    "/activity",
+    "/ai",
+    "/settings",
+    "/PracticeTimer.html"
+  ],
+  "onlineRecovery": "passed",
+  "physicalWatch": "not tested",
+  "livePaidAi": "not tested",
+  "authenticatedCloudData": "not tested",
+  "docxRenderer": "docx-preview fallback, LibreOffice unavailable",
+  "cleanRelease": {
+    "testedCommit": "1760455",
+    "detachedCheckout": true,
+    "unitTests": 68,
+    "build": "passed",
+    "typecheckAfterNextGeneratedTypes": "passed",
+    "unrelatedLocalChangesExcluded": true,
+    "offlineBrowser": "passed",
+    "warmedPages": 75,
+    "warmedAssets": 109
+  }
+}

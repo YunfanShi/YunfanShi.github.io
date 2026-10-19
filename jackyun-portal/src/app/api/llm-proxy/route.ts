@@ -100,10 +100,10 @@ export async function POST(req: NextRequest) {
   let watchAuth: Awaited<ReturnType<typeof watchContext>> | undefined;
   if(req.headers.has('x-watch-device') || req.headers.has('x-watch-secret')) {
     try { watchAuth=await watchContext(req); } catch(error) {
-      return NextResponse.json({error:{message:error instanceof WatchError?error.message:'手表认证失败'}},{status:error instanceof WatchError?error.status:503});
+      return NextResponse.json({error:{message:error instanceof WatchError?error.message:'手表认证失败',code:error instanceof WatchError?error.code:'WATCH_AUTH_FAILED'}},{status:error instanceof WatchError?error.status:503});
     }
     // Watch requests always use the metered cloud path; configuration and tools stay on the website.
-    body={messages:Array.isArray(body.messages)?body.messages.slice(-2).map(message=>({role:message.role==='system'?'system':'user',content:String(message.content??'').slice(0,2500)})):[],providerMode:'cloud',stream:false,max_tokens:600,feature:'chat',workspaceMode:'chat'};
+    body={messages:Array.isArray(body.messages)?body.messages.slice(-2).map(message=>({role:message.role==='system'?'system':'user',content:String(message.content??'').slice(0,2500)})):[],providerMode:'cloud',stream:body.stream===true,max_tokens:Math.max(1,Math.min(Number(body.max_tokens)||600,600)),feature:'chat',workspaceMode:'chat',_no_thinking:true};
   }
 
   // Check if this is a config-save request

@@ -11,7 +11,7 @@ export default function PagePreferences({ initialValue, signedIn }: { initialVal
   const { userId } = useAuthMode();
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
-    const bind = () => navigator.serviceWorker.controller?.postMessage({ type: 'BIND_USER_CACHE', userId });
+    const bind = () => { const worker = navigator.serviceWorker.controller; worker?.postMessage({ type: 'BIND_USER_CACHE', userId }); worker?.postMessage({ type: 'WARM_OFFLINE_ROUTES' }); };
     bind(); navigator.serviceWorker.addEventListener('controllerchange', bind);
     return () => navigator.serviceWorker.removeEventListener('controllerchange', bind);
   }, [userId]);

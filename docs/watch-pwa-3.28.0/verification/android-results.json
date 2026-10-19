@@ -1,0 +1,42 @@
+{
+  "watchVersion": "1.6.0-beta.1",
+  "versionCode": 9,
+  "websiteVersion": "3.28.0",
+  "releaseBuild": "passed",
+  "unitTests": 21,
+  "unitFailures": 0,
+  "lintErrors": 0,
+  "lintWarnings": 28,
+  "physicalWatch": "not tested",
+  "livePaidAI": "not tested",
+  "browser": "independent Gecko, offline search without crash on round emulator",
+  "toolchain": {
+    "AGP": "8.10.1",
+    "Gradle": "8.11.1",
+    "Kotlin": "2.2.10",
+    "compileSdk": 36,
+    "minSdk": 23,
+    "targetSdk": 35
+  },
+  "apks": [
+    {
+      "filename": "app-arm64-v8a-release.apk",
+      "size": 84632974,
+      "sha256": "617adddb19218ab81a7d60fa77925cbefd439d44d67a98ede1a2ef5999e6b82f"
+    },
+    {
+      "filename": "app-armeabi-v7a-release.apk",
+      "size": 82131824,
+      "sha256": "f38725a3ce28a000f49c0fbd0894a805d1e84ca97fc3e1a1175c00ff34073370"
+    },
+    {
+      "filename": "app-x86_64-release.apk",
+      "size": 89324303,
+      "sha256": "ed03e16fafb456281f502d6c51e4e078736983ab3c49873d47684d345f3a505d"
+    }
+  ],
+  "roundUi": "passed 250 character input, dictionary, settings, independent browser search",
+  "staleAlarm": "suppressed",
+  "backgroundAlarm": "passed after Home and am kill; notification title and fixture course verified",
+  "signingCertificateMatches151": true
+}

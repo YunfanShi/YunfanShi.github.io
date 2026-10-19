@@ -1,0 +1,100 @@
+(node:63360) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/watch-pwa-release-check/jackyun-portal/src/lib/personal-site.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\watch-pwa-release-check\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ TTS annotations stay hidden and subtitles use only the selected language (1.6417ms)
+✔ personal site validator keeps only safe component types and web links (5.6506ms)
+✔ quota migration uses server-only atomic reservations and four plans (2.6734ms)
+✔ LLM proxy strips internal metering controls before forwarding (1.9353ms)
+✔ AI stream parser preserves SSE JSON split across network chunks (18.8767ms)
+✔ Companion preserves structured AI responses instead of Markdown-escaping them (0.7172ms)
+✔ model catalog migration enforces per-plan access and keeps tables server-only (2.4431ms)
+✔ aggregator model discovery normalizes OpenRouter metadata and ignores invalid duplicates (0.6358ms)
+✔ provider presets cover aggregators and direct model vendors while remaining editable data (9.5658ms)
+✔ Admin supports aggregator discovery plus global and per-plan multi-selection (6.4203ms)
+✔ smart selection accepts only server-approved catalog IDs (1.9447ms)
+✔ smart selection is configured server-side and restricted to plan models (19.7248ms)
+✔ model operations include rich capabilities, web search, attribution, and safe auto-unlisting (8.8753ms)
+✔ admin model testing retries failures, uses two workers, and default routing targets a catalog model (8.607ms)
+✔ managed usage is attributed to the actual API source for cost breakdowns (5.7321ms)
+✔ streaming chat keeps one assistant bubble and repairs old partial duplicates (1.7975ms)
+✔ settings cloud connection test is a bounded minimal probe (2.0291ms)
+✔ IELTS word lookup reserves enough output for always-thinking GLM models (3.7177ms)
+✔ personal site studio keeps streamed previews stable and exposes direct interactions (1.6163ms)
+✔ BETA interface tools do not expose arbitrary code execution (5.5956ms)
+✔ administrator identity is consistent for email and OAuth sign-in (0.2189ms)
+✔ BETA browser AI bridge covers modern and legacy AI request paths (124.8145ms)
+✔ browser AI detects replies when a virtualized message list keeps the same node count (0.1351ms)
+✔ admin operations protect the owner, reset quota windows, notify users, and start chats (3.3191ms)
+✔ notification inbox renders sanitized HTML instead of showing source text (2.4404ms)
+(node:50260) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/watch-pwa-release-check/jackyun-portal/src/lib/stylesheet-recovery.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\watch-pwa-release-check\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ app utilities use CSS readable by older Android engines (1.4644ms)
+✔ both dark and gray themes and article typography are generated (0.189ms)
+✔ missing CSS retries once without reloading the page or dropping deployment query (0.2575ms)
+✔ loaded, disabled and third-party stylesheets are left alone (0.1112ms)
+(node:10004) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/watch-pwa-release-check/jackyun-portal/src/lib/llm-endpoint.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\watch-pwa-release-check\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ accepts built-in LLM providers and normalizes trailing slashes (0.6859ms)
+✔ rejects unsafe or unapproved endpoints (0.1478ms)
+✔ allows an operator-configured custom provider by exact hostname (0.1183ms)
+✔ a successful CSS download survives a full device cache (26.6379ms)
+✔ an online page still opens when its offline cache is full (1.7113ms)
+✔ a cached HTML response at a CSS URL is discarded and replaced (2.3074ms)
+✔ an HTML network response cannot poison the CSS cache (0.9966ms)
+✔ a transient HTTP failure falls back to valid cached CSS (1.1032ms)
+✔ offline navigation retains exact pathname and query and never substitutes dashboard (29.5907ms)
+✔ old usable pages remain available and redirected sign-in responses are never cached (2.1214ms)
+✔ activation keeps current caches and account changes clear personal pages (2.4076ms)
+✔ offline page storage stays bounded while preserving the newest pages (70.0786ms)
+✔ Practice Timer shell and iframe both survive offline navigation (1.7582ms)
+✔ server failures fall back to the cached timer without replacing it with an error page (1.0818ms)
+✔ every portal module can retain its own offline document including query variants (2.282ms)
+✔ administrator and credential pages never become personal offline documents (1.0698ms)
+✔ owner survives worker update and blocks account mixing (1.0905ms)
+✔ PWA manifest exposes installable identity, shortcuts, and required icons (5.892ms)
+✔ website branding uses the supplied JackYun logo everywhere (7.7169ms)
+✔ service worker keeps APIs network-only and serves cached React routes before the static fallback (1.1314ms)
+✔ offline workspace stores snapshots and queued operations per authenticated user (4.8986ms)
+✔ logout preserves pending work, clears worker cache, and uses local sign-out (3.4107ms)
+✔ service worker is served with update-safe security headers (1.7904ms)
+✔ products page owns PWA installation and root layout registers lifecycle handling (8.2055ms)
+✔ settings links to the standalone Products experience (2.8729ms)
+✔ mobile topbar shows the current module and keeps desktop branding and BETA compact (1.8352ms)
+(node:47152) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/watch-pwa-release-check/jackyun-portal/src/lib/watch/ai-policy.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\watch-pwa-release-check\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ watch dictionary keeps user text separate and uses a short metered streaming response (0.724ms)
+✔ watch AI accepts long input and preserves nonstreaming compatibility (0.2831ms)
+(node:63076) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/watch-pwa-release-check/jackyun-portal/src/lib/watch/policy.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\watch-pwa-release-check\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pair payload encryption authenticates its key and ciphertext (1.9838ms)
+✔ watch credential hash rejects missing and mismatching values (0.1804ms)
+✔ operations whitelist target types and reject invalid task versions (0.5642ms)
+✔ focus records exclude invalid or fabricated active duration (0.231ms)
+✔ calendar uses China midnight independently of server timezone (13.5726ms)
+✔ empty synchronized schedule is a valid empty result (1.9725ms)
+✔ date overrides including a removed lesson match existing timetable rules (2.0535ms)
+✔ CUE reviewed after UTC midnight remains learned in its account day (2.3401ms)
+(node:45388) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/watch-pwa-release-check/jackyun-portal/src/lib/watch/reader-policy.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\watch-pwa-release-check\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ reader chunks preserve emoji and have no gaps (0.7541ms)
+✔ agenda follows existing completion and cancellation rules (14.3082ms)
+✔ reader jump starts before an emoji instead of splitting its surrogate pair (0.1183ms)
+ℹ tests 68
+ℹ suites 0
+ℹ pass 68
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2669.0734

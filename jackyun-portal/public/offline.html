@@ -36,10 +36,22 @@
     <div class="actions">
       <button type="button" onclick="location.reload()">重新打开</button>
       <a href="/dashboard">返回工作区</a>
+      <a href="/PracticeTimer.html">练习计时器</a>
+      <div class="actions" id="saved"></div>
     </div>
     <small id="status">可以继续使用已保存的页面</small>
   </main>
   <script>
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = function(event) {
+        (event.data.routes || []).forEach(function(route) {
+          const link = document.createElement('a'); link.href = route; link.textContent = route;
+          document.getElementById('saved').appendChild(link);
+        }); channel.port1.close();
+      };
+      navigator.serviceWorker.controller.postMessage({type:'GET_OFFLINE_STATUS'}, [channel.port2]);
+    }
     addEventListener('online', function () {
       document.getElementById('status').textContent = '网络已恢复，正在重新打开工作区…';
       location.reload();

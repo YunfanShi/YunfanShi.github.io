@@ -34,11 +34,11 @@ test('offline navigation retains exact pathname and query and never substitutes 
   assert.equal(await sw.navigate('/schedule?view=month'), 'offline fallback');
   assert.equal(await sw.navigate('/activity'), 'offline fallback');
 });
-test('expired pages and redirected sign-in responses are never served as offline app pages', async () => {
+test('old usable pages remain available and redirected sign-in responses are never cached', async () => {
   const sw = harness(); await sw.navigate('/schedule');
   const pages = sw.stores.get('jackyun-pwa-pages-v10')!;
   pages.set('https://example.com/schedule', new Response('expired', { headers: { 'X-JackYun-Cached-At': String(Date.now() - 8 * 86400000) } }));
-  sw.connect(false); assert.equal(await sw.navigate('/schedule'), 'offline fallback');
+  sw.connect(false); assert.equal(await sw.navigate('/schedule'), 'expired');
   sw.connect(true); sw.redirect(true); await sw.navigate('/study'); sw.connect(false);
   assert.equal(await sw.navigate('/study'), 'offline fallback');
 });
@@ -50,9 +50,9 @@ test('activation keeps current caches and account changes clear personal pages',
   assert.ok(!sw.stores.has('jackyun-pwa-pages-v10'));
 });
 test('offline page storage stays bounded while preserving the newest pages', async () => {
-  const sw = harness(); for (let index = 0; index < 30; index++) await sw.navigate(`/schedule?day=${index}`);
+  const sw = harness(); for (let index = 0; index < 170; index++) await sw.navigate(`/schedule?day=${index}`);
   const pages = sw.stores.get('jackyun-pwa-pages-v10')!;
-  assert.equal(pages.size, 24); assert.ok(pages.has('https://example.com/schedule?day=29')); assert.ok(!pages.has('https://example.com/schedule?day=0'));
+  assert.equal(pages.size, 160); assert.ok(pages.has('https://example.com/schedule?day=169')); assert.ok(!pages.has('https://example.com/schedule?day=0'));
 });
 
  test('Practice Timer shell and iframe both survive offline navigation', async () => {
@@ -64,4 +64,19 @@ test('offline page storage stays bounded while preserving the newest pages', asy
 test('server failures fall back to the cached timer without replacing it with an error page',async()=>{
  const sw=harness();await sw.navigate('/practice-timer');sw.status(503);
  assert.equal(await sw.navigate('/practice-timer'),'page:https://example.com/practice-timer');
+});
+
+test('every portal module can retain its own offline document including query variants',async()=>{
+ const sw=harness();
+ for(const route of ['/ai','/settings?section=watch','/ielts-writing','/activity','/music','/articles/example'])await sw.navigate(route);
+ sw.connect(false);
+ for(const route of ['/ai','/settings?section=watch','/ielts-writing','/activity','/music','/articles/example'])assert.equal(await sw.navigate(route),'page:https://example.com'+route);
+});
+test('administrator and credential pages never become personal offline documents',async()=>{
+ const sw=harness();await sw.navigate('/admin/users');await sw.navigate('/login');sw.connect(false);
+ assert.equal(await sw.navigate('/admin/users'),'offline fallback');assert.equal(await sw.navigate('/login'),'offline fallback');
+});
+test('owner survives worker update and blocks account mixing',async()=>{
+ const sw=harness();await sw.message({type:'BIND_USER_CACHE',userId:'one'});await sw.navigate('/ai');await sw.activate();
+ await sw.message({type:'BIND_USER_CACHE',userId:'two'});sw.connect(false);assert.equal(await sw.navigate('/ai'),'offline fallback');
 });
