@@ -1,0 +1,9 @@
+{
+  "failures": 0,
+  "temporaryUploadRoleRemoved": true,
+  "versions": {
+    "watch": "1.6.1-beta.1",
+    "portal": "3.28.1"
+  },
+  "pwaTests": 9
+}

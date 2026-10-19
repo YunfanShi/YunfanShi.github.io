@@ -1,0 +1,30 @@
+[
+  {
+    "width": 390,
+    "links": [
+      {
+        "text": "下载 ARM32 APK\n↓",
+        "url": "https://jackyunassets9d26b2cc.z7.web.core.windows.net/downloads/JackYun-Watch-1.6.1-beta.1-arm32.apk"
+      },
+      {
+        "text": "下载 ARM64 APK\n↓",
+        "url": "https://jackyunassets9d26b2cc.z7.web.core.windows.net/downloads/JackYun-Watch-1.6.1-beta.1-arm64.apk"
+      }
+    ],
+    "horizontalOverflow": false
+  },
+  {
+    "width": 1440,
+    "links": [
+      {
+        "text": "下载 ARM32 APK\n↓",
+        "url": "https://jackyunassets9d26b2cc.z7.web.core.windows.net/downloads/JackYun-Watch-1.6.1-beta.1-arm32.apk"
+      },
+      {
+        "text": "下载 ARM64 APK\n↓",
+        "url": "https://jackyunassets9d26b2cc.z7.web.core.windows.net/downloads/JackYun-Watch-1.6.1-beta.1-arm64.apk"
+      }
+    ],
+    "horizontalOverflow": false
+  }
+]

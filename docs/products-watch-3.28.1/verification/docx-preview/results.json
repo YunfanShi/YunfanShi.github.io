@@ -1,0 +1,15 @@
+{
+  "renderer": "docx-preview fallback because local LibreOffice is unavailable",
+  "pages": [
+    {
+      "height": 1056,
+      "scroll": 1056,
+      "text": 1027
+    },
+    {
+      "height": 1056,
+      "scroll": 1056,
+      "text": 770
+    }
+  ]
+}

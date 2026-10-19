@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.28.1', date: '2026-10-20', dateLabel: '2026 年 10 月 20 日', title: 'Products 更新手表安装包', summary: '手表下载更新为包含上下课通知修复的 1.6.1，提供两种架构的微软云直链。', categories: ['平台体验', '稳定性'], accent: 'blue', highlights: ['Products 提供 ARM32 与 ARM64 下载，无需 GitHub 账号。', '展示系统闹钟、后台守护、2000 字 AI 输入、词典与独立浏览器功能。', '补充通知、精确闹钟和后台运行设置说明。'] },
   { version: '3.28.0', date: '2026-10-19', dateLabel: '2026 年 10 月 19 日', title: '离线页面与手表体验升级', summary: '扩大页面和资源预缓存，改进刷新恢复；手表配套支持 AI 词典和流式回答。', categories: ['平台体验', '稳定性'], accent: 'blue', highlights: ['后台准备常用页面，已保存页面不再因七天到期而删除，最多保留 160 个地址。', '页面脚本与样式一起缓存，更新时保留旧资源，断网可从已保存页面继续。', 'Watch 1.6.0 增加 2000 字输入、词典、独立 Gecko 浏览器与过期课程通知过滤。'] },
   { version: '3.27.0', date: '2026-10-19', dateLabel: '2026 年 10 月 19 日', title: '写作全屏修改与外部 AI 入口', summary: '作文与批改工具可全屏使用，保存最终稿收进编辑工具栏；外部 AI 导入常驻可见。', categories: ['学习体验', '稳定性'], accent: 'mint', highlights: ['移除顶部完成提示，正文与批改工具获得更多空间。', '全屏保留编辑、反馈和外部 AI，收起迁移说明和草稿安全等辅助卡片。', '直接复制提示词并导入外部回复，无需先触发站内 AI 报错。', '支持退出按钮及 Esc；不支持浏览器全屏时使用窗口内专注视图。', '引用高亮跟随删词与替换，反馈中的对应引用同步显示当前文字。'] },
   { version: '3.26.2', date: '2026-10-19', dateLabel: '2026 年 10 月 19 日', title: '雅思阅读器段落显示修复', summary: '正文按原文换行分段并增加段间距，标题编辑框在深色网站主题下保持清晰。', categories: ['稳定性'], accent: 'mint', highlights: ['兼容 Windows、Mac 及 Unicode 换行，不改动保存的文章内容。', '长标题使用适合阅读的字号并自动换行。', '标题输入框显式使用与背景匹配的文字颜色。'] },
