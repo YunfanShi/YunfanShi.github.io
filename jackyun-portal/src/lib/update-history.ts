@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.26.2', date: '2026-10-19', dateLabel: '2026 年 10 月 19 日', title: '雅思阅读器段落显示修复', summary: '正文按原文换行分段并增加段间距，标题编辑框在深色网站主题下保持清晰。', categories: ['稳定性'], accent: 'mint', highlights: ['兼容 Windows、Mac 及 Unicode 换行，不改动保存的文章内容。', '长标题使用适合阅读的字号并自动换行。', '标题输入框显式使用与背景匹配的文字颜色。'] },
   { version: '3.26.1', date: '2026-10-19', dateLabel: '2026 年 10 月 19 日', title: '雅思写作新建文章修复', summary: '工作台、文库和阅读器顶部均可直接新建文章，先保存旧稿恢复快照，再进入空白编辑器。', categories: ['稳定性'], accent: 'mint', highlights: ['新文章清空题目、正文、原稿和批改状态，保留题型并重置计时。', '旧稿保存失败时保留当前文章，AI 分析期间禁止切换文章。', '迁移练习沿用相同的旧稿保护流程。'] },
   { version: '3.26.0', date: '2026-10-17', dateLabel: '2026 年 10 月 17 日', title: '练习计时入口与雅思四科计时', summary: '学习侧边栏直接进入计时器，答题途中可更正题型并保留用时；雅思按 Part 或 Task 练习。', categories: ['学习体验'], accent: 'mint', highlights: ['更正题型保留已有用时与运行状态，剩余时间按新时限重新计算。', '雅思无需课表科目：写作 20 / 40 分钟，阅读三个 Part，口语三个 Part。', '听力四个 Part 整场 30 分钟加机考检查 2 分钟，检查阶段单独提示。', '各 Part 可切换、暂停并恢复，刷新后保留已保存用时。'] },
   { version: '3.25.1', date: '2026-10-17', dateLabel: '2026 年 10 月 17 日', title: '云端草稿不再阻止新练习', summary: '已有云端练习时，新练习仍可在本机开始，旧草稿保留接续入口。', categories: ['稳定性'], accent: 'blue', highlights: ['已处理的计时同步冲突不再弹出通用网络错误，诊断保留具体原因。', '设备接管与版本冲突继续由计时器处理，保护其他设备的练习记录。'] },

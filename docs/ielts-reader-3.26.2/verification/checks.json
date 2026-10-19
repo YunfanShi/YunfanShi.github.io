@@ -1,0 +1,13 @@
+{
+ "version":"3.26.2",
+ "baseline":"875d5de9dcfb0bec7a1d0d6476b5ad4feba9c3ee",
+ "unitTests":{"passed":25,"failed":0,"command":"npm run test:ielts-writing"},
+ "browser":"passed: desktop 1440 English and mobile 390 Chinese; 17 checks per viewport; three reader themes on dark site; original archive body unchanged",
+ "lint":"passed: changed TS, TSX, unit and browser test files",
+ "build":"passed: npm run build, includes TypeScript",
+ "reactReview":"passed: paragraph semantics, read-only list keys, controlled title input, no new effects or requests",
+ "docx":"two pages rendered with bundled LibreOffice and visually inspected",
+ "scope":"local component harness with real React and persistence; AI/navigation mocked; no cloud-account or production deployment acceptance",
+ "paragraphRule":"split authored line and paragraph separators; never infer paragraph boundaries from sentences",
+ "fullRepositoryVerify":"not run; targeted checks and production build used"
+}

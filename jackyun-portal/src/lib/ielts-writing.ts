@@ -106,6 +106,11 @@ export function upsertWritingArchive(entries: WritingArchiveEntry[], entry: Writ
   return [entry, ...entries.filter((item) => item.essayId !== entry.essayId)];
 }
 
+/** Display existing paragraph breaks without rewriting the archived essay. */
+export function splitWritingParagraphs(content: string): string[] {
+  return content.split(/(?:\r\n|[\r\n\u2028\u2029])+/).map((paragraph) => paragraph.trim()).filter(Boolean);
+}
+
 export function coerceWritingStage(value: string | null): WritingStage | null {
   if (value === null || value.trim() === '') return null;
   const stage = Number(value);

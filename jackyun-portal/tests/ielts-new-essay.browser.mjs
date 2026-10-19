@@ -7,7 +7,7 @@ import {createServer} from 'node:http';
 const require=createRequire(import.meta.url),{webpack}=require('next/dist/compiled/webpack/webpack');
 const {chromium}=require(process.env.JACKYUN_PLAYWRIGHT_PATH||'playwright');
 const root=process.cwd(),temp=await mkdtemp(path.join(tmpdir(),'ielts-new-essay-'));
-const out=process.env.JACKYUN_SCREENSHOT_DIR||'../docs/ielts-new-essay-3.26.1/verification';await mkdir(out,{recursive:true});
+const out=process.env.JACKYUN_SCREENSHOT_DIR||'../docs/ielts-reader-3.26.2/verification';await mkdir(out,{recursive:true});
 await writeFile(temp+'/entry.tsx',`import React from 'react';import {createRoot} from 'react-dom/client';import Workbench from '${root}/src/components/modules/ielts/writing-workbench';createRoot(document.getElementById('root')!).render(<Workbench/>);`);
 await writeFile(temp+'/ai.ts','export function callAiApi(){return new Promise(()=>{});}');
 await writeFile(temp+'/link.tsx','export default function Link({children,...props}){return <a {...props}>{children}</a>;}');
@@ -20,7 +20,7 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.
 const browser=await chromium.launch({headless:true,channel:process.env.JACKYUN_BROWSER_CHANNEL||'chrome'});
 const key='jackyun_ielts_writing_draft_v1',snap='jackyun_ielts_writing_snapshots_v1';
 const old={essayId:'old',task:'task1-academic',question:'Describe the chart.',essay:'An unfinished draft.',originalEssay:'Original evidence.',secondsLeft:400,timerStarted:false};
-const final={id:'final',essayId:'final',title:'A final essay',task:'task2',question:'Discuss.',content:'Final essay for the reader.',savedAt:'2026-10-19T00:00:00Z',wordCount:5,bandEstimate:null};
+const final={id:'final',essayId:'final',title:'A final essay',task:'task2',question:'Discuss.',content:'Introduction to home education.\r\nFirst body paragraph.\r\n\r\nSecond body paragraph.\nConclusion.',savedAt:'2026-10-19T00:00:00Z',wordCount:5,bandEstimate:null};
 const results=[];
 try{for(const [width,lang] of [[1440,'en'],[390,'zh']]){
  const ctx=await browser.newContext({viewport:{width,height:1000}}),p=await ctx.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));
@@ -32,10 +32,27 @@ try{for(const [width,lang] of [[1440,'en'],[390,'zh']]){
  assert.deepEqual(await p.evaluate(key=>JSON.parse(localStorage.getItem(key))[0].draft,snap),old);assert.equal(await editor.inputValue(),'');
  await p.reload();assert.equal((await read()).essayId,first.essayId);await button('Restore snapshot','恢复快照').click();assert.equal((await read()).essay,old.essay);
  await p.getByRole('button',{name:/Final library 1|最终稿文库 1/}).click();await create.click();assert.equal((await read()).essay,'');
- await p.getByRole('button',{name:/Final library 1|最终稿文库 1/}).click();await p.getByText('A final essay',{exact:true}).click();await create.click();assert.equal((await read()).essay,'');
+ await p.getByRole('button',{name:/Final library 1|最终稿文库 1/}).click();await button('Open in reader','打开阅读器').click();await p.locator('[data-writing-reader-content]').waitFor();
+ const paragraphs=p.locator('[data-writing-reader-content] > p');assert.equal(await paragraphs.count(),4);
+ assert.deepEqual(await paragraphs.allTextContents(),['Introduction to home education.','First body paragraph.','Second body paragraph.','Conclusion.']);
+ const firstBox=await paragraphs.nth(0).boundingBox(),secondBox=await paragraphs.nth(1).boundingBox();assert.ok(secondBox.y-firstBox.y-firstBox.height>=20,'visible paragraph gap');
+ await p.evaluate(()=>{document.documentElement.style.setProperty('--background','#202024');document.documentElement.style.setProperty('--foreground','#f4f4f5');});
+ await p.getByRole('button',{name:'编辑文章标题 / AI 生成',exact:true}).click();
+ const titleInput=p.getByRole('textbox',{name:'文章标题（原作文题目单独保留）',exact:true});
+ const longTitle='Home education and schooling '.repeat(4).trim();await titleInput.fill(longTitle);
+ for(const theme of ['paper','mint','night']){
+  await p.getByRole('button',{name:theme+' theme',exact:true}).click();
+  const colors=await titleInput.evaluate(el=>({color:getComputedStyle(el).color,background:getComputedStyle(el).backgroundColor}));assert.equal(colors.color,'rgb(244, 244, 245)');assert.equal(colors.background,'rgb(32, 32, 36)');
+  assert.equal(await paragraphs.count(),4);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+ }
+ await p.getByRole('button',{name:'保存标题',exact:true}).click();await p.getByRole('heading',{name:longTitle,exact:true}).waitFor();
+ assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+ assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('jackyun_ielts_writing_archive_v1'))[0].content),final.content);
+ await p.getByRole('button',{name:'paper theme',exact:true}).click();await p.screenshot({path:out+'/reader-'+width+'.png',fullPage:true});
+ await create.click();assert.equal((await read()).essay,'');
  await editor.fill('Transfer draft');await button('Start a new transfer essay','开始新题迁移').click();assert.equal((await read()).essay,'');assert.equal(await p.evaluate(key=>JSON.parse(localStorage.getItem(key))[0].draft.essay,snap),'Transfer draft');
  await editor.fill('Keep this when saving fails');await p.evaluate(()=>{window.originalSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k==='jackyun_ielts_writing_snapshots_v1')throw Error('snapshot full');return window.originalSet.call(this,k,v);};});await create.click();assert.equal(await editor.inputValue(),'Keep this when saving fails');assert.equal((await read()).essay,'Keep this when saving fails');await p.evaluate(()=>Storage.prototype.setItem=window.originalSet);
  await p.screenshot({path:out+'/workbench-'+width+'.png',fullPage:true});await editor.fill('An independently written real essay. '.repeat(5));await button('Find my key issues','让 AI 找关键问题').click();await p.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(b=>b.disabled&&/New essay|新建文章/.test(b.textContent)));assert.equal(await create.isDisabled(),true);assert.equal(await button('Start a new transfer essay','开始新题迁移').isDisabled(),true);
- assert.deepEqual(errors,[]);results.push({width,language:lang,passed:true,checks:['new essay','new identity','blank editor','task timer','outgoing snapshot','reload','restore','library','reader','transfer','save failure','AI busy guard'],errors});await ctx.close();
+ assert.deepEqual(errors,[]);results.push({width,language:lang,passed:true,checks:['new essay','new identity','blank editor','task timer','outgoing snapshot','reload','restore','library','reader','transfer','save failure','AI busy guard','four reader paragraphs','paragraph spacing','three reader themes on dark site','long title wraps','title edit preserves essay'],errors});await ctx.close();
 }}finally{await browser.close();await new Promise(r=>server.close(r));}
 await writeFile(out+'/results.json',JSON.stringify({scope:'Real component and local persistence; AI and navigation mocked. No production or cloud-account acceptance.',results},null,2));console.log(JSON.stringify(results));

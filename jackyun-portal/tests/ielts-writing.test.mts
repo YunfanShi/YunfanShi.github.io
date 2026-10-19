@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWritingFeedbackRepairPrompt, buildWritingReviewPrompt, coerceWritingStage, countWords, createWritingArchiveEntry, diffWriting, findQuotedTextRange, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, upsertWritingArchive, writeRedundantJson } from '../src/lib/ielts-writing.ts';
+import { buildWritingFeedbackRepairPrompt, buildWritingReviewPrompt, coerceWritingStage, countWords, createWritingArchiveEntry, diffWriting, findQuotedTextRange, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, upsertWritingArchive, writeRedundantJson, splitWritingParagraphs } from '../src/lib/ielts-writing.ts';
 import { readFileSync } from 'node:fs';
 
 test('counts IELTS words and returns task targets deterministically', () => {
@@ -171,4 +171,13 @@ test('language upgrade remains available after a reload loses transient feedback
   assert.equal(entry.question, input.question);
   const replacement = createWritingArchiveEntry({ ...input, title: entry.title, content: 'A revised essay.' });
   assert.equal(upsertWritingArchive([entry], replacement)[0].title, 'Learning at home');
+});
+
+
+test('reader paragraphs preserve authored breaks across pasted text formats', () => {
+  assert.deepEqual(splitWritingParagraphs(' Intro.\r\nBody one.\r\n\r\nBody two.\nConclusion. '), ['Intro.', 'Body one.', 'Body two.', 'Conclusion.']);
+  assert.deepEqual(splitWritingParagraphs('First.\rSecond.\u2028Third.\u2029Fourth.'), ['First.', 'Second.', 'Third.', 'Fourth.']);
+  assert.deepEqual(splitWritingParagraphs('A single paragraph. With two sentences.'), ['A single paragraph. With two sentences.']);
+  assert.deepEqual(splitWritingParagraphs('  \n\t\r\n'), []);
+  assert.deepEqual(splitWritingParagraphs('Keep  internal spaces.\nNext paragraph.'), ['Keep  internal spaces.', 'Next paragraph.']);
 });
