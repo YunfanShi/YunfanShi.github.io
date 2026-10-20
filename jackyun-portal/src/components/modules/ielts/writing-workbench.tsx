@@ -24,6 +24,8 @@ const HIGHLIGHT_KEY = 'jackyun_ielts_writing_highlights';
 const STAGE_KEY = 'jackyun_ielts_writing_stage_v1';
 const GUIDANCE_KEY = 'jackyun_ielts_writing_guidance_v1';
 const ARCHIVE_KEY = 'jackyun_ielts_writing_archive_v1';
+const WORKSPACES_KEY = 'jackyun_ielts_writing_workspaces_v1';
+const WORKSPACES_MIRROR_KEY = 'jackyun_ielts_writing_workspaces_mirror_v1';
 type UiLanguage = 'en' | 'zh';
 type SaveState = 'saved' | 'error';
 type WorkspaceLayout = 'split' | 'stacked';
@@ -32,11 +34,13 @@ type ReaderTheme = 'paper' | 'mint' | 'night';
 
 interface DraftState { essayId: string; task: WritingTask; question: string; essay: string; originalEssay: string; secondsLeft: number; timerStarted: boolean; }
 interface DraftSnapshot { savedAt: string; draft: DraftState; }
+interface FeedbackHistoryEntry { source: { essayId: string; essay: string }; feedback: WritingFeedback | null; previousRuleKeys: string[]; resolved: string[]; stage: WritingStage; }
+interface WritingWorkspace { id: string; draft: DraftState; feedback: WritingFeedback | null; feedbackSource: { essayId: string; essay: string }; feedbackHistory: FeedbackHistoryEntry[]; previousRuleKeys: string[]; resolved: string[]; stage: WritingStage; externalFallbackMode: ReviewMode | null; externalReply: string; externalPanelOpen: boolean; savedAt: string; }
 const defaultDraft: DraftState = { essayId: 'draft-current', task: 'task2', question: '', essay: '', originalEssay: '', secondsLeft: 2400, timerStarted: false };
 
 const COPY = {
   en: {
-    title: 'Writing Correction Studio', newEssay: 'New essay', newEssayStarted: 'New essay ready. Your previous draft is saved in recovery snapshots.', subtitle: 'Keep the real first attempt. Let AI locate the problems, revise them yourself, then prove the improvement on a new question.',
+    title: 'Writing Correction Studio', newEssay: 'New essay', newEssayStarted: 'New essay ready. Your previous revision stays in progress.', inProgress: 'In progress', continueRevision: 'Continue revising', currentEssay: 'Current essay', subtitle: 'Keep the real first attempt. Let AI locate the problems, revise them yourself, then prove the improvement on a new question.',
     timer: 'exam timer', pause: 'Pause timer', start: 'Start timer', reset: 'Reset timer', language: '中文', taskGroup: 'Choose an IELTS Writing task', words: 'words',
     saved: 'Saved now · primary + mirror', saveError: 'Local save failed', question: 'Question', questionPlaceholder: 'Paste the IELTS Writing task here…', essay: 'Your essay', originalLink: 'View original', essayPlaceholder: 'Write your real first attempt independently. Do not ask AI for a model answer first…',
     layout: 'Workspace layout', split: 'Side by side', stacked: 'Top and bottom',
@@ -52,7 +56,7 @@ const COPY = {
     tooShort: 'Write at least 80 characters of a real first attempt before asking AI to analyse it.', reviseFirst: 'Revise the essay yourself before requesting another check.', upgradeDone: 'Language upgrades are ready. Keep only expressions that are natural and preserve your meaning.', feedbackDone: 'Feedback is ready. Revise it yourself, then ask AI to check again.', failed: 'AI analysis failed. Please try again.', transferStarted: 'New transfer essay started. Write independently and see whether the old errors decrease.', settings: 'Open settings',
   },
   zh: {
-    title: '雅思写作修复工作台', newEssay: '新建文章', newEssayStarted: '新文章已就绪，上一篇草稿已保存在恢复快照中。', subtitle: '保留真实原稿，让 AI 定位问题；你自己修改，再用一道新题证明这次进步能够迁移。',
+    title: '雅思写作修复工作台', newEssay: '新建文章', newEssayStarted: '新文章已就绪，上一篇修订仍保留在进行中。', inProgress: '进行中的修订', continueRevision: '继续修订', currentEssay: '当前文章', subtitle: '保留真实原稿，让 AI 定位问题；你自己修改，再用一道新题证明这次进步能够迁移。',
     timer: '考试计时', pause: '暂停计时', start: '开始计时', reset: '重置计时', language: 'EN', taskGroup: '选择雅思写作题型', words: '词',
     saved: '刚刚保存 · 主草稿 + 镜像', saveError: '本地保存失败', question: '题目', questionPlaceholder: '粘贴雅思写作题目…', essay: '你的作文', originalLink: '查看原稿', essayPlaceholder: '先独立完成真实写作，不要让 AI 预先生成范文…',
     layout: '工作台布局', split: '左右分栏', stacked: '上下排列',
@@ -79,12 +83,50 @@ function validDraft(value: unknown): value is DraftState {
 function readStoredDraft(): DraftState | null {
   return readFirstValidJson(localStorage, [DRAFT_KEY, MIRROR_KEY], validDraft);
 }
+function validFeedback(value: unknown): value is WritingFeedback {
+  if (!value || typeof value !== 'object') return false;
+  const feedback = value as Partial<WritingFeedback>;
+  return typeof feedback.bandEstimate === 'string' && typeof feedback.summary === 'string' &&
+    Array.isArray(feedback.priorities) && feedback.priorities.every((item) => typeof item === 'string') &&
+    Array.isArray(feedback.issues) && feedback.issues.every((item) => item && typeof item.id === 'string' && typeof item.quote === 'string' && typeof item.explanation === 'string' && typeof item.ruleKey === 'string') &&
+    Array.isArray(feedback.upgrades) && feedback.upgrades.every((item) => item && typeof item.original === 'string' && typeof item.suggestion === 'string' && typeof item.why === 'string') &&
+    typeof feedback.readyForUpgrade === 'boolean';
+}
+function validWritingWorkspace(value: unknown): value is WritingWorkspace {
+  if (!value || typeof value !== 'object') return false;
+  const workspace = value as Partial<WritingWorkspace>;
+  const source = workspace.feedbackSource as WritingWorkspace['feedbackSource'] | undefined;
+  return typeof workspace.id === 'string' && validDraft(workspace.draft) && workspace.id === workspace.draft.essayId &&
+    (workspace.feedback === null || validFeedback(workspace.feedback)) && Boolean(source && typeof source.essayId === 'string' && typeof source.essay === 'string') &&
+    Array.isArray(workspace.feedbackHistory) && workspace.feedbackHistory.every((item) => item && typeof item.source?.essayId === 'string' && typeof item.source?.essay === 'string' && (item.feedback === null || validFeedback(item.feedback)) && Array.isArray(item.previousRuleKeys) && Array.isArray(item.resolved) && coerceWritingStage(String(item.stage)) !== null) &&
+    Array.isArray(workspace.previousRuleKeys) && workspace.previousRuleKeys.every((item) => typeof item === 'string') &&
+    Array.isArray(workspace.resolved) && workspace.resolved.every((item) => typeof item === 'string') &&
+    coerceWritingStage(String(workspace.stage)) !== null && (workspace.externalFallbackMode === null || ['diagnose', 'recheck', 'upgrade'].includes(workspace.externalFallbackMode ?? '')) &&
+    typeof workspace.externalReply === 'string' && typeof workspace.externalPanelOpen === 'boolean' && typeof workspace.savedAt === 'string';
+}
+function workspaceHasWork(workspace: WritingWorkspace) {
+  return Boolean(workspace.draft.question.trim() || workspace.draft.essay.trim() || workspace.draft.originalEssay.trim() || workspace.feedback);
+}
+function matchesSavedFinal(workspace: WritingWorkspace, archive: WritingArchiveEntry[]) {
+  return archive.some((entry) => entry.essayId === workspace.id && entry.task === workspace.draft.task && entry.question === workspace.draft.question.trim() && entry.content === workspace.draft.essay.trim());
+}
+function upsertWritingWorkspace(workspaces: WritingWorkspace[], entry: WritingWorkspace) {
+  const remaining = workspaces.filter((workspace) => workspace.id !== entry.id);
+  return workspaceHasWork(entry) ? [entry, ...remaining] : remaining;
+}
+function writingWorkspaceTitle(workspace: WritingWorkspace, index: number) {
+  const { draft } = workspace;
+  const text = draft.question.trim().split(/\r?\n/u)[0] || draft.essay.trim().split(/\r?\n/u)[0] || draft.originalEssay.trim().split(/\r?\n/u)[0];
+  return text ? text.slice(0, 56) : `文章 ${index + 1}`;
+}
 
 export default function WritingWorkbench() {
   const [view, setView] = useState<WritingView>('workbench');
   const [focusMode, setFocusMode] = useState(false);
   const workspaceRef = useRef<HTMLElement>(null);
   const [draft, setDraft] = useState<DraftState>(defaultDraft);
+  const [workspaces, setWorkspaces] = useState<WritingWorkspace[]>([]);
+  const workspacesRef = useRef<WritingWorkspace[]>([]);
   const deferredEssay = useDeferredValue(draft.essay);
   const [hydrated, setHydrated] = useState(false);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>('en');
@@ -93,7 +135,7 @@ export default function WritingWorkbench() {
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [feedback, setFeedback] = useState<WritingFeedback | null>(null);
   const [feedbackSource, setFeedbackSource] = useState({ essayId: '', essay: '' });
-  const [feedbackHistory, setFeedbackHistory] = useState<Array<{ source: { essayId: string; essay: string }; feedback: WritingFeedback | null; previousRuleKeys: string[]; resolved: string[]; stage: WritingStage }>>([]);
+  const [feedbackHistory, setFeedbackHistory] = useState<FeedbackHistoryEntry[]>([]);
   const [stage, setStageState] = useState<WritingStage>(0);
   const [guidanceMode, setGuidanceMode] = useState<WritingGuidanceMode>('hint');
   const [previousRuleKeys, setPreviousRuleKeys] = useState<string[]>([]);
@@ -138,12 +180,36 @@ export default function WritingWorkbench() {
   }
   function commitDraft(next: DraftState, keepSnapshot = false) { setDraft(hydrated ? persistDraft(next,keepSnapshot) : next); }
   function editField(field: 'question' | 'essay', value: string) { editCount.current += 1; commitDraft({ ...draft, [field]: value }, editCount.current % 25 === 0); }
+  const currentWorkspaceSnapshot = useMemo<WritingWorkspace>(() => ({ id: draft.essayId, draft, feedback, feedbackSource, feedbackHistory, previousRuleKeys, resolved, stage, externalFallbackMode, externalReply, externalPanelOpen, savedAt: new Date().toISOString() }), [draft, feedback, feedbackSource, feedbackHistory, previousRuleKeys, resolved, stage, externalFallbackMode, externalReply, externalPanelOpen]);
+  function persistWritingWorkspaces(next: WritingWorkspace[]) {
+    try {
+      writeRedundantJson(localStorage, WORKSPACES_KEY, WORKSPACES_MIRROR_KEY, next);
+      workspacesRef.current = next;
+      setWorkspaces(next);
+      setSaveState('saved');
+      return true;
+    } catch (error) {
+      setSaveState('error');
+      setMessage(error instanceof Error ? error.message : '进行中的修订未能保存。');
+      return false;
+    }
+  }
+  function saveCurrentWritingWorkspace() {
+    return persistWritingWorkspaces(upsertWritingWorkspace(workspacesRef.current, currentWorkspaceSnapshot));
+  }
 
   useEffect(() => {
-    let storedDraft: DraftState | null = null; let storedHistory: ErrorHistoryEntry[] = []; let storedArchive: WritingArchiveEntry[] = []; let storedLanguage: UiLanguage = 'en'; let storedLayout: WorkspaceLayout = 'split'; let storedHighlights = true; let storedStage: WritingStage | null = null; let storedGuidance: WritingGuidanceMode = 'hint';
-    try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; const parsedArchive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]') as unknown; if (Array.isArray(parsedArchive)) storedArchive = parsedArchive.filter(isWritingArchiveEntry); storedLanguage = localStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = localStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(localStorage.getItem(STAGE_KEY)); storedGuidance = localStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; } catch { /* Start clean when all local copies are unavailable. */ }
+    let storedDraft: DraftState | null = null; let storedHistory: ErrorHistoryEntry[] = []; let storedArchive: WritingArchiveEntry[] = []; let storedWorkspaces: WritingWorkspace[] = []; let storedLanguage: UiLanguage = 'en'; let storedLayout: WorkspaceLayout = 'split'; let storedHighlights = true; let storedStage: WritingStage | null = null; let storedGuidance: WritingGuidanceMode = 'hint';
+    try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; const parsedArchive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]') as unknown; if (Array.isArray(parsedArchive)) storedArchive = parsedArchive.filter(isWritingArchiveEntry); storedWorkspaces = readFirstValidJson(localStorage, [WORKSPACES_KEY, WORKSPACES_MIRROR_KEY], (value): value is WritingWorkspace[] => Array.isArray(value) && value.every(validWritingWorkspace)) ?? []; storedLanguage = localStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = localStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(localStorage.getItem(STAGE_KEY)); storedGuidance = localStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; } catch { /* Start clean when all local copies are unavailable. */ }
     try {draftBase.current=parseLocalValue(localStorage.getItem(DRAFT_KEY));historyBase.current=parseLocalValue(localStorage.getItem(HISTORY_KEY));archiveBase.current=parseLocalValue(localStorage.getItem(ARCHIVE_KEY));} catch { /* Corrupt originals remain untouched; guarded saves report conflicts. */ }
-    queueMicrotask(() => { if (storedDraft) setDraft(storedDraft); if (Array.isArray(storedHistory)) setHistory(storedHistory); setArchive(storedArchive); setUiLanguage(storedLanguage); setWorkspaceLayout(storedLayout); setHighlightIssues(storedHighlights); setStageState(storedStage ?? (storedDraft?.originalEssay ? 1 : 0)); setGuidanceMode(storedGuidance); setHydrated(true); });
+    const activeWorkspace = storedWorkspaces.find((workspace) => workspace.id === (storedDraft?.essayId ?? storedWorkspaces[0]?.id));
+    const activeDraft = storedDraft ?? activeWorkspace?.draft ?? defaultDraft;
+    const restoredWorkspace: WritingWorkspace = activeWorkspace ? { ...activeWorkspace, draft: activeDraft } : { id: activeDraft.essayId, draft: activeDraft, feedback: null, feedbackSource: { essayId: '', essay: '' }, feedbackHistory: [], previousRuleKeys: [], resolved: [], stage: storedStage ?? (activeDraft.originalEssay ? 1 : 0), externalFallbackMode: null, externalReply: '', externalPanelOpen: true, savedAt: new Date().toISOString() };
+    const restoredWorkspaces = matchesSavedFinal(restoredWorkspace, storedArchive)
+      ? storedWorkspaces.filter((workspace) => workspace.id !== restoredWorkspace.id)
+      : upsertWritingWorkspace(storedWorkspaces, restoredWorkspace);
+    workspacesRef.current = restoredWorkspaces;
+    queueMicrotask(() => { setDraft(activeDraft); setWorkspaces(restoredWorkspaces); if (Array.isArray(storedHistory)) setHistory(storedHistory); setArchive(storedArchive); setFeedback(restoredWorkspace.feedback); setFeedbackSource(restoredWorkspace.feedbackSource); setFeedbackHistory(restoredWorkspace.feedbackHistory); setPreviousRuleKeys(restoredWorkspace.previousRuleKeys); setResolved(restoredWorkspace.resolved); setExternalFallbackMode(restoredWorkspace.externalFallbackMode); setExternalReply(restoredWorkspace.externalReply); setExternalPanelOpen(restoredWorkspace.externalPanelOpen); setUiLanguage(storedLanguage); setWorkspaceLayout(storedLayout); setHighlightIssues(storedHighlights); setStageState(restoredWorkspace.stage); setGuidanceMode(storedGuidance); setHydrated(true); });
   }, []);
   useEffect(() => {
     if (!hydrated) return;
@@ -157,6 +223,20 @@ export default function WritingWorkbench() {
     } catch (error) { queueMicrotask(()=>{setSaveState('error');setMessage(error instanceof Error?error.message:'草稿保存失败。');}); }
     // Immediate event handlers are primary; this covers timer and programmatic updates.
   }, [draft, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    const current = currentWorkspaceSnapshot;
+    const next = matchesSavedFinal(current, archive)
+      ? workspacesRef.current.filter((workspace) => workspace.id !== current.id)
+      : upsertWritingWorkspace(workspacesRef.current, current);
+    try {
+      writeRedundantJson(localStorage, WORKSPACES_KEY, WORKSPACES_MIRROR_KEY, next);
+      if (canonicalJson(next) !== canonicalJson(workspacesRef.current)) setWorkspaces(next);
+      workspacesRef.current = next;
+    } catch (error) {
+      queueMicrotask(() => { setSaveState('error'); setMessage(error instanceof Error ? error.message : '进行中的修订未能保存。'); });
+    }
+  }, [currentWorkspaceSnapshot, archive, hydrated]);
   useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history) as ErrorHistoryEntry[];if(canonicalJson(merged)===canonicalJson(history))historyBase.current=merged;else queueMicrotask(()=>setHistory(current=>{historyBase.current=merged;return threeWayMerge(history,current,merged).merged as ErrorHistoryEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作历史未保存，原历史已保留。'));} }, [history, hydrated]);
   useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(localStorage,ARCHIVE_KEY,archiveBase.current,archive) as WritingArchiveEntry[];if(canonicalJson(merged)===canonicalJson(archive))archiveBase.current=merged;else queueMicrotask(()=>setArchive(current=>{archiveBase.current=merged;return threeWayMerge(archive,current,merged).merged as WritingArchiveEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作归档未保存，原归档已保留。'));} }, [archive, hydrated]);
   useEffect(() => {
@@ -298,11 +378,29 @@ export default function WritingWorkbench() {
     if (!previous) return;
     setFeedback(previous.feedback); setFeedbackSource(previous.source); setPreviousRuleKeys(previous.previousRuleKeys); setResolved(previous.resolved); changeStage(previous.stage); setHistory((current) => updateErrorHistory(current, draft.essayId, previous.previousRuleKeys)); setFeedbackHistory((current) => current.slice(0, -1)); setMessage('');
   }
+  function switchWritingWorkspace(workspaceId: string) {
+    if (!hydrated || loadingMode || workspaceId === draft.essayId) return;
+    if (!saveCurrentWritingWorkspace()) return;
+    const selected = workspacesRef.current.find((workspace) => workspace.id === workspaceId);
+    if (!selected) return;
+    try {
+      writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, selected.draft);
+      draftBase.current = selected.draft;
+    } catch (error) {
+      setSaveState('error'); setMessage(error instanceof Error ? error.message : '无法切换到这篇文章。'); return;
+    }
+    setDraft(selected.draft); setFeedback(selected.feedback); setFeedbackSource(selected.feedbackSource); setFeedbackHistory(selected.feedbackHistory);
+    setPreviousRuleKeys(selected.previousRuleKeys); setResolved(selected.resolved); changeStage(selected.stage);
+    setActiveIssueId(null); setExternalFallbackMode(selected.externalFallbackMode); setExternalReply(selected.externalReply); setExternalPanelOpen(selected.externalPanelOpen); setPromptCopied(false);
+    setCurrentArchiveId(null); setView('workbench'); editCount.current = 0; setMessage('');
+  }
   function startNewEssay(transfer = false) {
     if (!hydrated || loadingMode) return;
-    // Save the outgoing draft before replacing it, including short unfinished work.
+    // Keep the complete outgoing repair workspace before replacing it.
     let saved: DraftState;
     try {
+      const alreadyFinal = matchesSavedFinal(currentWorkspaceSnapshot, archive);
+      if (!alreadyFinal && !saveCurrentWritingWorkspace()) return;
       if (draft.question.trim() || draft.essay.trim() || draft.originalEssay.trim()) persistDraft(draft, true, true, true);
       const next = { ...defaultDraft, essayId: newEssayId(), task: draft.task, secondsLeft: draft.task === 'task2' ? 2400 : 1200 };
       saved = persistDraft(next, false, true, true);
@@ -328,7 +426,7 @@ export default function WritingWorkbench() {
   function archiveCurrentEssay() {
     if (draft.essay.trim().length < 80) { setMessage(uiLanguage === 'en' ? 'Write at least 80 characters before saving a final version.' : '至少写满 80 个字符后再保存最终稿。'); return; }
     const entry = createWritingArchiveEntry({ essayId: draft.essayId, title: archive.find((item) => item.essayId === draft.essayId)?.title, task: draft.task, question: draft.question, content: draft.essay, savedAt: new Date().toISOString(), bandEstimate: feedback?.bandEstimate });
-    setArchive((entries) => upsertWritingArchive(entries, entry)); setCurrentArchiveId(entry.id); void leaveFocusMode(); setView('reader'); setMessage(uiLanguage === 'en' ? 'Final version saved to your library.' : '最终稿已保存到文库。');
+    setArchive((entries) => upsertWritingArchive(entries, entry)); persistWritingWorkspaces(workspacesRef.current.filter((workspace) => workspace.id !== draft.essayId)); setCurrentArchiveId(entry.id); void leaveFocusMode(); setView('reader'); setMessage(uiLanguage === 'en' ? 'Final version saved to your library.' : '最终稿已保存到文库。');
   }
   function openArchivedEssay(entryId: string) { setCurrentArchiveId(entryId); setView('reader'); }
   async function deleteArchivedEssay(entry: WritingArchiveEntry) {
@@ -350,6 +448,7 @@ export default function WritingWorkbench() {
 
     <nav className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-2" aria-label={uiLanguage === 'en' ? 'Writing tool views' : '写作工具视图'}>{([{ id: 'workbench', icon: 'edit_note', en: 'Workbench', zh: '写作工作台' }, { id: 'library', icon: 'local_library', en: `Final library ${archive.length}`, zh: `最终稿文库 ${archive.length}` }, { id: 'reader', icon: 'menu_book', en: 'Reader', zh: '阅读器' }] as const).map((item) => <button key={item.id} type="button" onClick={() => item.id === 'reader' && !currentArchive ? setView('library') : setView(item.id)} className={`min-h-12 rounded-xl px-2 text-sm font-bold transition ${view === item.id ? 'bg-[#0e7490] text-white shadow-md' : 'text-[var(--muted-foreground)] hover:bg-[var(--background)]'}`}><span className="material-icons-round mr-1.5 align-middle text-lg">{item.icon}</span>{uiLanguage === 'en' ? item.en : item.zh}</button>)}</nav>
 
+    {view === 'workbench' && workspaces.length > 0 && <section data-writing-in-progress className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 sm:p-4"><div className="mb-3 flex flex-wrap items-baseline justify-between gap-2"><h2 className="text-sm font-bold">{c.inProgress} <span className="ml-1 rounded-full bg-[#e0f2fe] px-2 py-0.5 text-xs text-[#075985] dark:bg-[#16384c] dark:text-[#7dd3fc]">{workspaces.length}</span></h2><p className="text-xs text-[var(--muted-foreground)]">{c.continueRevision}</p></div><div className="flex gap-2 overflow-x-auto pb-1">{workspaces.map((workspace, index) => { const active = workspace.id === draft.essayId; return <button key={workspace.id} type="button" aria-current={active ? 'true' : undefined} aria-label={`${active ? c.currentEssay : c.continueRevision}: ${writingWorkspaceTitle(workspace, index)}`} disabled={Boolean(loadingMode)} onClick={() => switchWritingWorkspace(workspace.id)} className={`min-w-48 max-w-72 flex-1 rounded-xl border px-3 py-2.5 text-left transition disabled:opacity-60 ${active ? 'border-[#0e7490] bg-[#ecfeff] ring-1 ring-[#0e7490]/20 dark:bg-[#123543]' : 'border-[var(--card-border)] hover:border-[#67b9cc] hover:bg-[var(--background)]'}`}><span className="block truncate text-sm font-semibold">{writingWorkspaceTitle(workspace, index)}</span><span className="mt-1 block truncate text-xs text-[var(--muted-foreground)]">{active ? c.currentEssay : c.stages[workspace.stage]} · {taskLabel(workspace.draft.task)} · {countWords(workspace.draft.essay)} {c.words}</span></button>; })}</div></section>}
     {view === 'workbench' && <section ref={workspaceRef} data-writing-workspace data-focus-mode={focusMode} className={`grid gap-5 ${focusMode ? 'fixed inset-0 z-[100] !m-0 h-[100dvh] w-full max-w-none overflow-y-auto bg-[var(--background)] p-3 sm:p-5' : ''} ${workspaceLayout === 'split' ? `${focusMode ? 'xl:grid-rows-[auto_minmax(0,1fr)]' : 'xl:h-[calc(100dvh-20rem)]'} xl:min-h-[360px] xl:grid-cols-[minmax(0,1.3fr)_minmax(440px,1fr)] xl:overflow-hidden` : 'grid-cols-1'}`}>
       {focusMode && <div className="sticky top-0 z-20 col-span-full flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2"><span className="flex items-center gap-2 text-sm font-bold"><button type="button" onClick={() => commitDraft({ ...draft, timerStarted: !draft.timerStarted })} aria-label={draft.timerStarted ? c.pause : c.start} className="min-h-10 rounded-lg border border-[var(--card-border)] px-3">{draft.timerStarted ? c.pause : c.start}</button>{uiLanguage === 'en' ? 'Focused revision' : '专注修改'} <span className="ml-2 font-mono text-[var(--muted-foreground)]">{formatTime(draft.secondsLeft)}</span></span><div className="flex flex-wrap gap-2"><button type="button" onClick={archiveCurrentEssay} className="min-h-10 rounded-lg bg-[#147352] px-3 text-sm font-bold text-white">{uiLanguage === 'en' ? 'Save final version' : '保存最终稿'}</button><button type="button" onClick={() => void leaveFocusMode()} className="min-h-10 rounded-lg border border-[var(--card-border)] px-3 text-sm font-bold">{uiLanguage === 'en' ? 'Exit fullscreen' : '退出全屏'}</button></div></div>}
       <div className={`min-w-0 space-y-5 ${workspaceLayout === 'split' ? 'xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pr-1 xl:pb-6' : ''}`} data-scroll-region={workspaceLayout === 'split' ? true : undefined}>
