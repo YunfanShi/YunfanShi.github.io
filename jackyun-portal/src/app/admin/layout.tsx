@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import ClientLoggerBoot from '@/components/layout/client-logger-boot';
 import { AdminNavigation } from '@/components/admin/admin-navigation';
 import { redirect } from 'next/navigation';
 import { isAdminIdentity } from '@/lib/admin-auth';
@@ -21,7 +20,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const name = (claims.user_metadata?.full_name as string | undefined) ?? claims.email ?? '管理员';
   return (
     <div data-theme="dark" className="flex h-[100dvh] min-h-0 flex-col overflow-hidden admin-shell bg-[#101012] text-zinc-100">
-      <ClientLoggerBoot />
       <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-2 border-b border-white/10 bg-[#141416]/95 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur dark:border-white/10 dark:bg-[#141416]/95 sm:px-5 lg:h-16 lg:px-8 lg:py-0">
         <Link href="/admin" className="flex min-w-0 items-center gap-2 font-semibold tracking-tight sm:gap-3"><BrandLogo size={36} className="h-9 w-9 shrink-0" priority /><span className="truncate"><span className="sm:hidden">管理台</span><span className="hidden sm:inline">JackYun Admin</span></span></Link>
         <div className="flex shrink-0 items-center gap-2 text-sm text-zinc-400"><span className="hidden sm:inline">{name}</span><Link href="/dashboard" className="rounded-lg border border-white/15 px-3 py-1.5 font-medium hover:bg-white/5 dark:border-white/15 dark:hover:bg-white/10">返回工作台</Link></div>

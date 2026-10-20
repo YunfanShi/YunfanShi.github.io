@@ -10,7 +10,6 @@ import MiniPlayer from '@/components/modules/mini-player';
 import FlyingTimer from '@/components/modules/floating-timer';
 import SiteNotificationModal from '@/components/modules/site-notification-modal';
 import LanguageProvider from '@/components/language-provider';
-import ClientLoggerBoot from '@/components/layout/client-logger-boot';
 import { createClient } from '@/lib/supabase/server';
 import type { SidebarPreferences } from '@/actions/settings';
 import type { Language } from '@/lib/i18n';
@@ -120,7 +119,6 @@ export default async function PortalLayout({
   return (
     <AuthModeProvider signedIn={Boolean(user)} userId={user?.id ?? null}>
     <LanguageProvider initialLanguage={language} signedIn={Boolean(user)}>
-      <ClientLoggerBoot />
       <MobileViewport />
       <PagePreferences initialValue={pagePreferences} signedIn={Boolean(user)} />
       <CloudSettingsHydrator learning={learningPreferences} learningUpdatedAt={learningUpdatedAt} appearance={appearancePreferences} interfaceCustomization={interfaceCustomization} updatedAt={appearanceUpdatedAt} signedIn={Boolean(user)} />
