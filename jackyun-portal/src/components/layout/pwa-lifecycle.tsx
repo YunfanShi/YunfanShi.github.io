@@ -34,7 +34,7 @@ export default function PwaLifecycle() {
         if (registration.waiting && navigator.serviceWorker.controller) setWaitingWorker(registration.waiting);
         registration.addEventListener('updatefound', () => observeWorker(registration?.installing ?? null));
       } catch (error) {
-        console.error('[PWA] Service worker registration failed', error);
+        if (navigator.onLine) console.error('[PWA] Service worker registration failed', error);
       }
     };
 

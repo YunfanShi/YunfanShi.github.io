@@ -1,6 +1,7 @@
 const CACHE_PREFIX = 'jackyun-pwa';
-const CACHE_VERSION = 'v11';
+const CACHE_VERSION = 'v12';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
+const PREVIOUS_STATIC_CACHE = `${CACHE_PREFIX}-static-v11`;
 // Navigation entries survive worker updates; old immutable assets stay available for them.
 const NAVIGATION_CACHE = `${CACHE_PREFIX}-pages-v10`;
 const OWNER_CACHE = `${CACHE_PREFIX}-owner-v1`;
@@ -36,10 +37,10 @@ let cacheGeneration = 0;
 // Retain usable pages until explicit logout/account switch or bounded eviction.
 let ownerBinding = Promise.resolve();
 let warming = null;
-const PAGE_LIMIT = 160;
+const PAGE_LIMIT = 320;
 async function fetchPage(request, options = {}, timeoutMs = 2500) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try { return await fetch(request, { ...options, signal: controller.signal }); }
   finally { clearTimeout(timer); }
 }
@@ -109,7 +110,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== STATIC_CACHE && key !== NAVIGATION_CACHE && key !== OWNER_CACHE && key !== `${CACHE_PREFIX}-static-v10`).map((key) => caches.delete(key)));
+    await Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== STATIC_CACHE && key !== PREVIOUS_STATIC_CACHE && key !== NAVIGATION_CACHE && key !== OWNER_CACHE && key !== `${CACHE_PREFIX}-static-v10`).map((key) => caches.delete(key)));
     await self.clients.claim();
   })());
 });

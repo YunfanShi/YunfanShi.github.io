@@ -50,9 +50,9 @@ test('activation keeps current caches and account changes clear personal pages',
   assert.ok(!sw.stores.has('jackyun-pwa-pages-v10'));
 });
 test('offline page storage stays bounded while preserving the newest pages', async () => {
-  const sw = harness(); for (let index = 0; index < 170; index++) await sw.navigate(`/schedule?day=${index}`);
+  const sw = harness(); for (let index = 0; index < 330; index++) await sw.navigate(`/schedule?day=${index}`);
   const pages = sw.stores.get('jackyun-pwa-pages-v10')!;
-  assert.equal(pages.size, 160); assert.ok(pages.has('https://example.com/schedule?day=169')); assert.ok(!pages.has('https://example.com/schedule?day=0'));
+  assert.equal(pages.size, 320); assert.ok(pages.has('https://example.com/schedule?day=329')); assert.ok(!pages.has('https://example.com/schedule?day=0'));
 });
 
  test('Practice Timer shell and iframe both survive offline navigation', async () => {
