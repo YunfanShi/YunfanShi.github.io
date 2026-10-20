@@ -100,26 +100,54 @@ export async function getReaderBootstrap(): Promise<ReaderBootstrap> {
   const entitlementImportState = new Map((unlockedResult.data ?? []).map((row: { novel_id: string; reader_added_at: string | null }) => [row.novel_id, row.reader_added_at]));
   const unlockedIds = new Set(entitlementImportState.keys());
   const visibleRows = features.novel_store?.allowed ? (catalogResult.data ?? []) : (catalogResult.data ?? []).filter((row) => unlockedIds.has(row.id));
-  const authorizedPaths = visibleRows.flatMap((row) => [
-    ...(hasPlanAccess(plan, row.minimum_plan) || unlockedIds.has(row.id) ? [row.storage_path] : []),
-    ...(row.cover_path ? [row.cover_path] : []),
-  ]);
-  const links = await getNovelSignedLinks(admin.storage.from('novel-files'), authorizedPaths);
+  const bookPaths = visibleRows.flatMap((row) => {
+    const owned = unlockedIds.has(row.id);
+    const needsReaderImport = owned && !entitlementImportState.get(row.id);
+    return needsReaderImport && !row.chapters_ready && (hasPlanAccess(plan, row.minimum_plan) || owned) ? [row.storage_path] : [];
+  });
+  const coverPaths = visibleRows.flatMap((row) => row.cover_path ? [row.cover_path] : []);
+  const links = await getNovelSignedLinks(admin.storage.from('novel-files'), [...bookPaths, ...coverPaths]);
   const catalog = visibleRows.map((row) => {
     const owned = unlockedIds.has(row.id);
+    const needsReaderImport = owned && !entitlementImportState.get(row.id);
     const unlocked = hasPlanAccess(plan, row.minimum_plan) || owned;
     return {
       id: row.id, title: row.title, author: row.author, description: row.description, category: row.category ?? '未分类', tags: Array.isArray(row.tags) ? row.tags : [],
       language: row.language, minimumPlan: row.minimum_plan, originalFileName: row.original_file_name,
       fileSize: Number(row.file_size), featured: row.featured, publishedAt: row.published_at,
       owned, needsReaderImport: owned && !entitlementImportState.get(row.id), unlocked,
-      downloadUrl: unlocked ? links.get(row.storage_path) ?? null : null,
+      downloadUrl: needsReaderImport && unlocked && !row.chapters_ready ? links.get(row.storage_path) ?? null : null,
       coverUrl: row.cover_path ? links.get(row.cover_path) ?? null : null,
       contentRevision: Number(row.content_revision ?? 1), chaptersReady: Boolean(row.chapters_ready), contentUpdatedAt: row.content_updated_at ?? row.updated_at,
       coverUpdatedAt: row.cover_updated_at ?? null,
     } satisfies CatalogNovel;
   });
   return { signedIn, userId, plan, betaActive, features, catalog };
+}
+
+export async function getCatalogNovelDownloadUrl(novelId: string): Promise<string | null> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(novelId)) return null;
+  const { snapshot, admin } = await loadFeatureAccess();
+  if (!admin) return null;
+
+  const { data: novel, error: novelError } = await admin.from('novel_catalog')
+    .select('storage_path,minimum_plan').eq('id', novelId).eq('enabled', true).maybeSingle();
+  if (novelError) throw new Error('读取小说信息失败。');
+  if (!novel) return null;
+
+  let owned = false;
+  if (snapshot.userId) {
+    const { data: entitlement, error: entitlementError } = await admin.from('user_novel_entitlements')
+      .select('novel_id').eq('user_id', snapshot.userId).eq('novel_id', novelId).maybeSingle();
+    if (entitlementError) throw new Error('读取小说权益失败。');
+    owned = Boolean(entitlement);
+  }
+
+  if (!owned && !snapshot.features.novel_store?.allowed) return null;
+  if (!owned && !hasPlanAccess(snapshot.plan, novel.minimum_plan)) return null;
+
+  const links = await getNovelSignedLinks(admin.storage.from('novel-files'), [novel.storage_path]);
+  return links.get(novel.storage_path) ?? null;
 }
 
 const redemptionErrors: Record<string, string> = {
