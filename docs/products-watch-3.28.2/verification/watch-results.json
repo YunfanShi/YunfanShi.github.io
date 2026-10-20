@@ -1,0 +1,21 @@
+{
+  "version": "1.7.0-beta.1",
+  "versionCode": 11,
+  "bytes": 497221,
+  "oldBytes": 82134565,
+  "reductionPercent": 99.395,
+  "nativeLibraries": [],
+  "sha256": "388e5a568f71bcd3df43f4545a7989df0e3fd29ad9644d8b94e913673b2354c6",
+  "unitTests": 32,
+  "failures": 0,
+  "lintErrors": 0,
+  "lintWarnings": 38,
+  "physicalWatch": "not connected; physical installation not verified",
+  "certificateSha256": "13999b2f6572ad54168e8798d7b336cc543e63875b070c24eb682cb92cf30b6a",
+  "releaseUpgradeInstall": "passed on x86_64 emulator, same certificate as old APK",
+  "browserInstrumentation": "passed: native home, actual HTTPS text page, bookmarks, actual lightweight search results",
+  "notificationProcessExit": "passed: two class notifications after process exit",
+  "notificationFallback": "passed: one delivery despite repeated due checks",
+  "websitePwaTests": 9,
+  "releaseBrowserSmoke": "passed: actual minified Release native home and HTTPS text page"
+}
