@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.28.3', date: '2026-10-20', dateLabel: '2026 年 10 月 20 日', title: '雅思写作高亮编辑对齐修复', summary: '高亮跟随编辑框实际排版，输入时优先保持文字即时可见。', categories: ['稳定性'], accent: 'mint', highlights: ['编辑文字与高亮文字共享边框内的排版空间，并适配滚动条宽度。', '高亮结果延迟更新，计算期间显示 textarea 原生文字，避免输入位置与视觉文字分离。'] },
   { version: '3.28.2', date: '2026-10-20', dateLabel: '2026 年 10 月 20 日', title: '手表下载改为轻量通用包', summary: 'Watch 1.7.0 移除重型原生浏览器引擎，安装包约 0.5 MB，取消 CPU 架构分包。', categories: ['平台体验', '稳定性'], accent: 'blue', highlights: ['Products 只保留一个通用 APK 入口，无需选择 ARM32 或 ARM64。', '原生阅读浏览器支持轻量搜索、正文、链接和书签，明确标注 JavaScript 与视频等限制。', '保留通知、AI 与阅读器，沿用原测试签名。'] },
   { version: '3.28.1', date: '2026-10-20', dateLabel: '2026 年 10 月 20 日', title: 'Products 更新手表安装包', summary: '手表下载更新为包含上下课通知修复的 1.6.1，提供两种架构的微软云直链。', categories: ['平台体验', '稳定性'], accent: 'blue', highlights: ['Products 提供 ARM32 与 ARM64 下载，无需 GitHub 账号。', '展示系统闹钟、后台守护、2000 字 AI 输入、词典与独立浏览器功能。', '补充通知、精确闹钟和后台运行设置说明。'] },
   { version: '3.28.0', date: '2026-10-19', dateLabel: '2026 年 10 月 19 日', title: '离线页面与手表体验升级', summary: '扩大页面和资源预缓存，改进刷新恢复；手表配套支持 AI 词典和流式回答。', categories: ['平台体验', '稳定性'], accent: 'blue', highlights: ['后台准备常用页面，已保存页面不再因七天到期而删除，最多保留 160 个地址。', '页面脚本与样式一起缓存，更新时保留旧资源，断网可从已保存页面继续。', 'Watch 1.6.0 增加 2000 字输入、词典、独立 Gecko 浏览器与过期课程通知过滤。'] },
