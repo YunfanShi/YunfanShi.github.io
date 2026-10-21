@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { useLanguage } from '@/components/language-provider';
+import { Button } from '@/components/ui/button';
 import {CLOUD_STATE_APPLIED_EVENT,isSyncableStorageKey} from '@/lib/local-workspace';
 import {legacyStorageBridge} from '@/lib/sync/legacy-storage';
 import { legacyLanguageBridge } from '@/lib/legacy-i18n';
@@ -34,8 +35,10 @@ function loadLegacyHtml(src: string): Promise<string> {
 export default function LegacyFrame({ src, title = 'Legacy Page', userName, runtimeContext }: LegacyFrameProps) {
   const { lang } = useLanguage();
   const { signedIn } = useAuthMode();
+  const languageRef = useRef(lang);
   const [srcdoc, setSrcdoc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -72,7 +75,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
 
         // Inject a language bridge before page scripts so every legacy page uses
         // the same persisted language preference as the React portal.
-        html = html.replace(/<\/head>/i, `${legacyLanguageBridge(lang)}</head>`);
+        html = html.replace(/<\/head>/i, `${legacyLanguageBridge(languageRef.current)}</head>`);
 
         if (runtimeContext) {
           const contextScript = `<script>window.__JACKYUN_LEGACY_CONTEXT__=${JSON.stringify(runtimeContext).replace(/</g, '\\u003c')};</script>`;
@@ -146,7 +149,11 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
 <script>
 (function() {
   'use strict';
-  var interfaceLanguage = ${JSON.stringify(lang)};
+  var interfaceLanguage = ${JSON.stringify(languageRef.current)};
+  window.addEventListener('message', function(event) {
+    if (event.source !== window.parent || !event.data || event.data.type !== 'jackyun-language') return;
+    interfaceLanguage = event.data.language === 'en' ? 'en' : 'zh';
+  });
 
   // ═══════════════════════════════════════════
   // 1. localStorage 伪装 - 让所有 Key 检查通过
@@ -431,7 +438,13 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
 
     load();
     return () => { cancelled = true; };
-  }, [src, userName, lang, signedIn, runtimeContext]);
+  }, [src, userName, signedIn, runtimeContext, retryAttempt]);
+
+  useEffect(() => {
+    languageRef.current = lang;
+    const frame = iframeRef.current;
+    frame?.contentWindow?.postMessage({ type: 'jackyun-language', language: lang }, window.location.origin);
+  }, [lang]);
 
   useEffect(() => {
     const main = document.querySelector<HTMLElement>('[data-portal-main]');
@@ -465,16 +478,17 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full text-sm text-[var(--muted-foreground)]">
-        ⚠️ {error}
+      <div role="alert" className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm text-[var(--muted-foreground)]">
+        <p>页面加载失败：{error}</p>
+        <Button variant="outline" onClick={() => { setSrcdoc(null); setError(null); setRetryAttempt(value => value + 1); }}>重试加载页面</Button>
       </div>
     );
   }
 
   if (srcdoc === null) {
     return (
-      <div className="flex items-center justify-center h-full text-sm text-[var(--muted-foreground)]">
-        加载中...
+      <div role="status" aria-live="polite" className="flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">
+        正在加载页面…
       </div>
     );
   }
@@ -485,6 +499,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
         ref={iframeRef}
         srcDoc={srcdoc}
         title={title}
+        onLoad={() => iframeRef.current?.contentWindow?.postMessage({ type: 'jackyun-language', language: languageRef.current }, window.location.origin)}
         style={{ width: '100%', height: '100%', border: 'none' }}
         allow="autoplay; clipboard-read; clipboard-write"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation"

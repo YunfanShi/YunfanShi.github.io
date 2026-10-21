@@ -18,12 +18,12 @@ export function getDialogContainer(trigger: HTMLElement): HTMLElement {
   return themed && themed !== document.documentElement ? themed : document.body;
 }
 
-export function DialogContent({ className, children, portalContainer, ...props }: ComponentProps<typeof DialogPrimitive.Content> & { portalContainer?: HTMLElement | null }) {
+export function DialogContent({ className, children, portalContainer, closeLabel = "关闭对话框", closeDisabled = false, hideCloseButton = false, ...props }: ComponentProps<typeof DialogPrimitive.Content> & { portalContainer?: HTMLElement | null; closeLabel?: string; closeDisabled?: boolean; hideCloseButton?: boolean }) {
   return <DialogPrimitive.Portal container={portalContainer}>
     <DialogPrimitive.Overlay className="jy-dialog-overlay" />
     <DialogPrimitive.Content data-ui-dialog className={cn('jy-dialog-content', className)} {...props}>
       {children}
-      <DialogPrimitive.Close asChild><Button variant="ghost" size="icon" className="jy-dialog-close" aria-label="关闭对话框">×</Button></DialogPrimitive.Close>
+      {!hideCloseButton && <DialogPrimitive.Close asChild><Button variant="ghost" size="icon" className="jy-dialog-close" aria-label={closeLabel} disabled={closeDisabled}>×</Button></DialogPrimitive.Close>}
     </DialogPrimitive.Content>
   </DialogPrimitive.Portal>;
 }

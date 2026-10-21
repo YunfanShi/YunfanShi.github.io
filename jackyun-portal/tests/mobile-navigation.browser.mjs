@@ -22,11 +22,26 @@ try {
     await page.addStyleTag({ content: 'nextjs-portal { display: none !important; }' });
     await page.locator('[data-portal-main]').waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width}: page overflow`);
-    const nav = page.getByRole('navigation', { name: '快捷导航' });
+    // Target the responsive navigation instance directly; hydration can briefly
+    // leave the role locator pointing at its pre-layout accessibility snapshot.
+    const nav = page.locator('.portal-mobile-nav');
     if (width < 1024) {
       assert.equal(await nav.isVisible(), true);
+      // A visible locator can briefly report no layout box during route hydration.
+      // Wait for the fixed navigation and AI launcher to participate in layout
+      // before checking their relative positions.
+      await page.waitForFunction(() => {
+        const hasBox = (element) => {
+          if (!element) return false;
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        };
+        return hasBox(document.querySelector('.portal-mobile-nav')) && hasBox(document.querySelector('.portal-mobile-ai-launcher'));
+      });
       const navBox = await nav.boundingBox();
       const aiBox = await page.getByRole('button', { name: '打开 JackYun AI 悬浮窗' }).boundingBox();
+      assert.ok(navBox, `${width}: mobile navigation must have a layout box`);
+      assert.ok(aiBox, `${width}: mobile AI launcher must have a layout box`);
       assert.ok(aiBox.y + aiBox.height <= navBox.y, `${width}: AI overlaps navigation`);
       const mainBox = await page.locator('[data-portal-main]').boundingBox();
       assert.ok(mainBox.y + mainBox.height <= navBox.y, `${width}: content behind navigation`);

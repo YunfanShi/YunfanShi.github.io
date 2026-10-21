@@ -1,35 +1,45 @@
 'use client';
 
-import PagePreferencesPanel from '@/components/settings/page-preferences-panel';
-import OfflineSettingsPanel from '@/components/settings/offline-settings-panel';
-import WorkspaceIdleSettings from '@/components/settings/workspace-idle-settings';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import ProfileEditor from '@/components/settings/profile-editor';
-import ChangePasswordPanel from '@/components/admin/change-password-panel';
-import AiConfigPanel from '@/components/settings/ai-config-panel';
-import QuizLanguageSectionWrapper from '@/components/settings/quiz-language-section';
-import LoggerViewerWrapper from '@/components/settings/logger-viewer-wrapper';
-import DeleteAccountPanel from '@/components/settings/delete-account-panel';
-import SidebarPrefsPanel from '@/components/settings/sidebar-prefs-panel';
-import TtsConfigPanel from '@/components/settings/tts-config-panel';
-import LanguageSwitcher from '@/components/settings/language-switcher';
-import ExportDataPanel from '@/components/settings/export-data-panel';
-import BackupCenterPanel from '@/components/settings/backup-center-panel';
-import ScheduleBackupsPanel from '@/components/settings/schedule-backups-panel';
-import BugReportPanel from '@/components/settings/bug-report-panel';
-import CloudPreferencesPanel from '@/components/settings/cloud-preferences-panel';
-import CompanionSettingsPanel, { type CompanionDeviceView } from '@/components/settings/companion-settings-panel';
-import SyncCenterPanel from '@/components/settings/sync-center-panel';
+import dynamic from 'next/dynamic';
+import type { CompanionDeviceView } from '@/components/settings/companion-settings-panel';
 import type { SidebarPreferences } from '@/actions/settings';
 import { APP_VERSION } from '@/lib/utils';
-import AiQuotaCard, { type AiQuotaSummary } from '@/components/settings/ai-quota-card';
-import AiVisibilityControl from '@/components/settings/ai-visibility-control';
-import RedemptionCenter from '@/components/settings/redemption-center';
+import type { AiQuotaSummary } from '@/components/settings/ai-quota-card';
 import type { FeatureAccess } from '@/actions/reader';
 import BrandLogo from '@/components/brand-logo';
-import WatchSettingsPanel from '@/components/settings/watch-settings-panel';
-import AccountConnectionsPanel from '@/components/settings/account-connections-panel';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+
+function SettingsPanelLoading() {
+  return <div role="status" aria-live="polite" className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-5 text-sm text-[var(--muted-foreground)]">正在加载设置模块…</div>;
+}
+
+const PagePreferencesPanel = dynamic(() => import('@/components/settings/page-preferences-panel'), { loading: SettingsPanelLoading });
+const OfflineSettingsPanel = dynamic(() => import('@/components/settings/offline-settings-panel'), { loading: SettingsPanelLoading });
+const WorkspaceIdleSettings = dynamic(() => import('@/components/settings/workspace-idle-settings'), { loading: SettingsPanelLoading });
+const ProfileEditor = dynamic(() => import('@/components/settings/profile-editor'), { loading: SettingsPanelLoading });
+const ChangePasswordPanel = dynamic(() => import('@/components/admin/change-password-panel'), { loading: SettingsPanelLoading });
+const AiConfigPanel = dynamic(() => import('@/components/settings/ai-config-panel'), { loading: SettingsPanelLoading });
+const QuizLanguageSectionWrapper = dynamic(() => import('@/components/settings/quiz-language-section'), { loading: SettingsPanelLoading });
+const LoggerViewerWrapper = dynamic(() => import('@/components/settings/logger-viewer-wrapper'), { loading: SettingsPanelLoading });
+const DeleteAccountPanel = dynamic(() => import('@/components/settings/delete-account-panel'), { loading: SettingsPanelLoading });
+const SidebarPrefsPanel = dynamic(() => import('@/components/settings/sidebar-prefs-panel'), { loading: SettingsPanelLoading });
+const TtsConfigPanel = dynamic(() => import('@/components/settings/tts-config-panel'), { loading: SettingsPanelLoading });
+const LanguageSwitcher = dynamic(() => import('@/components/settings/language-switcher'), { loading: SettingsPanelLoading });
+const ExportDataPanel = dynamic(() => import('@/components/settings/export-data-panel'), { loading: SettingsPanelLoading });
+const BackupCenterPanel = dynamic(() => import('@/components/settings/backup-center-panel'), { loading: SettingsPanelLoading });
+const ScheduleBackupsPanel = dynamic(() => import('@/components/settings/schedule-backups-panel'), { loading: SettingsPanelLoading });
+const BugReportPanel = dynamic(() => import('@/components/settings/bug-report-panel'), { loading: SettingsPanelLoading });
+const CloudPreferencesPanel = dynamic(() => import('@/components/settings/cloud-preferences-panel'), { loading: SettingsPanelLoading });
+const CompanionSettingsPanel = dynamic(() => import('@/components/settings/companion-settings-panel'), { loading: SettingsPanelLoading });
+const SyncCenterPanel = dynamic(() => import('@/components/settings/sync-center-panel'), { loading: SettingsPanelLoading });
+const AiQuotaCard = dynamic(() => import('@/components/settings/ai-quota-card'), { loading: SettingsPanelLoading });
+const AiVisibilityControl = dynamic(() => import('@/components/settings/ai-visibility-control'), { loading: SettingsPanelLoading });
+const RedemptionCenter = dynamic(() => import('@/components/settings/redemption-center'), { loading: SettingsPanelLoading });
+const WatchSettingsPanel = dynamic(() => import('@/components/settings/watch-settings-panel'), { loading: SettingsPanelLoading });
+const AccountConnectionsPanel = dynamic(() => import('@/components/settings/account-connections-panel'), { loading: SettingsPanelLoading });
 
 const categories = [
   { id: 'general', label: '常规', icon: 'tune', keywords: '语言 时区 启动 通知' },
@@ -75,6 +85,11 @@ export default function SettingsContent(props: Props) {
   const redemptionVisible = props.redemptionAccess?.allowed === true;
   const [active, setActive] = useState<CategoryId>(() => categories.some((item) => item.id === props.initialSection) && (props.initialSection !== 'redemption' || redemptionVisible) ? props.initialSection as CategoryId : 'general');
   const [query, setQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const value = searchInputRef.current?.value ?? '';
+    if (value) setQuery(value);
+  }, []);
   function choose(id: CategoryId) { setActive(id); const url = new URL(location.href); url.searchParams.set('section', id); history.replaceState({}, '', url); }
   const visibleCategories = useMemo(() => { const needle = query.trim().toLowerCase(); return categories.filter((item) => (item.id !== 'redemption' || redemptionVisible) && (!needle || `${item.label} ${item.keywords}`.toLowerCase().includes(needle))); }, [query, redemptionVisible]);
   const settings = props.cloudSettings;
@@ -89,9 +104,9 @@ export default function SettingsContent(props: Props) {
           <span className="min-w-0 flex-1"><strong className="block text-sm">JackYun Products</strong><small className="mt-0.5 block text-xs text-[#a9abb3]">发现与安装产品</small></span>
           <span className="material-icons-round text-lg text-[#a9abb3] transition-transform group-hover:translate-x-0.5">arrow_outward</span>
         </a>
-        <label className="flex items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5"><span className="material-icons-round text-lg text-[var(--muted-foreground)]">search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索设置…" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
+        <label className="flex items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5"><span className="material-icons-round text-lg text-[var(--muted-foreground)]">search</span><Input ref={searchInputRef} aria-label="搜索设置" defaultValue="" onChange={(event) => setQuery(event.target.value)} placeholder="搜索设置…" className="min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none" /></label>
         <select aria-label="设置分类" value={active} onChange={(event) => choose(event.target.value as CategoryId)} className="mt-3 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 lg:hidden">{[...new Map([...(visibleCategories.some((item) => item.id === active) ? [] : categories.filter((item) => item.id === active && (item.id !== 'redemption' || redemptionVisible))), ...visibleCategories].map((item) => [item.id, item])).values()].map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
-        <p role="status" className="mt-2 text-xs text-[var(--muted-foreground)]">{query && `${visibleCategories.length} 个匹配分类`}</p><nav className="mt-3 hidden space-y-1 lg:block">{visibleCategories.map((item) => <button key={item.id} type="button" onClick={() => choose(item.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium ${active === item.id ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-[#174ea6]/50 dark:text-[#d2e3fc]' : 'text-[var(--foreground)] hover:bg-[var(--background)]'}`}><span className="material-icons-round shrink-0 text-lg">{item.icon}</span><span className="min-w-0 flex-1">{item.label}</span></button>)}</nav>
+        <p role="status" className="mt-2 text-xs text-[var(--muted-foreground)]">{query && `${visibleCategories.length} 个匹配分类`}</p><nav className="mt-3 hidden space-y-1 lg:block">{visibleCategories.map((item) => <Button key={item.id} type="button" variant="ghost" onClick={() => choose(item.id)} aria-pressed={active === item.id} className={`flex w-full justify-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium ${active === item.id ? 'bg-[#e8f0fe] text-[#174ea6] hover:bg-[#e8f0fe] dark:bg-[#174ea6]/50 dark:text-[#d2e3fc] dark:hover:bg-[#174ea6]/50' : 'text-[var(--foreground)] hover:bg-[var(--background)]'}`}><span className="material-icons-round shrink-0 text-lg">{item.icon}</span><span className="min-w-0 flex-1">{item.label}</span></Button>)}</nav>
       </aside>
       <main className="min-w-0 space-y-5">
         {active === 'pages' && <Panel title="各页面偏好" description="每个页面独立调整；保存后立即生效，并在登录后同步到云端。"><PagePreferencesPanel initialValue={settings.page_preferences || {}} learning={settings.learning_preferences || {}} companion={settings.companion_preferences || {}} /></Panel>}

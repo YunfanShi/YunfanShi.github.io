@@ -6,7 +6,7 @@ const require=createRequire(import.meta.url);const {chromium}=require(process.en
 const base=process.env.JACKYUN_TEST_URL||'http://127.0.0.1:3227';const out='artifacts/verification/cue-session-settings';await mkdir(out,{recursive:true});
 const seed=createEmptyScheduleState();seed.settings.tutorialSeenVersion=1;
 seed.cues=Array.from({length:10},(_,i)=>({id:`cue${i}`,subjectId:'math',subjectName:'数学',unit:'函数',subsection:'',type:'definition',prompt:`题号 ${i+1} 独立检索`,answer:'答题依据',markingPoints:[],intervalDays:0,easeFactor:2.5,streak:0,createdAt:'2026-10-13T04:00:00Z',updatedAt:'2026-10-13T04:00:00Z',status:'unclear'} as StudyCue));
-const browser=await chromium.launch({headless:true,channel:'msedge'});const results=[];
+const browser=await chromium.launch({headless:true,channel:process.env.JACKYUN_BROWSER_CHANNEL||'msedge'});const results=[];
 try {
   for(const automatic of [false,true]) {
     const context=await browser.newContext({viewport:{width:820,height:1180},hasTouch:true,timezoneId:'Asia/Shanghai'});

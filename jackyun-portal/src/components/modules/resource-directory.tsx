@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { LEARNING_RESOURCES, RESOURCE_CATEGORIES, type ResourceCategory } from '@/lib/learning-resources';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const COURSE_LABELS: Partial<Record<ResourceCategory, string>> = {
   igcse: 'IGCSE',
@@ -40,37 +42,34 @@ export default function ResourceDirectory() {
           <label className="mt-6 flex max-w-xl items-center gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 focus-within:border-[var(--brand)]">
             <span className="material-icons-round text-xl text-[var(--muted-foreground)]">search</span>
             <span className="sr-only">搜索学习资源</span>
-            <input
+            <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索网站、科目或用途…"
-              className="min-w-0 flex-1 bg-transparent text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
+              className="min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
             />
             {query && (
-              <button type="button" onClick={() => setQuery('')} aria-label="清除搜索" className="grid h-8 w-8 place-items-center rounded-full hover:bg-[var(--card-border)]">
+              <Button variant="ghost" size="icon" onClick={() => setQuery('')} aria-label="清除搜索" className="shrink-0 rounded-full">
                 <span className="material-icons-round text-lg">close</span>
-              </button>
+              </Button>
             )}
           </label>
         </div>
       </section>
 
-      <div className="mt-6 flex gap-2 overflow-x-auto pb-2" aria-label="资源分类">
+      <div className="mt-6 flex gap-2 overflow-x-auto pb-2" role="group" aria-label="资源分类">
         {RESOURCE_CATEGORIES.map((item) => (
-          <button
+          <Button
             key={item.id}
-            type="button"
+            size="sm"
+            variant={category === item.id ? 'default' : 'outline'}
             onClick={() => setCategory(item.id)}
             aria-pressed={category === item.id}
-            className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-              category === item.id
-                ? 'border-[var(--brand)] bg-[var(--brand)] text-white dark:text-[#202124]'
-                : 'border-[var(--card-border)] bg-[var(--card)] text-[var(--foreground)] hover:border-[var(--brand)]'
-            }`}
+            className="shrink-0 rounded-full"
           >
             <span className="material-icons-round text-lg">{item.icon}</span>
             {item.label}
-          </button>
+          </Button>
         ))}
       </div>
 

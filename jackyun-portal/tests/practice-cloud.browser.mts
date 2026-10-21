@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.ts';
+/* eslint-disable @typescript-eslint/no-explicit-any -- Browser fixture models the JavaScript timer payload at the HTTP boundary. */
 const require=createRequire(import.meta.url),{chromium}=require(process.env.JACKYUN_PLAYWRIGHT_PATH||'playwright');
 const seed=createEmptyScheduleState();seed.practiceSessions=[];seed.timetable={version:1,name:'Test',courses:[{id:'phy',name:'Physics',color:'#abcdef',kind:'class'}],terms:[],slots:[],events:[]};
 let live:any=null,saves=0,hold=false;const out='artifacts/verification/practice-cloud';mkdirSync(out,{recursive:true});

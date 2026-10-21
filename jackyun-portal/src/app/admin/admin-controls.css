@@ -1,0 +1,21 @@
+/* Keep admin controls easy to tap and predictable to focus on touch devices. */
+.admin-shell :is(button, [role="button"], summary),
+.admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+.admin-shell textarea,
+.admin-shell select {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+.admin-shell :is(button, [role="button"], summary, input, textarea, select):focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+  .admin-shell textarea,
+  .admin-shell select {
+    font-size: 16px;
+  }
+}

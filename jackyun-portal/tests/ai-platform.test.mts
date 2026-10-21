@@ -197,7 +197,8 @@ test('model operations include rich capabilities, web search, attribution, and s
   assert.match(panel, /给智能选择 AI 的详细说明/);
   assert.match(panel, /永久删除/);
   assert.match(workspace, /message\.routed \? 'Nex AGI: ' : '来自 '/);
-  assert.match(workspace, />联网<\/button>/);
+  assert.match(workspace, /aria-label="联网搜索"/);
+  assert.match(workspace, /<\/span>联网<\/Button>/);
 
   assert.equal(classifyAiModelFailure(402, 'Payment required'), 'billing');
   assert.equal(classifyAiModelFailure(401, 'invalid API key'), 'authentication');
@@ -272,7 +273,7 @@ test('settings cloud connection test is a bounded minimal probe', () => {
 });
 
 test('IELTS word lookup reserves enough output for always-thinking GLM models', () => {
-  const reading = readFileSync(new URL('../src/components/modules/ielts/reading-workbench.tsx', import.meta.url), 'utf8');
+  const reading = readFileSync(new URL('../src/components/modules/ielts/ai-reading-studio.tsx', import.meta.url), 'utf8');
   assert.match(reading, /maxTokens: 1600, noThinking: true/);
   assert.match(reading, /wordCount \* 3\), noThinking: true/);
   assert.match(reading, /stream: true, feature: 'reasoning'/);

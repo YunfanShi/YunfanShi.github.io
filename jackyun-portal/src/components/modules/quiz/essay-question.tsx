@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/input';
 
 interface EssayQuestionProps {
   userAnswer: string;
@@ -49,24 +51,24 @@ export default function EssayQuestion({
     <div>
       {!disabled && (
         <div className="space-y-3">
-          <textarea
+          <Textarea
             ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type your answer here... AI will grade your response."
             rows={5}
-            className="w-full resize-none rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[#4285F4] focus:ring-4 focus:ring-[#4285F4]/10 transition-all"
+            className="resize-none rounded-xl"
           />
           <div className="flex items-center gap-2">
-            <button
+            <Button
               onClick={handleSubmit}
               disabled={!text.trim()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#4285F4] text-white text-sm font-medium hover:bg-[#3367d6] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
+              className="px-4"
             >
               <span className="material-icons-round text-base">check</span>
               Submit Answer
-            </button>
+            </Button>
             <span className="text-xs text-[var(--muted-foreground)]">
               or <kbd className="px-1.5 py-0.5 rounded bg-[var(--background)] border border-[var(--card-border)] font-mono text-[10px]">⌘ + ↵</kbd>
             </span>

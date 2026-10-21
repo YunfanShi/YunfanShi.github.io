@@ -28,7 +28,9 @@ try{
     const card=page.locator('[data-code="JY-2102"]');await card.waitFor();
     assert.equal(await page.locator('#draft').evaluate(element=>element===document.activeElement),true,'errors never steal input focus');
     assert.ok((await card.locator('.message').textContent()).includes('本次修改尚未被云端确认'));
-    const box=await card.boundingBox();assert.ok(box.x>=0 && box.x+box.width<=width);assert.ok(box.y<50);
+    const box=await card.boundingBox();assert.ok(box.x>=0 && box.x+box.width<=width);assert.ok(box.y>=72,'error notices stay below the portal top bar');
+    await page.locator('#draft').click();
+    assert.equal(await page.locator('#draft').evaluate(element=>element===document.activeElement),true,'non-action areas of error notices let underlying controls receive clicks');
     await card.getByRole('button',{name:'复制日志',exact:true}).click();await card.getByRole('button',{name:'已复制'}).waitFor();
     const copied=await page.evaluate(()=>navigator.clipboard.readText());
     assert.match(copied,/JY-2102|test-request/);assert.match(copied,/SYNC_WRITE_FAILED/);assert.doesNotMatch(copied,/private-value/);

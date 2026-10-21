@@ -6,6 +6,8 @@ import { fetchSyncWithTimeout } from '@/lib/request-timeout';
 import { dateKey } from '@/lib/learning/timezone';
 import { advanceReviewSnapshot, reviewCompletion } from '@/lib/learning/review-queue';
 import type { ReviewSnapshot } from '@/types/review';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/input';
 
 const QUALITY_ACTIONS = [
   { quality: 1, label: '忘记了', color: '#d93025' },
@@ -111,7 +113,7 @@ export default function ReviewSession({ userId, initialSnapshot }: { userId: str
   if (!current) return <>{cards}<div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] px-6 py-12 text-center">
     <h2 className="text-xl font-semibold">{completion === 'complete' ? '今天的复习完成了' : '本批复习完成了'}</h2>
     <p className="mt-2 text-sm">{snapshot.pendingLocal ? '本机已记录，待同步。' : completion === 'more' ? `还有 ${snapshot.dueCount ?? '待复核'} 题等待复习。` : completion === 'complete' ? '已联网确认当前没有到期错题。' : '请联网复核剩余内容，当前结果尚未确认全部完成。'}</p>
-    {completion !== 'complete' && <button type="button" disabled={isPending || !cacheReady} onClick={() => void loadNext()} className="mt-4 min-h-11 rounded-xl border border-[var(--card-border)] px-4">{isPending ? '正在读取…' : completion === 'more' ? '加载下一批' : '复核剩余复习'}</button>}
+    {completion !== 'complete' && <Button type="button" variant="outline" busy={isPending} disabled={!cacheReady} onClick={() => void loadNext()} className="mt-4">{isPending ? '正在读取…' : completion === 'more' ? '加载下一批' : '复核剩余复习'}</Button>}
     {error && <p role="alert" className="mt-3">{error}</p>}
   </div></>;
 
@@ -122,7 +124,7 @@ export default function ReviewSession({ userId, initialSnapshot }: { userId: str
           <p className="text-xs font-semibold text-[#1a73e8]">{current.subject}</p>
           <p className="mt-1 text-xs text-[var(--muted-foreground)]">本批剩余 {items.length} 题 · 连续答对 {current.streak} 次</p>
         </div>
-        <button type="button" onClick={archiveCurrent} disabled={isPending || !cacheReady} className="text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)]">暂不复习</button>
+        <Button type="button" variant="ghost" busy={isPending} disabled={!cacheReady} onClick={archiveCurrent} className="text-xs">暂不复习</Button>
       </div>
 
       <div className="space-y-5 p-5 sm:p-7">
@@ -140,33 +142,35 @@ export default function ReviewSession({ userId, initialSnapshot }: { userId: str
 
         <label className="block">
           <span className="text-xs font-semibold text-[var(--muted-foreground)]">重新作答</span>
-          <textarea
+          <Textarea
             value={answer}
             onChange={(event) => { markStarted(); setAnswer(event.target.value); }}
             rows={4}
             placeholder="先写出你的答案，再查看解析"
-            className="mt-2 w-full resize-y rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm outline-none focus:border-[#1a73e8]"
+            className="mt-2 min-h-24 w-full resize-y rounded-xl bg-[var(--background)] px-4 py-3 text-sm focus:border-[#1a73e8]"
           />
         </label>
 
         {!revealed ? (
-          <button type="button" onClick={() => { markStarted(); setRevealed(true); }} className="w-full rounded-xl border border-[#1a73e8] py-3 text-sm font-semibold text-[#1a73e8]">查看答案并自评</button>
+          <Button type="button" variant="outline" onClick={() => { markStarted(); setRevealed(true); }} className="w-full border-[#1a73e8] py-3 text-sm font-semibold text-[#1a73e8]">查看答案并自评</Button>
         ) : (
           <div className="space-y-4 rounded-2xl bg-[var(--background)] p-4">
             <div><p className="text-xs font-semibold text-[#188038]">参考答案</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6">{current.correct_answer}</p></div>
             {current.explanation && <div><p className="text-xs font-semibold text-[var(--muted-foreground)]">解析</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6">{current.explanation}</p></div>}
             <div className="grid gap-2 sm:grid-cols-3">
               {QUALITY_ACTIONS.map((action) => (
-                <button
+                <Button
                   key={action.quality}
                   type="button"
-                  disabled={isPending || !cacheReady}
+                  busy={isPending}
+                  disabled={!cacheReady}
                   onClick={() => finishCurrent(action.quality)}
                   className="rounded-xl border px-3 py-3 text-sm font-semibold disabled:opacity-50"
+                  variant="outline"
                   style={{ borderColor: action.color, color: action.color }}
                 >
                   {action.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>

@@ -7,6 +7,7 @@ import * as didaSchedule from '../src/lib/integrations/dida-schedule.ts';
 import * as refs from '../src/lib/integrations/dida-task-reference.ts';
 import { digest, validateOperation } from '../src/lib/watch/policy.ts';
 import { mergeWatchDidaTasks } from '../src/lib/watch/snapshot.ts';
+/* eslint-disable @typescript-eslint/no-unsafe-function-type -- Tests load transpiled modules through a deliberately dynamic VM boundary. */
 const require=createRequire(import.meta.url),ts=require('typescript');
 const account='11111111-1111-4111-8111-111111111111';
 const operation='22222222-2222-4222-8222-222222222222';

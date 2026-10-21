@@ -1,0 +1,22 @@
+{
+  "browser": "155.0.4283.45",
+  "checks": [
+    "Text/time drafts and outputs survive unmount; manual keyboard tabs; hidden clock interval removed; invalid range handled",
+    "Study calculator session inputs survive switching",
+    "Mocked clipboard denial retains input; duplicate read blocked; edited/hidden stale responses ignored; native confirmation cancel preserves text",
+    "Markdown drafts retained; export chunk fetched only on download; real generated DOCX contains expected paragraphs and table",
+    "Three root themes, modal focus trap/restore, Escape, global shortcut suppression",
+    "Nested-theme and fullscreen Portal container",
+    "Fresh 390px mobile/touch context, visible 44px targets, tap switching, 16px entry, reduced motion; emulation only",
+    "Already loaded panels remain usable offline without clearing session drafts",
+    "Anonymous admin access still redirected",
+    "Cold offline chunk failure stays inside the panel; other drafts survive; online retry loads a fresh lazy wrapper"
+  ],
+  "pageErrors": [],
+  "limits": [
+    "Anonymous local mode with placeholder environment",
+    "Clipboard error/race cases mocked; DOCX download real",
+    "No live backend sync or physical Android/iOS validation",
+    "Offline test covers already loaded modules, not first offline chunk download"
+  ]
+}

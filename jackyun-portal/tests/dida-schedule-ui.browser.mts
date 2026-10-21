@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { harness } from './helpers/dida-schedule-harness.mts';
+/* eslint-disable @typescript-eslint/no-explicit-any -- Browser fixture loads isolated transpiled modules dynamically. */
 const require=createRequire(import.meta.url);const ts=require('typescript');const {chromium}=require(process.env.JACKYUN_PLAYWRIGHT_PATH||'playwright');
 const out='artifacts/verification/dida-schedule';await mkdir(out,{recursive:true});
 const modules:Record<string,string>={};
@@ -21,7 +22,7 @@ try {
   });
   await page.goto('http://schedule.test/');
   await page.evaluate(sources=>{
-   const cache:Record<string,{exports:unknown}>={};const load=(name:string):any=>{if(cache[name])return cache[name].exports;const module={exports:{}};cache[name]=module;new Function('module','exports','require','process',sources[name])(module,module.exports,load,{env:{NODE_ENV:'development'}});return module.exports;};
+   const cache:Record<string,{exports:unknown}>={};const load=(name:string):any=>{if(cache[name])return cache[name].exports;const moduleRecord={exports:{}};cache[name]=moduleRecord;new Function('module','exports','require','process',sources[name])(moduleRecord,moduleRecord.exports,load,{env:{NODE_ENV:'development'}});return moduleRecord.exports;};
    const React=load('react');const root=load('react-dom/client').createRoot(document.getElementById('root'));root.render(React.createElement(load('component').default,{accounts:[{id:'11111111-1111-4111-8111-111111111111',displayName:'Test Dida',provider:'dida365',status:'active'}],selectedDate:'2026-10-14',onTaskCount:(count:number)=>document.getElementById('root')!.setAttribute('data-pending-count',String(count))}));
   },modules);
   const complete=page.getByRole('button',{name:'完成 Own task',exact:true});await complete.waitFor();assert.equal(await page.getByRole('button',{name:'完成 Parent plan',exact:true}).isDisabled(),true);assert.equal(await page.getByText('Pending checklist item',{exact:true}).count(),1);assert.equal(await page.getByText('Hidden completed checklist item',{exact:true}).count(),0);assert.equal(await page.getByText('Hidden completed task',{exact:true}).count(),0);assert.equal(await complete.locator('..').getAttribute('data-depth'),'1');assert.equal(await page.locator('#root').getAttribute('data-pending-count'),'1');await complete.click();

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { AnalyzedQuestion, SUBJECT_CATEGORIES } from '@/types/quiz';
 import { getSelectedSubject, saveSelectedSubject } from '@/lib/quiz/storage';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface SubjectSelectorProps {
   questions: AnalyzedQuestion[];
@@ -64,18 +66,17 @@ export default function SubjectSelector({ questions, onStart, onCancel }: Subjec
         <p className="text-sm font-medium text-[var(--foreground)] mb-2">Select Subject Category</p>
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(categoryIcons).map(([key, icon]) => (
-            <button
+            <Button
+              type="button"
+              variant={selectedCategory === key ? 'default' : 'outline'}
               key={key}
+              aria-pressed={selectedCategory === key}
               onClick={() => {
                 setSelectedCategory(key);
                 setSelectedSubject('');
                 setIsCustom(false);
               }}
-              className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                selectedCategory === key
-                  ? 'text-white shadow-md'
-                  : 'border-[var(--card-border)] text-[var(--foreground)] hover:border-[var(--card-border)]/60'
-              }`}
+              className="w-full justify-start p-3"
               style={selectedCategory === key
                 ? { backgroundColor: categoryColors[key], borderColor: categoryColors[key] }
                 : {}
@@ -83,19 +84,18 @@ export default function SubjectSelector({ questions, onStart, onCancel }: Subjec
             >
               <span className="material-icons-round text-base">{icon}</span>
               {key.toUpperCase()}
-            </button>
+            </Button>
           ))}
-          <button
+          <Button
+            type="button"
+            variant={isCustom ? 'default' : 'outline'}
+            aria-pressed={isCustom}
             onClick={() => { setIsCustom(true); setSelectedCategory(''); setSelectedSubject(''); }}
-            className={`flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-              isCustom
-                ? 'border-[#6366F1] bg-[#6366F1] text-white shadow-md'
-                : 'border-[var(--card-border)] text-[var(--foreground)] hover:border-[var(--card-border)]/60'
-            }`}
+            className="w-full justify-start p-3"
           >
             <span className="material-icons-round text-base">edit</span>
             Custom
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -105,20 +105,19 @@ export default function SubjectSelector({ questions, onStart, onCancel }: Subjec
           <p className="text-sm font-medium text-[var(--foreground)] mb-2">Select Subject</p>
           <div className="space-y-1 max-h-[300px] overflow-y-auto">
             {SUBJECT_CATEGORIES[selectedCategory]?.map(subject => (
-              <button
+              <Button
+                type="button"
+                variant={selectedSubject === subject ? 'default' : 'ghost'}
                 key={subject}
+                aria-pressed={selectedSubject === subject}
                 onClick={() => setSelectedSubject(subject)}
-                className={`w-full flex items-center gap-2 p-2.5 rounded-lg text-left text-sm transition-all ${
-                  selectedSubject === subject
-                    ? 'bg-[#4285F4]/10 text-[#4285F4] font-medium border border-[#4285F4]/20'
-                    : 'text-[var(--foreground)] hover:bg-[var(--background)] border border-transparent'
-                }`}
+                className="w-full justify-start text-left"
               >
                 <span className="material-icons-round text-sm shrink-0">
                   {selectedSubject === subject ? 'radio_button_checked' : 'radio_button_unchecked'}
                 </span>
                 <span className="truncate">{subject}</span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -128,12 +127,12 @@ export default function SubjectSelector({ questions, onStart, onCancel }: Subjec
       {isCustom && (
         <div className="animate-fade-in">
           <p className="text-sm font-medium text-[var(--foreground)] mb-2">Enter Subject Name</p>
-          <input
+          <Input
             type="text"
             value={customSubject}
             onChange={(e) => setCustomSubject(e.target.value)}
             placeholder="e.g., Chemistry Paper 4, Math Mock Exam..."
-            className="w-full rounded-xl border-2 border-[var(--card-border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[#6366F1] focus:ring-4 focus:ring-[#6366F1]/10 transition-all"
+            className="rounded-xl"
             autoFocus
           />
         </div>
@@ -141,19 +140,19 @@ export default function SubjectSelector({ questions, onStart, onCancel }: Subjec
 
       {/* Actions */}
       <div className="flex gap-3 pt-2">
-        <button
+        <Button variant="outline"
           onClick={onCancel}
-          className="flex-1 py-3 rounded-xl border-2 border-[var(--card-border)] text-[var(--foreground)] font-medium text-sm hover:bg-[var(--background)] active:scale-[0.98] transition-all"
+          className="flex-1"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleStart}
           disabled={!isCustom && !selectedSubject || isCustom && !customSubject.trim()}
-          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#4285F4] to-[#34A853] text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all shadow-md hover:shadow-lg"
+          className="flex-1 font-semibold shadow-md"
         >
           Start Quiz
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { validateSession } from '../src/lib/learning/practice-timer.ts';
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-function-type -- VM fixture mirrors untyped browser bridge globals. */
 const require=createRequire(import.meta.url),ts=require('typescript');
 test('Schedule bridge keeps offline checkpoints private and only exits on confirmed other owner',async()=>{
  const effects:Function[]=[],messages:any[]=[],handlers:Record<string,Function>={},storage=new Map<string,string>();let now=1000,status=503,owner='device',writes=0;

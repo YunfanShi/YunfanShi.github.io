@@ -20,10 +20,17 @@ try {
   });
   const page = await context.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto(base + '/tools');
+  await context.route('**/_next/static/chunks/**', async route => {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    await route.continue().catch(() => {});
+  });
+  await page.goto(base + '/tools', { waitUntil: 'domcontentloaded' });
   const panel = () => page.getByRole('tabpanel');
   const tab = name => page.getByRole('tab', { name, exact: true });
   await page.getByLabel('输入文本', { exact: true }).fill('JackYun 草稿');
+  await page.getByText('10 字符', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('输入文本', { exact: true }).inputValue(), 'JackYun 草稿', 'text typed before client chunks hydrate is preserved');
+  await context.unroute('**/_next/static/chunks/**');
   await page.getByRole('button', { name: '转大写', exact: true }).click();
   assert.equal(await page.getByLabel('输出结果').inputValue(), 'JACKYUN 草稿');
   await tab('文本工具').focus(); await page.keyboard.press('ArrowRight');
@@ -82,8 +89,13 @@ try {
   pass('Mocked clipboard denial retains input; duplicate read blocked; edited/hidden stale responses ignored; native confirmation cancel preserves text');
 
   const exportChunks = [];
-  for (const file of await readdir('.next/static/chunks', { recursive: true })) {
-    if (file.endsWith('.js') && (await readFile(`.next/static/chunks/${file}`, 'utf8')).includes('由 Markdown 转换生成的 Word 文档')) exportChunks.push('/_next/static/chunks/' + file.replaceAll('\\', '/'));
+  const serverHtml = await (await fetch(base + '/tools')).text();
+  const chunkDirectory = serverHtml.includes('turbopack') ? '.next/dev/static/chunks' : '.next/static/chunks';
+  const runtimeChunks = await readdir(chunkDirectory, { recursive: true });
+  for (const file of runtimeChunks) {
+    if (!file.endsWith('.js')) continue;
+    const source = await readFile(`${chunkDirectory}/${file}`, 'utf8');
+    if (source.includes('由 Markdown 转换生成的 Word 文档')) exportChunks.push('/_next/static/chunks/' + file.replaceAll('\\', '/'));
   }
   assert.ok(exportChunks.length > 0, 'Find the actual browser export chunk for the lazy-load assertion');
   await tab('Markdown 转 Word').click();
@@ -145,7 +157,11 @@ try {
   const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
   const mobilePage = await mobileContext.newPage();
   await mobilePage.goto(base + '/tools');
+  await mobilePage.getByRole('tab', { name: '剪贴板', exact: true }).tap();
+  await mobilePage.getByLabel('文本内容', { exact: true }).waitFor();
+  await mobilePage.getByRole('tab', { name: '文本工具', exact: true }).tap();
   await mobilePage.getByLabel('输入文本', { exact: true }).fill('移动端草稿');
+  await mobilePage.getByText('5 字符', { exact: true }).waitFor();
   for (const trigger of await mobilePage.getByRole('tab').all()) {
     const box = await trigger.boundingBox();
     assert.ok(box.height >= 44 && box.x >= 0 && box.x + box.width <= 390);
@@ -156,6 +172,7 @@ try {
   await mobilePage.getByRole('tab', { name: '剪贴板', exact: true }).tap();
   await mobilePage.getByLabel('文本内容', { exact: true }).waitFor();
   await mobilePage.getByRole('tab', { name: '文本工具', exact: true }).tap();
+  await mobilePage.waitForFunction(() => document.querySelector('[role="tab"][aria-selected="true"]')?.textContent?.includes('文本工具'));
   assert.equal(await mobilePage.getByLabel('输入文本', { exact: true }).inputValue(), '移动端草稿');
   await mobilePage.screenshot({ path: `${out}/tools-mobile.png`, fullPage: true });
   await mobileContext.close();
@@ -170,18 +187,33 @@ try {
   pass('Anonymous admin access still redirected');
   const cold = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
   const coldPage = await cold.newPage();
+  const timeChunk = runtimeChunks.find(file => file.endsWith('.js') && file.includes('time-sync') && file.includes('tsx'));
+  assert.ok(timeChunk, 'Find the actual lazy time-sync chunk for the retry regression');
+  let allowTimeChunk = false;
+  await coldPage.route(`**/_next/static/chunks/${timeChunk.replaceAll('\\', '/')}**`, async route => {
+    if (!allowTimeChunk) await route.abort('failed');
+    else await route.continue();
+  });
+  // Dismiss unrelated background notices as a user would so the lazy-panel
+  // retry flow only observes the targeted chunk failure.
+  const closeNotice = coldPage.getByRole('button', { name: '关闭错误提示', exact: true }).first();
+  await coldPage.addLocatorHandler(closeNotice, async () => { await closeNotice.click(); });
   await coldPage.goto(base + '/tools');
+  await coldPage.getByRole('button', { name: '使用说明', exact: true }).click();
+  await coldPage.getByRole('dialog', { name: '工具箱使用说明' }).waitFor();
+  await coldPage.keyboard.press('Escape');
   await coldPage.getByLabel('输入文本', { exact: true }).fill('加载失败也保留');
-  await cold.setOffline(true);
   await coldPage.getByRole('tab', { name: '时间同步', exact: true }).click();
-  await coldPage.getByRole('button', { name: '重试加载', exact: true }).waitFor();
+  const retryPanel = coldPage.getByRole('tabpanel', { name: '时间同步' }).getByRole('button', { name: '重试加载', exact: true });
+  await coldPage.removeLocatorHandler(closeNotice);
+  await retryPanel.waitFor();
   await coldPage.getByRole('tab', { name: '文本工具', exact: true }).click();
   assert.equal(await coldPage.getByLabel('输入文本', { exact: true }).inputValue(), '加载失败也保留');
   await coldPage.getByRole('tab', { name: '时间同步', exact: true }).click();
-  await cold.setOffline(false);
-  await coldPage.getByRole('button', { name: '重试加载', exact: true }).click();
+  allowTimeChunk = true;
+  await retryPanel.click();
   await coldPage.getByLabel('Unix 时间戳', { exact: true }).waitFor();
-  pass('Cold offline chunk failure stays inside the panel; other drafts survive; online retry loads a fresh lazy wrapper');
+  pass('Targeted lazy chunk failure stays inside the panel; other drafts survive; retry loads a fresh wrapper');
   await cold.close();
   assert.deepEqual(errors, []);
   await writeFile(`${out}/results.json`, JSON.stringify({ browser: browser.version(), checks, pageErrors: errors, limits: ['Anonymous local mode with placeholder environment', 'Clipboard error/race cases mocked; DOCX download real', 'No live backend sync or physical Android/iOS validation', 'Offline test covers already loaded modules, not first offline chunk download'] }, null, 2));

@@ -149,33 +149,33 @@ export default function IeltsCycleBoard() {
           <div className="flex items-start justify-between gap-2"><span className="material-icons-round text-xl text-[#0f766e]">{module.icon}</span>{row.carried ? <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900 dark:bg-amber-950 dark:text-amber-100">顺延</span> : null}</div>
           <h3 className="mt-3 font-bold">{module.label}</h3>
           <p className="mt-1 min-h-16 text-xs leading-5 text-[var(--muted-foreground)]">{module.purpose}</p>
-          <button type="button" onClick={() => setOpenModule(openModule === module.id ? null : module.id)} className="mt-3 w-full rounded-xl border border-[var(--card-border)] px-3 py-2 text-sm font-semibold">{statusLabel} · 记录</button>
+          <button type="button" aria-expanded={openModule === module.id} aria-controls={openModule === module.id ? 'ielts-cycle-module-editor' : undefined} onClick={() => setOpenModule(openModule === module.id ? null : module.id)} className="mt-3 min-h-11 w-full rounded-xl border border-[var(--card-border)] px-3 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] focus-visible:outline-offset-2">{statusLabel} · 记录</button>
         </article>;
       })}
     </div>
 
-    {openModule ? <div className="mt-5 rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-4 sm:p-5">
+    {openModule ? <div id="ielts-cycle-module-editor" className="mt-5 rounded-2xl border border-[var(--card-border)] bg-[var(--background)] p-4 sm:p-5">
       {(() => {
         const meta = MODULES.find((item) => item.id === openModule)!;
         const row = cycle.modules[openModule];
         return <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold">{meta.label}模块记录</h3><div className="flex gap-2">{(['todo', 'active', 'done'] as const).map((status) => <button key={status} type="button" aria-pressed={row.status === status} onClick={() => updateModule(openModule, { status, carried: status === 'done' ? false : row.carried })} className={`rounded-lg px-3 py-2 text-xs font-bold ${row.status === status ? 'bg-[#0f766e] text-white' : 'border border-[var(--card-border)]'}`}>{status === 'todo' ? '未开始' : status === 'active' ? '进行中' : '已完成'}</button>)}</div></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold">{meta.label}模块记录</h3><div role="group" aria-label={`${meta.label}模块状态`} className="flex flex-wrap gap-2">{(['todo', 'active', 'done'] as const).map((status) => <button key={status} type="button" aria-pressed={row.status === status} onClick={() => updateModule(openModule, { status, carried: status === 'done' ? false : row.carried })} className={`min-h-11 rounded-lg px-3 py-2 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] focus-visible:outline-offset-2 ${row.status === status ? 'bg-[#0f766e] text-white' : 'border border-[var(--card-border)]'}`}>{status === 'todo' ? '未开始' : status === 'active' ? '进行中' : '已完成'}</button>)}</div></div>
           <div className="grid gap-4 md:grid-cols-3">
             <label className="text-sm font-semibold">雅思哥材料 / 题目<textarea value={row.material} maxLength={200} onChange={(event) => updateModule(openModule, { material: event.target.value })} className="mt-2 min-h-24 w-full rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3 font-normal outline-none focus:border-[#0f766e]" placeholder="例如：听力 Test 3；当季口语 Part 2；Task 2 教育题" /></label>
             <label className="text-sm font-semibold">本次证据 / 具体问题<textarea value={row.note} maxLength={500} onChange={(event) => updateModule(openModule, { note: event.target.value })} className="mt-2 min-h-24 w-full rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3 font-normal outline-none focus:border-[#0f766e]" placeholder="记录分数、用时、错因，或写作/口语的主要问题" /></label>
             <label className="text-sm font-semibold">下一次只做什么<textarea value={row.nextStep} maxLength={500} onChange={(event) => updateModule(openModule, { nextStep: event.target.value })} className="mt-2 min-h-24 w-full rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3 font-normal outline-none focus:border-[#0f766e]" placeholder="只写一个可执行动作；没有完成就继续本模块" /></label>
           </div>
-          {openModule === 'writing' ? <Link prefetch={false} href="/ielts-writing" className="inline-flex rounded-xl bg-[#0f766e] px-4 py-2.5 text-sm font-bold text-white">打开写作持续修改工具</Link> : <p className="text-xs text-[var(--muted-foreground)]">真题和录音在雅思哥完成；这里不复制题库，只保留训练证据。</p>}
+          {openModule === 'writing' ? <Link prefetch={false} href="/ielts-writing" className="inline-flex min-h-11 items-center rounded-xl bg-[#0f766e] px-4 py-2.5 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] focus-visible:outline-offset-2">打开写作持续修改工具</Link> : <p className="text-xs text-[var(--muted-foreground)]">真题和录音在雅思哥完成；这里不复制题库，只保留训练证据。</p>}
         </div>;
       })()}
     </div> : null}
 
     <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--card-border)] pt-5">
       <p className="text-xs text-[var(--muted-foreground)]">本轮开始于 {cycle.startedAt.slice(0, 10)}。建议五项完成后再开下一轮；确实来不及时可顺延。</p>
-      <button type="button" onClick={beginNextCycle} className="rounded-xl border border-[var(--card-border)] px-4 py-2.5 text-sm font-bold">开始下一轮</button>
+      <button type="button" onClick={beginNextCycle} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 py-2.5 text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] focus-visible:outline-offset-2">开始下一轮</button>
     </div>
     {history.length ? <details className="mt-4 rounded-2xl border border-[var(--card-border)] p-4">
-      <summary className="cursor-pointer text-sm font-bold">查看以前各轮记录（{history.length}）</summary>
+      <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] focus-visible:outline-offset-2">查看以前各轮记录（{history.length}）</summary>
       <div className="mt-4 space-y-3">{[...history].reverse().slice(0, 6).map((saved) => <article key={`${saved.cycle}-${saved.startedAt}`} className="rounded-xl bg-[var(--background)] p-3 text-sm"><div className="flex flex-wrap justify-between gap-2"><strong>第 {saved.cycle} 轮</strong><span className="text-xs text-[var(--muted-foreground)]">{saved.startedAt.slice(0, 10)} · {MODULES.filter(({ id }) => saved.modules[id].status === 'done').length}/5 完成</span></div><ul className="mt-2 space-y-1 text-xs text-[var(--muted-foreground)]">{MODULES.map(({ id, label }) => { const item = saved.modules[id]; return <li key={id}>· {label}：{item.material || item.note || item.nextStep || '无记录'}</li>; })}</ul></article>)}</div>
     </details> : null}
     {notice ? <p role="status" className="mt-3 rounded-xl bg-teal-50 px-4 py-3 text-sm text-teal-900 dark:bg-teal-950 dark:text-teal-100">{notice}</p> : null}

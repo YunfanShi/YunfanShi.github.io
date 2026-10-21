@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+
 interface TrueFalseProps {
   selectedAnswer: string;
   onSelect: (answer: string) => void;
@@ -47,12 +49,14 @@ export default function TrueFalse({
         const isCorrectAnswer = correctAnswer.toLowerCase().includes(opt.toLowerCase());
 
         return (
-          <button
+          <Button
+            variant="outline"
             key={opt}
             data-quiz-option="true"
+            aria-pressed={isSelected}
             onClick={() => !disabled && onSelect(opt)}
             disabled={disabled}
-            className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${
+            className={`h-auto min-h-14 border-2 p-4 text-sm font-medium transition-all duration-200 ${
               getButtonStyle(opt)
             } ${disabled ? 'cursor-default' : 'cursor-pointer active:scale-[0.97]'}`}
           >
@@ -68,7 +72,7 @@ export default function TrueFalse({
             {showResult && isSelected && !isCorrect && (
               <span className="material-icons-round text-[#EA4335] text-sm">cancel</span>
             )}
-          </button>
+          </Button>
         );
       })}
     </div>

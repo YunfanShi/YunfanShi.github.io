@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface FillBlankProps {
   userAnswer: string;
@@ -50,24 +52,24 @@ export default function FillBlank({
       {!disabled && (
         <div className="flex items-center gap-3">
           <div className="flex-1 relative">
-            <input
+            <Input
               ref={inputRef}
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Fill in the blank..."
-              className="w-full rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[#4285F4] focus:ring-4 focus:ring-[#4285F4]/10 transition-all"
+              className="rounded-xl"
             />
           </div>
-          <button
+          <Button
             onClick={handleSubmit}
             disabled={!text.trim()}
-            className="flex items-center gap-1.5 px-5 py-3 rounded-xl bg-[#4285F4] text-white text-sm font-medium hover:bg-[#3367d6] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all whitespace-nowrap"
+            className="whitespace-nowrap px-5"
           >
             <span className="material-icons-round text-base">check</span>
             Check
-          </button>
+          </Button>
         </div>
       )}
 

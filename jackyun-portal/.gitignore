@@ -49,3 +49,7 @@ next-env.d.ts
 /artifacts/verification/ui-modernization/
 /artifacts/ui-modernization-lint.json
 /artifacts/ui-modernization-*.log
+
+/artifacts/verification/ui-shell/
+/artifacts/verification/ui-shell-production/
+/artifacts/verification/ui-modernization-shell/

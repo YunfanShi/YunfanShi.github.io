@@ -1,3 +1,5 @@
+import { Suspense } from 'react';
+import { Button } from '@/components/ui/button';
 import CueDashboard from '@/components/modules/schedule/cue-dashboard';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
@@ -92,9 +94,9 @@ interface StatCardProps {
 
 function StatCard({ icon, color, label, value }: StatCardProps) {
   return (
-    <div className="group flex items-center gap-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-sm backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--surface-shadow)]">
+    <div className="group flex items-center gap-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-sm backdrop-blur-xl ">
       <div
-        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-105"
+        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl "
         style={{ background: `${color}15`, color }}
       >
         <span className="material-icons-round text-xl">{icon}</span>
@@ -118,6 +120,66 @@ export default async function DashboardPage() {
     (user?.user_metadata?.user_name as string | undefined) ??
     '用户';
 
+  return (
+    <div className="page-enter mx-auto max-w-[1440px]">
+      <section className="mb-10 border-b border-[var(--card-border)] pb-8">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]">Your learning space</p>
+            <h1 className="text-3xl font-medium tracking-[-0.04em] text-[var(--foreground)] sm:text-4xl">你好，{username}</h1>
+            <p className="mt-3 max-w-lg text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">让每一次专注都有迹可循，把学习、计划与灵感沉淀为你的长期能力。</p>
+          </div>
+          <Button asChild><Link prefetch={false} href="/study">
+            继续学习 <span aria-hidden="true" className="material-icons-round text-lg">arrow_forward</span>
+          </Link></Button>
+        </div>
+      </section>
+
+      <section className="relative mb-10 overflow-hidden rounded-[28px] border border-[#c7d7fe] bg-[#0b1220] p-5 text-white shadow-[0_20px_60px_rgba(21,94,239,.16)] sm:p-7">
+        <div className="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full bg-[#7f56d9]/35 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#155eef]/35 blur-3xl" />
+        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-[#b2ccff]"><span className="material-icons-round text-base">auto_awesome</span>JackYun AI</div>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">聊天和 Agent，各做各擅长的事。</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#cbd5e1]">快速问答用聊天；需要拆解任务、读取工作区信息或执行多步骤操作时切换 Agent。</p>
+            <form action="/ai" className="mt-5 flex max-w-2xl items-center gap-2 rounded-2xl border border-white/15 bg-white/10 p-2 backdrop-blur">
+              <input type="hidden" name="mode" value="chat" />
+              <input name="prompt" maxLength={4000} aria-label="给 JackYun AI 发消息" placeholder="今天想解决什么？" className="h-11 min-w-0 flex-1 bg-transparent px-3 text-base text-white outline-none placeholder:text-[#98a2b3]" />
+              <button type="submit" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[#101828] transition hover:scale-105"><span className="material-icons-round">arrow_upward</span></button>
+            </form>
+          </div>
+          <div className="relative grid w-full grid-cols-2 gap-2 sm:w-auto">
+            <Link prefetch={false} href="/ai?mode=chat" className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-[#101828]"><span className="material-icons-round text-lg">chat_bubble</span>开始聊天</Link>
+            <Link prefetch={false} href="/ai?mode=agent" className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v3" /><circle cx="12" cy="2" r="1" /><rect x="4" y="6" width="16" height="14" rx="4" /><path d="M8 11h.01M16 11h.01M8 16h8" /></svg>
+              Agent
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">All tools</p>
+          <h2 className="mt-1 text-xl font-medium tracking-[-0.025em] text-[var(--foreground)]">探索你的工作台</h2>
+        </div>
+        <span className="text-sm text-[var(--muted-foreground)]">{MODULES.length} 个模块</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        {MODULES.map((mod) => (
+          <ProductCard key={mod.id} {...mod} />
+        ))}
+      </div>
+      <Suspense fallback={<section role="status" aria-busy="true" className="mt-10 min-h-40 rounded-xl border border-[var(--card-border)] p-6 text-sm text-[var(--muted-foreground)]">正在读取学习概览，工作台入口已可使用。统计和任务尚未加载完成。</section>}>
+        <DashboardOverview user={user ? { id: user.id } : null} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function DashboardOverview({ user }: { user: { id: string } | null }) {
+  const supabase = await createClient();
   // Fetch stats
   const now = new Date();
   const today = dateKey(now, 'Asia/Shanghai');
@@ -173,45 +235,7 @@ export default async function DashboardPage() {
   const nextCountdown = countdownResult?.data;
   const countdownDays = nextCountdown ? Math.max(0, Math.ceil((Date.parse(`${nextCountdown.target_date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)) : null;
 
-  return (
-    <div className="page-enter mx-auto max-w-[1440px]">
-      <section className="mb-10 border-b border-[var(--card-border)] pb-8">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]">Your learning space</p>
-            <h1 className="text-3xl font-medium tracking-[-0.04em] text-[var(--foreground)] sm:text-4xl">你好，{username}</h1>
-            <p className="mt-3 max-w-lg text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">让每一次专注都有迹可循，把学习、计划与灵感沉淀为你的长期能力。</p>
-          </div>
-          <Link prefetch={false} href="/study" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1a73e8] px-4 text-sm font-medium text-white transition-colors hover:bg-[#185abc] dark:bg-[#8ab4f8] dark:text-[#202124] dark:hover:bg-[#aecbfa]">
-            继续学习 <span className="material-icons-round text-lg">arrow_forward</span>
-          </Link>
-        </div>
-      </section>
-
-      <section className="relative mb-10 overflow-hidden rounded-[28px] border border-[#c7d7fe] bg-[#0b1220] p-5 text-white shadow-[0_20px_60px_rgba(21,94,239,.16)] sm:p-7">
-        <div className="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full bg-[#7f56d9]/35 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#155eef]/35 blur-3xl" />
-        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-[#b2ccff]"><span className="material-icons-round text-base">auto_awesome</span>JackYun AI</div>
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">聊天和 Agent，各做各擅长的事。</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#cbd5e1]">快速问答用聊天；需要拆解任务、读取工作区信息或执行多步骤操作时切换 Agent。</p>
-            <form action="/ai" className="mt-5 flex max-w-2xl items-center gap-2 rounded-2xl border border-white/15 bg-white/10 p-2 backdrop-blur">
-              <input type="hidden" name="mode" value="chat" />
-              <input name="prompt" maxLength={4000} aria-label="给 JackYun AI 发消息" placeholder="今天想解决什么？" className="h-11 min-w-0 flex-1 bg-transparent px-3 text-base text-white outline-none placeholder:text-[#98a2b3]" />
-              <button type="submit" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[#101828] transition hover:scale-105"><span className="material-icons-round">arrow_upward</span></button>
-            </form>
-          </div>
-          <div className="relative grid w-full grid-cols-2 gap-2 sm:w-auto">
-            <Link prefetch={false} href="/ai?mode=chat" className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-[#101828]"><span className="material-icons-round text-lg">chat_bubble</span>开始聊天</Link>
-            <Link prefetch={false} href="/ai?mode=agent" className="inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15">
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v3" /><circle cx="12" cy="2" r="1" /><rect x="4" y="6" width="16" height="14" rx="4" /><path d="M8 11h.01M16 11h.01M8 16h8" /></svg>
-              Agent
-            </Link>
-          </div>
-        </div>
-      </section>
-
+  return <div className="mt-10">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">Progress overview</p>
@@ -297,18 +321,5 @@ export default async function DashboardPage() {
         <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_1fr] lg:p-7"><div><div className="flex items-center gap-3"><span className="material-icons-round grid h-11 w-11 place-items-center rounded-2xl bg-[#e8f0fe] text-[#1a73e8]">devices</span><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">JackYun Companion</p><h2 className="text-xl font-semibold">浏览器学习活动</h2></div></div><p className="mt-4 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">跨学习网站记录有效时间，只保存域名级聚合。扩展离线时会在恢复网络后继续同步。</p><Link prefetch={false} href="/activity" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#1a73e8] px-4 py-2.5 text-sm font-semibold text-white">查看完整活动报告<span className="material-icons-round text-lg">arrow_forward</span></Link></div><div className="grid grid-cols-3 gap-3"><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">今日</p><strong className="mt-2 block text-2xl">{Math.round(companionTodaySeconds / 60)}m</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">七日</p><strong className="mt-2 block text-2xl">{Math.round(companionWeekSeconds / 3600 * 10) / 10}h</strong></div><div className="rounded-2xl bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted-foreground)]">设备</p><strong className="mt-2 block text-2xl">{deviceResult?.count ?? 0}</strong></div></div></div>
       </section>
 
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">All tools</p>
-          <h2 className="mt-1 text-xl font-medium tracking-[-0.025em] text-[var(--foreground)]">探索你的工作台</h2>
-        </div>
-        <span className="text-sm text-[var(--muted-foreground)]">{MODULES.length} 个模块</span>
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-        {MODULES.map((mod) => (
-          <ProductCard key={mod.id} {...mod} />
-        ))}
-      </div>
-    </div>
-  );
+  </div>;
 }

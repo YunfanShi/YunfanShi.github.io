@@ -1,6 +1,7 @@
 'use client';
 
 import StartStudyButton from './start-study-button';
+import { Button } from '@/components/ui/button';
 
 interface InboxTask {
   id: string;
@@ -22,17 +23,17 @@ export default function TaskInbox({ tasks, onToggle, onDelete }: { tasks: InboxT
       <ul className="divide-y divide-[var(--card-border)]">
         {tasks.map((task) => (
           <li key={task.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
-            <button type="button" onClick={() => onToggle(task.id, !task.completed)} className="text-[var(--muted-foreground)] hover:text-[#1a73e8]">
+            <Button type="button" variant="ghost" size="icon" onClick={() => onToggle(task.id, !task.completed)} aria-label={task.completed ? `标记 ${task.title} 未完成` : `完成 ${task.title}`} className="text-[var(--muted-foreground)] hover:text-[#1a73e8]">
               <span className="material-icons-round text-xl">{task.completed ? 'check_circle' : 'radio_button_unchecked'}</span>
-            </button>
+            </Button>
             <div className="min-w-48 flex-1">
               <p className={task.completed ? 'text-sm text-[var(--muted-foreground)] line-through' : 'text-sm font-medium'}>{task.title}</p>
               <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{task.due_date ? `${task.due_date} · ` : ''}预计 {task.estimated_minutes} 分钟</p>
             </div>
             {!task.completed && <StartStudyButton taskId={task.id} durationMinutes={task.estimated_minutes} />}
-            <button type="button" onClick={() => onDelete(task.id)} className="text-[var(--muted-foreground)] hover:text-[#d93025]" aria-label={`删除 ${task.title}`}>
+            <Button type="button" variant="ghost" size="icon" onClick={() => onDelete(task.id)} className="text-[var(--muted-foreground)] hover:text-[#d93025]" aria-label={`删除 ${task.title}`}>
               <span className="material-icons-round text-lg">delete_outline</span>
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

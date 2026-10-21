@@ -733,6 +733,7 @@
         .exam-plan-form select,
         .exam-plan-form textarea {
             min-width: 0;
+            min-height: 44px;
             border: 1px solid var(--md-outline-variant);
             border-radius: 8px;
             background: var(--md-surface);
@@ -740,6 +741,12 @@
             padding: 8px 10px;
             font: inherit;
             resize: vertical;
+        }
+        .exam-plan-form textarea { min-height: 76px; }
+        .exam-plan-form :is(input, select, textarea) { font-size: max(16px, 1em); }
+        .exam-plan-form :is(input, select, textarea):focus-visible {
+            outline: 2px solid var(--md-primary);
+            outline-offset: 2px;
         }
         .exam-plan-form .full { grid-column: 1 / -1; }
         .tool-card {
@@ -1149,6 +1156,22 @@
         .pomodoro-preset-actions button:hover {
             filter: brightness(.97);
             box-shadow: var(--shadow-1);
+        }
+
+        /* Keep the legacy page's controls as responsive as the portal shell. */
+        :is(.nav-item, .main-tab, .sub-tab, .time-pill, .method-link, .modal-btn, .mobile-guide-menu, .checklist-item, .ai-send-btn) {
+            min-height: 44px;
+            touch-action: manipulation;
+            transition-duration: 120ms;
+        }
+        :is(.nav-item, .main-tab, .sub-tab, .time-pill, .method-link, .modal-btn, .mobile-guide-menu, .checklist-item, .ai-send-btn):focus-visible {
+            outline: 2px solid var(--md-primary);
+            outline-offset: 2px;
+        }
+        .content-panel { animation-duration: 120ms; }
+        @media (prefers-reduced-motion: reduce) {
+            :is(.nav-item, .main-tab, .sub-tab, .time-pill, .method-link, .modal-btn, .mobile-guide-menu, .checklist-item, .ai-send-btn) { transition: none !important; }
+            .content-panel { animation: none !important; }
         }
     </style>
 <link rel="stylesheet" href="/jackyun-theme.css"><script src="/jackyun-theme.js"></script></head>
@@ -1586,6 +1609,9 @@
         dashboardPeriod: 'daily',
         moduleGranule: 'daily',
         activeExamPlan: null,
+        examPlanDraft: { name: '', date: '', examType: 'school', scope: '' },
+        taskWriterDraft: { subject: '', action: '', scope: '', standard: '' },
+        taskDraft: null,
         weeklyReviewDay: 'flexible',
         personalIeltsPlan: false,
         progress: {},
@@ -1605,6 +1631,34 @@
             STATE.activeExamPlan = saved.activeExamPlan || null;
             STATE.weeklyReviewDay = saved.weeklyReviewDay || 'flexible';
         } catch(e) { /* ignore */ }
+        if (!STATE.activeExamPlan) {
+            try {
+                const draft = JSON.parse(sessionStorage.getItem('studyguide_exam_plan_draft_v1') || 'null');
+                if (draft && typeof draft === 'object') {
+                    STATE.examPlanDraft = {
+                        name: typeof draft.name === 'string' ? draft.name.slice(0, 60) : '',
+                        date: typeof draft.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(draft.date) ? draft.date : '',
+                        examType: ['school', 'igcse', 'as', 'alevel'].includes(draft.examType) ? draft.examType : 'school',
+                        scope: typeof draft.scope === 'string' ? draft.scope.slice(0, 300) : ''
+                    };
+                }
+            } catch(e) { /* session storage may be unavailable */ }
+        }
+        try {
+            const savedTaskDraft = JSON.parse(sessionStorage.getItem('studyguide_task_writer_draft_v1') || 'null');
+            if (savedTaskDraft && typeof savedTaskDraft === 'object') {
+                const inputs = savedTaskDraft.inputs && typeof savedTaskDraft.inputs === 'object' ? savedTaskDraft.inputs : {};
+                STATE.taskWriterDraft = {
+                    subject: typeof inputs.subject === 'string' ? inputs.subject.slice(0, 80) : '',
+                    action: typeof inputs.action === 'string' ? inputs.action.slice(0, 80) : '',
+                    scope: typeof inputs.scope === 'string' ? inputs.scope.slice(0, 200) : '',
+                    standard: typeof inputs.standard === 'string' ? inputs.standard.slice(0, 300) : ''
+                };
+                if (savedTaskDraft.generated === true) {
+                    STATE.taskDraft = buildTaskDraft(STATE.taskWriterDraft.subject, STATE.taskWriterDraft.action, STATE.taskWriterDraft.scope, STATE.taskWriterDraft.standard);
+                }
+            }
+        } catch(e) { /* session storage may be unavailable */ }
         const context = window.__JACKYUN_LEGACY_CONTEXT__ || {};
         if (context.personalIeltsPlan === true) STATE.personalIeltsPlan = true;
         if (typeof context.tab === 'string' && STUDY_DATA[context.tab]) {
@@ -1625,7 +1679,41 @@
                 activeExamPlan: STATE.activeExamPlan,
                 weeklyReviewDay: STATE.weeklyReviewDay
             }));
-        } catch(e) { /* ignore */ }
+            return true;
+        } catch(e) { return false; }
+    }
+
+    function updateExamPlanDraft(field, value) {
+        if (field === 'name') STATE.examPlanDraft.name = String(value).slice(0, 60);
+        else if (field === 'date') STATE.examPlanDraft.date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
+        else if (field === 'examType') STATE.examPlanDraft.examType = ['school', 'igcse', 'as', 'alevel'].includes(value) ? value : 'school';
+        else if (field === 'scope') STATE.examPlanDraft.scope = String(value).slice(0, 300);
+        try { sessionStorage.setItem('studyguide_exam_plan_draft_v1', JSON.stringify(STATE.examPlanDraft)); } catch(e) { /* keep the live form usable */ }
+    }
+
+    function updateTaskWriterDraft(field, value) {
+        const limits = { subject: 80, action: 80, scope: 200, standard: 300 };
+        if (!Object.prototype.hasOwnProperty.call(limits, field)) return;
+        STATE.taskWriterDraft[field] = String(value).slice(0, limits[field]);
+        STATE.taskDraft = null;
+        const output = document.getElementById('taskDraftOutput');
+        if (output) output.hidden = true;
+        const title = document.getElementById('taskDraftTitle');
+        const description = document.getElementById('taskDraftDescription');
+        if (title) title.textContent = '';
+        if (description) description.textContent = '';
+        const copyButton = document.getElementById('copyTaskBtn');
+        if (copyButton) { copyButton.disabled = true; copyButton.textContent = 'Copy'; }
+        saveTaskWriterSessionDraft();
+    }
+
+    function saveTaskWriterSessionDraft() {
+        try {
+            sessionStorage.setItem('studyguide_task_writer_draft_v1', JSON.stringify({
+                inputs: STATE.taskWriterDraft,
+                generated: Boolean(STATE.taskDraft)
+            }));
+        } catch(e) { /* keep the task helper usable if session storage is unavailable */ }
     }
 
     /* =========================================
@@ -2081,17 +2169,17 @@
             <h3 id="taskWriterTitle">任务写法助手</h3>
             <p>默认只生成“动作 + 学科 + 范围”。只有你填写完成标准时，才把它放进简短描述。</p>
             <div class="tool-form">
-                <label class="tool-field">Subject<input id="taskSubject" type="text" placeholder="Physics"></label>
-                <label class="tool-field">Action<input id="taskAction" type="text" placeholder="Review"></label>
-                <label class="tool-field full">Scope<input id="taskScope" type="text" placeholder="Momentum"></label>
-                <label class="tool-field full">Completion Standard（可选）<textarea id="taskStandard" rows="2" placeholder="闭卷解释守恒条件 + 1道代表题通过"></textarea></label>
+                <label class="tool-field">Subject<input id="taskSubject" type="text" maxlength="80" placeholder="Physics" value="${escapeHtml(STATE.taskWriterDraft.subject)}" oninput="updateTaskWriterDraft('subject', this.value)"></label>
+                <label class="tool-field">Action<input id="taskAction" type="text" maxlength="80" placeholder="Review" value="${escapeHtml(STATE.taskWriterDraft.action)}" oninput="updateTaskWriterDraft('action', this.value)"></label>
+                <label class="tool-field full">Scope<input id="taskScope" type="text" maxlength="200" placeholder="Momentum" value="${escapeHtml(STATE.taskWriterDraft.scope)}" oninput="updateTaskWriterDraft('scope', this.value)"></label>
+                <label class="tool-field full">Completion Standard（可选）<textarea id="taskStandard" rows="2" maxlength="300" placeholder="闭卷解释守恒条件 + 1道代表题通过" oninput="updateTaskWriterDraft('standard', this.value)">${escapeHtml(STATE.taskWriterDraft.standard)}</textarea></label>
             </div>
             <div class="timeline-actions">
                 <button class="method-link" onclick="generateTaskDraft()">生成简洁任务</button>
-                <button class="method-link" id="copyTaskBtn" onclick="copyTaskDraft()" disabled>Copy</button>
+                <button class="method-link" id="copyTaskBtn" onclick="copyTaskDraft()" ${STATE.taskDraft ? '' : 'disabled'}>Copy</button>
             </div>
-            <div class="tool-output" id="taskDraftOutput" hidden>
-                <b id="taskDraftTitle"></b><div id="taskDraftDescription"></div>
+            <div class="tool-output" id="taskDraftOutput" ${STATE.taskDraft ? '' : 'hidden'}>
+                <b id="taskDraftTitle">${escapeHtml(STATE.taskDraft?.title || '')}</b><div id="taskDraftDescription">${escapeHtml(STATE.taskDraft?.description || '')}</div>
             </div>
         </section>`;
     }
@@ -2106,7 +2194,9 @@
             showSimpleModal('还缺一点信息', '请填写Subject、Action和Scope；完成标准可以留空。');
             return;
         }
+        STATE.taskWriterDraft = { subject: String(subject).slice(0, 80), action: String(action).slice(0, 80), scope: String(scope).slice(0, 200), standard: String(standard).slice(0, 300) };
         STATE.taskDraft = draft;
+        saveTaskWriterSessionDraft();
         document.getElementById('taskDraftTitle').textContent = STATE.taskDraft.title;
         document.getElementById('taskDraftDescription').textContent = STATE.taskDraft.description;
         document.getElementById('taskDraftOutput').hidden = false;
@@ -2202,15 +2292,15 @@
                 <span class="material-icons-round">add_task</span>
                 <div><strong>考试计划生成器</strong>填写实际日期，系统按剩余时间给阶段建议。建议不是强制比例，你仍按考试范围、学校安排和真实表现决定。
                     <div class="exam-plan-form">
-                        <input id="examPlanName" type="text" maxlength="60" placeholder="考试名称，如 Year 12 Mock">
-                        <input id="examPlanDate" type="date" aria-label="考试日期">
-                        <select id="examPlanType" aria-label="考试类型">
-                            <option value="school">学校考试</option>
-                            <option value="igcse">IGCSE</option>
-                            <option value="as">AS Level</option>
-                            <option value="alevel">A-Level</option>
+                        <input id="examPlanName" type="text" maxlength="60" placeholder="考试名称，如 Year 12 Mock" value="${escapeHtml(STATE.examPlanDraft.name)}" oninput="updateExamPlanDraft('name', this.value)">
+                        <input id="examPlanDate" type="date" aria-label="考试日期" value="${escapeHtml(STATE.examPlanDraft.date)}" oninput="updateExamPlanDraft('date', this.value)">
+                        <select id="examPlanType" aria-label="考试类型" onchange="updateExamPlanDraft('examType', this.value)">
+                            <option value="school" ${STATE.examPlanDraft.examType === 'school' ? 'selected' : ''}>学校考试</option>
+                            <option value="igcse" ${STATE.examPlanDraft.examType === 'igcse' ? 'selected' : ''}>IGCSE</option>
+                            <option value="as" ${STATE.examPlanDraft.examType === 'as' ? 'selected' : ''}>AS Level</option>
+                            <option value="alevel" ${STATE.examPlanDraft.examType === 'alevel' ? 'selected' : ''}>A-Level</option>
                         </select>
-                        <textarea id="examPlanScope" class="full" rows="2" maxlength="300" placeholder="考试范围（可选），如 Chapter 4–7 / Paper 2"></textarea>
+                        <textarea id="examPlanScope" class="full" rows="2" maxlength="300" placeholder="考试范围（可选），如 Chapter 4–7 / Paper 2" oninput="updateExamPlanDraft('scope', this.value)">${escapeHtml(STATE.examPlanDraft.scope)}</textarea>
                     </div>
                     <div class="timeline-actions">
                         <button class="method-link" onclick="startExamPlan()">建立考试计划</button>
@@ -2239,7 +2329,13 @@
             return;
         }
         STATE.activeExamPlan = { name, date, examType, scope, startedAt: formatDateKey(new Date()) };
-        saveState();
+        if (!saveState()) {
+            STATE.activeExamPlan = null;
+            showSimpleModal('保存失败，草稿已保留', '考试计划暂时没有写入本机存储。请检查浏览器存储空间后重试；当前表单内容仍会保留。');
+            return;
+        }
+        STATE.examPlanDraft = { name: '', date: '', examType: 'school', scope: '' };
+        try { sessionStorage.removeItem('studyguide_exam_plan_draft_v1'); } catch(e) { /* active plan is already saved */ }
         render();
     }
 
@@ -2296,8 +2392,17 @@
     }
 
     function clearExamPlan() {
+        const previousPlan = STATE.activeExamPlan;
         STATE.activeExamPlan = null;
-        saveState();
+        const saved = saveState();
+        if (saved) {
+            STATE.examPlanDraft = { name: '', date: '', examType: 'school', scope: '' };
+            try { sessionStorage.removeItem('studyguide_exam_plan_draft_v1'); } catch(e) { /* ignore */ }
+        } else {
+            STATE.activeExamPlan = previousPlan;
+            showSimpleModal('保存失败，计划仍保留', '结束考试计划未能保存到本机。请检查浏览器存储空间后重试。');
+            return;
+        }
         render();
     }
 

@@ -37,3 +37,13 @@
 html[data-portal-keyboard="true"] [data-responsive-study] {
   height: var(--portal-viewport-height, 100dvh);
 }
+
+/* Explicit visibility for shared controls whose base display is inline-flex. */
+@media (max-width: 1023px), (pointer: coarse) {
+  .portal-desktop-control.jy-button { display: none; }
+  .portal-touch-menu.jy-button, .portal-touch-close.jy-button { display: inline-flex; }
+}
+@media (min-width: 1024px) and (pointer: fine) {
+  .portal-touch-menu.jy-button, .portal-touch-close.jy-button { display: none; }
+  .portal-desktop-control.jy-button { display: inline-flex; }
+}

@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import QuizApp from '@/components/modules/quiz/quiz-app';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
 const LS_VERSION_KEY = 'quizwise_version_preference';
 
 export default function QuizPage() {
   const [version, setVersion] = useState<'react' | 'html' | null>(null);
   const [showDialog, setShowDialog] = useState(false);
+  const selectedFromDialog = useRef(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(LS_VERSION_KEY);
@@ -21,9 +24,19 @@ export default function QuizPage() {
   }, []);
 
   const selectVersion = (v: 'react' | 'html') => {
+    selectedFromDialog.current = true;
     localStorage.setItem(LS_VERSION_KEY, v);
     setVersion(v);
     setShowDialog(false);
+    selectedFromDialog.current = false;
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open && !selectedFromDialog.current) {
+      localStorage.setItem(LS_VERSION_KEY, 'react');
+      setVersion(current => current ?? 'react');
+    }
+    setShowDialog(open);
   };
 
   // Also save preference to quiz_settings if available
@@ -38,28 +51,28 @@ export default function QuizPage() {
     }
   };
 
-  const versionDialog = showDialog ? (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div role="dialog" aria-modal="true" aria-labelledby="quiz-version-title" className="mx-3 max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xl animate-scale-in sm:mx-4 sm:p-6">
+  const versionDialog = (
+    <Dialog open={showDialog} onOpenChange={handleDialogOpenChange}>
+      <DialogContent className="animate-scale-in p-4 sm:p-6" closeLabel="关闭版本选择">
         <div className="mb-4 flex items-center gap-3">
           <span className="material-icons-round text-2xl text-[#4285F4]">psychology</span>
-          <h2 id="quiz-version-title" className="text-lg font-bold text-[var(--foreground)]">选择 QuizWise 版本</h2>
+          <DialogTitle className="text-lg font-bold">选择 QuizWise 版本</DialogTitle>
         </div>
-        <p className="mb-6 text-sm text-[var(--muted-foreground)]">请选择偏好的 QuizWise 版本。之后仍可随时切换。</p>
+        <DialogDescription className="mb-6">请选择偏好的 QuizWise 版本。之后仍可随时切换。</DialogDescription>
         <div className="mb-6 grid grid-cols-1 gap-3 min-[430px]:grid-cols-2 sm:gap-4">
-          <button onClick={() => selectVersion('html')} className="flex flex-col items-center gap-3 rounded-xl border-2 border-[var(--card-border)] p-5 text-left transition-all hover:border-[#4285F4]/40 hover:bg-[#4285F4]/5">
+          <Button variant="outline" onClick={() => selectVersion('html')} className="h-auto min-h-28 w-full flex-col gap-3 whitespace-normal border-2 p-5 text-left hover:border-[#4285F4]/40 hover:bg-[#4285F4]/5">
             <span className="material-icons-round text-3xl text-[#EA4335]">code</span>
             <span className="text-center"><strong className="block text-sm text-[var(--foreground)]">HTML 版本</strong><small className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">独立网页应用<br />兼容旧数据</small></span>
-          </button>
-          <button onClick={() => selectVersion('react')} className="flex flex-col items-center gap-3 rounded-xl border-2 border-[var(--card-border)] p-5 text-left transition-all hover:border-[#34A853]/40 hover:bg-[#34A853]/5">
+          </Button>
+          <Button variant="outline" onClick={() => selectVersion('react')} className="h-auto min-h-28 w-full flex-col gap-3 whitespace-normal border-2 p-5 text-left hover:border-[#34A853]/40 hover:bg-[#34A853]/5">
             <span className="material-icons-round text-3xl text-[#34A853]">integration_instructions</span>
             <span className="text-center"><strong className="block text-sm text-[var(--foreground)]">TSX 版本（推荐）</strong><small className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">九种题型<br />支持主页 AI 生成测验</small></span>
-          </button>
+          </Button>
         </div>
         <p className="text-center text-xs text-[var(--muted-foreground)]">选择后立即保存；设置中可再次切换。</p>
-      </div>
-    </div>
-  ) : null;
+      </DialogContent>
+    </Dialog>
+  );
 
   // Show the HTML version in an iframe
   if (version === 'html') {
@@ -74,24 +87,30 @@ export default function QuizPage() {
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden text-xs text-[var(--muted-foreground)] sm:inline">版本：</span>
-            <button
+            <Button
+              variant={version === 'html' ? 'default' : 'outline'}
+              size="sm"
+              className="min-h-11 rounded-full px-3"
+              aria-pressed={version === 'html'}
               onClick={() => {
                 selectVersion('html');
                 syncToSettings('html');
               }}
-              className="px-3 py-1 rounded-full text-xs font-medium bg-[#4285F4]/10 text-[#4285F4] border border-[#4285F4]/30"
             >
               HTML
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-11 rounded-full px-3"
+              aria-pressed={false}
               onClick={() => {
                 selectVersion('react');
                 syncToSettings('react');
               }}
-              className="px-3 py-1 rounded-full text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--background)] border border-transparent hover:border-[var(--card-border)] transition-colors"
             >
               TSX
-            </button>
+            </Button>
           </div>
         </div>
 

@@ -1,3 +1,4 @@
+import './admin-controls.css';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import ClientLoggerBoot from '@/components/layout/client-logger-boot';

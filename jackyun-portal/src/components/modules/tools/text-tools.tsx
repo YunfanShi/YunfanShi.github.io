@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
 import { useToolDraft } from './tool-drafts';
 
+type EarlyInputWindow = Window & { __JY_EARLY_INPUTS?: Record<string, string> };
+
 export default function TextTools() {
   const [input, setInput] = useToolDraft('text.input', '');
   const [output, setOutput] = useToolDraft('text.output', '');
@@ -13,6 +15,23 @@ export default function TextTools() {
 
   const copyGeneration = useRef(0);
   useEffect(() => () => { copyGeneration.current++; }, []);
+  useEffect(() => {
+    const applyEarlyInput = (event: Event) => {
+      const detail = (event as CustomEvent<{ key?: string; value?: string }>).detail;
+      if (detail?.key !== 'tools.text-input' || detail.value === undefined) return;
+      const earlyInputs = (window as EarlyInputWindow).__JY_EARLY_INPUTS;
+      if (earlyInputs) delete earlyInputs['tools.text-input'];
+      setInput(detail.value);
+    };
+    window.addEventListener('jy-early-input', applyEarlyInput);
+    const earlyInputs = (window as EarlyInputWindow).__JY_EARLY_INPUTS;
+    const earlyInput = earlyInputs?.['tools.text-input'];
+    if (earlyInputs && earlyInput !== undefined) {
+      delete earlyInputs['tools.text-input'];
+      setInput(earlyInput);
+    }
+    return () => window.removeEventListener('jy-early-input', applyEarlyInput);
+  }, [setInput]);
 
   const lines = input ? input.split('\n') : [];
   const words = input.trim() ? input.trim().split(/\s+/) : [];
@@ -121,8 +140,13 @@ export default function TextTools() {
         </div>
         <Textarea
           id="tool-text-input"
+          data-jy-early-input="tools.text-input"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            const earlyInputs = (window as EarlyInputWindow).__JY_EARLY_INPUTS;
+            if (earlyInputs) delete earlyInputs['tools.text-input'];
+            setInput(e.target.value);
+          }}
           placeholder="在此输入文本..."
           rows={6}
           aria-invalid={Boolean(error)}

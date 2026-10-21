@@ -1,0 +1,29 @@
+{
+  "renderer": "docx-preview in Edge; packaged renderer failed: LibreOffice soffice.exe unavailable",
+  "pages": [
+    {
+      "height": 1056,
+      "scroll": 1056,
+      "articleHeight": 484,
+      "articleScroll": 484
+    },
+    {
+      "height": 1056,
+      "scroll": 1056,
+      "articleHeight": 429,
+      "articleScroll": 429
+    },
+    {
+      "height": 1056,
+      "scroll": 1056,
+      "articleHeight": 429,
+      "articleScroll": 429
+    },
+    {
+      "height": 1056,
+      "scroll": 1056,
+      "articleHeight": 421,
+      "articleScroll": 421
+    }
+  ]
+}

@@ -23,7 +23,7 @@ html[data-legacy-workspace] :is(.material-icons, .material-icons-round, .materia
   html[data-legacy-workspace] { -webkit-text-size-adjust: 100%; }
   html[data-legacy-workspace] body { min-width: 0; max-width: 100%; }
   html[data-legacy-workspace] :where(main, .main, .content, .main-content, .content-area, .app-container) { min-width: 0; max-width: 100%; }
-  html[data-legacy-workspace] :where(button, a[role="button"], summary, .btn) { min-height: 44px; touch-action: manipulation; }
+  html[data-legacy-workspace] :where(button, a[role="button"], summary, .btn) { min-height: 44px !important; touch-action: manipulation; }
   html[data-legacy-workspace] :where(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]) { font-size: 16px; min-width: 0; max-width: 100%; scroll-margin-block: 80px; }
   html[data-legacy-workspace] input[type="checkbox"], html[data-legacy-workspace] input[type="radio"] { min-width: 22px; min-height: 22px; }
   html[data-legacy-workspace] :where(img, video, canvas, iframe) { max-width: 100%; }

@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.ts';
 const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.JACKYUN_PLAYWRIGHT_PATH || 'C:/Users/syf26/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const { chromium } = require(process.env.JACKYUN_PLAYWRIGHT_PATH || 'playwright');
 const base = process.env.JACKYUN_TEST_URL || 'http://127.0.0.1:3100';
 const seed = { ...createEmptyScheduleState(), settings: { ...createEmptyScheduleState().settings, tutorialSeenVersion: 1 }, timetable: { version: 1, name: '测试课表', courses: [
   { id: 'math', name: '数学', color: '#4285f4', review: false, sessions: [{ day: 1, start: '09:00', end: '09:45', location: '教室 201', teacher: '王老师' }] },
   { id: 'physics', name: '物理', color: '#34a853', review: false, sessions: [{ day: 1, start: '10:00', end: '10:40' }] },
 ] } };
-const browser = await chromium.launch({ headless: true, channel: 'msedge' });
+const browser = await chromium.launch({ headless: true, channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' });
 try {
   for (const width of [390, 1440]) {
     const context = await browser.newContext({ viewport: { width, height: 950 }, timezoneId: 'Asia/Shanghai' });
@@ -23,6 +23,22 @@ try {
     assert.equal(await timeline.getByRole('timer').innerText(), '22:30');
     await timeline.getByText('09:00 — 09:45 · 共 45 分钟', { exact: true }).waitFor();
     assert.equal(await timeline.getByRole('progressbar').getAttribute('aria-valuenow'), '50');
+    const viewNavigation = page.locator(width < 1024 ? 'nav[aria-label="日程触控视图"]' : 'nav[aria-label="日程视图"]');
+    await viewNavigation.locator('button').filter({ hasText: '周课表' }).click();
+    await page.locator('[data-week-agenda]').waitFor();
+    await viewNavigation.locator('button').filter({ hasText: '今日' }).click();
+    await timeline.getByRole('timer').waitFor();
+    assert.equal(await timeline.getByRole('timer').innerText(), '22:30', 'switching to the week view and back should preserve the live class countdown');
+    if (width < 1024) {
+      await viewNavigation.locator('button').filter({ hasText: '更多' }).click();
+      await page.locator('nav[aria-label="更多日程视图"]').locator('button').filter({ hasText: '设置' }).click();
+    } else {
+      await viewNavigation.locator('button').filter({ hasText: '设置' }).click();
+    }
+    await page.getByRole('heading', { name: '运行模式', exact: true }).waitFor();
+    await viewNavigation.locator('button').filter({ hasText: '今日' }).click();
+    await timeline.getByRole('timer').waitFor();
+    assert.equal(await timeline.getByRole('timer').innerText(), '22:30', 'unmounting the timetable panel should not reset the class countdown');
     await timeline.screenshot({ path: `artifacts/verification/cue-roadmap/timeline-${width}.png` });
     await page.getByRole('button', { name: '下一日期', exact: true }).click();
     await timeline.getByRole('heading', { name: '当日课表', exact: true }).waitFor();

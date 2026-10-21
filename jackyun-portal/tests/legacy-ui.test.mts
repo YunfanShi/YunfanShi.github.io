@@ -104,9 +104,10 @@ test('appearance bootstrap preserves existing preferences and defers reconciliat
 test('Cue notes are a durable Schedule memo system rather than an experimental session draft', async () => {
   const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
   const domain = await readFile(new URL('src/lib/learning/schedule-control.ts', projectDir), 'utf8');
-  assert.match(component, /Cue 备忘录/);
-  assert.match(component, /长期保存并随 Schedule 云同步/);
-  assert.match(component, /parsed\.cueStudyDraft\?\.writtenResponses/);
+  assert.match(component, /Cue Memos/);
+  assert.match(component, /修改后自动保存/);
+  assert.match(component, /saveCueMemo/);
+  assert.match(component, /memos=\{state\.cueMemos\}/);
   assert.doesNotMatch(component, />实验性</);
   assert.match(domain, /cueMemos: CueMemo\[\]/);
 });
@@ -114,8 +115,8 @@ test('Cue notes are a durable Schedule memo system rather than an experimental s
 test('Schedule constrains AI Cue units and records collective Cue maintenance', async () => {
   const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
   const domain = await readFile(new URL('src/lib/learning/schedule-control.ts', projectDir), 'utf8');
-  assert.match(component, /当前学科允许使用的大单元（必须逐字使用）/);
-  assert.match(component, /禁止发明、翻译、缩写或改写单元名/);
+  assert.match(component, /当前学科的允许单元/);
+  assert.match(component, /不得新建或改写单元名/);
   assert.match(component, /整批 Cue 更新提醒/);
   assert.match(component, /本次已检查 · 无需导入/);
   assert.match(component, /课后复习单与滴答清单/);
@@ -141,7 +142,7 @@ test('Cue manager compares similar prompts side by side with highlighted evidenc
   assert.match(component, /相似 CUE 检查/);
   assert.match(component, /side="左边"/);
   assert.match(component, /side="右边"/);
-  assert.match(component, /共同内容词/);
+  assert.match(component, /共同文字词/);
   assert.match(component, /删除左边 · 保留右边/);
   assert.match(component, /删除右边 · 保留左边/);
   assert.match(component, /<mark/);
@@ -154,7 +155,7 @@ test('Cue manager compares similar prompts side by side with highlighted evidenc
 
 test('repeated Cue ratings use the reviewed navigation policy and clear the answer state', async () => {
   const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
-  assert.match(component, /const destination = cueRatingDestination\(/);
+  assert.match(component, /const destination = practice\.active \? currentIndex : cueRatingDestination\(/);
   assert.match(component, /setRevealed\(false\);\s*setSelectedChoice\(undefined\)/);
   assert.match(component, /activeAssessments/);
   assert.match(component, /event\.key === 'Backspace'/);

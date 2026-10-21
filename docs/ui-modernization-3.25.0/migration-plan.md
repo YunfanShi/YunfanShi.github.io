@@ -1,5 +1,7 @@
 > 本文件保存实施前的审查计划，调查与操作记录反映当时状态。第一批实际改动、测试和未完成事项见同目录 README.md。
 
+本计划的仓库调查基线为 2026-10-16。后续实施状态、当前分支版本、浏览器验收证据和未完成门禁见 [实施进展与审查报告](implementation-report/README.md)；请以该报告判断当前进度，以本计划作为剩余批次的执行与验收标准。
+
 # JackYun 主站 UI 现代化改造实施计划
 
 > 审查修订稿 · 2026-10-16 · 规划交付，不含UI迁移；临时准备纠正见附录B。
@@ -10,7 +12,7 @@ JackYun 主站 UI 现代化改造实施计划｜审查修订稿｜2026 年 10 �
 
 结论：保留 Next.js、React、TypeScript、Tailwind CSS 3、data-theme 和蓝色品牌，渐进接入 shadcn/ui + Radix 可行。先保护数据与行为，再统一基础交互；不能将换库本身当作性能收益证据。新增依赖精确组合、生产开放范围、真实性能与真机结果均待验证。
 
-本轮交付仅为调查和规划，未改业务代码、版本或锁文件，未提交或推送。曾误建临时隔离分支并按现有锁文件安装依赖，已核对无修改并清理，详见附录B。产物位于仓库外；通用AGENTS.md不取消本任务的仅规划约束。
+2026-10-16 初始审查阶段仅做仓库调查和规划，未改业务代码、版本或锁文件，未提交或推送。曾误建临时隔离分支并按现有锁文件安装依赖，已核对无修改并清理，详见附录B。后续实施进度见同目录实施进展与审查报告；此文件仍作为改造计划和验收标准。
 
 ### 必须修正的执行原则
 
@@ -938,6 +940,6 @@ DOCX与Markdown由同一结构化内容生成。路径证据以仓库根目录�
 
 仓库外保存repository-baseline.json、working-tree-status.txt、investigation.json，分别记录内容指纹、变更清单与依赖/导航证据。交付前再次计算trackedContentDigest/statusDigest/indexDigest/HEAD/branch，应与基线一致；结果写repository-verification.json。
 
-产物在 C:/Users/syf26/Desktop/JACKYUN/planning-artifacts/ui-modernization-review-20261016，不在YunfanShi.github.io仓库中。不会使本轮生成物与用户未跟踪文件混在一起。后续如批准入库，可保存Markdown和DOCX及必要清单，不必提交渲染中间图片。
+原始审查产物于2026-10-16保存在仓库外的 `C:/Users/syf26/Desktop/JACKYUN/planning-artifacts/ui-modernization-review-20261016`。后续经用户要求，当前可维护的 Markdown 与 DOCX 计划已存入本仓库 `docs/ui-modernization-3.25.0/`；渲染中间图片仍只用于本机版式检查，不纳入仓库。
 
 规划结论优先级：保护用户数据与已有工作，保持权限/业务契约，复用公共能力，减少重复与不必要复杂度，再衡量响应和视觉一致。任何待验证项都不能被“看起来流畅”替代。

@@ -118,7 +118,7 @@ test('default buffering calls browser timers with their native receiver, not the
   const source = readFileSync(new URL('../src/lib/learning/cue-answer-card.ts',import.meta.url),'utf8');
   const compiled = {exports:{} as {bufferedCueAnswer: typeof bufferedCueAnswer}};
   const js = ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
-  runInNewContext(js,{module:compiled,exports:compiled.exports,setTimeout:function(this:{set?:unknown},callback:()=>void){assert.equal(this?.set,undefined,'native browser timers reject the adapter receiver');return 1;},clearTimeout:function(this:{clear?:unknown}){assert.equal(this?.clear,undefined);}});
+  runInNewContext(js,{module:compiled,exports:compiled.exports,require:(specifier:string)=>{assert.equal(specifier,'./cue-self-check.ts');return{localCueSelfCheck:()=>null};},setTimeout:function(this:{set?:unknown},callback:()=>void){void callback;assert.equal(this?.set,undefined,'native browser timers reject the adapter receiver');return 1;},clearTimeout:function(this:{clear?:unknown}){assert.equal(this?.clear,undefined);}});
   const saved:string[]=[];
   const buffer=compiled.exports.bufferedCueAnswer(text=>saved.push(text));
   buffer.write('a');buffer.write('ab');buffer.flush();
