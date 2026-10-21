@@ -3,12 +3,10 @@
 import { siteConfirm } from '@/lib/site-dialog';
 import Link from 'next/link';
 import { ArchiveTitleEditor } from './archive-title-editor';
-import { readAiResponseContent } from '@/lib/ai-json';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { parseLocalValue, persistLocalEditNow } from '@/lib/sync/local-edit';
 import {canonicalJson} from '@/lib/sync/hash';
 import {threeWayMerge} from '@/lib/sync/merge';
-import { callAiApi } from '@/lib/ai-config';
 import {
   buildWritingFeedbackRepairPrompt, buildWritingReviewPrompt, coerceWritingStage, countWords, createWritingArchiveEntry, diffWriting, findQuotedTextRange, highlightWritingRanges, trackWritingQuotes, isWritingArchiveEntry, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, taskLabel, updateErrorHistory, upsertWritingArchive, writeRedundantJson, splitWritingParagraphs,
   type ErrorHistoryEntry, type ReviewMode, type WritingArchiveEntry, type WritingFeedback, type WritingGuidanceMode, type WritingStage, type WritingTask,
@@ -26,6 +24,7 @@ const GUIDANCE_KEY = 'jackyun_ielts_writing_guidance_v1';
 const ARCHIVE_KEY = 'jackyun_ielts_writing_archive_v1';
 const WORKSPACES_KEY = 'jackyun_ielts_writing_workspaces_v1';
 const WORKSPACES_MIRROR_KEY = 'jackyun_ielts_writing_workspaces_mirror_v1';
+const RESPONSE_FORMAT_KEY = 'jackyun_ielts_writing_response_format_v1';
 type UiLanguage = 'en' | 'zh';
 type SaveState = 'saved' | 'error';
 type WorkspaceLayout = 'split' | 'stacked';
@@ -35,7 +34,7 @@ type ReaderTheme = 'paper' | 'mint' | 'night';
 interface DraftState { essayId: string; task: WritingTask; question: string; essay: string; originalEssay: string; secondsLeft: number; timerStarted: boolean; }
 interface DraftSnapshot { savedAt: string; draft: DraftState; }
 interface FeedbackHistoryEntry { source: { essayId: string; essay: string }; feedback: WritingFeedback | null; previousRuleKeys: string[]; resolved: string[]; stage: WritingStage; }
-interface WritingWorkspace { id: string; draft: DraftState; feedback: WritingFeedback | null; feedbackSource: { essayId: string; essay: string }; feedbackHistory: FeedbackHistoryEntry[]; previousRuleKeys: string[]; resolved: string[]; stage: WritingStage; externalFallbackMode: ReviewMode | null; externalReply: string; externalPanelOpen: boolean; savedAt: string; }
+interface WritingWorkspace { id: string; draft: DraftState; feedback: WritingFeedback | null; feedbackSource: { essayId: string; essay: string }; feedbackHistory: FeedbackHistoryEntry[]; previousRuleKeys: string[]; resolved: string[]; stage: WritingStage; externalFallbackMode: ReviewMode | null; externalReply: string; externalPanelOpen: boolean; savedAt: string; markdownReport?: string; }
 const defaultDraft: DraftState = { essayId: 'draft-current', task: 'task2', question: '', essay: '', originalEssay: '', secondsLeft: 2400, timerStarted: false };
 
 const COPY = {
@@ -47,11 +46,11 @@ const COPY = {
     highlights: 'Editor highlights', highlightsOn: 'Editor highlights on', highlightsOff: 'Editor highlights off', highlightedDraft: 'Quoted issues in your current draft', noQuotedIssues: 'No quoted issue can be matched to the current draft.', locateIssue: 'Show this issue in the editor',
     originalEyebrow: 'Original attempt', originalTitle: 'Locked evidence of your starting point', loop: 'Correction loop', round: 'What to do this round', stageHint: 'Choose any step. Your choice is saved for the next visit.', stages: ['Original', 'Self-revise', 'Upgrade', 'Transfer'],
     diagnose: 'Find my key issues', recheck: 'Check my revision', analysing: 'Analysing…', upgrading: 'Upgrading…', upgrade: 'Language Upgrade', back: 'Previous step', priority: 'Fix first', undo: 'Undo', resolved: 'Mark revised', think: 'Revise it yourself:', corrected: 'Correct version:', upgrades: 'Language upgrades', guidance: 'AI response', hintMode: 'Hints', correctionMode: 'Correct answers',
-    emptyTitle: 'AI will not write it for you', emptyBody: 'It quotes the problem, explains why it matters, and gives the smallest useful prompt. Your first attempt is locked when analysis begins.',
+    emptyTitle: 'Use an external AI for feedback', emptyBody: 'The site does not send your essay to its built-in AI. Copy the prepared prompt to ChatGPT, Claude, Gemini, or another model, then import its reply. Your first attempt is locked when analysis begins.',
     transfer: 'Transfer test', transferTitle: 'The next essay proves mastery', recurring: 'Seen in at least two independent essays:', recurringEmpty: 'An issue in one essay is not automatically a recurring error. It is promoted only after appearing in two independent new essays.', transferButton: 'Start a new transfer essay',
     revision: 'Revision map', revisionTitle: 'What changed since the first attempt', added: 'added', removed: 'removed', noRevision: 'Make a revision to see additions and deletions highlighted here.', currentOnly: 'Run the first analysis to lock an original version for comparison.',
     external: 'External LLM', externalTitle: 'Use ChatGPT, Claude, Gemini, or another model', externalBody: 'Copy a complete prompt containing the task, original attempt, current draft, method, and exact response contract. Paste the model reply back here.', responseFormat: 'Response format', reviewMode: 'Review mode', json: 'Structured JSON · importable', markdown: 'Markdown · readable', modes: ['Diagnose', 'Recheck', 'Upgrade'], copyPrompt: 'Copy complete prompt', copied: 'Prompt copied', promptPreview: 'Preview full prompt', pasteReply: 'Paste the external AI reply here…', importReply: 'Import AI reply', imported: 'External feedback imported.', markdownImported: 'Markdown report saved below.', invalidReply: 'The reply does not match the requested format.', report: 'Imported Markdown report',
-    fallbackTitle: 'Continue with an external LLM', fallbackBody: 'The built-in AI call failed. The correct prompt for this step has been copied automatically. Paste it into any LLM, then paste its JSON reply below.',
+    fallbackTitle: 'External AI is ready', fallbackBody: 'The prepared prompt has been copied automatically. Send it to an external model, then paste its JSON reply below.',
     safety: 'Draft safety', safetyTitle: 'Three-layer local protection', safetyBody: 'Every edit is written immediately to the primary draft and a mirror copy. Rolling recovery snapshots add another layer.', restore: 'Restore snapshot', export: 'Download backup', noSnapshot: 'No recovery snapshot yet.', restored: 'Latest recovery snapshot restored.',
     tooShort: 'Write at least 80 characters of a real first attempt before asking AI to analyse it.', reviseFirst: 'Revise the essay yourself before requesting another check.', upgradeDone: 'Language upgrades are ready. Keep only expressions that are natural and preserve your meaning.', feedbackDone: 'Feedback is ready. Revise it yourself, then ask AI to check again.', failed: 'AI analysis failed. Please try again.', transferStarted: 'New transfer essay started. Write independently and see whether the old errors decrease.', settings: 'Open settings',
   },
@@ -63,11 +62,11 @@ const COPY = {
     highlights: '编辑框高亮', highlightsOn: '编辑框高亮已开启', highlightsOff: '编辑框高亮已关闭', highlightedDraft: '当前稿中被引用的问题', noQuotedIssues: '当前反馈的引用无法在作文中精确匹配。', locateIssue: '在编辑框中定位这个问题',
     originalEyebrow: '真实原稿', originalTitle: '不可覆盖的起点证据', loop: '修复循环', round: '本轮怎么做', stageHint: '可以自由选择任意阶段，刷新后仍会保留。', stages: ['原稿', '自己修改', '语言升级', '新文迁移'],
     diagnose: '让 AI 找关键问题', recheck: '检查我的修改', analysing: '分析中…', upgrading: '升级中…', upgrade: '语言升级', back: '返回上一步', priority: '本轮优先', undo: '撤销', resolved: '标记已改', think: '请自己修改：', corrected: '正确改法：', upgrades: '表达升级', guidance: 'AI 回复方式', hintMode: '只给提示', correctionMode: '给出正确项',
-    emptyTitle: 'AI 不会替你写', emptyBody: '它会引用问题片段、解释原因，并给出最小修改提示。首次分析时会锁定你的真实原稿。',
+    emptyTitle: '使用外部 AI 获取反馈', emptyBody: '网站不会把作文发给站内 AI。复制准备好的提示词到 ChatGPT、Claude、Gemini 或其他模型，再导入回复。首次分析时会锁定你的真实原稿。',
     transfer: '迁移验证', transferTitle: '下一篇才是掌握证明', recurring: '已在至少两篇独立作文出现：', recurringEmpty: '本篇错误不会自动算作反复错误。同类问题至少在两篇独立新作文再次出现才会升级。', transferButton: '开始新题迁移',
     revision: '修订地图', revisionTitle: '原稿到当前稿改了什么', added: '新增', removed: '删除', noRevision: '修改作文后，这里会高亮显示新增与删除的内容。', currentOnly: '首次分析会锁定原稿，之后即可进行版本对比。',
     external: '外部 LLM', externalTitle: '使用 ChatGPT、Claude、Gemini 或其他模型', externalBody: '复制包含题目、原稿、当前稿、方法与精确回复规范的完整提示词，再把外部模型的回复粘贴回来。', responseFormat: '回复格式', reviewMode: '检查模式', json: '结构化 JSON · 可导入', markdown: 'Markdown · 易阅读', modes: ['问题诊断', '修改复查', '语言升级'], copyPrompt: '复制完整提示词', copied: '提示词已复制', promptPreview: '查看完整提示词', pasteReply: '把外部 AI 的回复粘贴到这里…', importReply: '导入 AI 回复', imported: '外部反馈已导入。', markdownImported: 'Markdown 报告已保存在下方。', invalidReply: '回复不符合指定格式。', report: '已导入的 Markdown 报告',
-    fallbackTitle: '使用外部 LLM 继续', fallbackBody: '站内 AI 调用失败，当前步骤对应的提示词已经自动复制。请粘贴到任意 LLM，再把它返回的 JSON 粘贴到下方。',
+    fallbackTitle: '外部 AI 已准备就绪', fallbackBody: '当前步骤对应的提示词已自动复制。发送给外部模型后，把它返回的 JSON 粘贴到下方。',
     safety: '草稿安全', safetyTitle: '三层本地保护', safetyBody: '每次输入都会立即写入主草稿和镜像副本，并定期保留轮换恢复快照。', restore: '恢复快照', export: '下载备份', noSnapshot: '还没有可恢复的快照。', restored: '已恢复最新快照。',
     tooShort: '请先输入至少 80 个字符的真实原稿，再让 AI 分析。', reviseFirst: '先根据反馈自己修改作文，再进行复查。', upgradeDone: '语言升级建议已生成，只选择自然且不改变原意的表达。', feedbackDone: '反馈已生成。请先自己修改，再让 AI 复查。', failed: 'AI 分析失败，请稍后重试。', transferStarted: '已开始一篇新作文。独立完成后，检查旧错误是否真正减少。', settings: '打开设置',
   },
@@ -102,7 +101,7 @@ function validWritingWorkspace(value: unknown): value is WritingWorkspace {
     Array.isArray(workspace.previousRuleKeys) && workspace.previousRuleKeys.every((item) => typeof item === 'string') &&
     Array.isArray(workspace.resolved) && workspace.resolved.every((item) => typeof item === 'string') &&
     coerceWritingStage(String(workspace.stage)) !== null && (workspace.externalFallbackMode === null || ['diagnose', 'recheck', 'upgrade'].includes(workspace.externalFallbackMode ?? '')) &&
-    typeof workspace.externalReply === 'string' && typeof workspace.externalPanelOpen === 'boolean' && typeof workspace.savedAt === 'string';
+    typeof workspace.externalReply === 'string' && typeof workspace.externalPanelOpen === 'boolean' && typeof workspace.savedAt === 'string' && (workspace.markdownReport === undefined || typeof workspace.markdownReport === 'string');
 }
 function workspaceHasWork(workspace: WritingWorkspace) {
   return Boolean(workspace.draft.question.trim() || workspace.draft.essay.trim() || workspace.draft.originalEssay.trim() || workspace.feedback);
@@ -147,6 +146,11 @@ export default function WritingWorkbench() {
   const [externalReply, setExternalReply] = useState('');
   const [externalPanelOpen, setExternalPanelOpen] = useState(true);
   const [promptCopied, setPromptCopied] = useState(false);
+  const [repairPromptMode, setRepairPromptMode] = useState(false);
+  const [responseFormat, setResponseFormat] = useState<'json' | 'markdown'>('json');
+  const [markdownReport, setMarkdownReport] = useState('');
+  const [cloudSyncReady, setCloudSyncReady] = useState(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'local' | 'syncing' | 'synced' | 'error'>('local');
   const [externalFallbackMode, setExternalFallbackMode] = useState<ReviewMode | null>(null);
   const [archive, setArchive] = useState<WritingArchiveEntry[]>([]);
   const [currentArchiveId, setCurrentArchiveId] = useState<string | null>(null);
@@ -180,7 +184,7 @@ export default function WritingWorkbench() {
   }
   function commitDraft(next: DraftState, keepSnapshot = false) { setDraft(hydrated ? persistDraft(next,keepSnapshot) : next); }
   function editField(field: 'question' | 'essay', value: string) { editCount.current += 1; commitDraft({ ...draft, [field]: value }, editCount.current % 25 === 0); }
-  const currentWorkspaceSnapshot = useMemo<WritingWorkspace>(() => ({ id: draft.essayId, draft, feedback, feedbackSource, feedbackHistory, previousRuleKeys, resolved, stage, externalFallbackMode, externalReply, externalPanelOpen, savedAt: new Date().toISOString() }), [draft, feedback, feedbackSource, feedbackHistory, previousRuleKeys, resolved, stage, externalFallbackMode, externalReply, externalPanelOpen]);
+  const currentWorkspaceSnapshot = useMemo<WritingWorkspace>(() => ({ id: draft.essayId, draft, feedback, feedbackSource, feedbackHistory, previousRuleKeys, resolved, stage, externalFallbackMode, externalReply, externalPanelOpen, savedAt: new Date().toISOString(), markdownReport }), [draft, feedback, feedbackSource, feedbackHistory, previousRuleKeys, resolved, stage, externalFallbackMode, externalReply, externalPanelOpen, markdownReport]);
   function persistWritingWorkspaces(next: WritingWorkspace[]) {
     try {
       writeRedundantJson(localStorage, WORKSPACES_KEY, WORKSPACES_MIRROR_KEY, next);
@@ -200,7 +204,7 @@ export default function WritingWorkbench() {
 
   useEffect(() => {
     let storedDraft: DraftState | null = null; let storedHistory: ErrorHistoryEntry[] = []; let storedArchive: WritingArchiveEntry[] = []; let storedWorkspaces: WritingWorkspace[] = []; let storedLanguage: UiLanguage = 'en'; let storedLayout: WorkspaceLayout = 'split'; let storedHighlights = true; let storedStage: WritingStage | null = null; let storedGuidance: WritingGuidanceMode = 'hint';
-    try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; const parsedArchive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]') as unknown; if (Array.isArray(parsedArchive)) storedArchive = parsedArchive.filter(isWritingArchiveEntry); storedWorkspaces = readFirstValidJson(localStorage, [WORKSPACES_KEY, WORKSPACES_MIRROR_KEY], (value): value is WritingWorkspace[] => Array.isArray(value) && value.every(validWritingWorkspace)) ?? []; storedLanguage = localStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = localStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(localStorage.getItem(STAGE_KEY)); storedGuidance = localStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; } catch { /* Start clean when all local copies are unavailable. */ }
+    try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; const parsedArchive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]') as unknown; if (Array.isArray(parsedArchive)) storedArchive = parsedArchive.filter(isWritingArchiveEntry); storedWorkspaces = readFirstValidJson(localStorage, [WORKSPACES_KEY, WORKSPACES_MIRROR_KEY], (value): value is WritingWorkspace[] => Array.isArray(value) && value.every(validWritingWorkspace)) ?? []; storedLanguage = localStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = localStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(localStorage.getItem(STAGE_KEY)); storedGuidance = localStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; setResponseFormat(localStorage.getItem(RESPONSE_FORMAT_KEY) === 'markdown' ? 'markdown' : 'json'); } catch { /* Start clean when all local copies are unavailable. */ }
     try {draftBase.current=parseLocalValue(localStorage.getItem(DRAFT_KEY));historyBase.current=parseLocalValue(localStorage.getItem(HISTORY_KEY));archiveBase.current=parseLocalValue(localStorage.getItem(ARCHIVE_KEY));} catch { /* Corrupt originals remain untouched; guarded saves report conflicts. */ }
     const activeWorkspace = storedWorkspaces.find((workspace) => workspace.id === (storedDraft?.essayId ?? storedWorkspaces[0]?.id));
     const activeDraft = storedDraft ?? activeWorkspace?.draft ?? defaultDraft;
@@ -209,8 +213,52 @@ export default function WritingWorkbench() {
       ? storedWorkspaces.filter((workspace) => workspace.id !== restoredWorkspace.id)
       : upsertWritingWorkspace(storedWorkspaces, restoredWorkspace);
     workspacesRef.current = restoredWorkspaces;
-    queueMicrotask(() => { setDraft(activeDraft); setWorkspaces(restoredWorkspaces); if (Array.isArray(storedHistory)) setHistory(storedHistory); setArchive(storedArchive); setFeedback(restoredWorkspace.feedback); setFeedbackSource(restoredWorkspace.feedbackSource); setFeedbackHistory(restoredWorkspace.feedbackHistory); setPreviousRuleKeys(restoredWorkspace.previousRuleKeys); setResolved(restoredWorkspace.resolved); setExternalFallbackMode(restoredWorkspace.externalFallbackMode); setExternalReply(restoredWorkspace.externalReply); setExternalPanelOpen(restoredWorkspace.externalPanelOpen); setUiLanguage(storedLanguage); setWorkspaceLayout(storedLayout); setHighlightIssues(storedHighlights); setStageState(restoredWorkspace.stage); setGuidanceMode(storedGuidance); setHydrated(true); });
+    queueMicrotask(() => { setDraft(activeDraft); setWorkspaces(restoredWorkspaces); if (Array.isArray(storedHistory)) setHistory(storedHistory); setArchive(storedArchive); setFeedback(restoredWorkspace.feedback); setFeedbackSource(restoredWorkspace.feedbackSource); setFeedbackHistory(restoredWorkspace.feedbackHistory); setPreviousRuleKeys(restoredWorkspace.previousRuleKeys); setResolved(restoredWorkspace.resolved); setExternalFallbackMode(restoredWorkspace.externalFallbackMode); setExternalReply(restoredWorkspace.externalReply); setMarkdownReport(restoredWorkspace.markdownReport ?? ''); setExternalPanelOpen(restoredWorkspace.externalPanelOpen); setUiLanguage(storedLanguage); setWorkspaceLayout(storedLayout); setHighlightIssues(storedHighlights); setStageState(restoredWorkspace.stage); setGuidanceMode(storedGuidance); setHydrated(true); });
   }, []);
+  useEffect(() => {
+    if (!hydrated) return;
+    let cancelled = false;
+    void fetch('/api/ielts-writing/workspaces', { cache: 'no-store' }).then(async (response) => {
+      if (!response.ok) throw new Error('cloud unavailable');
+      const data = await response.json() as { workspace?: { workspaces?: WritingWorkspace[]; error_history?: ErrorHistoryEntry[]; archive?: WritingArchiveEntry[]; learning_settings?: Record<string, unknown> } | null };
+      if (cancelled) return;
+      const remote = data.workspace;
+      if (remote) {
+        const byId = new Map<string, WritingWorkspace>();
+        for (const item of [...(remote.workspaces ?? []), ...workspacesRef.current]) if (validWritingWorkspace(item) && (!byId.has(item.id) || item.savedAt >= byId.get(item.id)!.savedAt)) byId.set(item.id, item);
+        const merged = [...byId.values()].sort((a, b) => b.savedAt.localeCompare(a.savedAt)).slice(0, 40);
+        workspacesRef.current = merged; setWorkspaces(merged);
+        const historyById = new Map<string, Set<string>>();
+        for (const item of [...(remote.error_history ?? []), ...history]) if (item && typeof item.essayId === 'string' && Array.isArray(item.ruleKeys)) historyById.set(item.essayId, new Set([...(historyById.get(item.essayId) ?? []), ...item.ruleKeys]));
+        setHistory([...historyById].map(([essayId, keys]) => ({ essayId, ruleKeys: [...keys] })));
+        const archiveById = new Map<string, WritingArchiveEntry>();
+        for (const item of [...(remote.archive ?? []), ...archive]) if (isWritingArchiveEntry(item)) archiveById.set(item.id, item);
+        setArchive([...archiveById.values()].sort((a, b) => b.savedAt.localeCompare(a.savedAt)));
+        const prefs = remote.learning_settings ?? {};
+        if (prefs.uiLanguage === 'en' || prefs.uiLanguage === 'zh') setUiLanguage(prefs.uiLanguage);
+        if (prefs.workspaceLayout === 'split' || prefs.workspaceLayout === 'stacked') setWorkspaceLayout(prefs.workspaceLayout);
+        if (typeof prefs.highlightIssues === 'boolean') setHighlightIssues(prefs.highlightIssues);
+        if (prefs.guidanceMode === 'hint' || prefs.guidanceMode === 'correction') setGuidanceMode(prefs.guidanceMode);
+        if (prefs.responseFormat === 'json' || prefs.responseFormat === 'markdown') setResponseFormat(prefs.responseFormat);
+        const selected = merged.find((item) => item.id === draft.essayId) ?? (!draft.essay.trim() ? merged[0] : undefined);
+        if (selected) { setDraft(selected.draft); setFeedback(selected.feedback); setFeedbackSource(selected.feedbackSource); setFeedbackHistory(selected.feedbackHistory); setPreviousRuleKeys(selected.previousRuleKeys); setResolved(selected.resolved); setExternalFallbackMode(selected.externalFallbackMode); setExternalReply(selected.externalReply); setMarkdownReport(selected.markdownReport ?? ''); setExternalPanelOpen(selected.externalPanelOpen); setStageState(selected.stage); }
+      }
+      setCloudSyncReady(true); setCloudSyncStatus('synced');
+    }).catch(() => { if (!cancelled) { setCloudSyncReady(false); setCloudSyncStatus('local'); } });
+    return () => { cancelled = true; };
+  }, [hydrated]);
+  useEffect(() => {
+    if (!hydrated || !cloudSyncReady) return;
+    const timer = window.setTimeout(() => {
+      setCloudSyncStatus('syncing');
+      const body = { workspaces, errorHistory: history, archive, learningSettings: { uiLanguage, workspaceLayout, highlightIssues, guidanceMode, responseFormat } };
+      void fetch('/api/ielts-writing/workspaces', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then((response) => { if (!response.ok) throw new Error('cloud save failed'); setCloudSyncStatus('synced'); })
+        .catch(() => setCloudSyncStatus('error'));
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [archive, cloudSyncReady, guidanceMode, highlightIssues, history, hydrated, responseFormat, uiLanguage, workspaces, workspaceLayout]);
+  useEffect(() => { if (!hydrated) return; try { localStorage.setItem(RESPONSE_FORMAT_KEY, responseFormat); } catch { /* Cloud sync remains available when local storage is full. */ } }, [hydrated, responseFormat]);
   useEffect(() => {
     if (!hydrated) return;
     try {
@@ -302,10 +350,16 @@ export default function WritingWorkbench() {
       ? (uiLanguage === 'en' ? 'This passage was removed or can no longer be located.' : '此处内容已删除或无法定位。') : original;
   }
   const activeExternalMode = externalFallbackMode ?? (!feedback ? 'diagnose' : hasChanged ? 'recheck' : 'upgrade');
+  const recurringIssueRecords = useMemo(() => {
+    const keys = new Set(recurringRuleKeys(history));
+    return workspaces.flatMap((workspace) => workspace.feedback?.issues.filter((issue) => keys.has(issue.ruleKey)).map(({ quote, explanation, correction }) => ({ quote, explanation, ...(correction ? { correction } : {}) })) ?? []).slice(0, 12);
+  }, [history, workspaces]);
+  const currentIssueRecords = feedback?.issues.map(({ quote, explanation, correction }) => ({ quote, explanation, ...(correction ? { correction } : {}) })) ?? [];
+  const promptIssueRecords = activeExternalMode === 'diagnose' ? recurringIssueRecords : currentIssueRecords;
   const currentArchive = archive.find((entry) => entry.id === currentArchiveId) ?? null;
   const archiveResults = archive.filter((entry) => `${entry.title} ${entry.question} ${entry.content}`.toLocaleLowerCase().includes(archiveQuery.toLocaleLowerCase()));
   const readerThemeClass = readerTheme === 'night' ? 'bg-[#111827] text-[#e5e7eb]' : readerTheme === 'mint' ? 'bg-[#effaf5] text-[#16372d]' : 'bg-[#fffdf7] text-[#29251f]';
-  const externalPrompt = useMemo(() => buildWritingReviewPrompt({ ...draft, mode: activeExternalMode, previousRuleKeys, outputLanguage: uiLanguage, responseFormat: 'json', guidanceMode }), [activeExternalMode, draft, guidanceMode, previousRuleKeys, uiLanguage]);
+  const externalPrompt = useMemo(() => repairPromptMode ? buildWritingFeedbackRepairPrompt(externalReply.slice(0, 40_000), guidanceMode, uiLanguage) : buildWritingReviewPrompt({ ...draft, mode: activeExternalMode, previousRuleKeys: [...new Set([...previousRuleKeys, ...recurringRuleKeys(history)])], recurringErrorKeys: recurringRuleKeys(history), previousIssues: promptIssueRecords, outputLanguage: uiLanguage, responseFormat, guidanceMode }), [activeExternalMode, draft, externalReply, guidanceMode, history, previousRuleKeys, promptIssueRecords, repairPromptMode, responseFormat, uiLanguage]);
   function toggleLanguage() { const next = uiLanguage === 'en' ? 'zh' : 'en'; setUiLanguage(next); try { localStorage.setItem(LANGUAGE_KEY, next); } catch { setSaveState('error'); } }
   function changeLayout(next: WorkspaceLayout) { setWorkspaceLayout(next); try { localStorage.setItem(LAYOUT_KEY, next); } catch { setSaveState('error'); } }
   function toggleHighlights() { const next = !highlightIssues; setHighlightIssues(next); try { localStorage.setItem(HIGHLIGHT_KEY, next ? 'on' : 'off'); } catch { setSaveState('error'); } }
@@ -343,34 +397,18 @@ export default function WritingWorkbench() {
   }
   function updateTask(task: WritingTask) { commitDraft({ ...draft, task, secondsLeft: task === 'task2' ? 2400 : 1200, timerStarted: false }, true); }
   async function showExternalFallback(mode: ReviewMode) {
-    const prompt = buildWritingReviewPrompt({ ...draft, mode, previousRuleKeys, outputLanguage: uiLanguage, responseFormat: 'json', guidanceMode });
-    setExternalFallbackMode(mode); setExternalPanelOpen(true); setExternalReply(''); setPromptCopied(false);
+    const issues = mode === 'diagnose' ? recurringIssueRecords : currentIssueRecords;
+    const prompt = buildWritingReviewPrompt({ ...draft, mode, previousRuleKeys: [...new Set([...previousRuleKeys, ...recurringRuleKeys(history)])], recurringErrorKeys: recurringRuleKeys(history), previousIssues: issues, outputLanguage: uiLanguage, responseFormat, guidanceMode });
+    setExternalFallbackMode(mode); setExternalPanelOpen(true); setExternalReply(''); setPromptCopied(false); setRepairPromptMode(false);
     try { await navigator.clipboard.writeText(prompt); setPromptCopied(true); } catch { /* Prompt remains available in the preview. */ }
-  }
-
-  async function parseFeedbackWithRepair(raw: string): Promise<WritingFeedback> {
-    try { return parseWritingFeedback(raw); }
-    catch {
-      setMessage(uiLanguage === 'en' ? 'The model returned malformed JSON. Repairing the response automatically…' : '模型返回的 JSON 格式不规范，正在自动修复…');
-      const repairPrompt = buildWritingFeedbackRepairPrompt(raw.slice(0, 40_000), guidanceMode, uiLanguage);
-      const repairResponse = await callAiApi([{ role: 'system', content: 'You repair malformed structured data. Return one valid JSON object only.' }, { role: 'user', content: repairPrompt }], { temperature: 0, maxTokens: 4200, noThinking: true, feature: 'chat' });
-      return parseWritingFeedback(await readAiResponseContent(repairResponse));
-    }
   }
 
   async function review(mode: ReviewMode) {
     if (draft.essay.trim().length < 80) { setMessage(c.tooShort); return; }
     if (mode === 'recheck' && !hasChanged) { setMessage(c.reviseFirst); return; }
-    setLoadingMode(mode); setMessage('');
-    const originalEssay = draft.originalEssay || draft.essay;
+    setMessage(''); setMarkdownReport('');
     if (!draft.originalEssay) commitDraft({ ...draft, originalEssay: draft.essay }, true);
-    try {
-      const prompt = buildWritingReviewPrompt({ ...draft, originalEssay, mode, previousRuleKeys, outputLanguage: uiLanguage, guidanceMode });
-      const response = await callAiApi([{ role: 'system', content: 'You diagnose IELTS Writing. Return only the requested JSON and never write a complete replacement essay.' }, { role: 'user', content: prompt }], { temperature: 0.15, maxTokens: 4200, feature: 'reasoning' });
-      const result = await parseFeedbackWithRepair(await readAiResponseContent(response));
-      const keys = result.issues.map((issue) => issue.ruleKey);
-      setFeedbackHistory((current) => [...current, { source: feedbackSource, feedback, previousRuleKeys, resolved, stage }].slice(-10)); setFeedback(result); setExternalPanelOpen(false); setFeedbackSource({ essayId: draft.essayId, essay: draft.essay }); setResolved([]); setPreviousRuleKeys(keys); setHistory((current) => updateErrorHistory(current, draft.essayId, keys)); changeStage(mode === 'upgrade' || result.readyForUpgrade ? 2 : 1); setExternalFallbackMode(null); setMessage(mode === 'upgrade' ? c.upgradeDone : c.feedbackDone);
-    } catch (error) { setMessage(error instanceof Error ? error.message : c.failed); void showExternalFallback(mode); } finally { setLoadingMode(null); }
+    void showExternalFallback(mode);
   }
   function goBack() {
     if (externalFallbackMode) { setExternalFallbackMode(null); setExternalReply(''); setMessage(''); return; }
@@ -389,7 +427,7 @@ export default function WritingWorkbench() {
     } catch (error) {
       setSaveState('error'); setMessage(error instanceof Error ? error.message : '无法切换到这篇文章。'); return;
     }
-    setDraft(selected.draft); setFeedback(selected.feedback); setFeedbackSource(selected.feedbackSource); setFeedbackHistory(selected.feedbackHistory);
+    setDraft(selected.draft); setFeedback(selected.feedback); setFeedbackSource(selected.feedbackSource); setFeedbackHistory(selected.feedbackHistory); setMarkdownReport(selected.markdownReport ?? '');
     setPreviousRuleKeys(selected.previousRuleKeys); setResolved(selected.resolved); changeStage(selected.stage);
     setActiveIssueId(null); setExternalFallbackMode(selected.externalFallbackMode); setExternalReply(selected.externalReply); setExternalPanelOpen(selected.externalPanelOpen); setPromptCopied(false);
     setCurrentArchiveId(null); setView('workbench'); editCount.current = 0; setMessage('');
@@ -405,7 +443,7 @@ export default function WritingWorkbench() {
       const next = { ...defaultDraft, essayId: newEssayId(), task: draft.task, secondsLeft: draft.task === 'task2' ? 2400 : 1200 };
       saved = persistDraft(next, false, true, true);
     } catch { return; }
-    setDraft(saved); setFeedback(null); setFeedbackSource({ essayId: '', essay: '' }); setFeedbackHistory([]); setPreviousRuleKeys([]); setResolved([]); setActiveIssueId(null);
+    setDraft(saved); setFeedback(null); setFeedbackSource({ essayId: '', essay: '' }); setFeedbackHistory([]); setPreviousRuleKeys([]); setResolved([]); setMarkdownReport(''); setRepairPromptMode(false); setActiveIssueId(null);
     setExternalFallbackMode(null); setExternalPanelOpen(true); setExternalReply(''); setPromptCopied(false); setCurrentArchiveId(null); editCount.current = 0;
     changeStage(0); setView('workbench'); setMessage(transfer ? c.transferStarted : c.newEssayStarted);
     requestAnimationFrame(() => { essayRef.current?.focus(); essayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); syncEditorScroll(); });
@@ -416,12 +454,21 @@ export default function WritingWorkbench() {
   function importExternalReply() {
     if (!hydrated || loadingMode) return;
     if (!externalReply.trim()) { setMessage(c.invalidReply); return; }
+    if (responseFormat === 'markdown') {
+      setMarkdownReport(externalReply.trim()); setExternalPanelOpen(false); setExternalFallbackMode(null); setRepairPromptMode(false); setMessage(c.markdownImported); return;
+    }
     try {
       const result = parseWritingFeedback(externalReply);
       const keys = result.issues.map((issue) => issue.ruleKey);
-      setFeedbackHistory((current) => [...current, { source: feedbackSource, feedback, previousRuleKeys, resolved, stage }].slice(-10)); setFeedback(result); setExternalPanelOpen(false); setFeedbackSource({ essayId: draft.essayId, essay: draft.essay }); setResolved([]); setPreviousRuleKeys(keys); setHistory((current) => updateErrorHistory(current, draft.essayId, keys)); changeStage(result.readyForUpgrade ? 2 : 1); setExternalFallbackMode(null); setMessage(c.imported);
+      setFeedbackHistory((current) => [...current, { source: feedbackSource, feedback, previousRuleKeys, resolved, stage }].slice(-10)); setFeedback(result); setExternalPanelOpen(false); setFeedbackSource({ essayId: draft.essayId, essay: draft.essay }); setResolved([]); setPreviousRuleKeys(keys); setHistory((current) => updateErrorHistory(current, draft.essayId, keys)); changeStage(result.readyForUpgrade ? 2 : 1); setExternalFallbackMode(null); setRepairPromptMode(false); setMessage(c.imported);
       if (!draft.originalEssay) commitDraft({ ...draft, originalEssay: draft.essay }, true);
-    } catch { setMessage(c.invalidReply); }
+    } catch {
+      setExternalFallbackMode(externalFallbackMode ?? (feedback ? 'recheck' : 'diagnose'));
+      setExternalPanelOpen(true);
+      setMessage(uiLanguage === 'en' ? 'The reply could not be parsed. The repair prompt is ready to copy to the external model.' : '回复格式无法识别。已准备好修复提示词，可复制给外部模型重新整理。');
+      setRepairPromptMode(true);
+      setRepairPromptMode(true);
+    }
   }
   function archiveCurrentEssay() {
     if (draft.essay.trim().length < 80) { setMessage(uiLanguage === 'en' ? 'Write at least 80 characters before saving a final version.' : '至少写满 80 个字符后再保存最终稿。'); return; }
@@ -452,7 +499,7 @@ export default function WritingWorkbench() {
     {view === 'workbench' && <section ref={workspaceRef} data-writing-workspace data-focus-mode={focusMode} className={`grid gap-5 ${focusMode ? 'fixed inset-0 z-[100] !m-0 h-[100dvh] w-full max-w-none overflow-y-auto bg-[var(--background)] p-3 sm:p-5' : ''} ${workspaceLayout === 'split' ? `${focusMode ? 'xl:grid-rows-[auto_minmax(0,1fr)]' : 'xl:h-[calc(100dvh-20rem)]'} xl:min-h-[360px] xl:grid-cols-[minmax(0,1.3fr)_minmax(440px,1fr)] xl:overflow-hidden` : 'grid-cols-1'}`}>
       {focusMode && <div className="sticky top-0 z-20 col-span-full flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2"><span className="flex items-center gap-2 text-sm font-bold"><button type="button" onClick={() => commitDraft({ ...draft, timerStarted: !draft.timerStarted })} aria-label={draft.timerStarted ? c.pause : c.start} className="min-h-10 rounded-lg border border-[var(--card-border)] px-3">{draft.timerStarted ? c.pause : c.start}</button>{uiLanguage === 'en' ? 'Focused revision' : '专注修改'} <span className="ml-2 font-mono text-[var(--muted-foreground)]">{formatTime(draft.secondsLeft)}</span></span><div className="flex flex-wrap gap-2"><button type="button" onClick={archiveCurrentEssay} className="min-h-10 rounded-lg bg-[#147352] px-3 text-sm font-bold text-white">{uiLanguage === 'en' ? 'Save final version' : '保存最终稿'}</button><button type="button" onClick={() => void leaveFocusMode()} className="min-h-10 rounded-lg border border-[var(--card-border)] px-3 text-sm font-bold">{uiLanguage === 'en' ? 'Exit fullscreen' : '退出全屏'}</button></div></div>}
       <div className={`min-w-0 space-y-5 ${workspaceLayout === 'split' ? 'xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pr-1 xl:pb-6' : ''}`} data-scroll-region={workspaceLayout === 'split' ? true : undefined}>
-      <article className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[0_14px_45px_rgba(15,23,42,.07)] dark:shadow-none"><div className="flex flex-col gap-4 border-b border-[var(--card-border)] bg-[linear-gradient(90deg,rgba(14,116,144,.06),transparent)] p-4 sm:px-6"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className={focusMode ? 'hidden' : 'flex flex-wrap gap-2'} role="group" aria-label={c.taskGroup}>{(['task1-academic', 'task1-general', 'task2'] as WritingTask[]).map((task) => <button type="button" key={task} onClick={() => updateTask(task)} className={`min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${draft.task === task ? 'bg-[#0e7490] text-white shadow-md shadow-cyan-950/15' : 'border border-transparent bg-[var(--background)] text-[var(--muted-foreground)] hover:border-[#67b9cc]'}`}>{taskLabel(task)}</button>)}</div><div className="flex items-center gap-3 text-sm"><span className={`rounded-full px-3 py-1.5 font-bold ${words >= target ? 'bg-[#dcfce7] text-[#166534] dark:bg-[#143f2a] dark:text-[#86efac]' : 'bg-[var(--background)] text-[var(--muted-foreground)]'}`}>{words} / {target}+ {c.words}</span><span className={`flex items-center gap-1.5 text-xs font-semibold ${saveState === 'error' ? 'text-[#dc2626]' : 'text-[#16845b]'}`}><span className="material-icons-round text-base">{saveState === 'error' ? 'cloud_off' : 'verified'}</span>{saveState === 'error' ? c.saveError : c.saved}</span></div></div><div className="flex flex-wrap items-center gap-2">{!focusMode && <><button type="button" onClick={() => void enterFocusMode()} className="min-h-10 rounded-xl bg-[#0e7490] px-3 text-xs font-bold text-white">{uiLanguage === 'en' ? 'Fullscreen revision' : '全屏修改'}</button><button type="button" onClick={archiveCurrentEssay} className="min-h-10 rounded-xl border border-[var(--card-border)] px-3 text-xs font-bold text-[#147352] dark:text-[#86efac]">{uiLanguage === 'en' ? 'Save final version' : '保存最终稿'}</button></>}<span className="mr-1 text-xs font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]">{c.layout}</span><button type="button" aria-pressed={workspaceLayout === 'split'} onClick={() => changeLayout('split')} className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold ${workspaceLayout === 'split' ? 'bg-[#0e7490] text-white' : 'border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">view_sidebar</span>{c.split}</button><button type="button" aria-pressed={workspaceLayout === 'stacked'} onClick={() => changeLayout('stacked')} className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold ${workspaceLayout === 'stacked' ? 'bg-[#0e7490] text-white' : 'border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">view_agenda</span>{c.stacked}</button></div></div>
+      <article className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[0_14px_45px_rgba(15,23,42,.07)] dark:shadow-none"><div className="flex flex-col gap-4 border-b border-[var(--card-border)] bg-[linear-gradient(90deg,rgba(14,116,144,.06),transparent)] p-4 sm:px-6"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className={focusMode ? 'hidden' : 'flex flex-wrap gap-2'} role="group" aria-label={c.taskGroup}>{(['task1-academic', 'task1-general', 'task2'] as WritingTask[]).map((task) => <button type="button" key={task} onClick={() => updateTask(task)} className={`min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${draft.task === task ? 'bg-[#0e7490] text-white shadow-md shadow-cyan-950/15' : 'border border-transparent bg-[var(--background)] text-[var(--muted-foreground)] hover:border-[#67b9cc]'}`}>{taskLabel(task)}</button>)}</div><div className="flex items-center gap-3 text-sm"><span className={`rounded-full px-3 py-1.5 font-bold ${words >= target ? 'bg-[#dcfce7] text-[#166534] dark:bg-[#143f2a] dark:text-[#86efac]' : 'bg-[var(--background)] text-[var(--muted-foreground)]'}`}>{words} / {target}+ {c.words}</span><span title={cloudSyncStatus === 'synced' ? '已同步到账号' : cloudSyncStatus === 'syncing' ? '正在同步到账号' : cloudSyncStatus === 'error' ? '云端同步暂不可用，内容仍保存在本机' : '本机已保存'} className={`flex items-center gap-1.5 text-xs font-semibold ${saveState === 'error' ? 'text-[#dc2626]' : 'text-[#16845b]'}`}><span className="material-icons-round text-base">{saveState === 'error' ? 'cloud_off' : 'verified'}</span>{saveState === 'error' ? c.saveError : c.saved}</span></div></div><div className="flex flex-wrap items-center gap-2">{!focusMode && <><button type="button" onClick={() => void enterFocusMode()} className="min-h-10 rounded-xl bg-[#0e7490] px-3 text-xs font-bold text-white">{uiLanguage === 'en' ? 'Fullscreen revision' : '全屏修改'}</button><button type="button" onClick={archiveCurrentEssay} className="min-h-10 rounded-xl border border-[var(--card-border)] px-3 text-xs font-bold text-[#147352] dark:text-[#86efac]">{uiLanguage === 'en' ? 'Save final version' : '保存最终稿'}</button></>}<span className="mr-1 text-xs font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]">{c.layout}</span><button type="button" aria-pressed={workspaceLayout === 'split'} onClick={() => changeLayout('split')} className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold ${workspaceLayout === 'split' ? 'bg-[#0e7490] text-white' : 'border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">view_sidebar</span>{c.split}</button><button type="button" aria-pressed={workspaceLayout === 'stacked'} onClick={() => changeLayout('stacked')} className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold ${workspaceLayout === 'stacked' ? 'bg-[#0e7490] text-white' : 'border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">view_agenda</span>{c.stacked}</button></div></div>
         <div className="space-y-5 p-4 sm:p-6">
           <details open={!focusMode}><summary className={focusMode ? 'cursor-pointer text-sm font-bold text-[var(--muted-foreground)]' : 'hidden'}>{c.question}</summary><label className="block"><span className="mb-2 block text-sm font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]">{c.question}</span><textarea value={draft.question} onChange={(event) => editField('question', event.target.value)} rows={3} placeholder={c.questionPlaceholder} className="w-full resize-y rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3.5 text-base leading-7 outline-none transition focus:border-[#0e7490] focus:ring-4 focus:ring-[#0e7490]/10" /></label></details>
           <div className="block"><div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]"><span id="ielts-essay-label">{c.essay}</span><span className="flex items-center gap-2"><button type="button" aria-pressed={highlightIssues} onClick={toggleHighlights} className={`flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold normal-case tracking-normal ${highlightIssues ? 'bg-[#fef3c7] text-[#92400e] dark:bg-[#4a2e0c] dark:text-[#fcd34d]' : 'border border-[var(--card-border)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-base">highlight</span>{highlightIssues ? c.highlightsOn : c.highlightsOff}</button>{draft.originalEssay && <button type="button" onClick={() => originalRef.current?.scrollIntoView({ behavior: 'smooth' })} className="normal-case font-semibold tracking-normal text-[#0e7490] hover:underline">{c.originalLink}</button>}</span></div><div className="relative block overflow-hidden rounded-2xl bg-[var(--background)]"><div aria-hidden="true" style={{ right: 'var(--editor-scrollbar-inset, 1px)' }} className={`pointer-events-none absolute inset-y-px left-px overflow-hidden rounded-2xl ${editorHighlightsReady ? 'opacity-100' : 'opacity-0'}`}><div ref={highlightLayerRef} className="block min-h-full whitespace-pre-wrap break-words px-5 py-5 font-serif text-[18px] leading-[2] text-[var(--foreground)] sm:px-7">{highlightedEssay.map((part, index) => part.highlighted ? <mark key={index} data-issue-ids={part.issueIds.join(' ')} className={`rounded text-inherit ${activeIssueId && part.issueIds.includes(activeIssueId) ? 'bg-[#fb923c] ring-2 ring-[#ea580c]/60 dark:bg-[#c2410c]' : 'bg-[#fde68a] ring-1 ring-[#f59e0b]/35 dark:bg-[#854d0e]'}`}>{part.text}</mark> : <span key={index}>{part.text}</span>)}</div></div><textarea aria-labelledby="ielts-essay-label" ref={essayRef} value={draft.essay} onChange={(event) => { setActiveIssueId(null); editField('essay', event.target.value); }} onScroll={syncEditorScroll} rows={20} spellCheck lang="en" placeholder={c.essayPlaceholder} className={`relative min-h-[500px] w-full resize-y rounded-2xl border border-[var(--card-border)] bg-transparent px-5 py-5 font-serif text-[18px] leading-[2] caret-[var(--foreground)] outline-none transition selection:bg-[#38bdf8]/45 focus:border-[#0e7490] focus:ring-4 focus:ring-[#0e7490]/10 sm:px-7 ${editorHighlightsReady ? 'text-transparent' : 'text-[var(--foreground)]'}`} /></div></div>
@@ -470,9 +517,10 @@ export default function WritingWorkbench() {
         <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-1.5"><span className="pl-2 text-xs font-bold text-[var(--muted-foreground)]">{c.guidance}</span><div className="flex gap-1" role="group" aria-label={c.guidance}><button type="button" aria-pressed={guidanceMode === 'hint'} onClick={() => changeGuidanceMode('hint')} className={`min-h-9 rounded-lg px-3 text-xs font-bold transition ${guidanceMode === 'hint' ? 'bg-[#0e7490] text-white' : 'text-[var(--muted-foreground)] hover:bg-[var(--card)]'}`}>{c.hintMode}</button><button type="button" aria-pressed={guidanceMode === 'correction'} onClick={() => changeGuidanceMode('correction')} className={`min-h-9 rounded-lg px-3 text-xs font-bold transition ${guidanceMode === 'correction' ? 'bg-[#0e7490] text-white' : 'text-[var(--muted-foreground)] hover:bg-[var(--card)]'}`}>{c.correctionMode}</button></div></div>
         <div className="grid gap-2 sm:grid-cols-2"><button type="button" disabled={Boolean(loadingMode)} onClick={() => review(feedback ? 'recheck' : 'diagnose')} className="min-h-12 rounded-xl bg-[#0e7490] px-4 text-sm font-bold text-white shadow-md shadow-cyan-950/15 disabled:opacity-50">{loadingMode === 'diagnose' || loadingMode === 'recheck' ? c.analysing : feedback ? c.recheck : c.diagnose}</button><button type="button" disabled={Boolean(loadingMode)} onClick={() => review('upgrade')} className="min-h-12 rounded-xl border-2 border-[#0e7490] px-4 text-sm font-bold text-[#0e7490] disabled:opacity-40 dark:text-[#67e8f9]">{loadingMode === 'upgrade' ? c.upgrading : c.upgrade}</button></div>
         {message && <p role="status" className="mt-4 rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 text-sm leading-6 text-[var(--muted-foreground)]">{message} {/config|配置|API key/i.test(message) && <Link href="/settings" className="ml-1 font-bold text-[#0e7490] underline">{c.settings}</Link>}</p>}
-        <details open={externalPanelOpen} onToggle={(event) => setExternalPanelOpen(event.currentTarget.open)} data-writing-external-ai className="mt-4 space-y-3 border-t border-[#f0b84b] pt-4"><summary className="cursor-pointer text-sm font-bold text-[#b45309] dark:text-[#fbbf24]">{c.external}</summary><div className="space-y-3 pt-3"><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#d97706] text-white"><span className="material-icons-round">swap_horiz</span></span><div><h3 className="font-semibold">{externalFallbackMode ? c.fallbackTitle : c.externalTitle}</h3><p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)]">{externalFallbackMode ? c.fallbackBody : c.externalBody}</p></div></div><button type="button" onClick={copyExternalPrompt} className="min-h-11 w-full rounded-xl bg-[#d97706] px-4 text-sm font-bold text-white"><span className="material-icons-round mr-2 align-middle text-lg">content_copy</span>{promptCopied ? c.copied : c.copyPrompt}</button><details className="rounded-xl border border-[var(--card-border)]"><summary className="cursor-pointer px-3 py-3 text-xs font-bold text-[var(--muted-foreground)]">{c.promptPreview}</summary><textarea readOnly value={externalPrompt} rows={7} onFocus={(event) => event.currentTarget.select()} className="w-full resize-y border-t border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5 outline-none" /></details><textarea value={externalReply} onChange={(event) => setExternalReply(event.target.value)} rows={7} aria-label={c.pasteReply} placeholder={c.pasteReply} className="w-full resize-y rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5 outline-none focus:border-[#d97706] focus:ring-4 focus:ring-[#d97706]/10" /><button type="button" disabled={!hydrated || Boolean(loadingMode)} onClick={importExternalReply} className="min-h-11 w-full rounded-xl border-2 border-[#d97706] px-4 text-sm font-bold text-[#b45309] dark:text-[#fbbf24]">{c.importReply}</button></div></details>
+        <details open={externalPanelOpen} onToggle={(event) => setExternalPanelOpen(event.currentTarget.open)} data-writing-external-ai className="mt-4 space-y-3 border-t border-[#f0b84b] pt-4"><summary className="cursor-pointer text-sm font-bold text-[#b45309] dark:text-[#fbbf24]">{c.external}</summary><div className="space-y-3 pt-3"><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#d97706] text-white"><span className="material-icons-round">swap_horiz</span></span><div><h3 className="font-semibold">{externalFallbackMode ? c.fallbackTitle : c.externalTitle}</h3><p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)]">{externalFallbackMode ? c.fallbackBody : c.externalBody}</p></div></div><label className="flex items-center justify-between gap-3 rounded-xl bg-[var(--background)] px-3 py-2 text-xs font-semibold"><span>{c.responseFormat}</span><select value={responseFormat} onChange={(event) => { setResponseFormat(event.target.value as 'json' | 'markdown'); setRepairPromptMode(false); }} className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-2 py-1"><option value="json">{c.json}</option><option value="markdown">{c.markdown}</option></select></label><button type="button" onClick={copyExternalPrompt} className="min-h-11 w-full rounded-xl bg-[#d97706] px-4 text-sm font-bold text-white"><span className="material-icons-round mr-2 align-middle text-lg">content_copy</span>{promptCopied ? c.copied : c.copyPrompt}</button><details className="rounded-xl border border-[var(--card-border)]"><summary className="cursor-pointer px-3 py-3 text-xs font-bold text-[var(--muted-foreground)]">{c.promptPreview}</summary><textarea readOnly value={externalPrompt} rows={7} onFocus={(event) => event.currentTarget.select()} className="w-full resize-y border-t border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5 outline-none" /></details><textarea value={externalReply} onChange={(event) => setExternalReply(event.target.value)} rows={7} aria-label={c.pasteReply} placeholder={c.pasteReply} className="w-full resize-y rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3 font-mono text-xs leading-5 outline-none focus:border-[#d97706] focus:ring-4 focus:ring-[#d97706]/10" /><button type="button" disabled={!hydrated || Boolean(loadingMode)} onClick={importExternalReply} className="min-h-11 w-full rounded-xl border-2 border-[#d97706] px-4 text-sm font-bold text-[#b45309] dark:text-[#fbbf24]">{c.importReply}</button></div></details>
       </article>
 
+      {markdownReport && <article className="max-h-[calc(100dvh-300px)] overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5" data-writing-markdown-report><h3 className="mb-3 font-semibold">{c.report}</h3><pre className="whitespace-pre-wrap break-words text-sm leading-6">{markdownReport}</pre></article>}
       {feedback ? <article className="max-h-[calc(100dvh-300px)] overflow-y-auto rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-[0_14px_45px_rgba(15,23,42,.07)] dark:shadow-none" data-scroll-region>
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">{feedback.summary}</p>
         {feedback.priorities.length > 0 && <div className="mt-4 rounded-2xl border border-[#a7e2ca] bg-[#effcf7] p-3.5 dark:border-[#24634d] dark:bg-[#123a2d]"><p className="text-xs font-bold uppercase tracking-[.12em] text-[#147352] dark:text-[#86efac]">{c.priority}</p><ul className="mt-2 space-y-1 text-sm">{feedback.priorities.map((priority) => <li key={priority}>• {priority}</li>)}</ul></div>}

@@ -345,13 +345,15 @@ export function buildWritingReviewPrompt(input: {
   outputLanguage?: 'en' | 'zh';
   responseFormat?: ExternalResponseFormat;
   guidanceMode?: WritingGuidanceMode;
+  recurringErrorKeys?: string[];
+  previousIssues?: Array<{ quote: string; explanation: string; correction?: string }>;
 }): string {
   const guidanceMode = input.guidanceMode ?? 'hint';
   const modeInstruction = input.mode === 'upgrade'
-    ? '主要错误应已收敛。区分 necessary correction、natural upgrade、optional sophistication；保持原观点，只做 same idea, better English。'
+    ? `主要错误应已收敛。区分 necessary correction、natural upgrade、optional sophistication；保持原观点，只做 same idea, better English。回看已保存的问题记录：${JSON.stringify(input.previousIssues ?? [])}`
     : input.mode === 'recheck'
-      ? '这是学生自己修改后的版本。重点检查上一轮主要问题是否解决，并只报告仍然重要或新引入的问题。'
-      : '这是原始独立写作。先诊断问题，让学生自己修改；不要代写整句或整篇。';
+      ? `这是学生自己修改后的版本。重点检查上一轮主要问题是否解决，并只报告仍然重要或新引入的问题。核对的原始问题记录：${JSON.stringify(input.previousIssues ?? [])}`
+      : `这是原始独立写作。先诊断问题，让学生自己修改；不要代写整句或整篇。Prior recurring issue keys recorded across this user's other IELTS essays: ${input.recurringErrorKeys?.join(', ') || 'none'}. Check these patterns explicitly in this independent transfer essay. Prior issue details: ${JSON.stringify(input.previousIssues ?? [])}`;
 
   const responseLanguage = input.outputLanguage === 'zh'
     ? `Write summary, priorities, explanations, ${guidanceMode === 'hint' ? 'self-revision prompts' : 'correction explanations'}, and upgrade reasons in Simplified Chinese. Keep category, severity, type, ruleKey, and every quote/original/suggestion/correction field in English.`
