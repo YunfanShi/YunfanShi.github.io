@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { mkdir, writeFile } from 'node:fs/promises';
 
 const base = process.env.JACKYUN_AUTH_TEST_URL || 'http://127.0.0.1:3154';
 const backend = process.env.JACKYUN_UI_BACKEND_URL || 'http://127.0.0.1:54329';
@@ -8,6 +9,7 @@ const session = await (await fetch(`${backend}/_test/session?role=user`)).json()
 const browser = await chromium.launch({ headless: true, channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' });
 const errors = [];
 const expectedIsolatedEmbedErrors = [];
+const diagnostics = { route: '', width: 0, page: null };
 const routes = [
   ['/study', '学习计划'],
   ['/goal', '计划显示器'],
@@ -38,6 +40,8 @@ try {
     await context.addInitScript(() => localStorage.setItem('jackyun_theme', 'gray'));
     await context.addCookies([{ name: 'sb-127-auth-token', value: `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}`, url: base }]);
     const page = await context.newPage();
+    diagnostics.page = page;
+    diagnostics.width = width;
     let currentRoute = '';
     page.on('pageerror', error => {
       // IGCountdown deliberately sandboxes third-party audio embeds without same-origin access.
@@ -50,6 +54,7 @@ try {
     await page.route('**/api/sync/v3**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ syncProtocol: 3, records: [], next: null }) }));
     for (const [route, title] of routes) {
       currentRoute = route;
+      diagnostics.route = route;
       let studyGuideLoads = 0;
       if (route === '/study-guide' && width === 1440) {
         await page.route('**/StudyGuide.html', async resource => {
@@ -67,7 +72,7 @@ try {
         await page.screenshot({ path: 'artifacts/verification/legacy-retry-503.png', clip: { x: 255, y: 64, width: 750, height: 700 } });
         await error.getByRole('button', { name: '重试加载页面', exact: true }).click();
       }
-      await frame.locator('html[data-legacy-workspace]').waitFor();
+      await frame.locator('html[data-legacy-workspace]').waitFor({ state: 'attached' });
       await page.waitForFunction(title => {
         const iframe = Array.from(document.querySelectorAll('iframe')).find(element => element.title === title);
         // DOM readiness includes the page scripts; background JSONP time sync
@@ -75,6 +80,9 @@ try {
         const state = iframe?.contentDocument?.readyState;
         return state === 'interactive' || state === 'complete';
       }, title);
+      // Check actual page content rather than using the root element's layout
+      // box as a proxy for a usable legacy interface.
+      await frame.locator('button:visible, a[href]:visible, h1:visible, h2:visible, input:visible, textarea:visible, select:visible').first().waitFor();
       if (route === '/study-guide' && width === 1440) {
         assert.equal(studyGuideLoads, 2, 'retry must refetch the failed legacy document');
         await page.screenshot({ path: 'artifacts/verification/legacy-retry-success.png' });
@@ -83,20 +91,20 @@ try {
       await frame.locator('link[href="/shared/device-workspace.css"]').waitFor({ state: 'attached' });
       await frame.locator('link[href^="/jackyun-theme.css"]').waitFor({ state: 'attached' });
       await page.evaluate(() => document.querySelector('iframe')?.contentWindow?.postMessage({ type: 'jackyun-theme', theme: 'dark' }, location.origin));
-      await frame.locator('html[data-jy-theme="dark"]').waitFor();
+      await frame.locator('html[data-jy-theme="dark"]').waitFor({ state: 'attached' });
       const themeToken = await frame.locator('html').evaluate(element => getComputedStyle(element).getPropertyValue('--primary').trim());
       assert.notEqual(themeToken, '');
       // Change the portal preference so a late iframe load event sends the same
       // language. A direct iframe-only message races its parent's current value.
       await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_language', newValue: 'en' })));
-      await frame.locator('html[lang="en"]').waitFor();
+      await frame.locator('html[lang="en"]').waitFor({ state: 'attached' });
       await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_language', newValue: 'zh' })));
-      await frame.locator('html[lang="zh-CN"]').waitFor();
+      await frame.locator('html[lang="zh-CN"]').waitFor({ state: 'attached' });
       if (route === '/study-guide' && width === 1440) {
         const documentToken = `legacy-document-${Date.now()}`;
         await frame.locator('html').evaluate((_, token) => { window.__legacyDocumentToken = token; }, documentToken);
         await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_language', newValue: 'en' })));
-        await frame.locator('html[lang="en"]').waitFor();
+        await frame.locator('html[lang="en"]').waitFor({ state: 'attached' });
         assert.equal(
           await frame.locator('html').evaluate(() => window.__legacyDocumentToken),
           documentToken,
@@ -114,7 +122,7 @@ try {
         }).then(response => response.text()));
         assert.equal(proxiedLanguage, 'en', 'AI proxy requests must use the live language after a switch');
         await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_language', newValue: 'zh' })));
-        await frame.locator('html[lang="zh-CN"]').waitFor();
+        await frame.locator('html[lang="zh-CN"]').waitFor({ state: 'attached' });
         await frame.locator('html').evaluate(() => window.fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -147,4 +155,16 @@ try {
   }
   assert.deepEqual(errors, []);
   if (expectedIsolatedEmbedErrors.length) console.log(`PASS ${expectedIsolatedEmbedErrors.length} isolated IGCountdown embed storage errors remain confined by sandbox`);
+} catch (error) {
+  const out = process.env.JACKYUN_UI_ARTIFACTS || 'artifacts/verification/ui-acceptance/active-legacy-ui';
+  await mkdir(out, { recursive: true });
+  const page = diagnostics.page;
+  const state = page && !page.isClosed() ? await page.evaluate(() => Array.from(document.querySelectorAll('iframe'), frame => ({
+    title: frame.title, sourceLength: frame.srcdoc.length, readyState: frame.contentDocument?.readyState,
+    root: frame.contentDocument?.documentElement?.outerHTML.slice(0, 800),
+    frameRect: frame.getBoundingClientRect().toJSON(), rootRect: frame.contentDocument?.documentElement?.getBoundingClientRect().toJSON(),
+  }))).catch(problem => ({ diagnosticError: String(problem) })) : null;
+  await writeFile(`${out}/failure.json`, JSON.stringify({ route: diagnostics.route, width: diagnostics.width, message: String(error), state, errors }, null, 2));
+  if (page && !page.isClosed()) await page.screenshot({ path: `${out}/failure.png` }).catch(() => {});
+  throw error;
 } finally { await browser.close(); }
