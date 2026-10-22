@@ -86,9 +86,11 @@ try {
       await frame.locator('html[data-jy-theme="dark"]').waitFor();
       const themeToken = await frame.locator('html').evaluate(element => getComputedStyle(element).getPropertyValue('--primary').trim());
       assert.notEqual(themeToken, '');
-      await page.evaluate(() => document.querySelector('iframe')?.contentWindow?.postMessage({ type: 'jackyun-language', language: 'en' }, location.origin));
+      // Change the portal preference so a late iframe load event sends the same
+      // language. A direct iframe-only message races its parent's current value.
+      await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_language', newValue: 'en' })));
       await frame.locator('html[lang="en"]').waitFor();
-      await page.evaluate(() => document.querySelector('iframe')?.contentWindow?.postMessage({ type: 'jackyun-language', language: 'zh' }, location.origin));
+      await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_language', newValue: 'zh' })));
       await frame.locator('html[lang="zh-CN"]').waitFor();
       if (route === '/study-guide' && width === 1440) {
         const documentToken = `legacy-document-${Date.now()}`;
