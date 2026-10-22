@@ -29,6 +29,7 @@ seed.cues = Array.from({ length: 4 }, (_, index) => ({
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await context.addInitScript(value => {
+    Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, get: () => false });
     if (localStorage.getItem('jackyun_schedule_control_v1') === null) localStorage.setItem('jackyun_schedule_control_v1', JSON.stringify(value));
     if (localStorage.getItem('jackyun_settings_learning_preferences') === null) localStorage.setItem('jackyun_settings_learning_preferences', JSON.stringify({ cueGameEnabled: false, cueShuffle: false }));
   }, seed);
@@ -52,6 +53,19 @@ try {
   await page.getByRole('region', { name: 'CUE 学习预览' }).getByRole('button', { name: '开始学习', exact: true }).click({ timeout: 60_000 });
   const session = page.getByRole('dialog').filter({ has: page.locator('[data-cue-study-page]') });
   await session.waitFor();
+  const fullscreen = session.getByRole('button', { name: '全屏', exact: true });
+  await fullscreen.click();
+  const fullscreenHelp = page.getByRole('dialog', { name: '减少浏览器工具栏占用' });
+  await fullscreenHelp.waitFor();
+  assert.ok(await fullscreenHelp.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+  }), 'fullscreen help stays above the real learning session');
+  await fullscreenHelp.getByRole('button', { name: '关闭全屏帮助', exact: true }).click();
+  await fullscreenHelp.waitFor({ state: 'hidden' });
+  assert.ok(await session.isVisible(), 'closing help preserves the learning session');
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '全屏');
+  await fullscreen.evaluate(element => (element as HTMLElement).blur());
   await page.keyboard.press('Space');
   await page.keyboard.press('1');
   await page.keyboard.press('ArrowRight');
