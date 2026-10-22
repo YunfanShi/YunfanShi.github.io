@@ -5,6 +5,8 @@ import { createQuickTask } from '@/actions/study';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { readOfflineSnapshot, runOfflineMutation, saveOfflineSnapshot } from '@/lib/offline/workspace';
 import type { OfflineTaskSnapshot } from './offline-task-workspace';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function QuickTaskForm() {
   const { userId } = useAuthMode();
@@ -44,20 +46,20 @@ export default function QuickTaskForm() {
   return (
     <form onSubmit={submit} className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4">
       <div className="flex gap-2">
-        <input
+        <Input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           onFocus={() => setExpanded(true)}
           maxLength={140}
           placeholder="快速添加一个学习任务…"
-          className="min-w-0 flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[#1a73e8]"
+          className="min-w-0 flex-1 rounded-lg text-sm"
         />
-        <button disabled={isPending || !title.trim()} className="rounded-lg bg-[#1a73e8] px-4 text-sm font-semibold text-white disabled:opacity-50">{isPending ? '添加中' : '添加'}</button>
+        <Button type="submit" busy={isPending} disabled={!title.trim()} className="rounded-lg text-sm">{isPending ? '添加中' : '添加'}</Button>
       </div>
       {expanded && (
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <label className="text-xs text-[var(--muted-foreground)]">截止日期 <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="ml-1 rounded-md border border-[var(--card-border)] bg-[var(--background)] px-2 py-1.5" /></label>
-          <label className="text-xs text-[var(--muted-foreground)]">预计 <input type="number" min={10} max={360} step={5} value={minutes} onChange={(event) => setMinutes(Number(event.target.value))} className="ml-1 w-20 rounded-md border border-[var(--card-border)] bg-[var(--background)] px-2 py-1.5" /> 分钟</label>
+          <label className="text-xs text-[var(--muted-foreground)]">截止日期 <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="ml-1 inline-flex w-auto rounded-md px-2 py-1.5" /></label>
+          <label className="text-xs text-[var(--muted-foreground)]">预计 <Input type="number" min={10} max={360} step={5} value={minutes} onChange={(event) => setMinutes(Number(event.target.value))} className="ml-1 inline-flex w-20 rounded-md px-2 py-1.5" /> 分钟</label>
         </div>
       )}
       {message && <p className="mt-2 text-xs text-[var(--muted-foreground)]">{message}</p>}

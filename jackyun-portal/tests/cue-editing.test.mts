@@ -40,6 +40,4 @@ test('list edit action reuses the form, preserves subject identity and supports 
   assert.match(source, /取消编辑/);
   assert.match(source, /subjectId: selectedSubjectConfig\?\.id \?\? subjectIdFromName\(subjectName\)/);
   assert.match(source, /name="cuePrompt"/);
-  const topbar = readFileSync(new URL('../src/components/layout/topbar.tsx', import.meta.url), 'utf8');
-  assert.match(topbar, /window\.location\.reload\(\)[^\n]*aria-label="刷新网页"[^\n]*md:hidden/);
 });

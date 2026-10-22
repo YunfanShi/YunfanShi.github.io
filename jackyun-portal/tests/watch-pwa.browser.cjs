@@ -1,4 +1,5 @@
-const {chromium}=require('C:/Users/syf26/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+/* eslint-disable @typescript-eslint/no-require-imports -- This browser runner is a CommonJS file. */
+const {chromium}=require(process.env.JACKYUN_PLAYWRIGHT_PATH || 'playwright');
 const fs=require('node:fs');const assert=require('node:assert/strict');
 const out='artifacts/watch-pwa-browser';fs.mkdirSync(out,{recursive:true});
 (async()=>{

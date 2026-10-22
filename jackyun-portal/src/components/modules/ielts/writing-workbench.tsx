@@ -141,7 +141,7 @@ export default function WritingWorkbench() {
   const [history, setHistory] = useState<ErrorHistoryEntry[]>([]);
   const [resolved, setResolved] = useState<string[]>([]);
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
-  const [loadingMode, setLoadingMode] = useState<ReviewMode | null>(null);
+  const [loadingMode] = useState<ReviewMode | null>(null);
   const [message, setMessage] = useState('');
   const [externalReply, setExternalReply] = useState('');
   const [externalPanelOpen, setExternalPanelOpen] = useState(true);
@@ -246,6 +246,7 @@ export default function WritingWorkbench() {
       setCloudSyncReady(true); setCloudSyncStatus('synced');
     }).catch(() => { if (!cancelled) { setCloudSyncReady(false); setCloudSyncStatus('local'); } });
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Initial cloud restore runs once after hydration; editor changes must not restart it.
   }, [hydrated]);
   useEffect(() => {
     if (!hydrated || !cloudSyncReady) return;

@@ -92,5 +92,5 @@ test('mobile topbar shows the current module and keeps desktop branding and BETA
   const topbar = await readFile(new URL('src/components/layout/topbar.tsx', projectDir), 'utf8');
   assert.match(topbar, /currentItem \? t\(currentItem.labelKey, lang\) : 'JackYun'/);
   assert.match(topbar, /<div className="hidden min-w-0 lg:block">/);
-  assert.match(topbar, /href="\/beta" className="hidden [^"\n]*lg:inline-flex/);
+  assert.match(topbar, /<Link href="\/beta" prefetch=\{false\} className="hidden [^"]*lg:inline-flex/);
 });

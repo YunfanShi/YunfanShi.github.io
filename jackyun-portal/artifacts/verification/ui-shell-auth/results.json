@@ -1,0 +1,56 @@
+{
+  "base": "http://localhost:3153",
+  "checks": [
+    "Authenticated notification history: loading, close/cancel/reopen, failure retains prior page, retry recovers",
+    "Real Next Server Action path: immediate repeat guarded, failure retains notification and unlocks, retry marks read",
+    "History to Markdown detail keeps focus inside, Escape restores notification trigger without overlapping dialogs",
+    "Warm local notification dialog reaches open content and two animation frames in P95 38.2ms (n=30)",
+    "Dashboard module links usable in 388ms while overview requests remain delayed for 1800ms",
+    "Regular/admin/BETA fixture identities show only eligible navigation; regular direct admin request redirects",
+    "Desktop/mobile logout: menu closes, pending Escape guarded, auth failure leaves local data and allows cancel/retry, focus restored"
+  ],
+  "measurement": {
+    "kind": "warm local Dialog only; click to visible DialogContent plus two requestAnimationFrame callbacks",
+    "samples": [
+      39,
+      38.20000001788139,
+      30.200000017881393,
+      37,
+      37.5,
+      29.80000001192093,
+      30.100000023841858,
+      31.19999998807907,
+      29.799999982118607,
+      31,
+      30.5,
+      31.100000023841858,
+      31.400000005960464,
+      30.30000001192093,
+      31.099999994039536,
+      29.69999998807907,
+      30.900000005960464,
+      37,
+      36.19999998807907,
+      37.599999994039536,
+      36.19999998807907,
+      29.900000005960464,
+      29.900000005960464,
+      30.5,
+      30.5,
+      35.70000001788139,
+      31.200000017881393,
+      31.400000005960464,
+      37.599999994039536,
+      36.69999998807907
+    ],
+    "p95Ms": 38.20000001788139,
+    "sampleCount": 30,
+    "thresholdMs": 200,
+    "networkIncluded": false
+  },
+  "limitations": [
+    "Loopback fixture uses real Next proxy, pages, actions and installed Supabase clients; not production Auth or RLS",
+    "No real cloud or physical devices",
+    "FeatureKey entitlement matrix is not covered without privileged fixture client"
+  ]
+}

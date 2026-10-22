@@ -1,0 +1,54 @@
+{
+  "errors": 30,
+  "warnings": 2,
+  "files": [
+    {
+      "file": "tests/cue-practice.test.mts",
+      "errors": 0,
+      "warnings": 1,
+      "matchesMainIgnoringCRLF": true
+    },
+    {
+      "file": "tests/dida-schedule-ui.browser.mts",
+      "errors": 2,
+      "warnings": 0,
+      "matchesMainIgnoringCRLF": true
+    },
+    {
+      "file": "tests/practice-cloud-frame.test.mts",
+      "errors": 11,
+      "warnings": 0,
+      "matchesMainIgnoringCRLF": true
+    },
+    {
+      "file": "tests/practice-cloud-offline.test.mts",
+      "errors": 7,
+      "warnings": 0,
+      "matchesMainIgnoringCRLF": true
+    },
+    {
+      "file": "tests/practice-cloud-route.test.mts",
+      "errors": 3,
+      "warnings": 0,
+      "matchesMainIgnoringCRLF": true
+    },
+    {
+      "file": "tests/practice-cloud.browser.mts",
+      "errors": 4,
+      "warnings": 0,
+      "matchesMainIgnoringCRLF": true
+    },
+    {
+      "file": "tests/watch-dida.test.mts",
+      "errors": 3,
+      "warnings": 0,
+      "matchesMainIgnoringCRLF": true
+    },
+    {
+      "file": "tests/workspace-sync-recovery.test.mts",
+      "errors": 0,
+      "warnings": 1,
+      "matchesMainIgnoringCRLF": true
+    }
+  ]
+}

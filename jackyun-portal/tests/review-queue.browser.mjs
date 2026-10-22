@@ -5,17 +5,17 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 const require = createRequire(import.meta.url);
 const { webpack } = require('next/dist/compiled/webpack/webpack');
-const { chromium } = require(process.env.JACKYUN_PLAYWRIGHT_PATH || 'C:/Users/syf26/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const { chromium } = require(process.env.JACKYUN_PLAYWRIGHT_PATH || 'playwright');
 const dir = path.resolve('artifacts/verification/cue-roadmap/review-fixture'); await mkdir(dir, { recursive: true });
 await writeFile(path.join(dir, 'entry.tsx'), `import { createRoot } from 'react-dom/client'; import ReviewSession from '@/components/modules/review/review-session'; import OfflineWorkspaceSync from '@/components/layout/offline-workspace-sync'; (window as any).startSync = () => { const host = document.createElement('div'); document.body.appendChild(host); createRoot(host).render(<OfflineWorkspaceSync userId="fixture-user" />); }; createRoot(document.getElementById('root')!).render(<ReviewSession userId="fixture-user" initialSnapshot={(window as any).snapshot} />);`);
-await new Promise((resolve, reject) => webpack({ mode: 'development', devtool: false, entry: path.join(dir, 'entry.tsx'), output: { path: dir, filename: 'bundle.js' }, resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@': path.resolve('src') } }, module: { rules: [{ test: /\.tsx?$/, use: path.resolve('tests/support/typescript-browser-loader.cjs') }] } }, (error, stats) => error || stats.hasErrors() ? reject(error || new Error(stats.toString({ all: false, errors: true }))) : resolve()));
+await new Promise((resolve, reject) => webpack({ mode: 'development', devtool: false, entry: path.join(dir, 'entry.tsx'), output: { path: dir, filename: 'bundle.js' }, resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@': path.resolve('src') } }, module: { rules: [{ test: /\.tsx?$/, use: path.resolve('tests/support/typescript-browser-loader.cjs') }, { test: /\.css$/, use: path.resolve('tests/support/css-browser-loader.cjs') }] } }, (error, stats) => error || stats.hasErrors() ? reject(error || new Error(stats.toString({ all: false, errors: true }))) : resolve()));
 const server = createServer(async (request, response) => {
   if (request.url === '/bundle.js') { response.setHeader('Content-Type', 'text/javascript'); response.end(await readFile(path.join(dir, 'bundle.js'))); }
   else { response.setHeader('Content-Type', 'text/html'); response.end('<html lang="zh"><meta charset="utf-8"><div id="root"></div><script src="/bundle.js"></script></html>'); }
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const base = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ headless: true, channel: 'msedge' });
+const browser = await chromium.launch({ headless: true, channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' });
 const reviewItem = id => ({ id, user_id: 'fixture-user', subject: '数学', question_text: `题目 ${id}`, correct_answer: '答案', interval_days: 1, ease_factor: 2.5, streak: 0, status: 'active' });
 try {
   for (const total of [0, 50, 51, 120]) {

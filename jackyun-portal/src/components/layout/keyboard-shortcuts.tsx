@@ -10,6 +10,11 @@ export default function KeyboardShortcuts() {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.isComposing || document.querySelector('[data-ui-dialog][data-state="open"], [data-ui-menu][data-state="open"], [data-navigation-drawer][data-open="true"]')) {
+        pendingKey.current = null;
+        if (pendingTimer.current) clearTimeout(pendingTimer.current);
+        return;
+      }
       // Ignore when typing in an input / textarea / contenteditable
       const target = e.target as HTMLElement;
       if (

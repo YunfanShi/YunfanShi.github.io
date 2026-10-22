@@ -5,7 +5,7 @@ import { fetchReviewSnapshot } from '../src/lib/review-snapshot-server.ts';
 import { evidenceInRange, type StudyEvidence } from '../src/lib/learning/study-insights.ts';
 import type { ReviewItem, ReviewSnapshot } from '../src/types/review.ts';
 
-const at = new Date('2026-10-12T04:00:00Z');
+const at = new Date(2026, 9, 12, 12);
 const item = (id: string): ReviewItem => ({ id, user_id: 'owner', quiz_question_id: null, subject: '数学', question_text: id, question_type: 'essay', options: null, correct_answer: '答案', last_user_answer: null, explanation: null, knowledge_point: null, error_type: 'unknown', status: 'active', next_review_at: at.toISOString(), interval_days: 1, ease_factor: 2.5, streak: 0, created_at: at.toISOString(), updated_at: at.toISOString() });
 function mockDatabase(rows: ReviewItem[], failed = false) {
   const calls: Array<{ user?: string; cutoff?: string; head?: boolean; orders: string[] }> = [];
@@ -47,7 +47,7 @@ test('review fetch failures reject and mastery adjusts both counts immediately',
   assert.equal(next.masteredCount, 1); assert.equal(next.activeCount, 0);
 });
 test('7 and 30 day evidence boundaries use local dates and exclude future or invalid timestamps', () => {
-  const evidence = ['2026-10-05T15:59:59Z', '2026-10-05T16:00:00Z', '2026-09-12T16:00:00Z', '2026-09-11T16:00:00Z', '2026-10-12T16:00:00Z', 'bad'].map(at => ({ at, subjectId: 'math', subject: '数学', unit: '函数', status: 'stable' as const })) as StudyEvidence[];
+  const evidence = [new Date(2026, 9, 5, 23, 59, 59), new Date(2026, 9, 6), new Date(2026, 8, 13), new Date(2026, 8, 12), new Date(2026, 9, 13)].map(date => date.toISOString()).concat('bad').map(at => ({ at, subjectId: 'math', subject: '数学', unit: '函数', status: 'stable' as const })) as StudyEvidence[];
   assert.equal(evidenceInRange(evidence, '7', at).length, 1);
   assert.equal(evidenceInRange(evidence, '30', at).length, 3);
   assert.equal(evidenceInRange(evidence, 'all', at).length, 4);

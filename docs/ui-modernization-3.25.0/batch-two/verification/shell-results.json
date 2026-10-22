@@ -1,0 +1,36 @@
+{
+  "base": "http://127.0.0.1:3154",
+  "checks": [
+    {
+      "width": 320,
+      "result": "passed",
+      "coverage": "drawer/shortcuts, menu keyboard, fullscreen fallback lifecycle, focus restore, DOM theme hydration, no overflow; guest only"
+    },
+    {
+      "width": 390,
+      "result": "passed",
+      "coverage": "drawer/shortcuts, menu keyboard, fullscreen fallback lifecycle, focus restore, DOM theme hydration, no overflow; guest only"
+    },
+    {
+      "width": 768,
+      "result": "passed",
+      "coverage": "drawer/shortcuts, menu keyboard, fullscreen fallback lifecycle, focus restore, DOM theme hydration, no overflow; guest only"
+    },
+    {
+      "width": 1440,
+      "result": "passed",
+      "coverage": "drawer/shortcuts, menu keyboard, fullscreen fallback lifecycle, focus restore, DOM theme hydration, no overflow; guest only"
+    }
+  ],
+  "dismissedNotices": [
+    "",
+    "",
+    "",
+    ""
+  ],
+  "limitations": [
+    "Mock guest configuration; authenticated notifications/logout are not covered",
+    "Desktop Edge emulation; no physical Android/iOS validation",
+    "Not a production performance measurement"
+  ]
+}

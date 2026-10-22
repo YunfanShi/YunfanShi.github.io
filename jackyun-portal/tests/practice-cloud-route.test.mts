@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { getVerifiedUser } from '../src/lib/supabase/verified-user.ts';
 import { validateSession, validateConfig } from '../src/lib/learning/practice-timer.ts';
+/* eslint-disable @typescript-eslint/no-explicit-any -- Route fixture stubs the Supabase RPC boundary dynamically. */
 const require=createRequire(import.meta.url),ts=require('typescript');
 function harness(signedIn=true,authError?:{name:string;status?:number}){let rpcName='',calls=0,conflict=false,fail=false;const output:any={};const client={auth:{getClaims:async()=>({data:signedIn?{claims:{sub:'owner',role:'authenticated',exp:Date.now()/1000+3600}}:null,error:authError})},rpc:async(_name:string,args:any)=>{rpcName=_name;calls++;return fail?{error:{message:'internal secret'},data:null}:{error:null,data:conflict?{conflict:'LOST_CONTROL'}:{revision:1,...args}};}};const code=ts.transpileModule(readFileSync('src/app/api/practice-timer/live/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;new Function('require','exports',code)((name:string)=>name.includes('supabase/server')?{createClient:async()=>client}:{validateSession,validateConfig,getVerifiedUser},output);return{output,rpcName:()=>rpcName,calls:()=>calls,conflict:()=>{conflict=true;},fail:()=>{fail=true;}};}
 const id='11111111-1111-4111-8111-111111111111';

@@ -37,7 +37,7 @@ test('deleted draft content is excluded and entry params are safely encoded', ()
   assert.equal(cueDashboard(s, '2026-10-12').drafts[0].count, 1); assert.equal(cueDashboard(s, '2026-10-12').drafts[0].done, 1);
   const p = new URL(cueEntryHref('x&subject=y'), 'https://example.com').searchParams;
   assert.equal(p.get('subject'), 'x&subject=y'); assert.equal(p.has('autoStart'), false);
-  assert.equal(dateKey(new Date('2026-10-11T16:00:00Z')), '2026-10-12');
+  assert.equal(dateKey(new Date(2026, 9, 12, 0, 0, 0)), '2026-10-12');
 });
 
 test('15/30/60 minute previews are deterministic, read-only and prioritize overdue then fresh', () => {

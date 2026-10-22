@@ -11,6 +11,8 @@ import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { useNotificationSnapshot } from '@/lib/notification-client';
 import type { NotificationSnapshot } from '@/lib/notification-snapshot';
 import type { SiteNotification } from '@/types';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, getDialogContainer } from '@/components/ui/dialog';
 
 const MarkdownRenderer = dynamic(() => import('./markdown-renderer'), {
   loading: () => <p className="text-sm text-[var(--muted-foreground)]">正在渲染内容...</p>,
@@ -34,6 +36,11 @@ export default function NotificationInbox() {
   const [selected, setSelected] = useState<SiteNotification | null>(null);
   const [chatTicket, setChatTicket] = useState<{ id: string; title: string } | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const markingRef = useRef(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const knownIds = useRef(new Set<string>());
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const historyController = useRef<AbortController | null>(null);
@@ -45,13 +52,14 @@ export default function NotificationInbox() {
     if (historyController.current || !userId) return;
     const controller = new AbortController(); historyController.current = controller;
     setLoadingHistory(true);
+    setHistoryError('');
     try {
       const response = await fetch(`/api/notifications/snapshot?history=1&offset=${offset}&reason=history`, { cache: 'no-store', signal: controller.signal });
-      if (!response.ok) return;
+      if (!response.ok) throw new Error('读取历史失败');
       const result = await response.json();
       if (result.userId !== userId || controller.signal.aborted) return;
       setHistoryPage(current => ({ ...result, items: offset ? [...(current?.items ?? []), ...result.items] : result.items }));
-    } catch { /* Keep the loaded page on connection failure. */ }
+    } catch { if (!controller.signal.aborted) setHistoryError('历史加载失败，已加载内容仍保留，请重试。'); }
     finally { if (historyController.current === controller) { historyController.current = null; setLoadingHistory(false); } }
   }, [userId]);
 
@@ -65,7 +73,15 @@ export default function NotificationInbox() {
   }, [snapshot, activeTicketId]);
   useEffect(() => {
     const timer = open && history ? window.setTimeout(() => void loadHistory(), 0) : undefined;
-    return () => { window.clearTimeout(timer); historyController.current?.abort(); historyController.current = null; };
+    return () => {
+      window.clearTimeout(timer);
+      const controller = historyController.current;
+      if (controller) {
+        controller.abort();
+        historyController.current = null;
+        setLoadingHistory(false);
+      }
+    };
   }, [open, history, loadHistory]);
   useEffect(() => { knownIds.current = new Set(); }, [userId]);
   useEffect(() => {
@@ -88,6 +104,7 @@ export default function NotificationInbox() {
   }, [refreshSnapshot]);
 
   const openMessage = (item: SiteNotification) => {
+    setOpen(false);
     if (item.related_ticket_id) setChatTicket({ id: item.related_ticket_id, title: item.title });
     else setSelected(item);
     dismissNotification(item.id).then((result) => {
@@ -97,92 +114,68 @@ export default function NotificationInbox() {
   };
 
   const removeMessage = async (item: SiteNotification) => {
-    const result = await dismissNotification(item.id);
-    if (!result.success) return;
-    window.dispatchEvent(new CustomEvent('jackyun:notification-dismissed', { detail: item.id }));
-    setSelected((current) => current?.id === item.id ? null : current);
+    setActionError('');
+    try {
+      const result = await dismissNotification(item.id);
+      if (!result.success) throw new Error('标记失败');
+      window.dispatchEvent(new CustomEvent('jackyun:notification-dismissed', { detail: item.id }));
+      setSelected(current => current?.id === item.id ? null : current);
+    } catch { setActionError('标记失败，通知仍保留，请重试。'); }
   };
 
   const markAllRead = async () => {
-    if (!items.length || markingAll) return;
+    const ids = scopedItems.filter(item => !item.is_read).map(item => item.id);
+    if (!ids.length || markingRef.current) return;
+    markingRef.current = true;
     setMarkingAll(true);
-    const result = await dismissNotifications(scopedItems.filter(item => !item.is_read).map((item) => item.id));
-    setMarkingAll(false);
-    if (!result.success) return;
-    window.dispatchEvent(new CustomEvent('jackyun:notification-dismissed', { detail: scopedItems.map(item => item.id) }));
-    setSelected(null);
+    setActionError('');
+    try {
+      const result = await dismissNotifications(ids);
+      if (!result.success) throw new Error('标记失败');
+      window.dispatchEvent(new CustomEvent('jackyun:notification-dismissed', { detail: ids }));
+      setSelected(null);
+    } catch { setActionError('标记失败，通知仍保留，请重试。'); }
+    finally { markingRef.current = false; setMarkingAll(false); }
   };
 
-  return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen(!open)} aria-label="通知" className="relative grid h-11 w-11 place-items-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--background)] sm:h-9 sm:w-9">
-        <span className="material-icons-round text-xl">notifications</span>
-        {unread > 0 && <span className="absolute right-0 top-0 min-w-4 rounded-full bg-[#d92d20] px-1 text-[10px] font-bold leading-4 text-white">{unread > 9 ? '9+' : unread}</span>}
-      </button>
-      {open && (
-        <div className="absolute right-0 top-11 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-xl">
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--card-border)] px-4 py-3">
-            <div><p className="font-semibold text-[var(--foreground)]">{history ? '此页公告与消息历史' : '通知'}</p><p className="text-[11px] text-[var(--muted-foreground)]">{unread} 条未读</p></div>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setHistory(value => !value)} className="min-h-9 text-xs text-[#155eef]">{history ? '未读' : '历史'}</button>
-              {unread > 0 && <button type="button" disabled={markingAll} onClick={markAllRead} className="min-h-9 rounded-lg px-2 text-xs font-medium text-[#155eef] hover:bg-[#eff4ff] disabled:opacity-50">{markingAll ? '处理中…' : '一键全读'}</button>}
-            </div>
-          </div>
-          <div className="max-h-96 overflow-y-auto">
-            {scopedItems.length ? scopedItems.map((item) => (
-              <div key={item.id} className="flex border-b border-[var(--card-border)] last:border-0 hover:bg-[var(--background)]">
-                <button type="button" onClick={() => openMessage(item)} className="min-w-0 flex-1 px-4 py-3 text-left">
-                  {!item.related_ticket_id && <AnnouncementBadge notification={item} />}
-                  <div className="flex items-center gap-2"><p className="truncate text-sm font-medium text-[var(--foreground)]">{item.title}</p><span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${item.related_ticket_id ? 'bg-[#eff4ff] text-[#175cd3]' : item.delivery_type === 'message' ? 'bg-[#f4ebff] text-[#7f56d9]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>{item.related_ticket_id ? '人工客服' : item.delivery_type === 'message' ? '消息' : '通知'}</span></div>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--muted-foreground)]">{preview(item.content)}</p>
-                  <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">{new Date(item.created_at).toLocaleDateString('zh-CN')} · {item.is_read ? '已读' : '未读'}{announcementPhase(item) === 'expired' ? ' · 已过期' : ''}</p>
-                </button>
-                <button type="button" onClick={() => removeMessage(item)} aria-label={`标为已读：${item.title}`} title="标为已读" className="mr-2 self-center rounded-lg p-2 text-[var(--muted-foreground)] hover:bg-[#eff4ff] hover:text-[#155eef] dark:hover:bg-blue-500/10"><span className="material-icons-round text-lg">done</span></button>
-              </div>
-            )) : <p className="p-8 text-center text-sm text-[var(--muted-foreground)]">暂无未读通知</p>}
-            {history && historyPage?.hasMore && <button type="button" disabled={loadingHistory} onClick={() => void loadHistory(historyPage.nextOffset)} className="w-full p-3 text-sm text-[var(--brand)]">{loadingHistory ? '加载中…' : '加载更多历史'}</button>}
-          </div>
+  return <>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild><Button ref={triggerRef} variant="ghost" size="icon" aria-label={unread ? `通知，${unread} 条未读` : '通知'} className="relative" onPointerDown={event => setPortalContainer(getDialogContainer(event.currentTarget))} onKeyDown={event => setPortalContainer(getDialogContainer(event.currentTarget))}>
+        <span aria-hidden="true" className="material-icons-round text-xl">notifications</span>
+        {unread > 0 && <span aria-hidden="true" className="absolute right-0 top-0 min-w-4 rounded-full bg-[#b3261e] px-1 text-[10px] font-bold leading-4 text-white">{unread > 9 ? '9+' : unread}</span>}
+      </Button></DialogTrigger>
+      <DialogContent portalContainer={portalContainer} className="jy-notification-dialog" closeLabel="关闭通知">
+        <DialogTitle>{history ? '此页公告与消息历史' : '通知'}</DialogTitle>
+        <DialogDescription>{unread} 条未读</DialogDescription>
+        <div className="my-3 flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" aria-pressed={history} onClick={() => setHistory(value => !value)}>{history ? '查看未读' : '查看历史'}</Button>
+          {unread > 0 && <Button variant="ghost" size="sm" busy={markingAll} onClick={markAllRead}>{markingAll ? '处理中…' : '一键全读'}</Button>}
         </div>
-      )}
-      {selected && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setSelected(null)}
-        >
-          <article
-            role="dialog"
-            aria-modal="true"
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-2xl bg-[var(--card)] p-4 shadow-2xl sm:p-6"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <AnnouncementBadge notification={selected} />
-                <span className={`rounded-full px-2 py-1 text-xs font-semibold ${selected.delivery_type === 'message' ? 'bg-[#f4ebff] text-[#7f56d9]' : 'bg-[#ecfdf3] text-[#027a48]'}`}>
-                  {selected.delivery_type === 'message' ? '平台消息' : '平台通知'}
-                </span>
-                <h2 className="mt-3 text-xl font-semibold text-[var(--foreground)]">{selected.title}</h2>
-                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                  {new Date(selected.created_at).toLocaleString('zh-CN')}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="关闭消息"
-                onClick={() => setSelected(null)}
-                className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--background)]"
-              >
-                <span className="material-icons-round">close</span>
-              </button>
-            </div>
-            <div className="mt-6">
-              <MarkdownRenderer content={selected.content} />
-              <AnnouncementAction notification={selected} />
-            </div>
-          </article>
+        {actionError && <p role="alert" className="jy-notice-error mb-3">{actionError}</p>}
+        {historyError && <div role="alert" className="mb-3 space-y-2"><p className="jy-notice-error">{historyError}</p><Button variant="outline" size="sm" onClick={() => loadHistory()}>重试历史</Button></div>}
+        <div className="max-h-[min(60dvh,30rem)] overflow-y-auto" aria-busy={history && loadingHistory || undefined}>
+          {history && loadingHistory && <p role="status" className="p-3 text-sm text-[var(--muted-foreground)]">正在加载历史…</p>}
+          {scopedItems.length ? <ul className="divide-y divide-[var(--card-border)]">{scopedItems.map(item => <li key={item.id} className="flex items-start gap-1 py-1">
+            <button type="button" onClick={() => openMessage(item)} className="jy-notification-entry min-w-0 flex-1 rounded-lg px-3 py-3 text-left">
+              {!item.related_ticket_id && <AnnouncementBadge notification={item} />}
+              <span className="block text-sm font-medium">{item.title}</span>
+              <span className="mt-1 block text-xs text-[var(--brand)]">{item.related_ticket_id ? '人工客服' : item.delivery_type === 'message' ? '消息' : '通知'}</span>
+              <span className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--muted-foreground)]">{preview(item.content)}</span>
+              <span className="mt-2 block text-[11px] text-[var(--muted-foreground)]">{new Date(item.created_at).toLocaleDateString('zh-CN')} · {item.is_read ? '已读' : '未读'}{announcementPhase(item) === 'expired' ? ' · 已过期' : ''}</span>
+            </button>
+            <Button variant="ghost" size="icon" onClick={() => removeMessage(item)} aria-label={`标为已读：${item.title}`}><span aria-hidden="true" className="material-icons-round text-lg">done</span></Button>
+          </li>)}</ul> : !loadingHistory && !historyError && <p role="status" className="p-6 text-center text-sm text-[var(--muted-foreground)]">{history ? '暂无历史通知' : '暂无未读通知'}</p>}
+          {history && historyPage?.hasMore && <Button variant="ghost" busy={loadingHistory} onClick={() => loadHistory(historyPage.nextOffset)} className="w-full">{loadingHistory ? '加载中…' : '加载更多历史'}</Button>}
         </div>
-      )}
-      {chatTicket && <SupportConversationDialog ticketId={chatTicket.id} fallbackTitle={chatTicket.title} onClose={() => setChatTicket(null)} />}
-    </div>
-  );
+      </DialogContent>
+    </Dialog>
+    <Dialog open={Boolean(selected)} onOpenChange={value => { if (!value) setSelected(null); }}>
+      <DialogContent portalContainer={portalContainer} closeLabel="关闭消息" onCloseAutoFocus={event => { event.preventDefault(); triggerRef.current?.focus(); }}>
+        <DialogTitle>{selected?.title ?? '消息'}</DialogTitle>
+        <DialogDescription>{selected ? `${selected.delivery_type === 'message' ? '平台消息' : '平台通知'} · ${new Date(selected.created_at).toLocaleString('zh-CN')}` : ''}</DialogDescription>
+        {selected && <div className="mt-5"><AnnouncementBadge notification={selected} /><MarkdownRenderer content={selected.content} /><AnnouncementAction notification={selected} /></div>}
+      </DialogContent>
+    </Dialog>
+    {chatTicket && <SupportConversationDialog ticketId={chatTicket.id} fallbackTitle={chatTicket.title} onClose={() => setChatTicket(null)} />}
+  </>;
 }

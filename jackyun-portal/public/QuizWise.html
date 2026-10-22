@@ -79,8 +79,8 @@
         .topbar .actions { display: flex; gap: 8px; }
         .topbar .actions button {
             background: none; border: none; color: var(--on-surface-variant);
-            width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: background 0.2s; position: relative;
+            width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: background-color 120ms ease, color 120ms ease; position: relative;
         }
         .topbar .actions button:hover { background: rgba(138,180,248,0.1); }
         .topbar .actions button .material-icons-round { font-size: 22px; }
@@ -92,7 +92,7 @@
 
         .main { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 24px; display: flex; justify-content: center; }
         .main-scroll { max-width: 720px; width: 100%; }
-        .view { display: none; animation: fadeInUp 0.3s var(--easing-decelerate) forwards; width: 100%; }
+        .view { display: none; animation: fadeInUp 0.14s var(--easing-decelerate) forwards; width: 100%; }
         .view.active { display: block; }
 
         /* ─── Animations ─── */
@@ -150,7 +150,7 @@
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
             font-family: var(--font-sans); font-weight: 500; font-size: 14px;
-            border: none; cursor: pointer; transition: all 0.2s; position: relative;
+            border: none; cursor: pointer; transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease; position: relative;
             overflow: hidden; text-decoration: none; white-space: nowrap; outline: none;
         }
         .btn-primary {
@@ -180,7 +180,7 @@
         .btn-lg { height: 52px; padding: 12px 32px; font-size: 16px; }
         .btn-sm { height: 36px; padding: 6px 16px; font-size: 13px; }
         .btn-icon {
-            width: 40px; height: 40px; border-radius: 50%; padding: 0; display: inline-flex;
+            width: 44px; height: 44px; border-radius: 50%; padding: 0; display: inline-flex;
             align-items: center; justify-content: center; background: var(--surface-container-high);
             color: var(--on-surface-variant); border: none; cursor: pointer;
             transition: background 0.2s, color 0.2s;
@@ -199,7 +199,7 @@
             padding: 14px 18px; border-radius: var(--radius-sm); border: 2px solid var(--outline);
             background: var(--surface-container); color: var(--on-surface);
             font-family: var(--font-sans); font-size: 15px; cursor: pointer;
-            transition: all 0.2s var(--easing-standard); text-align: left; position: relative;
+            transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, color 120ms ease, transform 120ms ease; text-align: left; position: relative;
         }
         .option-btn:hover { border-color: var(--primary); background: var(--primary-container); }
         .option-btn:active { transform: scale(0.99); }
@@ -222,20 +222,25 @@
         .progress-bar-outer { height: 4px; background: var(--outline); border-radius: 2px; overflow: hidden; }
         .progress-bar-inner { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.4s var(--easing-standard); }
         .progress-dot {
-            width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin: 0 2px;
-            transition: all 0.3s; cursor: pointer; flex-shrink: 0;
+            width: 44px; height: 44px; border: 0; border-radius: 50%; padding: 0;
+            display: inline-grid; place-items: center; background: transparent;
+            cursor: pointer; flex-shrink: 0; touch-action: manipulation;
         }
-        .progress-dot.done { background: var(--success); }
-        .progress-dot.active { background: var(--primary); box-shadow: 0 0 0 4px rgba(138,180,248,0.3); transform: scale(1.3); }
-        .progress-dot.wrong { background: var(--error); }
-        .progress-dot.pending { background: var(--outline); }
+        .progress-dot::before {
+            content: ''; width: 10px; height: 10px; border-radius: 50%;
+            background: var(--outline); transition: background-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+        }
+        .progress-dot.done::before { background: var(--success); }
+        .progress-dot.active::before { background: var(--primary); box-shadow: 0 0 0 4px rgba(138,180,248,0.3); transform: scale(1.2); }
+        .progress-dot.wrong::before { background: var(--error); }
+        .progress-dot.pending::before { background: var(--outline); }
 
         /* ─── Tags / Chips ─── */
         .chip {
             display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px;
             border-radius: var(--radius-pill); font-size: 13px; font-weight: 500;
             border: 1.5px solid var(--outline); background: var(--surface-container);
-            cursor: pointer; transition: all 0.2s; color: var(--on-surface-variant);
+            cursor: pointer; transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease; color: var(--on-surface-variant);
         }
         .chip:hover { border-color: var(--primary); }
         .chip.active { border-color: var(--primary); background: var(--primary-container); color: var(--primary-container-on); }
@@ -286,11 +291,11 @@
         }
 
         /* ─── Toggle switch ─── */
-        .switch { position: relative; width: 48px; height: 28px; border-radius: 14px; background: var(--outline); cursor: pointer; transition: background 0.3s; border: none; }
+        .switch { position: relative; width: 48px; height: 28px; border-radius: 14px; background: var(--outline); cursor: pointer; transition: background-color 120ms ease; border: none; }
         .switch.on { background: var(--primary); }
         .switch::after {
             content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
-            border-radius: 50%; background: #fff; transition: left 0.3s; box-shadow: var(--shadow-sm);
+            border-radius: 50%; background: #fff; transition: left 120ms ease; box-shadow: var(--shadow-sm);
         }
         .switch.on::after { left: 23px; }
 
@@ -313,6 +318,34 @@
         .stat-card { padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--outline); text-align: center; background: var(--surface-container); }
         .stat-card .stat-num { font-size: 24px; font-weight: 700; margin: 4px 0; }
         .stat-card .stat-label { font-size: 11px; color: var(--on-surface-variant); text-transform: uppercase; font-weight: 500; }
+
+        :where(button, input, textarea, select, label.btn):focus-visible {
+            outline: 3px solid var(--primary);
+            outline-offset: 3px;
+        }
+        @media (max-width: 767px), (pointer: coarse) {
+            .topbar { padding-inline: 12px; }
+            .main { padding: 12px; }
+            .topbar .actions { gap: 4px; }
+            .btn-sm, .chip { min-height: 44px; height: auto; }
+            .topbar .actions button, .btn-icon { min-width: 44px; min-height: 44px; }
+            .switch { height: 44px; background: transparent !important; }
+            .switch::before {
+                content: ''; position: absolute; inset: 8px 0; border-radius: 14px;
+                background: var(--outline); transition: background-color 120ms ease;
+            }
+            .switch.on::before { background: var(--primary); }
+            .switch::after { top: 11px; }
+            .input-area, .essay-textarea { font-size: 16px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                scroll-behavior: auto !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
     <link rel="stylesheet" href="/jackyun-theme.css">
     <script src="/jackyun-theme.js"></script>
@@ -323,9 +356,9 @@
         <header class="topbar">
             <div class="logo"><span class="material-icons-round icon">psychology</span> QuizWise 刷题</div>
             <div class="actions">
-                <button onclick="App.toggleTheme()" id="theme-btn" title="切换主题"><span class="material-icons-round">dark_mode</span></button>
-                <button onclick="App.nav('settings')" title="设置"><span class="material-icons-round">settings</span></button>
-                <button onclick="App.nav('history')" title="历史记录"><span class="material-icons-round">history</span></button>
+                <button onclick="App.toggleTheme()" id="theme-btn" title="切换主题" aria-label="切换主题"><span class="material-icons-round">dark_mode</span></button>
+                <button onclick="App.nav('settings')" title="设置" aria-label="设置"><span class="material-icons-round">settings</span></button>
+                <button onclick="App.nav('history')" title="历史记录" aria-label="历史记录"><span class="material-icons-round">history</span></button>
             </div>
         </header>
 
@@ -438,7 +471,7 @@
 
                     <!-- Question Cards -->
                     <div id="question-cards"></div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="App.jumpTo(App.currentIndex-1)" id="quiz-previous">← 上一题</button><span id="quiz-page-label" style="font-size:13px;color:var(--on-surface-variant);"></span><button class="btn btn-outline btn-sm" onclick="App.jumpTo(App.currentIndex+1)" id="quiz-next">下一题 →</button></div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="App.jumpTo(App.currentIndex-1)" id="quiz-previous">← 上一题</button><span id="quiz-page-label" role="status" aria-live="polite" style="font-size:13px;color:var(--on-surface-variant);"></span><button class="btn btn-outline btn-sm" onclick="App.jumpTo(App.currentIndex+1)" id="quiz-next">下一题 →</button></div>
                     <p style="margin-top:10px;text-align:center;font-size:12px;color:var(--on-surface-variant);">← / → 切题；A–D 或 1–4 选项；Enter 确认答案</p>
 
                     <!-- Complete Button -->
@@ -533,14 +566,14 @@
                                 <p style="font-size:14px;font-weight:500;">立即显示答案</p>
                                 <p style="font-size:12px;color:var(--on-surface-variant);">每道题答完后立即显示对错</p>
                             </div>
-                            <button class="switch on" id="switch-show-answer" onclick="App.toggleSetting('showAnswerImmediately')"></button>
+                            <button class="switch on" id="switch-show-answer" type="button" role="switch" aria-label="立即显示答案" aria-checked="true" onclick="App.toggleSetting('showAnswerImmediately')"></button>
                         </div>
                         <div style="display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--outline);">
                             <div>
                                 <p style="font-size:14px;font-weight:500;">Enter 自动提交</p>
                                 <p style="font-size:12px;color:var(--on-surface-variant);">按 Enter 键提交填空/大题答案</p>
                             </div>
-                            <button class="switch on" id="switch-auto-submit" onclick="App.toggleSetting('autoSubmitOnEnter')"></button>
+                            <button class="switch on" id="switch-auto-submit" type="button" role="switch" aria-label="按 Enter 自动提交答案" aria-checked="true" onclick="App.toggleSetting('autoSubmitOnEnter')"></button>
                         </div>
                     </div>
 
@@ -877,7 +910,7 @@ ${text}` },
             // Category buttons
             const catGrid = document.getElementById('category-grid');
             catGrid.innerHTML = Object.entries(this.categories).map(([key, cat]) =>
-                `<button class="chip${key === this.selectedCategory ? ' active' : ''}" onclick="App.selectCategory('${key}')">
+                `<button type="button" class="chip${key === this.selectedCategory ? ' active' : ''}" aria-pressed="${key === this.selectedCategory}" onclick="App.selectCategory('${key}')">
                     <span class="material-icons-round" style="font-size:16px;">${cat.icon}</span> ${cat.label}
                 </button>`
             ).join('');
@@ -908,19 +941,28 @@ ${text}` },
             this.selectedCategory = cat;
             this.selectedSubject = '';
             document.getElementById('btn-start').disabled = true;
-            document.getElementById('category-grid').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            document.getElementById('category-grid').querySelectorAll('.chip').forEach(c => {
+                c.classList.remove('active');
+                c.setAttribute('aria-pressed', 'false');
+            });
             const btns = document.getElementById('category-grid').children;
             for (let i = 0; i < btns.length; i++) {
-                if (btns[i].textContent.trim().startsWith(this.categories[cat].label)) btns[i].classList.add('active');
+                if (btns[i].textContent.trim().startsWith(this.categories[cat].label)) {
+                    btns[i].classList.add('active');
+                    btns[i].setAttribute('aria-pressed', 'true');
+                }
             }
             this.renderSubjectList();
         },
 
         renderSubjectList() {
             const list = document.getElementById('subject-list');
-            const allSubjects = [...(this.subjects[this.selectedCategory] || []), ...this.customSubjects.filter(s => s.category === this.selectedCategory)];
+            const allSubjects = [
+                ...(this.subjects[this.selectedCategory] || []),
+                ...this.customSubjects.filter(subject => subject.category === this.selectedCategory).map(subject => subject.name),
+            ];
             list.innerHTML = allSubjects.map(s =>
-                `<button class="btn btn-outline btn-sm${s === this.selectedSubject ? ' active' : ''}" style="justify-content:flex-start;${s === this.selectedSubject ? 'border-color:var(--primary);background:var(--primary-container);color:var(--primary-container-on);' : ''}" onclick="App.selectSubject('${s}')">
+                `<button type="button" class="btn btn-outline btn-sm${s === this.selectedSubject ? ' active' : ''}" aria-pressed="${s === this.selectedSubject}" style="justify-content:flex-start;${s === this.selectedSubject ? 'border-color:var(--primary);background:var(--primary-container);color:var(--primary-container-on);' : ''}" onclick="App.selectSubject('${s}')">
                     ${s}
                 </button>`
             ).join('');
@@ -936,6 +978,7 @@ ${text}` },
             // Update UI
             const btns = document.getElementById('subject-list').querySelectorAll('button');
             btns.forEach(b => {
+                b.setAttribute('aria-pressed', String(b.textContent.trim() === subj));
                 if (b.textContent.trim() === subj) {
                     b.style.borderColor = 'var(--primary)';
                     b.style.background = 'var(--primary-container)';
@@ -1004,7 +1047,8 @@ ${text}` },
                 if (a.answer && a.isCorrect === true) cls = 'done';
                 else if (a.answer && a.isCorrect === false) cls = 'wrong';
                 if (i === this.currentIndex) cls += ' active';
-                return `<span class="progress-dot ${cls}" onclick="App.jumpTo(${i})" title="第 ${i+1} 题"></span>`;
+                const status = cls.includes('done') ? '已答对' : cls.includes('wrong') ? '已答错' : '未作答';
+                return `<button type="button" class="progress-dot ${cls}" onclick="App.jumpTo(${i})" aria-label="第 ${i+1} 题，${status}" aria-current="${i === cur ? 'step' : 'false'}" title="第 ${i+1} 题，${status}"></button>`;
             }).join('');
         },
 
@@ -1059,7 +1103,7 @@ ${text}` },
                         if (!showResult && isSelected) cls = 'selected';
                         if (showResult && !isSelected && optLabel !== correctLabel) cls = 'dimmed';
                         const answerValue = optLabel + ') ' + opt.text;
-                        return `<button class="option-btn ${cls}" onclick="App.selectAnswer(${i}, '${this.escapeAttr(answerValue)}')" ${answered ? 'disabled' : ''}>
+                        return `<button type="button" class="option-btn ${cls}" aria-pressed="${isSelected}" onclick="App.selectAnswer(${i}, '${this.escapeAttr(answerValue)}')" ${answered ? 'disabled' : ''}>
                             <span class="opt-letter">${opt.label}</span> ${this.escapeHtml(opt.text)}
                             ${showResult && optLabel === correctLabel ? '<span class="material-icons-round" style="color:var(--success);margin-left:auto;">check_circle</span>' : ''}
                             ${showResult && isSelected && !isCorrect ? '<span class="material-icons-round" style="color:var(--error);margin-left:auto;">cancel</span>' : ''}
@@ -1080,7 +1124,7 @@ ${text}` },
                         if (showResult && isSelected && !isCorrect) cls = 'incorrect';
                         if (!showResult && isSelected) cls = 'selected';
                         if (showResult && !isSelected && !isCorrectAnswer) cls = 'dimmed';
-                        return `<button class="option-btn ${cls}" onclick="App.selectAnswer(${i}, '${opt.label}')" ${answered ? 'disabled' : ''}>
+                        return `<button type="button" class="option-btn ${cls}" aria-pressed="${isSelected}" onclick="App.selectAnswer(${i}, '${opt.label}')" ${answered ? 'disabled' : ''}>
                             <span class="opt-letter">${opt.label === '对' ? '✓' : '✗'}</span> ${opt.label}
                             ${showResult && isCorrectAnswer ? '<span class="material-icons-round" style="color:var(--success);margin-left:auto;">check_circle</span>' : ''}
                         </button>`;
@@ -1532,8 +1576,12 @@ ${text}` },
 
         // ============ SETTINGS ============
         renderSettings() {
-            document.getElementById('switch-show-answer').classList.toggle('on', this.settings.showAnswerImmediately);
-            document.getElementById('switch-auto-submit').classList.toggle('on', this.settings.autoSubmitOnEnter);
+            const showAnswer = document.getElementById('switch-show-answer');
+            const autoSubmit = document.getElementById('switch-auto-submit');
+            showAnswer.classList.toggle('on', this.settings.showAnswerImmediately);
+            showAnswer.setAttribute('aria-checked', String(this.settings.showAnswerImmediately));
+            autoSubmit.classList.toggle('on', this.settings.autoSubmitOnEnter);
+            autoSubmit.setAttribute('aria-checked', String(this.settings.autoSubmitOnEnter));
         },
 
         toggleSetting(key) {

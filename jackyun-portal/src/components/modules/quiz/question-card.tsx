@@ -9,6 +9,7 @@ import TrueFalse from './true-false';
 import OptionComposer from './option-composer';
 import AiFeedbackButton from './ai-feedback-button';
 import { UserAnswer } from './quiz-app';
+import { Button } from '@/components/ui/button';
 
 interface QuestionCardProps {
   question: AnalyzedQuestion;
@@ -180,21 +181,22 @@ export default function QuestionCard({
           />
         )}
 
-        {!answered && (question.type === 'multiple_choice' || question.type === 'true_false') && <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#4285F4]/20 bg-[#4285F4]/5 p-3"><span className="text-sm text-[var(--muted-foreground)]">{draftAnswer ? '已选中，可修改；确认后才会判题。' : '先选择答案，再确认。'}</span><button type="button" disabled={!draftAnswer} onClick={onConfirm} className="min-h-11 rounded-xl bg-[#4285F4] px-5 text-sm font-semibold text-white disabled:opacity-40">确认答案</button></div>}
+        {!answered && (question.type === 'multiple_choice' || question.type === 'true_false') && <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#4285F4]/20 bg-[#4285F4]/5 p-3"><span className="text-sm text-[var(--muted-foreground)]">{draftAnswer ? '已选中，可修改；确认后才会判题。' : '先选择答案，再确认。'}</span><Button disabled={!draftAnswer} onClick={onConfirm} className="px-5 font-semibold">确认答案</Button></div>}
 
         {/* Explanation section */}
         {effectiveShowResult && (
           <div className="mt-3 space-y-2">
             {question.explanation && (
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setShowExplanation(!showExplanation)}
-                className="flex items-center gap-1 text-xs text-[#4285F4] hover:underline"
+                className="h-auto min-h-11 justify-start px-2 text-xs text-[#4285F4] hover:underline"
               >
                 <span className="material-icons-round text-sm">
                   {showExplanation ? 'expand_less' : 'expand_more'}
                 </span>
                 {showExplanation ? 'Hide' : 'Show'} explanation
-              </button>
+              </Button>
             )}
             {showExplanation && question.explanation && (
               <div className="p-3 rounded-lg bg-[var(--background)] border border-[var(--card-border)] text-sm text-[var(--muted-foreground)] leading-relaxed animate-fade-in">

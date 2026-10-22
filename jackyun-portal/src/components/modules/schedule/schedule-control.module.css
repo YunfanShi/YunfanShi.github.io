@@ -386,6 +386,8 @@
 .studyOverlay[data-animations="false"] *::before,
 .studyOverlay[data-animations="false"] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 
+.cueManager button { min-width: 44px; min-height: 44px; touch-action: manipulation; }
+
 
 /* Everyday destinations stay visible without horizontally scrolling seven tabs. */
 .touchViewNav { display: none; }

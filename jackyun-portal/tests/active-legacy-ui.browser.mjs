@@ -1,0 +1,170 @@
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+import { mkdir, writeFile } from 'node:fs/promises';
+
+const base = process.env.JACKYUN_AUTH_TEST_URL || 'http://127.0.0.1:3154';
+const backend = process.env.JACKYUN_UI_BACKEND_URL || 'http://127.0.0.1:54329';
+if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('Legacy UI regression requires a loopback app');
+const session = await (await fetch(`${backend}/_test/session?role=user`)).json();
+const browser = await chromium.launch({ headless: true, channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' });
+const errors = [];
+const expectedIsolatedEmbedErrors = [];
+const diagnostics = { route: '', width: 0, page: null };
+const routes = [
+  ['/study', '学习计划'],
+  ['/goal', '计划显示器'],
+  ['/study-guide', 'StudyGuide'],
+  ['/vocab', '词汇宝库'],
+  ['/answer-sheet', '答题卡'],
+  ['/answer-sheet-sync', '同步答题卡'],
+  ['/mock-portal', 'Mock Portal 刷题界面'],
+  ['/music', '音乐播放器'],
+  ['/music-sync', 'Sync Music'],
+  ['/bilibili-sync', 'B站同步'],
+  ['/relax', '放松一下'],
+  ['/help', '帮助中心'],
+  ['/poem', '诗词天地'],
+  ['/pomodoro', '番茄钟'],
+  ['/countdown', '倒计时'],
+  ['/examcountdown', '倒计时'],
+  ['/igcountdown', '考试倒计时'],
+  ['/timetable-hub', '控制中心'],
+  ['/control/focus', '专注执行'],
+];
+try {
+  for (const width of [1440, 390]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width < 768 });
+    // Local interaction coverage uses fallback text and bundled icons. Remote
+    // font availability must not hold the iframe parser or its bridge hostage.
+    await context.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
+    await context.addInitScript(() => localStorage.setItem('jackyun_theme', 'gray'));
+    await context.addCookies([{ name: 'sb-127-auth-token', value: `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}`, url: base }]);
+    const page = await context.newPage();
+    diagnostics.page = page;
+    diagnostics.width = width;
+    let currentRoute = '';
+    page.on('pageerror', error => {
+      // IGCountdown deliberately sandboxes third-party audio embeds without same-origin access.
+      if (error.message.includes("Failed to read the 'localStorage' property from 'Window': The document is sandboxed")) {
+        expectedIsolatedEmbedErrors.push(currentRoute);
+        return;
+      }
+      errors.push(`${currentRoute}: ${error.message}`);
+    });
+    await page.route('**/api/sync/v3**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ syncProtocol: 3, records: [], next: null }) }));
+    for (const [route, title] of routes) {
+      currentRoute = route;
+      diagnostics.route = route;
+      let studyGuideLoads = 0;
+      if (route === '/study-guide' && width === 1440) {
+        await page.route('**/StudyGuide.html', async resource => {
+          studyGuideLoads++;
+          if (studyGuideLoads === 1) await resource.fulfill({ status: 503, body: 'temporary fixture outage' });
+          else await resource.continue();
+        });
+      }
+      const response = await page.goto(`${base}${route}`);
+      assert.equal(response?.status(), 200, `${route} must render from its current portal entry`);
+      const frame = page.frameLocator(`iframe[title="${title}"]`);
+      if (route === '/study-guide' && width === 1440) {
+        const error = page.getByRole('alert');
+        await error.getByText('页面加载失败：加载失败: HTTP 503', { exact: true }).waitFor();
+        await page.screenshot({ path: 'artifacts/verification/legacy-retry-503.png', clip: { x: 255, y: 64, width: 750, height: 700 } });
+        await error.getByRole('button', { name: '重试加载页面', exact: true }).click();
+      }
+      await frame.locator('html[data-legacy-workspace]').waitFor({ state: 'attached' });
+      await page.waitForFunction(title => {
+        const iframe = Array.from(document.querySelectorAll('iframe')).find(element => element.title === title);
+        // DOM readiness includes the page scripts; background JSONP time sync
+        // and third-party embeds can keep the load event pending indefinitely.
+        const state = iframe?.contentDocument?.readyState;
+        return state === 'interactive' || state === 'complete';
+      }, title);
+      // Check actual page content rather than using the root element's layout
+      // box as a proxy for a usable legacy interface.
+      await frame.locator('button:visible, a[href]:visible, h1:visible, h2:visible, input:visible, textarea:visible, select:visible').first().waitFor();
+      if (route === '/study-guide' && width === 1440) {
+        assert.equal(studyGuideLoads, 2, 'retry must refetch the failed legacy document');
+        await page.screenshot({ path: 'artifacts/verification/legacy-retry-success.png' });
+        await page.unroute('**/StudyGuide.html');
+      }
+      await frame.locator('link[href="/shared/device-workspace.css"]').waitFor({ state: 'attached' });
+      await frame.locator('link[href^="/jackyun-theme.css"]').waitFor({ state: 'attached' });
+      await page.evaluate(() => document.querySelector('iframe')?.contentWindow?.postMessage({ type: 'jackyun-theme', theme: 'dark' }, location.origin));
+      await frame.locator('html[data-jy-theme="dark"]').waitFor({ state: 'attached' });
+      const themeToken = await frame.locator('html').evaluate(element => getComputedStyle(element).getPropertyValue('--primary').trim());
+      assert.notEqual(themeToken, '');
+      // Change the portal preference so a late iframe load event sends the same
+      // language. A direct iframe-only message races its parent's current value.
+      await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_language', newValue: 'en' })));
+      await frame.locator('html[lang="en"]').waitFor({ state: 'attached' });
+      await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_language', newValue: 'zh' })));
+      await frame.locator('html[lang="zh-CN"]').waitFor({ state: 'attached' });
+      if (route === '/study-guide' && width === 1440) {
+        const documentToken = `legacy-document-${Date.now()}`;
+        await frame.locator('html').evaluate((_, token) => { window.__legacyDocumentToken = token; }, documentToken);
+        await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_language', newValue: 'en' })));
+        await frame.locator('html[lang="en"]').waitFor({ state: 'attached' });
+        assert.equal(
+          await frame.locator('html').evaluate(() => window.__legacyDocumentToken),
+          documentToken,
+          'changing the portal language must update the legacy page without remounting its iframe'
+        );
+        let proxiedLanguage;
+        await page.route('**/api/llm-proxy', async proxyRoute => {
+          proxiedLanguage = proxyRoute.request().postDataJSON()?.interfaceLanguage;
+          await proxyRoute.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+        });
+        await frame.locator('html').evaluate(() => window.fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'test', messages: [] }),
+        }).then(response => response.text()));
+        assert.equal(proxiedLanguage, 'en', 'AI proxy requests must use the live language after a switch');
+        await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_language', newValue: 'zh' })));
+        await frame.locator('html[lang="zh-CN"]').waitFor({ state: 'attached' });
+        await frame.locator('html').evaluate(() => window.fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'test', messages: [] }),
+        }).then(response => response.text()));
+        assert.equal(proxiedLanguage, 'zh', 'AI proxy requests must follow the language switched back to Chinese');
+        await page.unroute('**/api/llm-proxy');
+      }
+      if (width < 768) {
+        if (route === '/study-guide') {
+          await page.evaluate(() => window.JackyunErrors.report({ code: 'SYNC_WRITE_FAILED', message: 'mobile-menu-overlay-regression' }));
+          await page.locator('[data-code="JY-2102"]').waitFor();
+          await page.getByRole('button', { name: '更多页面操作' }).click();
+          await page.getByRole('menuitem', { name: '全屏' }).click();
+          await page.waitForFunction(() => Boolean(document.fullscreenElement));
+          await page.getByRole('button', { name: '更多页面操作' }).click();
+          await page.getByRole('menuitem', { name: '全屏' }).click();
+          await page.waitForFunction(() => !document.fullscreenElement);
+        }
+        const firstButton = frame.locator('button:visible').first();
+        if (await firstButton.count()) {
+          const target = await firstButton.evaluate(element => ({ minHeight: getComputedStyle(element).minHeight, width: element.getBoundingClientRect().width }));
+          assert.ok(parseFloat(target.minHeight) >= 44, `${route} action target must remain touch friendly`);
+          assert.ok(target.width > 0);
+        }
+      }
+      console.log(`PASS ${route} theme bridge and ${width}px embedded layout`);
+    }
+    await context.close();
+  }
+  assert.deepEqual(errors, []);
+  if (expectedIsolatedEmbedErrors.length) console.log(`PASS ${expectedIsolatedEmbedErrors.length} isolated IGCountdown embed storage errors remain confined by sandbox`);
+} catch (error) {
+  const out = process.env.JACKYUN_UI_ARTIFACTS || 'artifacts/verification/ui-acceptance/active-legacy-ui';
+  await mkdir(out, { recursive: true });
+  const page = diagnostics.page;
+  const state = page && !page.isClosed() ? await page.evaluate(() => Array.from(document.querySelectorAll('iframe'), frame => ({
+    title: frame.title, sourceLength: frame.srcdoc.length, readyState: frame.contentDocument?.readyState,
+    root: frame.contentDocument?.documentElement?.outerHTML.slice(0, 800),
+    frameRect: frame.getBoundingClientRect().toJSON(), rootRect: frame.contentDocument?.documentElement?.getBoundingClientRect().toJSON(),
+  }))).catch(problem => ({ diagnosticError: String(problem) })) : null;
+  await writeFile(`${out}/failure.json`, JSON.stringify({ route: diagnostics.route, width: diagnostics.width, message: String(error), state, errors }, null, 2));
+  if (page && !page.isClosed()) await page.screenshot({ path: `${out}/failure.png` }).catch(() => {});
+  throw error;
+} finally { await browser.close(); }

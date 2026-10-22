@@ -1,0 +1,56 @@
+(node:82976) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/worktrees/ui-modernization/jackyun-portal/src/lib/sync/local-edit.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\worktrees\ui-modernization\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ actual writing handlers and timer effect retain another tab independent draft field (89.6483ms)
+✔ actual IELTS cycle persistence reflects a merge before a subsequent edit (11.8652ms)
+✔ network errors and expired local deadlines preserve clock ownership (4.6548ms)
+✔ reconnect automatically uploads the latest local elapsed time (30.7336ms)
+✔ a lost acknowledgement revision is recovered without exiting or force claiming (1.9176ms)
+✔ only an explicit server takeover conflict exits the timer (1.9ms)
+✔ a finished offline session is uploaded before deferred release (3.818ms)
+(node:77972) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/worktrees/ui-modernization/jackyun-portal/src/lib/bilibili-security.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\worktrees\ui-modernization\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ empty or malformed Schedule cannot replace populated cloud state (0.9828ms)
+✔ Schedule safety is enforced at browser sync, API, and database boundary (13.9001ms)
+✔ canonical JSON is stable across object key order (0.3879ms)
+✔ sync value limit measures the JSON sent to the API (2.6325ms)
+✔ large sync transfer preserves Unicode and rejects data above the cap (76.256ms)
+✔ three-way merge combines independent object changes (0.4104ms)
+✔ Cue progress in separate subjects merges without overwriting another subject (0.2012ms)
+✔ three-way merge preserves local data and reports same-field conflicts (0.1067ms)
+✔ stable-id arrays merge records while anonymous arrays conflict (0.2871ms)
+✔ delete and edit is preserved as an explicit conflict (0.1397ms)
+✔ sync batches deduplicate keys while preserving the oldest base and newest value (0.2052ms)
+✔ sync request batching stays below the server byte and operation limits (3.7426ms)
+✔ Bilibili validation blocks SSRF and bounds media ranges (0.3096ms)
+✔ security migration uses tenant RLS and restricted RPC grants (2.6154ms)
+✔ legacy iframe bridge cannot bypass the durable v2 outbox (5.3236ms)
+✔ answer-sheet sync has no service-role fallback and authenticates every method (3.7742ms)
+✔ web sync writes use bounded concurrency instead of a serial database waterfall (4.0942ms)
+✔ repair migration recreates the production sync RPC and preserves invoker security (1.2173ms)
+✔ automatic sync excludes its timestamp ledger and preserves explicit conflict choices (3.7719ms)
+✔ sync migration normalizes legacy JSON and resolves concurrent edits by per-key time (4.2995ms)
+✔ topbar avatar bypasses the image proxy and falls back after a load error (3.0896ms)
+(node:39120) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/worktrees/ui-modernization/jackyun-portal/src/lib/sync/engine.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\worktrees\ui-modernization\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ acknowledgment retains a newer edit compacted into the uploaded ID and rebases its retry (2.0514ms)
+✔ in-flight edits and deletions never match an older upload, including JSON null and plain text (0.1459ms)
+✔ four tabs idle for an hour share 61 cloud reads and no full-value downloads or uploads (2112.7286ms)
+✔ hidden and offline pages pause automatic requests; network recovery uploads edits inside the cooldown (139.335ms)
+✔ a newer local edit during a conflict reply is preserved and requires an explicit choice (76.3222ms)
+✔ component unmount aborts an outstanding request without acknowledging its pending edit (61.0338ms)
+✔ idle read failures retry after backoff and resume without any local edits (77.4141ms)
+✔ a stationary foreground page receives another device edit without focus or local activity (31.0818ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3125.0312

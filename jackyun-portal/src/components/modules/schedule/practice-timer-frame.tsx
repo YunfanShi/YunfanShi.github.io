@@ -42,13 +42,20 @@ export default function PracticeTimerFrame() {
     let liveRetryAt = 0;
     const sessionBases = new Map<string, PracticeSession>();
     let configBase: PracticeConfig | undefined;
+    const initialize = () => {
+      try {
+        const state = readRecoveredState();
+        for (const session of state.practiceSessions ?? []) sessionBases.set(session.id, session);
+        configBase = state.practiceTimerConfig;
+        send({ type: 'practice-state', state, requestedSession: new URLSearchParams(location.search).get('session') });
+      } catch (error) { send({ type: 'practice-error', error: String(error) }); }
+    };
     const handler = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.source !== ref.current?.contentWindow) return;
       const message = event.data;
       if (message?.type === 'practice-focus') { setFocused(message.focused === true); return; }
       if (message?.type === 'practice-ready') {
-        try { const state=readRecoveredState(); for(const session of state.practiceSessions ?? []) sessionBases.set(session.id,session); configBase=state.practiceTimerConfig; send({ type: 'practice-state', state, requestedSession: new URLSearchParams(location.search).get('session') }); }
-        catch (error) { send({ type: 'practice-error', error: String(error) }); }
+        initialize();
       }
       if (message?.type !== 'practice-save' && message?.type !== 'practice-retest') return;
       queue = queue.catch(()=>{}).then(async () => {
@@ -102,6 +109,10 @@ export default function PracticeTimerFrame() {
     };
     const refresh = () => { try { send({type:'practice-state',state:readRecoveredState(),remote:true}); } catch (error) { send({type:'practice-error',error:String(error)}); } };
     window.addEventListener('message', handler);
+    // A cached iframe can announce readiness before React attaches this effect.
+    // Reuse the existing state handshake once here; later ready messages still
+    // cover a slow iframe without changing save, takeover or sync semantics.
+    initialize();
     window.addEventListener(CLOUD_STATE_APPLIED_EVENT, refresh);
     window.addEventListener('storage', refresh);
     return () => { window.removeEventListener('message',handler);window.removeEventListener(CLOUD_STATE_APPLIED_EVENT,refresh);window.removeEventListener('storage',refresh); };

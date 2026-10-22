@@ -1,117 +1,63 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/input';
+import { siteConfirm } from '@/lib/site-dialog';
+import { useToolDraft } from './tool-drafts';
 
 export default function ClipboardShare() {
-  const [text, setText] = useState('');
-  const [status, setStatus] = useState<'idle' | 'copied' | 'pasted' | 'error'>('idle');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [text, setText] = useToolDraft('clipboard.text', '');
+  const [status, setStatus] = useState('');
+  const [failed, setFailed] = useState(false);
+  const generation = useRef(0);
+  useEffect(() => () => { generation.current++; }, []);
 
-  const chars = text.length;
-
-  function flash(s: 'copied' | 'pasted' | 'error') {
-    setStatus(s);
-    setTimeout(() => setStatus('idle'), 2000);
+  function edit(value: string) {
+    generation.current++;
+    setText(value);
+    setStatus('');
+    setFailed(false);
   }
-
-  async function handleCopy() {
-    if (!text) return;
+  async function copy() {
+    const token = ++generation.current;
     try {
       await navigator.clipboard.writeText(text);
-      flash('copied');
+      if (token === generation.current) { setFailed(false); setStatus('已复制到剪贴板'); }
     } catch {
-      setErrorMsg('复制失败，请检查浏览器权限');
-      flash('error');
+      if (token === generation.current) { setFailed(true); setStatus('复制失败，请检查浏览器权限或手动复制'); }
     }
   }
-
-  async function handlePaste() {
+  async function paste() {
+    const token = ++generation.current;
     try {
-      const t = await navigator.clipboard.readText();
-      setText(t);
-      flash('pasted');
+      const value = await navigator.clipboard.readText();
+      if (token !== generation.current) return;
+      setText(value); setFailed(false); setStatus('已从剪贴板粘贴');
     } catch {
-      setErrorMsg('粘贴失败，请检查浏览器权限');
-      flash('error');
+      if (token === generation.current) { setFailed(true); setStatus('粘贴失败，原文本已保留，请手动粘贴'); }
+    }
+  }
+  async function clear() {
+    const token = ++generation.current;
+    if (await siteConfirm('清空当前文本？此操作无法撤销。', { title: '清空剪贴板文本', confirmLabel: '清空文本' })) {
+      if (token === generation.current) edit('');
     }
   }
 
-  function handleClear() {
-    setText('');
-    setStatus('idle');
-  }
-
-  const statusConfig = {
-    idle: null,
-    copied: { msg: '已复制到剪贴板 ✓', color: '#34A853' },
-    pasted: { msg: '已从剪贴板粘贴 ✓', color: '#4285F4' },
-    error: { msg: errorMsg, color: '#EA4335' },
-  };
-
-  const statusInfo = statusConfig[status];
-
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Textarea */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-[var(--foreground)]">文本内容</label>
-          <span className="text-xs text-[var(--muted-foreground)]">{chars} 字符</span>
-        </div>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="在此输入或粘贴文本..."
-          rows={10}
-          className="w-full rounded-[10px] border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[#4285F4] resize-y"
-        />
+  return <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <label htmlFor="tool-clipboard-text" className="text-sm font-medium">文本内容</label>
+        <span className="text-xs text-[var(--muted-foreground)]">{text.length} 字符</span>
       </div>
-
-      {/* Status message */}
-      {statusInfo && (
-        <div
-          className="flex items-center gap-2 rounded-[8px] border px-3 py-2 text-sm font-medium"
-          style={{
-            borderColor: statusInfo.color,
-            backgroundColor: `${statusInfo.color}18`,
-            color: statusInfo.color,
-          }}
-        >
-          <span className="material-icons-round text-base">
-            {status === 'error' ? 'error_outline' : 'check_circle_outline'}
-          </span>
-          {statusInfo.msg}
-        </div>
-      )}
-
-      {/* Buttons */}
-      <div className="flex gap-2">
-        <button
-          onClick={handleCopy}
-          disabled={!text}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-[10px] py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-          style={{ backgroundColor: '#34A853' }}
-        >
-          <span className="material-icons-round text-base">content_copy</span>
-          复制
-        </button>
-        <button
-          onClick={handlePaste}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-[10px] py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: '#4285F4' }}
-        >
-          <span className="material-icons-round text-base">content_paste</span>
-          粘贴
-        </button>
-        <button
-          onClick={handleClear}
-          disabled={!text}
-          className="flex items-center justify-center gap-1.5 rounded-[10px] border border-[var(--card-border)] px-4 py-2.5 text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors disabled:opacity-40"
-        >
-          <span className="material-icons-round text-base">delete_outline</span>
-          清空
-        </button>
-      </div>
+      <Textarea id="tool-clipboard-text" value={text} onChange={event => edit(event.target.value)} placeholder="在此输入或粘贴文本..." rows={10} />
     </div>
-  );
+    {status && <p role={failed ? 'alert' : 'status'} className={failed ? 'jy-notice-error' : 'text-sm text-[var(--ui-success)]'}>{status}</p>}
+    <div className="flex flex-wrap gap-2">
+      <Button onClick={copy} disabled={!text}>复制</Button>
+      <Button onClick={paste} variant="outline">粘贴</Button>
+      <Button onClick={clear} disabled={!text} variant="ghost">清空</Button>
+    </div>
+  </div>;
 }

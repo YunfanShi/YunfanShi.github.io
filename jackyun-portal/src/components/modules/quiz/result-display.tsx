@@ -2,6 +2,7 @@
 
 import { AnalyzedQuestion } from '@/types/quiz';
 import { UserAnswer } from './quiz-app';
+import { Button } from '@/components/ui/button';
 
 interface ResultDisplayProps {
   questions: AnalyzedQuestion[];
@@ -149,27 +150,29 @@ export default function ResultDisplay({
 
       {/* Actions */}
       <div className="flex gap-3 pb-8">
-        <button
+        <Button
+          variant="outline"
           onClick={onJumpToQuestion}
-          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-[#4285F4] text-[#4285F4] font-medium text-sm hover:bg-[#4285F4]/5 active:scale-[0.98] transition-all"
+          className="flex-1 border-[var(--brand)] text-[var(--brand)]"
         >
           <span className="material-icons-round text-base">visibility</span>
           Review Answers
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
           onClick={onRetry}
-          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)] text-[var(--foreground)] font-medium text-sm hover:bg-[var(--card-border)] active:scale-[0.98] transition-all"
+          className="flex-1 bg-[var(--background)]"
         >
           <span className="material-icons-round text-base">replay</span>
           Retry Quiz
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={onFinish}
-          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-[#4285F4] text-white font-medium text-sm hover:bg-[#3367d6] active:scale-[0.98] transition-all shadow-md"
+          className="flex-1 shadow-md"
         >
           <span className="material-icons-round text-base">home</span>
           Done
-        </button>
+        </Button>
       </div>
     </div>
   );

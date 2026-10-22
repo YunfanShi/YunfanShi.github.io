@@ -1,0 +1,233 @@
+{
+  "mode": "candidate",
+  "browser": "155.0.4283.62",
+  "viewport": "1440x1000",
+  "node": "v24.19.0",
+  "environment": "Windows desktop; production webpack; anonymous; placeholder Supabase; no CPU/network throttling; service workers blocked",
+  "metric": "Pointerdown capture to required time-panel DOM visible plus two RAFs; lab frame proxy, not actual presentation trace or INP",
+  "samples": [
+    24.5,
+    24.400000005960464,
+    24.099999994039536,
+    25.30000001192093,
+    23.599999994039536,
+    24.600000023841858,
+    25.5,
+    26.69999998807907,
+    25,
+    25.099999994039536,
+    25.399999976158142,
+    25.299999982118607,
+    25.900000005960464,
+    24.700000017881393,
+    24.600000023841858,
+    25.19999998807907,
+    25,
+    24,
+    25,
+    23,
+    35.30000001192093,
+    31,
+    28.30000001192093,
+    24.69999998807907,
+    24.900000005960464,
+    25.099999994039536,
+    24.399999976158142,
+    25.30000001192093,
+    24.900000005960464,
+    25.5,
+    25.900000005960464,
+    24.69999998807907,
+    23.799999982118607,
+    25.399999976158142,
+    24.80000001192093,
+    25.5,
+    24.599999994039536,
+    23.700000017881393,
+    24.19999998807907,
+    26.299999982118607,
+    25.700000017881393,
+    25.400000005960464,
+    25.30000001192093,
+    23.899999976158142,
+    25.099999994039536,
+    25.5,
+    24.19999998807907,
+    25.599999994039536,
+    23.900000005960464,
+    25.799999982118607
+  ],
+  "median": 25,
+  "p95": 28.30000001192093,
+  "max": 35.30000001192093,
+  "draftRetained": false,
+  "resources": [
+    {
+      "url": "/_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_1di75ot._.js",
+      "transferSize": 894,
+      "encodedBodySize": 594
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_next_dist_compiled_next-devtools_index_090k2jm.js",
+      "transferSize": 250304,
+      "encodedBodySize": 250004
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_next_dist_compiled_react-dom_096_9a-._.js",
+      "transferSize": 184806,
+      "encodedBodySize": 184506
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_next_dist_compiled_1amofcm._.js",
+      "transferSize": 27306,
+      "encodedBodySize": 27006
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_164kp-6._.js",
+      "transferSize": 32489,
+      "encodedBodySize": 32189
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js",
+      "transferSize": 33510,
+      "encodedBodySize": 33210
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_next_dist_client_0_90u2t._.js",
+      "transferSize": 194523,
+      "encodedBodySize": 194223
+    },
+    {
+      "url": "/_next/static/chunks/_1anvha4._.js",
+      "transferSize": 1134,
+      "encodedBodySize": 834
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_%40swc_helpers_cjs_1r9vbqw._.js",
+      "transferSize": 1040,
+      "encodedBodySize": 740
+    },
+    {
+      "url": "/_next/static/chunks/_0lg5s-l._.js",
+      "transferSize": 974,
+      "encodedBodySize": 674
+    },
+    {
+      "url": "/_next/static/chunks/src_lib_logger_ts_1jiubf7._.js",
+      "transferSize": 811,
+      "encodedBodySize": 511
+    },
+    {
+      "url": "/_next/static/chunks/turbopack-_08bm286._.js",
+      "transferSize": 26369,
+      "encodedBodySize": 26069
+    },
+    {
+      "url": "/_next/static/chunks/src_components_modules_19rw69w._.js",
+      "transferSize": 748,
+      "encodedBodySize": 448
+    },
+    {
+      "url": "/_next/static/chunks/_0rb4umx._.js",
+      "transferSize": 25087,
+      "encodedBodySize": 24787
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_next_1ocpwgq._.js",
+      "transferSize": 48934,
+      "encodedBodySize": 48634
+    },
+    {
+      "url": "/_next/static/chunks/src_1s5iiyf._.js",
+      "transferSize": 103565,
+      "encodedBodySize": 103265
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js",
+      "transferSize": 48551,
+      "encodedBodySize": 48251
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_micromark-core-commonmark_dev_lib_2079wuz._.js",
+      "transferSize": 23802,
+      "encodedBodySize": 23502
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_emojilib_04r4aq6._.js",
+      "transferSize": 40514,
+      "encodedBodySize": 40214
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_parse5_dist_1nrczq8._.js",
+      "transferSize": 46040,
+      "encodedBodySize": 45740
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_highlight_20chhld.js",
+      "transferSize": 105491,
+      "encodedBodySize": 105191
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_%40supabase_13aa9ql._.js",
+      "transferSize": 64710,
+      "encodedBodySize": 64410
+    },
+    {
+      "url": "/_next/static/chunks/004v_katex_dist_katex_mjs_14ek3ea._.js",
+      "transferSize": 157221,
+      "encodedBodySize": 156921
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_%40floating-ui_08aw1s3._.js",
+      "transferSize": 23012,
+      "encodedBodySize": 22712
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_%40radix-ui_0kbouh2._.js",
+      "transferSize": 41212,
+      "encodedBodySize": 40912
+    },
+    {
+      "url": "/_next/static/chunks/src_app_(portal)_error_tsx_0odla6a._.js",
+      "transferSize": 1567,
+      "encodedBodySize": 1267
+    },
+    {
+      "url": "/_next/static/chunks/node_modules_0hfdv9y._.js",
+      "transferSize": 257278,
+      "encodedBodySize": 256978
+    },
+    {
+      "url": "/_next/static/chunks/src_components_modules_tools_0iej157._.js",
+      "transferSize": 754,
+      "encodedBodySize": 454
+    },
+    {
+      "url": "/_next/static/chunks/_0e-9yhw._.js",
+      "transferSize": 8814,
+      "encodedBodySize": 8514
+    },
+    {
+      "url": "/_next/static/chunks/_0htcxlq._.js",
+      "transferSize": 1746,
+      "encodedBodySize": 1446
+    },
+    {
+      "url": "/_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_1mojsay._.js",
+      "transferSize": 4176,
+      "encodedBodySize": 3876
+    },
+    {
+      "url": "/_next/static/chunks/src_lib_1pq23mc._.js",
+      "transferSize": 6666,
+      "encodedBodySize": 6366
+    },
+    {
+      "url": "/_next/static/chunks/src_components_modules_tools_time-sync_tsx_07h4ziz._.js",
+      "transferSize": 3692,
+      "encodedBodySize": 3392
+    }
+  ],
+  "totalEncodedJSBytes": 1757840,
+  "errors": []
+}

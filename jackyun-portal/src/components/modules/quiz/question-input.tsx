@@ -2,6 +2,8 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { getAnalysisPrompt } from '@/lib/quiz/question-analyzer';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/input';
 
 interface QuestionInputProps {
   inputText: string;
@@ -80,7 +82,7 @@ export default function QuestionInput({
 
       {/* Textarea */}
       <div className="relative">
-        <textarea
+        <Textarea
           ref={textareaRef}
           value={inputText}
           onChange={(e) => {
@@ -92,7 +94,7 @@ export default function QuestionInput({
           placeholder={`Paste your questions here...\n\nExample:\n1. What is the capital of France?\nA) London\nB) Paris\nC) Berlin\nD) Madrid\n\n2. ...`}
           disabled={isAnalyzing}
           rows={8}
-          className="w-full resize-none rounded-2xl border-2 border-[var(--card-border)] bg-[var(--card)] px-5 py-4 text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] text-sm leading-relaxed outline-none focus:border-[#4285F4] focus:ring-4 focus:ring-[#4285F4]/10 disabled:opacity-60 transition-all"
+          className="min-h-48 resize-none rounded-2xl bg-[var(--card)] px-5 py-4 text-sm leading-relaxed"
         />
         {isAnalyzing && (
           <div className="absolute inset-0 rounded-2xl bg-[var(--card)]/80 backdrop-blur-sm flex items-center justify-center z-10">
@@ -112,14 +114,14 @@ export default function QuestionInput({
 
       {/* Submit */}
       <div className="flex items-center gap-3">
-        <button
+        <Button
           onClick={handleSubmit}
           disabled={!inputText.trim() || isAnalyzing}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#4285F4] text-white font-medium text-sm hover:bg-[#3367d6] disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all shadow-md hover:shadow-lg"
+          className="px-6 shadow-md"
         >
           <span className="material-icons-round text-lg">psychology</span>
           Analyze Questions
-        </button>
+        </Button>
         <span className="text-xs text-[var(--muted-foreground)]">
           or press <kbd className="px-1.5 py-0.5 rounded bg-[var(--background)] border border-[var(--card-border)] font-mono text-[10px]">⌘ + ↵</kbd>
         </span>
@@ -129,11 +131,11 @@ export default function QuestionInput({
         <p className="text-sm font-semibold">用其他 AI 整理题目</p>
         <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">复制提示词和上方题目交给 AI，再把生成的 JSON 粘贴或上传到这里。导入前会检查题型、选项和答案。</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={async () => {
+          <Button variant="outline" onClick={async () => {
             try { await navigator.clipboard.writeText(getAnalysisPrompt(inputText.trim() || '请在这里粘贴待分析的题目。')); setCopyStatus('提示词和题目已复制。'); }
             catch { setCopyStatus('复制失败，请检查浏览器剪贴板权限。'); }
-          }} className="rounded-xl border border-[var(--card-border)] px-3 py-2 text-sm font-medium">复制 AI 提示词{inputText.trim() ? '及题目' : ''}</button>
-          <button type="button" onClick={() => setImportOpen((open) => !open)} className="rounded-xl border border-[var(--card-border)] px-3 py-2 text-sm font-medium">{importOpen ? '收起 JSON 导入' : '导入 AI 生成的 JSON'}</button>
+          }}>复制 AI 提示词{inputText.trim() ? '及题目' : ''}</Button>
+          <Button variant="outline" onClick={() => setImportOpen((open) => !open)}>{importOpen ? '收起 JSON 导入' : '导入 AI 生成的 JSON'}</Button>
         </div>
         {copyStatus && <p role="status" className="mt-2 text-xs text-[var(--muted-foreground)]">{copyStatus}</p>}
         {importOpen && <div className="mt-3 space-y-2">

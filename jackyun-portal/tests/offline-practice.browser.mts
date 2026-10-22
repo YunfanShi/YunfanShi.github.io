@@ -3,13 +3,15 @@ import {createRequire} from 'node:module';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createEmptyScheduleState} from '../src/lib/learning/schedule-control.ts';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.JACKYUN_PLAYWRIGHT_PATH||'playwright');
-const base=process.env.JACKYUN_TEST_URL||'http://127.0.0.1:3177',out='../docs/offline-recovery-3.24.5/verification';
+const base=process.env.JACKYUN_TEST_URL||'http://127.0.0.1:3177',out=process.env.JACKYUN_SCREENSHOT_DIR||'artifacts/verification/offline-practice';
 await mkdir(out,{recursive:true});
-const browser=await chromium.launch({headless:true,channel:'msedge'});const results=[];
+const browser=await chromium.launch({headless:true,channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge'});const results=[];
 try {for(const width of [1440,390]){
  const context=await browser.newContext({viewport:{width,height:1000}});
  const seed=createEmptyScheduleState();seed.settings.tutorialSeenVersion=1;seed.timetable={version:1,name:'Test',courses:[{id:'physics',name:'Physics',color:'#abcdef',review:true,sessions:[{day:3,start:'08:00',end:'09:00'}]}],};
  await context.addInitScript(seed=>{if(!localStorage.getItem('jackyun_schedule_control_v1'))localStorage.setItem('jackyun_schedule_control_v1',JSON.stringify(seed));},seed);
+ // Force the cached iframe to load before its React parent attaches listeners.
+ await context.route(/\/_next\/static\/chunks\/app\/.*\/practice-timer\/page-[^/]+\.js/,async route=>{await new Promise(resolve=>setTimeout(resolve,750));await route.continue();});
  await context.route('**/api/practice-timer/live',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"database unavailable"}'}));
  const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(base+'/practice-timer');await page.waitForTimeout(1000);const skip=page.getByRole('button',{name:'暂时跳过',exact:true});if(await skip.isVisible())await skip.click();

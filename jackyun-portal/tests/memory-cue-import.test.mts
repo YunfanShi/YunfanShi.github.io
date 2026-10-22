@@ -40,11 +40,12 @@ test('shuffle changes only remaining Cues, preserves all evidence and current un
   assert.equal(saved.assessments.a, 'stable');
 });
 
-test('default navigation puts Schedule immediately before the study plan', async () => {
+test('default learning navigation keeps Schedule, Practice Timer and the study plan accessible', async () => {
   const { NAVIGATION_ITEMS } = await import('../src/lib/navigation.ts');
   const learning = NAVIGATION_ITEMS.filter((item) => item.group === 'learning');
   assert.equal(learning[0].id, 'schedule');
-  assert.equal(learning[1].id, 'study-plan');
+  assert.equal(learning[1].id, 'practice-timer');
+  assert.ok(learning.findIndex(item => item.id === 'study-plan') > 1);
 });
 
 test('import maintenance statistics use the dialog target subject, not the manager selection', async () => {

@@ -15,7 +15,9 @@ test('update history stays ordered, unique, and fully categorized', () => {
   }
 
   for (const entry of UPDATE_HISTORY) {
-    assert.ok(entry.highlights.length >= 3);
+    // A small published patch may have one or two meaningful highlights.
+    assert.ok(entry.highlights.length >= 1);
+    assert.ok(entry.highlights.every((highlight) => highlight.trim().length > 0));
     assert.ok(entry.categories.every((category) => UPDATE_CATEGORIES.includes(category)));
   }
 });

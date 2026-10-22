@@ -7,6 +7,7 @@ import * as didaSchedule from '../src/lib/integrations/dida-schedule.ts';
 import * as refs from '../src/lib/integrations/dida-task-reference.ts';
 import { digest, validateOperation } from '../src/lib/watch/policy.ts';
 import { mergeWatchDidaTasks } from '../src/lib/watch/snapshot.ts';
+/* eslint-disable @typescript-eslint/no-unsafe-function-type -- Tests load transpiled modules through a deliberately dynamic VM boundary. */
 const require=createRequire(import.meta.url),ts=require('typescript');
 const account='11111111-1111-4111-8111-111111111111';
 const operation='22222222-2222-4222-8222-222222222222';
@@ -79,7 +80,7 @@ test('watch gateway routes external task operations to Dida and keeps the intern
  class WatchError extends Error {status:number;code:string;constructor(status:number,code:string,message:string){super(message);this.status=status;this.code=code;}}
  const mocks:Record<string,unknown>={
   '@/lib/watch/server':{WatchError,body:(req:Request)=>req.json(),watchContext:async()=>({supabase:{...h.db,rpc:async()=>{localWrites++;return {data:{ok:true},error:null};}},user:{id:'owner'}}),fail:(status:number,code:string,message:string)=>{throw new WatchError(status,code,message);}},
-  '@/lib/watch/reader':{},'@/app/api/llm-proxy/route':{},'next/server':{},'@/lib/ai-smart-selection':{},'@/lib/watch/snapshot':{},
+  '@/lib/watch/ai-policy': {watchAiRequest:()=>({})},'@/lib/watch/reader':{},'@/app/api/llm-proxy/route':{},'next/server':{},'@/lib/ai-smart-selection':{},'@/lib/watch/snapshot':{},
   '@/lib/watch/policy':{digest,validateOperation,UUID:/^[a-f0-9-]{36}$/},'@/lib/integrations/dida-task-reference':refs,'@/lib/watch/dida-tasks':h.watch,'@/lib/integrations/dida365-server':{DidaApiError:h.DidaApiError},
  };
  const code=ts.transpileModule(readFileSync(new URL('../src/app/api/watch/v1/[...action]/route.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;

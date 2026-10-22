@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- The VM runs the public JavaScript engine without a TypeScript module contract. */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';

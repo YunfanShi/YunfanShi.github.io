@@ -1,6 +1,7 @@
 'use client';
 
 import { QuestionOption } from '@/types/quiz';
+import { Button } from '@/components/ui/button';
 
 interface MultipleChoiceProps {
   options: QuestionOption[];
@@ -53,12 +54,14 @@ export default function MultipleChoice({
         const isSelected = selectedLabel === optLabel.toUpperCase();
 
         return (
-          <button
+          <Button
+            variant="outline"
             key={optLabel}
             data-quiz-option="true"
+            aria-pressed={isSelected}
             onClick={() => !disabled && onSelect(`${optLabel}) ${opt.text}`)}
             disabled={disabled}
-            className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all duration-200 ${
+            className={`w-full h-auto min-h-14 justify-start whitespace-normal border-2 p-3.5 text-left transition-all duration-200 ${
               getOptionStyle(opt)
             } ${disabled ? 'cursor-default' : 'cursor-pointer active:scale-[0.99]'}`}
           >
@@ -80,7 +83,7 @@ export default function MultipleChoice({
             {showResult && isSelected && !isCorrect && (
               <span className="material-icons-round text-[#EA4335] text-lg ml-auto shrink-0">cancel</span>
             )}
-          </button>
+          </Button>
         );
       })}
     </div>

@@ -61,7 +61,7 @@ test('admin novel deletion removes catalog data and uploaded storage objects', (
   assert.match(actionSource, /export async function deleteCatalogNovel/u);
   assert.match(actionSource, /from\('novel_catalog'\)\.delete\(\)\.eq\('id', id\)/u);
   assert.match(actionSource, /storage\.from\('novel-files'\)\.remove\(paths\)/u);
-  assert.match(panelSource, /window\.confirm/u);
+  assert.match(panelSource, /await siteConfirm/u);
 });
 
 test('admin can update store metadata and access controls', () => {

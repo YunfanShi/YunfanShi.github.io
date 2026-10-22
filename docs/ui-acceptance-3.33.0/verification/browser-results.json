@@ -1,0 +1,233 @@
+{
+  "initialIntegratedRun": {
+    "base": "http://127.0.0.1:3154",
+    "node": "v24.19.0",
+    "results": [
+      {
+        "suite": "ui-modernization",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 37876
+      },
+      {
+        "suite": "ui-shell",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 5485
+      },
+      {
+        "suite": "ui-shell-auth",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 12328
+      },
+      {
+        "suite": "navigation-feedback",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 6367
+      },
+      {
+        "suite": "admin-ui",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 52519
+      },
+      {
+        "suite": "admin-announcement",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 3266
+      },
+      {
+        "suite": "admin-announcement-crud",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 3539
+      },
+      {
+        "suite": "quiz-ui",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 8639
+      },
+      {
+        "suite": "ielts-dashboard",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 2837
+      },
+      {
+        "suite": "resource-directory",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 2766
+      },
+      {
+        "suite": "settings-ui",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 6921
+      },
+      {
+        "suite": "support-conversation",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 14490
+      },
+      {
+        "suite": "reading-studio",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 6586
+      },
+      {
+        "suite": "novel-reading-position",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 4595
+      },
+      {
+        "suite": "quick-task-ui",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 19213
+      },
+      {
+        "suite": "active-legacy-ui",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 75607
+      },
+      {
+        "suite": "study-guide-state",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 13722
+      },
+      {
+        "suite": "music-player-state",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 8944
+      },
+      {
+        "suite": "countdown-state",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 5466
+      },
+      {
+        "suite": "answer-sheet-legacy",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 8580
+      },
+      {
+        "suite": "class-timeline:mts",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 4887
+      },
+      {
+        "suite": "cue-session-settings:mts",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 6413
+      },
+      {
+        "suite": "cue-route-draft:mts",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 4301
+      },
+      {
+        "suite": "cue-search:mts",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 4173
+      },
+      {
+        "suite": "review-queue",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 14860
+      },
+      {
+        "suite": "mobile-navigation",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 18564
+      },
+      {
+        "suite": "practice-cloud:mts",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 18129
+      },
+      {
+        "suite": "ielts-timer:mts",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 98086
+      },
+      {
+        "suite": "offline-practice:mts",
+        "passed": false,
+        "exitCode": 1,
+        "durationMs": 13609
+      },
+      {
+        "suite": "dida-schedule-ui:mts",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 6319
+      },
+      {
+        "suite": "ui-modernization-performance",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 6698
+      }
+    ],
+    "limitations": [
+      "Loopback fixtures, not production Auth/RLS or cloud accounts",
+      "Browser viewport emulation, not physical Android/iOS"
+    ]
+  },
+  "targetedOfflineRetest": [
+    {
+      "width": 1440,
+      "coldOfflineStart": true,
+      "offlineReload": true,
+      "localSave": true,
+      "report": true,
+      "noOfflineBanner": true,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "coldOfflineStart": true,
+      "offlineReload": true,
+      "localSave": true,
+      "report": true,
+      "noOfflineBanner": true,
+      "errors": []
+    }
+  ],
+  "acceptedSuites": 31,
+  "scopeNote": "30 suites passed in the complete integrated run; after fixing the discovered cached-iframe handshake, offline-practice passed at 1440/390px on a rebuilt production snapshot. The final exact source is rerun by remote PR CI before merge.",
+  "ciFollowupRetests": {
+    "ciRun": 39714057405,
+    "originalPassed": 28,
+    "originalTotal": 31,
+    "retestedOnLoopbackProduction": [
+      "settings-ui 16 checks",
+      "study-guide-state desktop/mobile, task field min-height 44px",
+      "active-legacy-ui 19 routes at 1440px and 390px",
+      "cue-route-draft fullscreen help and saved session"
+    ],
+    "result": "passed",
+    "finalCIRequired": true
+  }
+}

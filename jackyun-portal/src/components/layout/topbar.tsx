@@ -2,9 +2,12 @@
 'use client';
 
 import Link from 'next/link';
-import FullscreenButton from './fullscreen-button';
+import FullscreenButton, { type FullscreenAction } from './fullscreen-button';
 import UserAvatar from '@/components/auth/user-avatar';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { getDialogContainer } from '@/components/ui/dialog';
 import { usePathname } from 'next/navigation';
 import { NAVIGATION_ITEMS, navigationIdFromPath } from '@/lib/navigation';
 import { useLanguage } from '@/components/language-provider';
@@ -39,6 +42,11 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(true);
   const [theme, setTheme] = useState<Theme>('light');
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+  const fullscreenAction = useRef<FullscreenAction>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const listener = (event: Event) => setNavigationOpen(Boolean((event as CustomEvent<{ open: boolean }>).detail.open));
     window.addEventListener('mobile-sidebar-state', listener);
@@ -78,15 +86,19 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
   }, []);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('jackyun_theme');
-      const localTheme = saved === 'gray' || saved === 'dark' ? saved : 'light';
-      queueMicrotask(() => setTheme(localTheme));
-    } catch {}
-  }, [user]);
+    const update = () => {
+      const current = document.documentElement.dataset.theme;
+      setTheme(current === 'gray' || current === 'dark' ? current : 'light');
+    };
+    queueMicrotask(update);
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   const toggleTheme = () => {
-    const next = THEME_META[theme].next;
+    const current = document.documentElement.dataset.theme;
+    const next = THEME_META[current === 'gray' || current === 'dark' ? current : 'light'].next;
     setTheme(next);
     try {
       localStorage.setItem('jackyun_theme', next);
@@ -95,7 +107,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
       localStorage.setItem(key, JSON.stringify({ ...saved, theme: next }));
       localStorage.setItem(`${key}__updated_at`, new Date().toISOString());
     } catch {}
-    void saveSettingsField('appearance_preferences', 'theme', next);
+    if (user) void saveSettingsField('appearance_preferences', 'theme', next);
     document.documentElement.dataset.theme = next;
     document.documentElement.style.colorScheme = next === 'light' ? 'light' : 'dark';
     document.querySelectorAll('iframe').forEach((frame) => {
@@ -106,16 +118,16 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
   return (
     <header className="flex min-h-16 shrink-0 items-center justify-between gap-1 border-b border-[var(--sidebar-border)] bg-[var(--card)] px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-2 sm:px-6 lg:h-16 lg:py-0">
       <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
-        <button
-          type="button"
-          className="portal-touch-menu grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] lg:hidden"
+        <Button
+          variant="ghost" size="icon"
+          className="portal-touch-menu grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] lg:hidden"
           aria-label="打开导航菜单"
           aria-controls="portal-navigation"
           aria-expanded={navigationOpen}
           onClick={() => window.dispatchEvent(new Event('toggle-mobile-sidebar'))}
         >
-          <span className="material-icons-round">menu</span>
-        </button>
+          <span className="material-icons-round" aria-hidden="true">menu</span>
+        </Button>
         <span className="truncate text-sm font-semibold lg:hidden">{currentItem ? t(currentItem.labelKey, lang) : 'JackYun'}</span>
         <div className="hidden min-w-0 lg:block">
           <p className="hidden text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)] sm:block">JackYun Workspace</p>
@@ -126,46 +138,49 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
       </div>
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
         {betaActive && (
-          <Link href="/beta" className="hidden rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm transition hover:bg-[#6941c6] lg:inline-flex sm:text-xs" title="打开 BETA 测试中心">
+          <Link href="/beta" prefetch={false} className="hidden rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm transition hover:bg-[#6941c6] lg:inline-flex sm:text-xs" title="打开 BETA 测试中心">
             BETA v{APP_VERSION}
           </Link>
         )}
         <SyncStatusIndicator signedIn={Boolean(user)} />
-        <div className="portal-desktop-actions hidden lg:flex items-center gap-2">        <button
-          type="button"
+        <div className="portal-desktop-actions hidden lg:flex items-center gap-2"><Button
+          variant="ghost" size="icon"
           onClick={toggleTheme}
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:h-9 sm:w-auto sm:px-3"
+
           title={THEME_META[theme].label}
           aria-label={THEME_META[theme].label}
         >
-          <span className="material-icons-round text-lg">{THEME_META[theme].icon}</span>
-        </button>
+          <span className="material-icons-round text-lg" aria-hidden="true">{THEME_META[theme].icon}</span>
+        </Button>
         {showFullscreen && <FullscreenButton />}
         </div>
-        {user && <NotificationInbox />}
-        <details className="portal-touch-actions relative lg:hidden">
-          <summary aria-label="更多页面操作" className="grid h-11 w-11 list-none place-items-center rounded-xl cursor-pointer"><span className="material-icons-round">more_horiz</span></summary>
-          <div className="absolute right-0 top-12 z-50 flex min-w-48 flex-col gap-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-xl">
-            <button type="button" onClick={() => window.location.reload()} className="min-h-11 px-3 text-left">{lang === 'en' ? 'Refresh page' : '刷新网页'}</button>
-            <button type="button" onClick={toggleTheme} aria-label={THEME_META[theme].label} className="min-h-11 text-left px-3">{THEME_META[theme].label}</button>
-            {showFullscreen && <FullscreenButton />}
-            {betaActive && <Link href="/beta" className="min-h-11 px-3 py-3">BETA 测试中心</Link>}
-            {user && <LogoutButton />}
-          </div>
-        </details>
+        {user && <NotificationInbox key={user.id} />}
+        <div className="portal-touch-actions lg:hidden">
+          <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
+            <DropdownMenuTrigger asChild><Button ref={moreRef} variant="ghost" size="icon" aria-label="更多页面操作" onPointerDown={event => setPortalContainer(getDialogContainer(event.currentTarget))} onKeyDown={event => setPortalContainer(getDialogContainer(event.currentTarget))}><span aria-hidden="true" className="material-icons-round">more_horiz</span></Button></DropdownMenuTrigger>
+            <DropdownMenuContent portalContainer={portalContainer} align="end" onCloseAutoFocus={event => { if (logoutOpen || document.querySelector('[data-ui-dialog][data-state="open"]')) event.preventDefault(); }}>
+              <DropdownMenuItem onSelect={() => window.location.reload()}>{lang === 'en' ? 'Refresh page' : '刷新网页'}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={toggleTheme}>{THEME_META[theme].label}</DropdownMenuItem>
+              {showFullscreen && <DropdownMenuItem onSelect={() => { if (moreRef.current) fullscreenAction.current?.toggle(moreRef.current); }}>全屏</DropdownMenuItem>}
+              {betaActive && <DropdownMenuItem asChild><Link href="/beta" prefetch={false}>BETA 测试中心</Link></DropdownMenuItem>}
+              {user && <><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => setLogoutOpen(true)}>{t('topbar.logout', lang)}</DropdownMenuItem></>}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        {showFullscreen && <FullscreenButton hideTrigger actionRef={fullscreenAction} restoreFocusTo={moreRef} />}
         {user ? (
           <>
             <UserAvatar user={user} />
-            <div className="hidden lg:block"><LogoutButton /></div>
+            <div className="hidden lg:block"><LogoutButton open={logoutOpen} onOpenChange={setLogoutOpen} restoreFocusTo={moreRef} portalContainer={portalContainer} /></div>
           </>
         ) : (
-          <a
-            href="/login"
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[#f1f3f4] hover:text-[var(--foreground)] dark:hover:bg-[#3c4043] sm:h-9 sm:w-auto sm:gap-1 sm:px-3"
+          <Button asChild variant="ghost" className="p-2"><a
+            href="/login" aria-label="登录并同步"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] sm:h-9 sm:w-auto sm:gap-1 sm:px-3"
           >
             <span className="material-icons-round text-lg">account_circle</span>
             <span className="hidden sm:inline">登录并同步</span>
-          </a>
+          </a></Button>
         )}
       </div>
     </header>

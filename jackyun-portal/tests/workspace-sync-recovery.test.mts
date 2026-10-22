@@ -115,7 +115,7 @@ function harness() {
         if (init?.signal?.aborted) throw new DOMException('cancelled', 'AbortError');
         if (method === 'GET') {
           const key=new URL(url,'https://test.local').searchParams.get('key');
-          return Response.json({ok:true,syncProtocol:3,records:key?cloudRecords.filter(record=>record.key===key):cloudRecords.map(({value,...descriptor})=>descriptor),next:null});
+          return Response.json({ok:true,syncProtocol:3,records:key?cloudRecords.filter(record=>record.key===key):cloudRecords.map(record=>{const descriptor={...record};delete descriptor.value;return descriptor;}),next:null});
         }
         const operations = body.operations as Array<SyncOperation & {patch:any[]}>;
         if(conflict){

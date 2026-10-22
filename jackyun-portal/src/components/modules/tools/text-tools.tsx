@@ -1,18 +1,45 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/input';
+import { useToolDraft } from './tool-drafts';
+
+type EarlyInputWindow = Window & { __JY_EARLY_INPUTS?: Record<string, string> };
 
 export default function TextTools() {
-  const [input, setInput] = useState('');
-  const [output, setOutput] = useState('');
-  const [error, setError] = useState('');
+  const [input, setInput] = useToolDraft('text.input', '');
+  const [output, setOutput] = useToolDraft('text.output', '');
+  const [error, setError] = useToolDraft('text.error', '');
   const [copied, setCopied] = useState(false);
+
+  const copyGeneration = useRef(0);
+  useEffect(() => () => { copyGeneration.current++; }, []);
+  useEffect(() => {
+    const applyEarlyInput = (event: Event) => {
+      const detail = (event as CustomEvent<{ key?: string; value?: string }>).detail;
+      if (detail?.key !== 'tools.text-input' || detail.value === undefined) return;
+      const earlyInputs = (window as EarlyInputWindow).__JY_EARLY_INPUTS;
+      if (earlyInputs) delete earlyInputs['tools.text-input'];
+      setInput(detail.value);
+    };
+    window.addEventListener('jy-early-input', applyEarlyInput);
+    const earlyInputs = (window as EarlyInputWindow).__JY_EARLY_INPUTS;
+    const earlyInput = earlyInputs?.['tools.text-input'];
+    if (earlyInputs && earlyInput !== undefined) {
+      delete earlyInputs['tools.text-input'];
+      setInput(earlyInput);
+    }
+    return () => window.removeEventListener('jy-early-input', applyEarlyInput);
+  }, [setInput]);
 
   const lines = input ? input.split('\n') : [];
   const words = input.trim() ? input.trim().split(/\s+/) : [];
   const chars = input.length;
 
   function run(fn: () => string) {
+    copyGeneration.current++;
+    setCopied(false);
     setError('');
     try {
       setOutput(fn());
@@ -90,12 +117,12 @@ export default function TextTools() {
 
   async function handleCopy() {
     if (!output) return;
+    const generation = ++copyGeneration.current;
     try {
       await navigator.clipboard.writeText(output);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (generation === copyGeneration.current) setCopied(true);
     } catch {
-      setError('复制失败，请手动复制');
+      if (generation === copyGeneration.current) setError('复制失败，请手动复制');
     }
   }
 
@@ -104,19 +131,27 @@ export default function TextTools() {
       {/* Input */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-[var(--foreground)]">输入文本</label>
+          <label htmlFor="tool-text-input" className="text-sm font-medium text-[var(--foreground)]">输入文本</label>
           <div className="flex gap-3 text-xs text-[var(--muted-foreground)]">
             <span>{chars} 字符</span>
             <span>{words.length} 词</span>
             <span>{lines.length} 行</span>
           </div>
         </div>
-        <textarea
+        <Textarea
+          id="tool-text-input"
+          data-jy-early-input="tools.text-input"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            const earlyInputs = (window as EarlyInputWindow).__JY_EARLY_INPUTS;
+            if (earlyInputs) delete earlyInputs['tools.text-input'];
+            setInput(e.target.value);
+          }}
           placeholder="在此输入文本..."
           rows={6}
-          className="w-full rounded-[10px] border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[#4285F4] resize-y font-mono"
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? "tool-text-error" : undefined}
+          className="font-mono"
         />
       </div>
 
@@ -129,7 +164,7 @@ export default function TextTools() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 rounded-[8px] border border-[#EA4335] bg-[#EA4335]/10 px-3 py-2 text-sm text-[#EA4335]">
+        <div id="tool-text-error" role="alert" className="jy-notice-error flex items-center gap-2">
           <span className="material-icons-round text-base">error_outline</span>
           {error}
         </div>
@@ -138,23 +173,23 @@ export default function TextTools() {
       {/* Output */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-[var(--foreground)]">输出结果</label>
-          <button
+          <label htmlFor="tool-text-output" className="text-sm font-medium text-[var(--foreground)]">输出结果</label>
+          <Button
             onClick={handleCopy}
             disabled={!output}
-            className="flex items-center gap-1 rounded-[8px] px-3 py-1 text-xs font-medium transition-opacity hover:opacity-90 disabled:opacity-40"
-            style={{ backgroundColor: copied ? '#34A853' : '#4285F4', color: '#fff' }}
+            size="sm"
           >
-            <span className="material-icons-round text-sm">{copied ? 'check' : 'content_copy'}</span>
+            <span className="material-icons-round text-sm" aria-hidden="true">{copied ? 'check' : 'content_copy'}</span>
             {copied ? '已复制' : '一键复制'}
-          </button>
+          </Button>
         </div>
-        <textarea
+        <Textarea
+          id="tool-text-output"
           value={output}
           readOnly
           placeholder="操作结果将显示在此处..."
           rows={6}
-          className="w-full rounded-[10px] border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none resize-y font-mono"
+          className="font-mono"
         />
       </div>
     </div>
@@ -164,7 +199,6 @@ export default function TextTools() {
 function ActionButton({
   label,
   icon,
-  color,
   onClick,
 }: {
   label: string;
@@ -172,21 +206,14 @@ function ActionButton({
   color: string;
   onClick: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
   return (
-    <button
+    <Button
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-xs font-medium transition-colors"
-      style={{
-        backgroundColor: hovered ? color : 'transparent',
-        borderColor: hovered ? color : 'var(--card-border)',
-        color: hovered ? '#fff' : 'var(--foreground)',
-      }}
+      variant="outline"
+      size="sm"
     >
-      <span className="material-icons-round text-sm">{icon}</span>
+      <span className="material-icons-round text-sm" aria-hidden="true">{icon}</span>
       {label}
-    </button>
+    </Button>
   );
 }

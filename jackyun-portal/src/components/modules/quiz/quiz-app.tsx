@@ -29,6 +29,7 @@ import QuizSettingsPanel from './quiz-settings';
 import SubjectSelector from './subject-selector';
 import ProgressBar from './progress-bar';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
+import { Button } from '@/components/ui/button';
 
 type View =
   | 'input'       // initial input screen
@@ -372,30 +373,30 @@ export default function QuizApp() {
           QuizWise
         </h1>
         <div className="flex items-center gap-1">
-          <button
+          <Button
+            variant={view === 'input' ? 'default' : 'ghost'}
+            size="icon"
+            aria-label={view === 'quiz' ? '新建测验' : '输入题目'}
             onClick={() => { setView('input'); setInputText(''); }}
-            className={`p-2 rounded-lg text-sm transition-all ${
-              view === 'input' ? 'bg-[#4285F4] text-white' : 'text-[var(--muted-foreground)] hover:bg-[var(--background)]'
-            }`}
           >
             <span className="material-icons-round text-base">{view === 'quiz' ? 'add' : 'edit'}</span>
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={view === 'history' ? 'default' : 'ghost'}
+            size="icon"
+            aria-label="测验历史"
             onClick={() => setView('history')}
-            className={`p-2 rounded-lg text-sm transition-all ${
-              view === 'history' ? 'bg-[#4285F4] text-white' : 'text-[var(--muted-foreground)] hover:bg-[var(--background)]'
-            }`}
           >
             <span className="material-icons-round text-base">history</span>
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={view === 'settings' ? 'default' : 'ghost'}
+            size="icon"
+            aria-label="测验设置"
             onClick={() => setView('settings')}
-            className={`p-2 rounded-lg text-sm transition-all ${
-              view === 'settings' ? 'bg-[#4285F4] text-white' : 'text-[var(--muted-foreground)] hover:bg-[var(--background)]'
-            }`}
           >
             <span className="material-icons-round text-base">settings</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -462,20 +463,20 @@ export default function QuizApp() {
                 );
               })()}
             </div>
-            <nav aria-label="切换题目" className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={currentIndex === 0} onClick={() => setCurrentIndex((index) => index - 1)} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 text-sm font-semibold disabled:opacity-40">← 上一题</button><span className="text-sm text-[var(--muted-foreground)]">{currentIndex + 1} / {questions.length}</span><button type="button" disabled={currentIndex >= questions.length - 1} onClick={handleNext} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 text-sm font-semibold disabled:opacity-40">下一题 →</button></nav>
+            <nav aria-label="切换题目" className="mt-4 flex items-center justify-between gap-3"><Button variant="outline" disabled={currentIndex === 0} onClick={() => setCurrentIndex((index) => index - 1)}>← 上一题</Button><span aria-live="polite" className="text-sm text-[var(--muted-foreground)]">{currentIndex + 1} / {questions.length}</span><Button variant="outline" disabled={currentIndex >= questions.length - 1} onClick={handleNext}>下一题 →</Button></nav>
             <p className="mt-3 text-center text-xs text-[var(--muted-foreground)]">快捷键：← / → 切题；选择题按 A–D 或 1–4 选中；Enter 确认答案。输入框内保留正常输入。</p>
 
             {/* Complete Button */}
             {allAnswered && (
               <div className="pt-4 pb-8 flex justify-center">
-                <button
+                <Button
                   onClick={handleComplete}
-                  className="flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-[#4285F4] to-[#34A853] text-white font-semibold text-base shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all animate-fade-in"
+                  className="px-8 text-base font-semibold shadow-lg"
                 >
                   <span className="material-icons-round">check_circle</span>
                   Complete Quiz
                   <span className="ml-1 text-sm opacity-80">({correctCount}/{questions.length})</span>
-                </button>
+                </Button>
               </div>
             )}
           </div>

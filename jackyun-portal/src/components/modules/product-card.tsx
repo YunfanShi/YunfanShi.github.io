@@ -20,7 +20,7 @@ export default function ProductCard({
     <Link
       href={href}
       prefetch={false}
-      className="group relative flex min-h-32 flex-col overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[var(--surface-shadow)] sm:min-h-52 sm:p-6"
+      className="jy-product-card group relative flex min-h-32 flex-col overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:min-h-52 sm:p-6"
     >
       {/* Top color bar */}
       <div
@@ -30,7 +30,7 @@ export default function ProductCard({
 
       {/* Icon */}
       <div
-        className="mb-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 sm:mb-5"
+        className="mb-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg  sm:mb-5"
         style={{ backgroundColor: `${color}14` }}
       >
         <span
@@ -52,7 +52,7 @@ export default function ProductCard({
       {/* Arrow */}
       <div className="mt-auto flex items-center pt-3 text-xs font-medium text-[var(--brand)] sm:pt-5">
         <span>打开模块</span>
-        <span className="material-icons-round ml-1 text-base transition-transform duration-200 group-hover:translate-x-1">
+        <span className="material-icons-round ml-1 text-base ">
           arrow_forward
         </span>
       </div>
