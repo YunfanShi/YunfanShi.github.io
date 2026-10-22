@@ -38,6 +38,7 @@ const translations: TranslationMap = {
   'nav.poem':                 { zh: '诗词天地',             en: 'Poetry' },
   'nav.countdown':            { zh: '倒计日',               en: 'Countdown' },
   'nav.relax':                { zh: '放松一下',             en: 'Relax' },
+  'nav.practice-timer':        { zh: '练习计时器',             en: 'Practice Timer' },
   'nav.schedule':             { zh: '日程',                 en: 'Schedule' },
   'nav.answer-sheet':         { zh: '答题卡',               en: 'Answer Sheet' },
   'nav.answer-sheet-sync':    { zh: '同步答题卡',           en: 'Sync Answer Sheet' },

@@ -49,7 +49,7 @@ try{
     await page.clock.fastForward(9000);await page.evaluate(()=>window.JackyunErrors.report({code:'SYNC_WRITE_FAILED',url:location.origin+'/api/test'}));
     await page.clock.fastForward(11999);assert.equal(await page.locator('[role="alert"]').count(),1);
     await page.clock.fastForward(1);assert.equal(await page.locator('[role="alert"]').count(),0);
-    await page.evaluate(()=>window.JackyunErrors.report({code:'STORAGE_FAILED'}));
+    await page.evaluate(()=>window.JackyunErrors.report({code:'AI_PARSE_FAILED'}));
     // Headless Chromium emulates every tab as focused; exercise native event
     // listeners with controlled visibility instead of relying on tab focus.
     await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'));});
@@ -58,10 +58,10 @@ try{
     assert.equal(await page.locator('[role="alert"]').count(),0);
     await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});document.dispatchEvent(new Event('visibilitychange'));});
     assert.equal(await page.locator('[role="alert"]').count(),0);
-    await page.evaluate(()=>window.JackyunErrors.report({code:'STORAGE_FAILED'}));
-    const foreground=page.locator('[data-code="JY-3101"]');await foreground.getByRole('button',{name:'复制日志',exact:true}).click();
+    await page.evaluate(()=>window.JackyunErrors.report({code:'AI_PARSE_FAILED'}));
+    const foreground=page.locator('[data-code="JY-5001"]');await foreground.getByRole('button',{name:'复制日志',exact:true}).click();
     assert.match(await foreground.getByRole('textbox',{name:'可复制的错误日志'}).inputValue(),/background-marker/);
-    await page.evaluate(()=>{Object.defineProperty(document,'hasFocus',{configurable:true,value:()=>false});window.dispatchEvent(new Event('blur'));window.JackyunErrors.report({code:'STORAGE_FAILED'});});
+    await page.evaluate(()=>{Object.defineProperty(document,'hasFocus',{configurable:true,value:()=>false});window.dispatchEvent(new Event('blur'));window.JackyunErrors.report({code:'AI_PARSE_FAILED'});});
     assert.equal(await page.locator('[role="alert"]').count(),0);
     await page.evaluate(()=>{delete document.hasFocus;});
     await page.goto(base+'/docs/errors.html');assert.equal(await page.locator('tbody tr').count(),25);

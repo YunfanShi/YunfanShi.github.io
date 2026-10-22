@@ -24,6 +24,7 @@ jobs:
       NEXT_TELEMETRY_DISABLED: '1'
       JACKYUN_TEST_URL: http://127.0.0.1:3150
       JACKYUN_BROWSER_CHANNEL: chromium
+      JACKYUN_TEST_ENV: GitHub Actions Linux Chromium webpack standalone with loopback fixture and no throttling
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -34,15 +35,13 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npm run build
-      - name: Type and scoped lint checks
+      - name: Type and lint checks
         run: |
           npx tsc --noEmit
-          npx eslint src/components/ui src/components/modules/tools src/components/modules/deferred-ai-chat.tsx src/components/ai/ai-workspace.tsx src/components/modules/review/review-session.tsx src/components/modules/study/quick-task-form.tsx src/components/modules/study/task-inbox.tsx src/components/modules/schedule/schedule-control.tsx src/components/settings/settings-content.tsx src/components/layout/keyboard-shortcuts.tsx src/lib/utils.ts src/lib/update-history.ts tests/ui-modernization.browser.mjs tests/ui-modernization-performance.browser.mjs tests/ui-shell.browser.mjs tests/ui-shell-auth.browser.mjs tests/admin-ui.browser.mjs tests/admin-announcement.browser.mjs tests/admin-announcement-crud.browser.mjs tests/answer-sheet-legacy.browser.mjs tests/study-guide-state.browser.mjs tests/music-player-state.browser.mjs tests/countdown-state.browser.mjs tests/cue-route-draft.browser.mts tests/quiz-ui.browser.mjs tests/ielts-dashboard.browser.mjs tests/resource-directory.browser.mjs tests/settings-ui.browser.mjs tests/quick-task-ui.browser.mjs tests/active-legacy-ui.browser.mjs tests/reading-studio.browser.mjs tests/novel-reading-position.browser.mjs tests/review-queue.browser.mjs tests/fixtures/ui-backend.mjs tests/navigation-prefetch.test.mts src/components/layout/sidebar.tsx src/components/layout/topbar.tsx src/components/layout/fullscreen-button.tsx src/components/auth/logout-button.tsx src/components/modules/notification-inbox.tsx src/components/modules/product-card.tsx src/components/modules/ielts/ielts-dashboard.tsx src/components/modules/ielts/reading-workbench.tsx src/components/modules/ielts/ai-reading-studio.tsx src/components/modules/resource-directory.tsx 'src/app/(portal)/dashboard/page.tsx' 'src/app/(portal)/quiz/page.tsx' src/lib/navigation-prefetch.ts
-          npx eslint src/components/modules/support-conversation-dialog.tsx tests/support-conversation.browser.mjs
-          npx eslint src/components/modules/quiz/quiz-app.tsx src/components/modules/quiz/question-input.tsx src/components/modules/quiz/subject-selector.tsx src/components/modules/quiz/multiple-choice.tsx src/components/modules/quiz/true-false.tsx src/components/modules/quiz/question-card.tsx src/components/modules/quiz/essay-question.tsx src/components/modules/quiz/fill-blank.tsx src/components/modules/quiz/result-display.tsx tests/quiz-ui.browser.mjs
+          npx eslint .
           npm run check:secrets
       - name: Existing data safety regressions
-        run: node --test tests/sync-v2.test.mts tests/workspace-sync-recovery.test.mts tests/practice-cloud-offline.test.mts tests/ielts-local-concurrency.test.mts tests/navigation-prefetch.test.mts tests/pwa-navigation.test.mts
+        run: node --test tests/*.test.mts tests/*.test.mjs
       - name: Run production UI flows
         run: |
           mkdir -p artifacts
@@ -56,37 +55,13 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY=ui-test-service-role-key-not-secret PORT=3150 HOSTNAME=127.0.0.1 node .next/standalone/server.js > artifacts/ui-server.log 2>&1 &
           server_pid=$!
           node --input-type=module -e 'let ready=false; for(let n=0;n<60;n++){try{let r=await fetch("http://127.0.0.1:3150/tools");if(r.ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,1000))}if(!ready)process.exit(1)'
-          npm run test:ui-modernization
-          node tests/ui-modernization-performance.browser.mjs candidate artifacts/verification/ui-modernization/performance-ci.json
-          node tests/ui-shell.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/ui-shell-auth.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/admin-ui.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/admin-announcement.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/admin-announcement-crud.browser.mjs
-          JACKYUN_TEST_URL=http://127.0.0.1:3150 node tests/quiz-ui.browser.mjs
-          node tests/ielts-dashboard.browser.mjs
-          node tests/resource-directory.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/settings-ui.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/support-conversation.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/reading-studio.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/novel-reading-position.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/quick-task-ui.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/active-legacy-ui.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/study-guide-state.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/music-player-state.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/countdown-state.browser.mjs
-          JACKYUN_AUTH_TEST_URL=http://127.0.0.1:3150 node tests/answer-sheet-legacy.browser.mjs
-          node tests/class-timeline.browser.mts
-          node tests/cue-session-settings.browser.mts
-          node tests/cue-route-draft.browser.mts
-          node tests/review-queue.browser.mjs
-          node tests/mobile-navigation.browser.mjs
+          node scripts/verify-ui.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ui-modernization-verification
           path: |
-            jackyun-portal/artifacts/verification/ui-modernization/
+            jackyun-portal/artifacts/verification/ui-acceptance/
             jackyun-portal/artifacts/verification/ui-shell/
             jackyun-portal/artifacts/verification/ui-shell-auth/
             jackyun-portal/artifacts/ui-server.log

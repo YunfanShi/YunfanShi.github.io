@@ -106,6 +106,11 @@ export function upsertWritingArchive(entries: WritingArchiveEntry[], entry: Writ
   return [entry, ...entries.filter((item) => item.essayId !== entry.essayId)];
 }
 
+/** Display existing paragraph breaks without rewriting the archived essay. */
+export function splitWritingParagraphs(content: string): string[] {
+  return content.split(/(?:\r\n|[\r\n\u2028\u2029])+/).map((paragraph) => paragraph.trim()).filter(Boolean);
+}
+
 export function coerceWritingStage(value: string | null): WritingStage | null {
   if (value === null || value.trim() === '') return null;
   const stage = Number(value);
@@ -246,12 +251,60 @@ export function findQuotedTextRange(text: string, quote: string): QuoteRange | n
   return normalizedQuoteRanges(text, quote)[0] ?? null;
 }
 
-export function highlightQuotedText(text: string, quotes: Array<{ id: string; quote: string }>): QuoteHighlightChunk[] {
-  if (!text) return [];
-  const matches: Array<{ start: number; end: number; id: string }> = [];
-  for (const item of quotes) {
-    for (const range of normalizedQuoteRanges(text, item.quote)) matches.push({ ...range, id: item.id });
+export interface TrackedWritingQuote extends QuoteRange { id: string; }
+
+/** Map known source quotes through edits, rather than guessing similar sentences. */
+export function trackWritingQuotes(source: string, current: string, quotes: Array<{ id: string; quote: string }>): TrackedWritingQuote[] {
+  if (!quotes.length) return [];
+  if (source === current) return quotes.flatMap(({ id, quote }) => normalizedQuoteRanges(source, quote).map((range) => ({ ...range, id })));
+  const chunks = diffWriting(source, current);
+  const edits: Array<{ start: number; end: number; nextStart: number; nextEnd: number }> = [];
+  const unchanged: QuoteRange[] = [];
+  let before = 0; let after = 0;
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunk = chunks[index];
+    if (chunk.type === 'same') {
+      unchanged.push({ start: before, end: before + chunk.text.length });
+      before += chunk.text.length; after += chunk.text.length;
+    } else {
+      const edit = { start: before, end: before, nextStart: after, nextEnd: after };
+      while (index < chunks.length && chunks[index].type !== 'same') {
+        if (chunks[index].type === 'removed') before += chunks[index].text.length;
+        else after += chunks[index].text.length;
+        index += 1;
+      }
+      index -= 1;
+      edit.end = before; edit.nextEnd = after; edits.push(edit);
+    }
   }
+  function boundary(position: number, start: boolean): number {
+    let offset = 0;
+    for (const edit of edits) {
+      if (position < edit.start) break;
+      if (position > edit.end) { offset = edit.nextEnd - edit.end; continue; }
+      if (edit.start === edit.end) return start ? edit.nextEnd : edit.nextStart;
+      if (position === edit.start) return edit.nextStart;
+      if (position === edit.end) return edit.nextEnd;
+      return start ? edit.nextStart : edit.nextEnd;
+    }
+    return position + offset;
+  }
+  return quotes.flatMap(({ id, quote }) => normalizedQuoteRanges(source, quote).flatMap((range) => {
+    const survives = unchanged.some((part) => /[\p{L}\p{N}]/u.test(source.slice(Math.max(part.start, range.start), Math.min(part.end, range.end))));
+    // A whole-document paste cannot identify a small quote in unrelated new text.
+    const contextSurvives = unchanged.some((part) => /[\p{L}\p{N}]/u.test(source.slice(part.start, part.end)) && (part.end <= range.start || part.start >= range.end));
+    if (!survives && !contextSurvives && (range.start !== 0 || range.end !== source.length)) return [];
+    const touching = edits.filter((edit) => edit.start < range.end && edit.end > range.start);
+    if (!survives && (!touching.length || touching.some((edit) => edit.start < range.start || edit.end > range.end))) return [];
+    let start = boundary(range.start, true); let end = boundary(range.end, false);
+    while (start < end && /\s/u.test(current[start])) start += 1;
+    while (end > start && /\s/u.test(current[end - 1])) end -= 1;
+    return start < end ? [{ id, start, end }] : [];
+  }));
+}
+
+export function highlightWritingRanges(text: string, matches: TrackedWritingQuote[]): QuoteHighlightChunk[] {
+  if (!text) return [];
   if (!matches.length) return [{ text, highlighted: false, issueIds: [] }];
   const boundaries = new Set([0, text.length]);
   for (const match of matches) { boundaries.add(match.start); boundaries.add(match.end); }
@@ -261,6 +314,15 @@ export function highlightQuotedText(text: string, quotes: Array<{ id: string; qu
     const issueIds = [...new Set(matches.filter((match) => match.start < end && match.end > start).map((match) => match.id))];
     return { text: text.slice(start, end), highlighted: issueIds.length > 0, issueIds };
   });
+}
+
+export function highlightQuotedText(text: string, quotes: Array<{ id: string; quote: string }>): QuoteHighlightChunk[] {
+  if (!text) return [];
+  const matches: Array<{ start: number; end: number; id: string }> = [];
+  for (const item of quotes) {
+    for (const range of normalizedQuoteRanges(text, item.quote)) matches.push({ ...range, id: item.id });
+  }
+  return highlightWritingRanges(text, matches);
 }
 
 export function targetWords(task: WritingTask): number {
@@ -283,13 +345,15 @@ export function buildWritingReviewPrompt(input: {
   outputLanguage?: 'en' | 'zh';
   responseFormat?: ExternalResponseFormat;
   guidanceMode?: WritingGuidanceMode;
+  recurringErrorKeys?: string[];
+  previousIssues?: Array<{ quote: string; explanation: string; correction?: string }>;
 }): string {
   const guidanceMode = input.guidanceMode ?? 'hint';
   const modeInstruction = input.mode === 'upgrade'
-    ? '主要错误应已收敛。区分 necessary correction、natural upgrade、optional sophistication；保持原观点，只做 same idea, better English。'
+    ? `主要错误应已收敛。区分 necessary correction、natural upgrade、optional sophistication；保持原观点，只做 same idea, better English。回看已保存的问题记录：${JSON.stringify(input.previousIssues ?? [])}`
     : input.mode === 'recheck'
-      ? '这是学生自己修改后的版本。重点检查上一轮主要问题是否解决，并只报告仍然重要或新引入的问题。'
-      : '这是原始独立写作。先诊断问题，让学生自己修改；不要代写整句或整篇。';
+      ? `这是学生自己修改后的版本。重点检查上一轮主要问题是否解决，并只报告仍然重要或新引入的问题。核对的原始问题记录：${JSON.stringify(input.previousIssues ?? [])}`
+      : `这是原始独立写作。先诊断问题，让学生自己修改；不要代写整句或整篇。Prior recurring issue keys recorded across this user's other IELTS essays: ${input.recurringErrorKeys?.join(', ') || 'none'}. Check these patterns explicitly in this independent transfer essay. Prior issue details: ${JSON.stringify(input.previousIssues ?? [])}`;
 
   const responseLanguage = input.outputLanguage === 'zh'
     ? `Write summary, priorities, explanations, ${guidanceMode === 'hint' ? 'self-revision prompts' : 'correction explanations'}, and upgrade reasons in Simplified Chinese. Keep category, severity, type, ruleKey, and every quote/original/suggestion/correction field in English.`

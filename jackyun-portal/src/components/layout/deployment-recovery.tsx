@@ -1,5 +1,6 @@
 'use client';
 
+import { reopenWorkspace } from '@/lib/pwa-recovery';
 import { useEffect } from 'react';
 import { retryStylesheet } from '@/lib/stylesheet-recovery';
 
@@ -12,7 +13,7 @@ export default function DeploymentRecovery() {
       const message = reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason ?? '');
       if (!STALE_ASSET_ERROR.test(message) || sessionStorage.getItem(storageKey)) return;
       sessionStorage.setItem(storageKey, '1');
-      window.location.reload();
+      void reopenWorkspace();
     };
     const retryMissingStyles = () => {
       if (!navigator.onLine) return;

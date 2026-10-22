@@ -1,0 +1,27 @@
+{
+  "results": [
+    {
+      "width": 1440,
+      "sections": 4,
+      "correctionRunningAndPaused": true,
+      "focusCorrection": true,
+      "noTimetableRequired": true,
+      "partTimesPreserved": true,
+      "reloadAndReport": true,
+      "listeningCheckBoundary": true,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "sections": 4,
+      "correctionRunningAndPaused": true,
+      "focusCorrection": true,
+      "noTimetableRequired": true,
+      "partTimesPreserved": true,
+      "reloadAndReport": true,
+      "listeningCheckBoundary": true,
+      "errors": []
+    }
+  ],
+  "validatedSaves": 892
+}

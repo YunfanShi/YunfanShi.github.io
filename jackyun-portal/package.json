@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.27.33",
+  "version": "3.33.0",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -8,11 +8,13 @@
   "scripts": {
     "test:practice-record-ui": "node tests/practice-record-content.browser.mts",
     "test:error-ui": "node tests/error-notices.browser.mjs",
+    "test:error-mute-ui": "node tests/error-mute.browser.mjs",
     "test:error-system": "node --test tests/error-codes.test.mts",
     "check:error-system": "node scripts/build-error-system.mjs --check",
     "build:error-system": "node scripts/build-error-system.mjs",
     "test:tablet-cue-ui": "node tests/tablet-cue-study.browser.mts",
-    "test:timed-practice": "node --test tests/timed-practice.test.mts tests/practice-timer.test.mts tests/alevel-presets.test.mts tests/practice-course-binding.test.mts tests/practice-insights.test.mts",
+    "test:ielts-timer-ui": "node tests/ielts-timer.browser.mts",
+    "test:timed-practice": "node --test tests/ielts-timer.test.mts tests/timed-practice.test.mts tests/practice-timer.test.mts tests/alevel-presets.test.mts tests/practice-course-binding.test.mts tests/practice-insights.test.mts tests/practice-cloud-offline.test.mts tests/practice-cloud-frame.test.mts tests/practice-cloud-route.test.mts",
     "test:watch": "node --test tests/watch-domain.test.mts tests/watch-features.test.mts",
     "test:watch-ui": "node tests/watch-login.browser.mjs",
     "build:azure-functions": "node scripts/build-azure-functions.mjs",
@@ -54,8 +56,9 @@
     "test:integrations": "node --test tests/dida365-integration.test.mts",
     "test:sleep": "node --test tests/sleep-calculator.test.mts",
     "test:property-decks": "node --test tests/property-decks.test.mts",
+    "test:ielts-writing-ui": "node tests/ielts-new-essay.browser.mjs",
     "test:ielts-writing": "node --test tests/ielts-writing.test.mts tests/ielts-local-concurrency.test.mts",
-    "test:resilience": "node --test tests/ai-json.test.mts tests/ai-diagnostics.test.mts tests/auth-resilience.test.mts tests/auth-session-cookies.test.mts tests/auth-service-recovery.test.mts tests/logout-resilience.test.mts tests/ielts-reading.test.mts",
+    "test:resilience": "node --test tests/ai-json.test.mts tests/ai-diagnostics.test.mts tests/auth-resilience.test.mts tests/auth-session-cookies.test.mts tests/auth-service-recovery.test.mts tests/logout-resilience.test.mts tests/verified-user.test.mts tests/ielts-reading.test.mts",
     "verify": "npm run check:error-system && npm run test:error-system && npm run test:timed-practice && npm run test:diagnosis && npm run test:watch && npm run lint && npm run test:device-layout && npm run test:class-timeline && npm run test:study-concurrency && npm run test:learning && npm run test:learning-roadmap && npm run test:integrations && npm run test:property-decks && npm run test:ielts-writing && npm run test:resilience && npm run test:sync && npm run test:beta && npm run test:ai-platform && npm run test:network-access && npm run test:security && npm run test:tr3000 && npm run test:safeguard && npm run test:adblock && npm run test:companion-performance && npm run test:legacy-ui && npm run test:pwa && npm run test:reader-admin && npm run check:secrets && npm run check:companion && npm run check:companion-sources && npm run check:study-guide && npm run check:studyplan-import && npm run build",
     "test:class-timeline": "node --test tests/class-timeline.test.mts",
     "test:class-timeline-ui": "node tests/class-timeline.browser.mts",

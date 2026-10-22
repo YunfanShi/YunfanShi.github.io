@@ -74,6 +74,26 @@ try {
     checks.push({ width, result: 'passed', coverage: 'drawer/shortcuts, menu keyboard, fullscreen fallback lifecycle, focus restore, DOM theme hydration, no overflow; guest only' });
     await context.close();
   }
+  const storageContext = await browser.newContext({ viewport: { width: 1440, height: 950 }, serviceWorkers: 'block' });
+  await storageContext.addInitScript(() => {
+    const get = Storage.prototype.getItem;
+    const set = Storage.prototype.setItem;
+    Storage.prototype.getItem = function (key) { return key === 'jackyun_nav_usage_pending' ? '{}' : get.call(this, key); };
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'jackyun_nav_usage_pending') throw new DOMException('Storage unavailable', 'QuotaExceededError');
+      return set.call(this, key, value);
+    };
+  });
+  const storagePage = await storageContext.newPage();
+  const storageErrors = [];
+  storagePage.on('pageerror', error => storageErrors.push(error.message));
+  await storagePage.goto(base + '/tools');
+  await storagePage.locator('aside a[href="/resources"]').first().click();
+  await storagePage.waitForURL('**/resources');
+  await storagePage.getByRole('heading', { name: '学习网站收录', exact: true }).waitFor();
+  assert.deepEqual(storageErrors, [], 'corrupt or full navigation analytics storage must not crash the shell');
+  checks.push({ width: 1440, result: 'passed', coverage: 'navigation with corrupt analytics queue and storage write failure' });
+  await storageContext.close();
   await writeFile(`${out}/results.json`, JSON.stringify({ base, checks, dismissedNotices, limitations: ['Mock guest configuration; authenticated notifications/logout are not covered', 'Desktop Edge emulation; no physical Android/iOS validation', 'Not a production performance measurement'] }, null, 2));
   console.log(JSON.stringify(checks, null, 2));
 } finally { await browser.close(); }

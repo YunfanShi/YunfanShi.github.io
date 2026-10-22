@@ -76,7 +76,7 @@ export function createAuthenticator({ supabaseUrl, publishableKey, keyResolver, 
     }
     // Never pass editable user metadata, a client user_id or arbitrary DB roles to SQL.
     const identity = { sub: claims.sub, session_id: claims.session_id, role: 'authenticated' };
-    if (verifyAccount) await verifyAccount(identity,token);
+    if (verifyAccount) await verifyAccount(identity,token,{expiresAt:claims.exp});
     return identity;
   };
 }

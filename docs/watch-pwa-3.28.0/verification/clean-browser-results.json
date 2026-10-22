@@ -1,0 +1,107 @@
+[
+  {
+    "warm": {
+      "pages": [
+        "/schedule",
+        "/dashboard",
+        "/study/tasks",
+        "/review",
+        "/reading",
+        "/study",
+        "/goal",
+        "/vocab",
+        "/study-guide",
+        "/memory",
+        "/time-management",
+        "/practice-timer",
+        "/tools",
+        "/sleep",
+        "/relax",
+        "/help",
+        "/activity",
+        "/update",
+        "/answer-sheet",
+        "/ai",
+        "/answer-sheet-sync",
+        "/bilibili-sync",
+        "/countdown",
+        "/definitions",
+        "/examcountdown",
+        "/igcountdown",
+        "/ielts",
+        "/ielts-writing",
+        "/mock-portal",
+        "/md2word",
+        "/music",
+        "/music-sync",
+        "/pomodoro",
+        "/poem",
+        "/properties",
+        "/quiz",
+        "/resources",
+        "/settings",
+        "/settings/watch",
+        "/studio",
+        "/timetable-hub",
+        "/beta",
+        "/control/focus",
+        "/products",
+        "/userscripts",
+        "/AnswerSheet.html",
+        "/AnswerSheetSync.html",
+        "/BilibiliSync.html",
+        "/Control.html",
+        "/Countdown.html",
+        "/articles",
+        "/EM.html",
+        "/HelpCenter.html",
+        "/IGCountdown.html",
+        "/index.html",
+        "/Goal.html",
+        "/Jump.html",
+        "/JumpMusic.html",
+        "/MusicPlayer.html",
+        "/MockPortal.html",
+        "/MusicPlayerSync.html",
+        "/Poem.html",
+        "/PracticeTimer.html",
+        "/Pomodoro.html",
+        "/products.html",
+        "/quiz.html",
+        "/QuizWise.html",
+        "/Relax.html",
+        "/StudyGuide.html",
+        "/Test.html",
+        "/Time.html",
+        "/Studyplan.html",
+        "/TimetableHub.html",
+        "/UpdateHub.html",
+        "/Vocab.html"
+      ],
+      "assets": 109
+    }
+  },
+  {
+    "path": "/schedule",
+    "offline": true
+  },
+  {
+    "path": "/activity",
+    "offline": true
+  },
+  {
+    "path": "/ai",
+    "offline": true
+  },
+  {
+    "path": "/settings",
+    "offline": true
+  },
+  {
+    "timer": true
+  },
+  {
+    "recovered": true,
+    "errors": []
+  }
+]

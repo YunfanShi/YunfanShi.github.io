@@ -46,10 +46,12 @@ test('native prompt is consumed once, installed event disables installation', as
 });
 test('mobile study keeps memo and navigation available and long definitions in document flow', () => {
   const control = readFileSync(new URL('../src/components/modules/schedule/schedule-control.tsx', import.meta.url), 'utf8');
-  assert.match(control, /aria-expanded={memoOpen}[^>]*>CUE 备忘录/);
+  assert.match(control, /aria-expanded={memoOpen}[^>]*>[\s\S]*?CUE 答题卡/);
   assert.match(control, /grid grid-cols-3[^\n]*aria-label="日程视图"/);
   assert.match(control, /aria-label=\{revealed \? '翻到题目面' : '翻到定义面'\}/);
   assert.match(control, /return createPortal/);
   assert.match(control, /shell.inert = true/);
-  assert.match(control, /max-h-\[70dvh\]/);
+  assert.match(control, /data-cue-study-page/);
+  const layout = readFileSync(new URL('../src/components/modules/schedule/cue-study-layout.module.css', import.meta.url), 'utf8');
+  assert.match(layout, /\[data-cue-study-page\][^}]*overflow-y:\s*auto/);
 });

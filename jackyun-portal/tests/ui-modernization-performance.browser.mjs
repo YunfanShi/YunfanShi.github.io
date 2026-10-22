@@ -50,7 +50,7 @@ fs.mkdirSync(path.dirname(output), { recursive: true });
     }
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').filter(r => r.name.includes('/_next/') && r.name.includes('.js')).map(r => ({ url: new URL(r.name).pathname, transferSize: r.transferSize, encodedBodySize: r.encodedBodySize })));
     const sorted = [...samples].sort((a,b) => a-b);
-    const result = { mode: process.argv[2] || 'candidate', browser: browser.version(), viewport: '1440x1000', node: process.version, environment: process.env.JACKYUN_TEST_ENV || 'Unspecified local app; do not interpret as a production measurement', metric: 'Pointerdown capture to required time-panel DOM visible plus two RAFs; lab frame proxy, not actual presentation trace or INP', samples, median: sorted[24], p95: sorted[47], max: sorted[49], draftRetained, resources, totalEncodedJSBytes: resources.reduce((s,r)=>s+r.encodedBodySize,0), errors };
+    const result = { mode: process.argv[2] || 'candidate', browser: browser.version(), viewport: '1440x1000', node: process.version, environment: process.env.JACKYUN_TEST_ENV || process.env.JACKYUN_UI_TEST_ENV || 'Unspecified local app; do not interpret as a production measurement', metric: 'Pointerdown capture to required time-panel DOM visible plus two RAFs; lab frame proxy, not actual presentation trace or INP', samples, median: sorted[24], p95: sorted[47], max: sorted[49], draftRetained, resources, totalEncodedJSBytes: resources.reduce((s,r)=>s+r.encodedBodySize,0), errors };
     fs.writeFileSync(output, JSON.stringify(result,null,2));
     await page.screenshot({ path: output.replace('.json','.png'), fullPage: true });
     console.log(JSON.stringify({ ...result, samples: undefined, resources: undefined }));

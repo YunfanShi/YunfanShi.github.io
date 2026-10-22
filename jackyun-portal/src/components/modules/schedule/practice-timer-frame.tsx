@@ -20,18 +20,42 @@ export default function PracticeTimerFrame() {
   }, [focused]);
   useEffect(() => {
     const writer = createLocalEditWriter(localStorage, SCHEDULE_STORAGE_KEY, navigator.locks ? async (name, work) => navigator.locks.request(name, work) : undefined);
+    const readRecoveredState = () => {
+      let state = readScheduleState(localStorage);
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key?.startsWith('jackyun_debug_unsaved_edit:practice-timer:')) continue;
+        try {
+          const saved = JSON.parse(localStorage.getItem(key) || 'null');
+          const session = validateSession(saved?.session);
+          const current = state.practiceSessions?.find(item => item.id === session.id);
+          if (!current || session.updatedAt >= current.updatedAt) {
+            state = applyPracticeSession(state, session);
+            if (saved.config) state = { ...state, practiceTimerConfig: validateConfig(saved.config) };
+          }
+        } catch { /* Keep unreadable checkpoints for manual recovery. */ }
+      }
+      return state;
+    };
     const send = (data: unknown) => ref.current?.contentWindow?.postMessage(data, location.origin);
     let queue = Promise.resolve();
     let liveRetryAt = 0;
     const sessionBases = new Map<string, PracticeSession>();
     let configBase: PracticeConfig | undefined;
+    const initialize = () => {
+      try {
+        const state = readRecoveredState();
+        for (const session of state.practiceSessions ?? []) sessionBases.set(session.id, session);
+        configBase = state.practiceTimerConfig;
+        send({ type: 'practice-state', state, requestedSession: new URLSearchParams(location.search).get('session') });
+      } catch (error) { send({ type: 'practice-error', error: String(error) }); }
+    };
     const handler = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.source !== ref.current?.contentWindow) return;
       const message = event.data;
       if (message?.type === 'practice-focus') { setFocused(message.focused === true); return; }
       if (message?.type === 'practice-ready') {
-        try { const state=readScheduleState(localStorage); for(const session of state.practiceSessions ?? []) sessionBases.set(session.id,session); configBase=state.practiceTimerConfig; send({ type: 'practice-state', state, requestedSession: new URLSearchParams(location.search).get('session') }); }
-        catch (error) { send({ type: 'practice-error', error: String(error) }); }
+        initialize();
       }
       if (message?.type !== 'practice-save' && message?.type !== 'practice-retest') return;
       queue = queue.catch(()=>{}).then(async () => {
@@ -50,7 +74,7 @@ export default function PracticeTimerFrame() {
                 let live;
                 try {
                   if (Date.now() < liveRetryAt) throw Error('Cloud retry pending');
-                  const response = await fetch('/api/practice-timer/live', { cache:'no-store', signal:AbortSignal.timeout(4000) });
+                  const response = await fetch('/api/practice-timer/live?status=1', { cache:'no-store', signal:AbortSignal.timeout(4000) });
                   if (!response.ok) throw Error('Cloud unavailable');
                   live = await response.json();
                   if (!live?.ownerId) throw Error('Ownership not confirmed');
@@ -75,6 +99,7 @@ export default function PracticeTimerFrame() {
           }
           writer.reset(base);
           await writer.write(base, next);
+          if (message.session) localStorage.removeItem('jackyun_debug_unsaved_edit:practice-timer:' + message.session.id);
           if (message.session) sessionBases.set(message.session.id,structuredClone(message.session));
           if (message.config) configBase=structuredClone(message.config);
           window.dispatchEvent(new Event('jackyun-sync-edit'));
@@ -82,8 +107,12 @@ export default function PracticeTimerFrame() {
         } catch (error) { send({ type:'practice-error', requestId:message.requestId, error: error instanceof Error ? error.message : '保存失败，原数据已保留。' }); }
       });
     };
-    const refresh = () => { try { send({type:'practice-state',state:readScheduleState(localStorage),remote:true}); } catch (error) { send({type:'practice-error',error:String(error)}); } };
+    const refresh = () => { try { send({type:'practice-state',state:readRecoveredState(),remote:true}); } catch (error) { send({type:'practice-error',error:String(error)}); } };
     window.addEventListener('message', handler);
+    // A cached iframe can announce readiness before React attaches this effect.
+    // Reuse the existing state handshake once here; later ready messages still
+    // cover a slow iframe without changing save, takeover or sync semantics.
+    initialize();
     window.addEventListener(CLOUD_STATE_APPLIED_EVENT, refresh);
     window.addEventListener('storage', refresh);
     return () => { window.removeEventListener('message',handler);window.removeEventListener(CLOUD_STATE_APPLIED_EVENT,refresh);window.removeEventListener('storage',refresh); };

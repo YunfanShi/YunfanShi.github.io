@@ -12,22 +12,25 @@ async function verifyPreHydrationReaderClick() {
   const page = await context.newPage();
   const heldRoutes = [];
   let allowModuleChunks = false;
-  await page.route(/\/_next\/static\/chunks\/src_components_modules_.*\.js/, async route => {
+  await page.route(/\/_next\/static\/chunks\/(?:src_components_modules_.*|app\/.*\/reading\/page-[^/]+)\.js/, async route => {
     if (allowModuleChunks) return route.continue().catch(() => {});
     await new Promise(resolve => heldRoutes.push(resolve));
     await route.continue().catch(() => {});
   });
   try {
-    await page.goto(`${base}/reading`, { waitUntil: 'commit' });
+    await page.goto(`${base}/reading`, { waitUntil: 'domcontentloaded' });
     const launch = page.getByRole('button', { name: /AI 阅读工坊/ });
     await launch.waitFor({ state: 'visible' });
     await launch.click();
     await page.waitForFunction(() => Boolean(window.__JY_EARLY_CLICK_QUEUE?.['reading-ai-studio']));
-    assert.equal(await page.getByRole('heading', { name: '我的小说书架', exact: true }).count(), 1, 'the action stays queued while client chunks are held');
+    assert.equal(await page.getByRole('heading', { name: '我的小说书架', exact: true }).count(), 1, `the action stays queued while client chunks are held; DOM headings: ${JSON.stringify(await page.locator('h1').allTextContents())}`);
     allowModuleChunks = true;
     for (const release of heldRoutes.splice(0)) release();
     await page.getByRole('heading', { name: '英文阅读 · 文章生成器与阅读器', exact: true }).waitFor();
     assert.equal(await page.evaluate(() => Boolean(window.__JY_EARLY_CLICK_QUEUE?.['reading-ai-studio'])), false, 'the captured action is consumed after hydration');
+  } catch (error) {
+    console.error('Pre-hydration reader diagnostic:', await page.locator('body').innerText());
+    throw error;
   } finally {
     allowModuleChunks = true;
     for (const release of heldRoutes.splice(0)) release();

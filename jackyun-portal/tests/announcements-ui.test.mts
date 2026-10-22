@@ -56,7 +56,9 @@ test('page banners disappear immediately on navigation and do not render a modal
     'next/navigation': { usePathname: () => path },
     '@/components/auth/auth-mode-provider': { useAuthMode: () => ({ signedIn: true, userId: 'tester' }) },
     '@/lib/notification-client': { useNotificationSnapshot: () => ({ snapshot: { items: [item] } }) },
-    '@/lib/announcements': domain, './announcement-content': badges, './markdown-renderer': markdown, '@/actions/admin': {},
+    '@/lib/announcements': domain, './announcement-content': badges, './markdown-renderer': markdown,
+
+    '@/actions/admin': {},
   }).default;
   const banner = renderToStaticMarkup(React.createElement(component));
   assert.match(banner, /当前页面公告/); assert.match(banner, /CUE 功能暂时维护/); assert.doesNotMatch(banner, /role="dialog"/);
@@ -73,6 +75,8 @@ test('shared inbox retains public announcements when no support ticket is open',
     '@/components/auth/auth-mode-provider': { useAuthMode: () => ({ userId: 'tester' }) },
     '@/lib/notification-client': { useNotificationSnapshot: () => ({ snapshot: { items: [{ ...item, related_ticket_id: null, is_read: false }] }, refresh: () => {} }) },
     '@/lib/announcements': domain, './announcement-content': badges,
+    '@/components/ui/button': { Button: ({children, ...props}: React.ComponentProps<'button'>) => React.createElement('button', props, children) },
+    '@/components/ui/dialog': { Dialog: ({children, open}: {children: React.ReactNode; open: boolean}) => open ? children : null, DialogTrigger: ({children}: {children: React.ReactNode}) => children, DialogContent: ({children}: {children: React.ReactNode}) => children, DialogTitle: ({children}: {children: React.ReactNode}) => children, DialogDescription: ({children}: {children: React.ReactNode}) => children, getDialogContainer: () => null },
     '@/actions/admin': {},
   }, { window: { setInterval: () => 1, addEventListener: () => {}, removeEventListener: () => {}, clearInterval: () => {} } }).default;
   const html = renderToStaticMarkup(React.createElement(component));

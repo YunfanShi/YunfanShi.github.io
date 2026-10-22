@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, startTransition, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { type Language, getStoredLanguage, storeLanguage, STORAGE_KEY, DEFAULT_LANGUAGE } from '@/lib/i18n';
 import { saveLanguagePreference } from '@/actions/settings';
 
@@ -20,14 +20,14 @@ export function useLanguage() {
 
 export default function LanguageProvider({ children, initialLanguage = DEFAULT_LANGUAGE, signedIn = false }: { children: ReactNode; initialLanguage?: Language; signedIn?: boolean }) {
   const [lang, setLang] = useState<Language>(initialLanguage);
-  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // Read from localStorage on mount
-    const stored = getStoredLanguage();
+    // Keep the Provider mounted from SSR onward. Replacing a Fragment after
+    // hydration would remount every page and discard in-flight UI state.
+    let stored = initialLanguage;
+    try { if (localStorage.getItem(STORAGE_KEY)) stored = getStoredLanguage(); } catch { /* Keep the server language when storage is blocked. */ }
     queueMicrotask(() => {
-      setLang(localStorage.getItem(STORAGE_KEY) ? stored : initialLanguage);
-      setHydrated(true);
+      startTransition(() => setLang(stored));
     });
   }, [initialLanguage]);
 
@@ -52,12 +52,6 @@ export default function LanguageProvider({ children, initialLanguage = DEFAULT_L
     window.addEventListener('storage', handler);
     return () => window.removeEventListener('storage', handler);
   }, []);
-
-  if (!hydrated) {
-    // Prevent flash of wrong language, render children with default
-    // (hydration will correct it instantly in the next tick)
-    return <>{children}</>;
-  }
 
   return (
     <LanguageContext.Provider value={{ lang, setLanguage }}>

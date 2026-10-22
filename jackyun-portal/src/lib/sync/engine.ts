@@ -37,6 +37,20 @@ const parse = (value: string | null | undefined): unknown => {
   if (value == null) return undefined;
   try { return JSON.parse(value); } catch { return value; }
 };
+const SYNC_READ_CONCURRENCY = 4;
+async function mapWithConcurrency<T, R>(items: readonly T[], concurrency: number, task: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function worker() {
+    for (;;) {
+      const index = next++;
+      if (index >= items.length) return;
+      results[index] = await task(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(items.length, concurrency) }, worker));
+  return results;
+}
 const same = (left: unknown, right: unknown) => (left === undefined) === (right === undefined) && canonicalJson(left) === canonicalJson(right);
 const baseOf = (op: {baseRevision:number; baseValue:unknown; baseDeleted?:boolean}) => op.baseRevision === 0 || op.baseDeleted ? undefined : op.baseValue;
 const valueOf = (record: SyncRecord) => record.deleted ? undefined : record.value;
@@ -76,14 +90,17 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   async function materialize(record: SyncRecord): Promise<SyncRecord> {
     validate(record);
     if (!record.large || record.deleted) return record;
-    const parts: string[] = []; let count = 1;
-    for (let part = 0; part < count; part++) {
-      e.progress(`下载分片 ${part+1} / ${count}`);
+    const readPart = async (part: number, expectedCount?: number) => {
+      e.progress(`下载分片 ${part+1}${expectedCount ? ` / ${expectedCount}` : ''}`);
       const chunk = await json(`/api/sync/v2/large?key=${encodeURIComponent(record.key)}&revision=${record.revision}&part=${part}${typeof DecompressionStream === 'function' ? '&encoding=gzip' : ''}`);
       if (chunk.revision !== record.revision || chunk.part !== part || !Number.isInteger(chunk.count) || Number(chunk.count) < 1 || Number(chunk.count) > MAX_SYNC_PARTS
-        || typeof chunk.data !== 'string' || (part > 0 && chunk.count !== count)) throw Error('同步分片不完整，原始数据已保留。');
-      count = Number(chunk.count); parts.push(await decodeSyncPart(chunk.data,chunk.encoding));
-    }
+        || typeof chunk.data !== 'string' || (expectedCount !== undefined && chunk.count !== expectedCount)) throw Error('同步分片不完整，原始数据已保留。');
+      return { count: Number(chunk.count), data: await decodeSyncPart(chunk.data,chunk.encoding) };
+    };
+    const first = await readPart(0);
+    const remaining = await mapWithConcurrency(Array.from({ length: first.count - 1 }, (_, index) => index + 1), SYNC_READ_CONCURRENCY,
+      (part) => readPart(part, first.count));
+    const parts = [first.data, ...remaining.map((part) => part.data)];
     const value = joinSyncParts(parts);
     const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(value)));
     if (record.contentHash && [...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('') !== record.contentHash) throw Error('同步内容校验失败，原始数据已保留。');
@@ -178,16 +195,19 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       if (page.syncProtocol !== 3 || !Array.isArray(page.records) || page.records.length > 100) throw Error('同步协议不兼容，原始数据已保留。');
       compressedUploads=page.transferEncoding==='gzip';
       let previous = after;
-      for (const descriptor of page.records as SyncRecord[]) {
+      const descriptors = page.records as SyncRecord[];
+      const toRead: SyncRecord[] = [];
+      for (const descriptor of descriptors) {
         validate(descriptor);
         if (byteOrder(descriptor.key,previous) <= 0) throw Error('同步游标无效。');
         previous = descriptor.key; scanned++;
         const base = metadata.get(descriptor.key);
         if (base?.revision === descriptor.revision && base.contentHash === descriptor.contentHash && base.deleted === descriptor.deleted
           && (base.deleted || e.read(descriptor.key) !== null || pendingKeys.has(descriptor.key))) continue;
-        const record = await readRecord(descriptor.key);
-        if (record) await reconcile(record);
+        toRead.push(descriptor);
       }
+      const records = await mapWithConcurrency(toRead, SYNC_READ_CONCURRENCY, (descriptor) => readRecord(descriptor.key));
+      for (const record of records) if (record) await reconcile(record);
       if (scanned > 20_000) throw Error('单次同步记录超过上限，修改已保留。');
       if (page.next === null) break;
       if (!page.records.length || page.next !== previous || byteOrder(previous,after) <= 0) throw Error('同步游标没有前进。');

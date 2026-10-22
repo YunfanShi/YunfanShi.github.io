@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-17",
+  "websiteVersion": "3.25.0",
+  "azureBackendVersion": "3.6.0",
+  "architecture": {
+    "workspaceSync": "Azure production configured",
+    "supabaseSyncFences": 5,
+    "accountAuthority": "Supabase",
+    "newDataMigration": false,
+    "plan": "files then account-state/notifications then remaining business modules"
+  },
+  "database": {
+    "migration": "20261017070212_practice_timer_compact_status",
+    "fullResponseBytes": 127772,
+    "statusResponseBytes": 188,
+    "compactEnvelopeBytes": 250,
+    "anonymousDenied": true,
+    "secondUserIsolation": true,
+    "transactionalContractRollback": "passed",
+    "newFunctionAdvisorWarnings": 0
+  },
+  "auth": {
+    "publicJwksAlgorithms": [
+      "ES256"
+    ],
+    "webIdentity": "SDK getClaims verified JWT",
+    "azureAccountCacheMs": 300000,
+    "outageRetryMs": 30000,
+    "outageGrace": "previously active session only, at most original verified token expiry",
+    "freshSessionOutage": "denied",
+    "explicitDenials": "never use outage grace"
+  },
+  "azureRelease": {
+    "cliExitCode": 0,
+    "artifactSha256": "72f65b9595758a103c2b3d299f0ad06d8282b9e9d021f2b446bf28df7a14e1cc",
+    "publicHealthStatus": 200,
+    "publicHealthVersion": "3.6.0",
+    "unauthenticatedManifestStatus": 401
+  },
+  "tests": {
+    "web": {
+      "passed": 59,
+      "failed": 0
+    },
+    "sync": {
+      "passed": 77,
+      "failed": 0
+    },
+    "azure": {
+      "passed": 20,
+      "failed": 0
+    },
+    "productionBuild": "passed",
+    "typescript": "passed",
+    "targetedEslint": "passed",
+    "secretScan": "passed",
+    "muteBrowsers": [
+      1440,
+      390
+    ],
+    "offlineBrowsers": [
+      1440,
+      390
+    ],
+    "cloudControlBrowser": "passed"
+  },
+  "document": {
+    "pages": 4,
+    "visualReview": "all pages reviewed",
+    "renderer": "docx-preview fallback; bundled LibreOffice unavailable"
+  }
+}

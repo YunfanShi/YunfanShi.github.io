@@ -72,7 +72,7 @@ test('desktop background renders real star history, accessible experience and re
   const shop = await import('../src/lib/learning/cue-shop.ts');
   const schedule = await import('../src/lib/learning/schedule-control.ts');
   const styles = new Proxy({}, { get: (_target, key) => String(key) });
-  runInNewContext(backdropOutput, { module: backdropModule, exports: backdropModule.exports, require: (name: string) => name === '@/lib/learning/cue-game' ? game : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
+  runInNewContext(backdropOutput, { module: backdropModule, exports: backdropModule.exports, require: (name: string) => name === '@/lib/learning/cue-game' ? game : name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
   const jsx = require('react/jsx-runtime');
   const runtime = { ...jsx, jsxs: (type: unknown, props: { children?: React.ReactNode[] }, key: unknown) => {
     const keys = (Array.isArray(props.children) ? props.children : []).filter(React.isValidElement).map((child) => child.key).filter((key) => key !== null);
@@ -80,7 +80,7 @@ test('desktop background renders real star history, accessible experience and re
     return jsx.jsxs(type, props, key);
   } };
   const react = { ...require('react'), useState: (initial: unknown) => React.useState(initial === null ? { id: 23, cueId: 'render-22', status: 'partial', gained: 10, milestone: true, situation: 'constellation', variant: 1, duration: 1600 } : initial) };
-  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === './use-cue-study-preferences' ? { useCueReducedMotion: () => false } : name === './cue-star-shop' || name === './cue-sky-viewer' ? { __esModule: true, default: () => null } : name === '@/lib/learning/cue-shop' ? shop : name === './cue-practice-burst' ? { __esModule: true, default: () => null } : name === './cue-universe-backdrop' ? { __esModule: true, default: backdropModule.exports.default } : name === 'react' ? react : name === 'react/jsx-runtime' ? runtime : name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
+  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name === './use-cue-study-preferences' ? { useCueReducedMotion: () => false } : name === './cue-star-shop' || name === './cue-sky-viewer' ? { __esModule: true, default: () => null } : name === '@/lib/learning/cue-shop' ? shop : name === './cue-practice-burst' ? { __esModule: true, default: () => null } : name === './cue-universe-backdrop' ? { __esModule: true, default: backdropModule.exports.default } : name === 'react' ? react : name === 'react/jsx-runtime' ? runtime : name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
   const at = new Date();
   const reviews = Array.from({ length: 23 }, (_, i) => review(`render-${i}`, 'partial', at));
   const html = renderToStaticMarkup(React.createElement(compiled.exports.default, { reviews, animations: false }));
@@ -129,7 +129,7 @@ test('desktop background renders real star history, accessible experience and re
       : name === './use-cue-study-preferences' ? { useCueReducedMotion: () => true }
       : ['./cue-star-shop', './cue-sky-viewer', './cue-practice-burst', './cue-universe-backdrop'].includes(name) ? { __esModule: true, default: () => null }
       : name === '@/lib/learning/cue-shop' ? shop : name === '@/lib/learning/cue-game' ? game
-      : name === '@/lib/learning/schedule-control' ? schedule : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name),
+      : name === '@/lib/learning/schedule-control' ? schedule : name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name),
   });
   const receiptHtml = renderToStaticMarkup(React.createElement(receiptModule.exports.default, { reviews, animations: true }));
   assert.match(receiptHtml, /<aside[\s\S]*data-cue-star-receipt[\s\S]*<\/aside>/);

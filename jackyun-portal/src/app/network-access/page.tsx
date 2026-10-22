@@ -19,7 +19,7 @@ export default async function NetworkAccessPage() {
 
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-slate-950 px-4 py-8 sm:px-8">
-      <div className="absolute inset-0 bg-[url('/network-portal-landscape.png')] bg-cover bg-center" />
+      <div className="absolute inset-0 bg-[url('/network-portal-landscape.webp')] bg-cover bg-center" />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,.22),rgba(2,6,23,.5))]" />
       <div className="relative w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/30 bg-white/10 shadow-[0_30px_100px_rgba(2,6,23,.5)] backdrop-blur-[2px]">
         <header className="flex items-center justify-between border-b border-white/25 bg-slate-950/55 px-5 py-4 text-white sm:px-8">

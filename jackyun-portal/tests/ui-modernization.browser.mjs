@@ -90,12 +90,15 @@ try {
 
   const exportChunks = [];
   const serverHtml = await (await fetch(base + '/tools')).text();
-  const chunkDirectory = serverHtml.includes('turbopack') ? '.next/dev/static/chunks' : '.next/static/chunks';
+  const buildDirectory = process.env.JACKYUN_BUILD_DIR || '.next';
+  const chunkDirectory = `${buildDirectory}/${serverHtml.includes('turbopack') ? 'dev/static/chunks' : 'static/chunks'}`;
   const runtimeChunks = await readdir(chunkDirectory, { recursive: true });
+  let timeChunk;
   for (const file of runtimeChunks) {
     if (!file.endsWith('.js')) continue;
     const source = await readFile(`${chunkDirectory}/${file}`, 'utf8');
     if (source.includes('由 Markdown 转换生成的 Word 文档')) exportChunks.push('/_next/static/chunks/' + file.replaceAll('\\', '/'));
+    if (source.includes('东京 (JST)') && source.includes('Unix 时间戳')) timeChunk = file;
   }
   assert.ok(exportChunks.length > 0, 'Find the actual browser export chunk for the lazy-load assertion');
   await tab('Markdown 转 Word').click();
@@ -187,7 +190,6 @@ try {
   pass('Anonymous admin access still redirected');
   const cold = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
   const coldPage = await cold.newPage();
-  const timeChunk = runtimeChunks.find(file => file.endsWith('.js') && file.includes('time-sync') && file.includes('tsx'));
   assert.ok(timeChunk, 'Find the actual lazy time-sync chunk for the retry regression');
   let allowTimeChunk = false;
   await coldPage.route(`**/_next/static/chunks/${timeChunk.replaceAll('\\', '/')}**`, async route => {

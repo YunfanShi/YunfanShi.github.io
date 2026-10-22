@@ -1,9 +1,10 @@
 type Page={cues:Array<{id:string;text?:string}>};
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {device,key,remote,server} from './sync-engine-fixture.mts';
+import {checksum,device,key,remote,server} from './sync-engine-fixture.mts';
 import {createRecordDelta,applyRecordDelta} from '../src/lib/sync/delta.ts';
 import {threeWayMerge} from '../src/lib/sync/merge.ts';
+import {splitSyncBody} from '../src/lib/sync/transfer.ts';
 
 test('concurrent field edits preserve insertion anchors on either device',()=>{
  const base=[{id:'a',x:0},{id:'b',x:0}];
@@ -66,6 +67,42 @@ test('metadata without startup data rehydrates instead of uploading a deletion',
 test('unchanged full records are downloaded and notified only once for 100 pulls',async()=>{
   const row=remote({cues:[{id:'a',text:'学习'.repeat(10000)}]}),cloud=server(row),d=device(cloud);
   for(let i=0;i<100;i++)await d.engine.pull();assert.equal(cloud.calls,101);assert.equal(d.changes,1);assert.equal(cloud.writes,0);
+});
+test('pull reads changed records with bounded concurrency',async()=>{
+ const cloud=server(),d=device(cloud),rows=Array.from({length:9},(_,index)=>{
+  const record={key:`jackyun_sync_batch_${index}`,value:{index},revision:1,contentHash:checksum({index}),deleted:false,updatedAt:'2026-10-20T00:00:00Z'};
+  return record;
+ });
+ let active=0,maximum=0;
+ d.environment.request=async(url)=>{
+  if(url.startsWith('/api/sync/v3'))return Response.json({ok:true,syncProtocol:3,records:rows.map(({key,revision,contentHash,deleted,updatedAt})=>({key,revision,contentHash,deleted,updatedAt})),next:null});
+  const keyParam=new URL(url,'https://sync.test').searchParams.get('key');
+  const row=rows.find((item)=>item.key===keyParam);assert.ok(row);
+  active++;maximum=Math.max(maximum,active);
+  await new Promise((resolve)=>setTimeout(resolve,5));
+  active--;
+  return Response.json({ok:true,records:[row]});
+ };
+ await d.engine.pull();
+ assert.equal(maximum,4);
+ assert.equal((await d.store.getMetadata()).length,rows.length);
+});
+test('large record parts download concurrently and retain their integrity check',async()=>{
+ const cloud=server(),d=device(cloud),value={text:'同步📚'.repeat(70_000)},chunks=splitSyncBody(JSON.stringify(value));
+ const record={key,value:null,revision:3,contentHash:checksum(value),deleted:false,updatedAt:'2026-10-20T00:00:00Z',large:true};
+ let active=0,maximum=0;
+ d.environment.request=async(url)=>{
+  if(url.startsWith('/api/sync/v3'))return Response.json({ok:true,syncProtocol:3,records:[{key:record.key,revision:record.revision,contentHash:record.contentHash,deleted:false,updatedAt:record.updatedAt}],next:null});
+  if(url.startsWith('/api/sync/v2?key='))return Response.json({ok:true,records:[record]});
+  const part=Number(new URL(url,'https://sync.test').searchParams.get('part'));
+  active++;maximum=Math.max(maximum,active);
+  await new Promise((resolve)=>setTimeout(resolve,5));
+  active--;
+  return Response.json({ok:true,key:record.key,revision:record.revision,part,count:chunks.length,data:chunks[part]});
+ };
+ await d.engine.pull();
+ assert.ok(maximum>1&&maximum<=4);
+ assert.deepEqual(d.value,value);
 });
 test('JSON null is distinct from a tombstone when recreating deleted state',async()=>{
   const deleted=remote(null,2,true),cloud=server(deleted),d=device(cloud,deleted);d.set(null);await d.engine.flush();assert.equal(cloud.cloud!.deleted,false);assert.equal(cloud.cloud!.value,null);

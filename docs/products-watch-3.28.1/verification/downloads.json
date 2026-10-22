@@ -1,0 +1,16 @@
+[
+  {
+    "httpStatus": 200,
+    "url": "https://jackyunassets9d26b2cc.z7.web.core.windows.net/downloads/JackYun-Watch-1.6.1-beta.1-arm32.apk",
+    "architecture": "arm32",
+    "bytes": 82134565,
+    "sha256": "f6cee8403657d28c5f81db88d52bce2d93c517e7b502b5d485fc4cd8b236ee2b"
+  },
+  {
+    "httpStatus": 200,
+    "url": "https://jackyunassets9d26b2cc.z7.web.core.windows.net/downloads/JackYun-Watch-1.6.1-beta.1-arm64.apk",
+    "architecture": "arm64",
+    "bytes": 84635719,
+    "sha256": "f1a240365a4771d89db22e05e87c7bacc6c91dd2f3bca648ab6534f34249d6a8"
+  }
+]

@@ -1,5 +1,6 @@
 'use client';
 
+import { isOfflinePagePath } from '@/lib/pwa-routes';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
@@ -29,11 +30,11 @@ export default function PwaLifecycle() {
 
     const register = async () => {
       try {
-        registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
         if (registration.waiting && navigator.serviceWorker.controller) setWaitingWorker(registration.waiting);
         registration.addEventListener('updatefound', () => observeWorker(registration?.installing ?? null));
       } catch (error) {
-        console.error('[PWA] Service worker registration failed', error);
+        if (navigator.onLine) console.error('[PWA] Service worker registration failed', error);
       }
     };
 
@@ -50,19 +51,24 @@ export default function PwaLifecycle() {
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
-    const timer = window.setTimeout(() => {
+    const warm = () => {
       const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
       if (!navigator.onLine || document.hidden || connection?.saveData || ['slow-2g', '2g'].includes(connection?.effectiveType || '')) return;
-      navigator.serviceWorker.controller?.postMessage({ type: 'WARM_VISITED_ROUTE', url: window.location.href });
-    }, 5000);
-    return () => clearTimeout(timer);
+      const worker = navigator.serviceWorker.controller;
+      worker?.postMessage({ type: 'WARM_VISITED_ROUTE', url: window.location.href });
+      worker?.postMessage({ type: 'WARM_OFFLINE_ROUTES' });
+    };
+    const timer = window.setTimeout(warm, 1500);
+    window.addEventListener('online', warm);
+    navigator.serviceWorker.addEventListener('controllerchange', warm);
+    return () => { clearTimeout(timer); window.removeEventListener('online', warm); navigator.serviceWorker.removeEventListener('controllerchange', warm); };
   }, [pathname]);
 
   useEffect(() => {
     const followCachedRoute = (event: MouseEvent) => {
       if (navigator.onLine || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const anchor = (event.target as Element | null)?.closest('a[href]') as HTMLAnchorElement | null;
-      if (!anchor || anchor.origin !== window.location.origin || !['/dashboard', '/study/tasks', '/reading', '/review', '/schedule', '/study', '/goal', '/study-guide', '/vocab', '/memory', '/time-management', '/tools', '/sleep', '/relax', '/help', '/update'].includes(anchor.pathname)) return;
+      if (!anchor || anchor.origin !== window.location.origin || !isOfflinePagePath(anchor.pathname)) return;
       event.preventDefault();
       window.location.assign(anchor.href);
     };
@@ -80,7 +86,7 @@ export default function PwaLifecycle() {
         <p className="text-xs text-[var(--muted-foreground)]">刷新后即可使用，当前数据不会丢失。</p>
       </div>
       <button type="button" onClick={() => setDismissed(true)} className="rounded-lg px-2 py-2 text-xs text-[var(--muted-foreground)]">稍后</button>
-      <button type="button" onClick={() => { reloadRequested.current = true; waitingWorker.postMessage({ type: 'SKIP_WAITING' }); }} className="rounded-lg bg-[var(--brand)] px-3 py-2 text-xs font-semibold text-white dark:text-[#202124]">刷新</button>
+      <button type="button" onClick={() => { reloadRequested.current = true; waitingWorker.postMessage({ type: 'SKIP_WAITING' }); window.setTimeout(() => { if (reloadRequested.current) window.location.reload(); }, 4000); }} className="rounded-lg bg-[var(--brand)] px-3 py-2 text-xs font-semibold text-white dark:text-[#202124]">刷新</button>
     </div>
   );
 }

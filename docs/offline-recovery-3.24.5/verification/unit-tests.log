@@ -1,0 +1,96 @@
+✔ Mixed Edexcel and CAIE presets calculate exact seconds from paper duration and representative marks (1.6309ms)
+✔ legacy defaults migrate once while personalized times and custom types remain intact (0.9813ms)
+(node:62596) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/stylesheet-recovery.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ app utilities use CSS readable by older Android engines (1.3099ms)
+✔ both dark and gray themes and article typography are generated (0.1858ms)
+✔ missing CSS retries once without reloading the page or dropping deployment query (0.199ms)
+✔ loaded, disabled and third-party stylesheets are left alone (0.1057ms)
+(node:41320) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/learning/practice-timer.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Schedule bridge keeps offline checkpoints private and only exits on confirmed other owner (138.2401ms)
+✔ network errors and expired local deadlines preserve clock ownership (4.9888ms)
+✔ reconnect automatically uploads the latest local elapsed time (21.422ms)
+✔ a lost acknowledgement revision is recovered without exiting or force claiming (2.3891ms)
+✔ only an explicit server takeover conflict exits the timer (3.1306ms)
+✔ a finished offline session is uploaded before deferred release (4.2612ms)
+✔ cold offline start never waits for discovery and silently permits local practice (1.1842ms)
+✔ a failed online claim falls back locally but explicit conflicts are retained (1.8692ms)
+✔ tokenless recovery never claims another device or overwrites its payload (1.2733ms)
+✔ tokenless local start reconnects and saves only when cloud is empty (1.6124ms)
+(node:38284) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/learning/practice-timer.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cloud timer requires sign in and never trusts client user identifiers (60.839ms)
+✔ claims require a valid owner and session reference (15.1987ms)
+✔ cross origin mutations and malformed saves cannot reach the database (8.1007ms)
+✔ server conflicts are explicit and service errors never expose raw database details (6.8733ms)
+✔ authentication outages never downgrade a signed-in timer to guest mode (12.7477ms)
+(node:40816) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/learning/practice-timer.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ names and unit abbreviations infer mixed exam boards; unknown names stay unbound (2.058ms)
+✔ manual association and personalized timings survive rename without leaking between courses (0.696ms)
+✔ Schedule evidence retains course identity and credits renamed courses by preset family (5.8912ms)
+(node:37784) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ grouping expands timer questions once, inherits session units and excludes pending questions (10.859ms)
+✔ manual evidence and missing unit metadata group separately; new-scope criteria match weekly metrics (0.8525ms)
+(node:24468) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pause, revisit, and switch preserve independent question time and total (1.4545ms)
+✔ remaining percentage thresholds and overtime are separate from correctness (0.1946ms)
+✔ pending results persist without corrupting weekly first-attempt metrics (4.083ms)
+✔ graded questions contribute progressively and structured session content survives evidence updates (1.2499ms)
+✔ custom subjects, preset durations and read/merge/safety survive Schedule storage (1.8883ms)
+✔ malformed sessions and configurations never overwrite good records (0.4281ms)
+✔ concurrent session edits merge independent fields and preserve conflicting evidence (0.7105ms)
+✔ a successful CSS download survives a full device cache (19.8319ms)
+✔ an online page still opens when its offline cache is full (1.6081ms)
+✔ a cached HTML response at a CSS URL is discarded and replaced (1.9371ms)
+✔ an HTML network response cannot poison the CSS cache (1.0273ms)
+✔ a transient HTTP failure falls back to valid cached CSS (0.8726ms)
+✔ offline navigation retains exact pathname and query and never substitutes dashboard (21.9272ms)
+✔ expired pages and redirected sign-in responses are never served as offline app pages (1.6893ms)
+✔ activation keeps current caches and account changes clear personal pages (1.4334ms)
+✔ offline page storage stays bounded while preserving the newest pages (12.1882ms)
+✔ Practice Timer shell and iframe both survive offline navigation (1.5296ms)
+✔ server failures fall back to the cached timer without replacing it with an error page (1.0118ms)
+✔ PWA manifest exposes installable identity, shortcuts, and required icons (3.705ms)
+✔ website branding uses the supplied JackYun logo everywhere (7.3396ms)
+✔ service worker keeps APIs network-only and serves cached React routes before the static fallback (1.0146ms)
+✔ offline workspace stores snapshots and queued operations per authenticated user (4.7106ms)
+✔ logout preserves pending work, clears worker cache, and uses local sign-out (3.708ms)
+✔ service worker is served with update-safe security headers (0.7182ms)
+✔ products page owns PWA installation and root layout registers lifecycle handling (5.4115ms)
+✔ settings links to the standalone Products experience (2.3091ms)
+✔ mobile topbar shows the current module and keeps desktop branding and BETA compact (1.7829ms)
+(node:30088) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/offline-recovery/jackyun-portal/src/lib/learning/schedule-control.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\offline-recovery\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ week boundaries include Sunday, cross years and rotate subjects deterministically (2.7491ms)
+✔ first-attempt metrics include failed attempts but exclude familiar repair, mocks, assisted and other weeks (0.7302ms)
+✔ all-training metrics include mocks, repair and unmarked independence without granting new-training credit (0.2436ms)
+✔ structured content preserves legacy references and validates optional details (0.1718ms)
+✔ invalid results and duplicate IDs cannot corrupt persisted evidence (0.1629ms)
+✔ planning deduplicates and reopens cancelled work; homework credit and ticks are distinct (1.1087ms)
+✔ old data loads, new evidence survives reload and protects cloud replacement (1.3615ms)
+ℹ tests 60
+ℹ suites 0
+ℹ pass 60
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2314.7916

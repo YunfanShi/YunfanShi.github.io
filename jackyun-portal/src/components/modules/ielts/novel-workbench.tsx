@@ -1,8 +1,9 @@
+/* eslint-disable @next/next/no-img-element -- User-provided signed covers use their original URLs without an optimization proxy. */
 'use client';
 
 import { siteConfirm } from '@/lib/site-dialog';
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
-import { acknowledgeCatalogNovelImport, getReaderBootstrap, type CatalogNovel, type ReaderBootstrap } from '@/actions/reader';
+import { acknowledgeCatalogNovelImport, getCatalogNovelDownloadUrl, getReaderBootstrap, type CatalogNovel, type ReaderBootstrap } from '@/actions/reader';
 import { callAiApi } from '@/lib/ai-config';
 import { readAiResponseContent } from '@/lib/ai-json';
 import { buildWordPrompt, parseWordNote, type WordNote } from '@/lib/ielts-reading';
@@ -144,8 +145,9 @@ async function downloadCatalogChapters(novel: CatalogNovel): Promise<NovelChapte
     const payload = await response.json() as { chapters?: NovelChapter[] };
     if (payload.chapters?.length) return payload.chapters;
   }
-  if (!novel.downloadUrl) throw new Error('小说下载链接不可用。');
-  const response = await fetch(novel.downloadUrl);
+  const downloadUrl = novel.downloadUrl ?? await getCatalogNovelDownloadUrl(novel.id);
+  if (!downloadUrl) throw new Error('这本小说当前无法下载，请检查账号权益后重试。');
+  const response = await fetch(downloadUrl);
   if (!response.ok) throw new Error('下载链接已失效，请刷新页面后重试。');
   const parsed = await parseNovelFile(new File([await response.blob()], novel.originalFileName), 'auto');
   return parsed.chapters ?? splitNovelIntoChapters(parsed.text);
@@ -733,7 +735,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
   }
 
   async function addFromStore(novel: CatalogNovel) {
-    if (!novel.unlocked || !novel.downloadUrl || importing) return;
+    if (!novel.unlocked || importing) return;
     setImporting(true);
     setMessage(`正在领取《${novel.title}》…`);
     try {
@@ -961,7 +963,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
       <div className="rounded-3xl bg-[linear-gradient(120deg,#0f766e,#155e75)] p-6 text-white shadow-lg"><p className="text-xs font-bold uppercase tracking-[.18em] text-[#99f6e4]">NOVEL STORE</p><h2 className="mt-2 text-3xl font-bold">精选小说商店</h2><p className="mt-2 text-sm text-[#ccfbf1]">当前账号：{bootstrap.plan.toUpperCase()}，已解锁书籍可直接加入云书架。</p></div><div className="flex flex-wrap gap-2">{['全部', ...Array.from(new Set(catalog.map((novel) => novel.category)))].map((category) => <button key={category} type="button" onClick={() => setStoreCategory(category)} className={`rounded-full px-4 py-2 text-sm font-bold ${storeCategory === category ? 'bg-[#0f766e] text-white' : 'border border-[var(--card-border)] bg-[var(--card)]'}`}>{category}</button>)}</div>
       {!catalog.length ? <div className="rounded-3xl border border-dashed border-[var(--card-border)] bg-[var(--card)] p-12 text-center text-[var(--muted-foreground)]">商店暂无小说，管理员上传后会显示在这里。</div> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{catalog.filter((novel) => storeCategory === '全部' || novel.category === storeCategory).map((novel) => {
         const added = storeIds.has(novel.id);
-        return <article key={novel.id} className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm"><div className="h-44 bg-[linear-gradient(135deg,#134e4a,#0e7490)] bg-cover bg-center" style={novel.coverUrl ? { backgroundImage: `url(${novel.coverUrl})` } : undefined} /><div className="p-5"><div className="flex items-center justify-between gap-3"><span className="rounded-full bg-[#ecfdf5] px-2.5 py-1 text-xs font-bold text-[#047857]">{novel.minimumPlan.toUpperCase()}+</span><div className="flex gap-2">{novel.owned && <span className="rounded-full bg-[#eff4ff] px-2.5 py-1 text-xs font-bold text-[#155eef]">已拥有</span>}{novel.featured && <span className="rounded-full bg-[#fffaeb] px-2.5 py-1 text-xs font-bold text-[#b45309]">精选</span>}</div></div><h3 className="mt-4 font-serif text-xl font-bold">{novel.title}</h3><p className="mt-1 text-sm text-[var(--muted-foreground)]">{novel.author || '未知作者'} · {novel.category} · {novel.tags.join('、') || '无标签'}</p><button type="button" onClick={() => setDetailNovel(novel)} className="mt-2 text-left text-xs font-bold text-[#0f766e]">查看详细介绍</button><p className="mt-3 line-clamp-3 min-h-15 text-sm leading-5 text-[var(--muted-foreground)]">{novel.description || '暂无简介'}</p><button type="button" disabled={!novel.unlocked || added || importing} onClick={() => void addFromStore(novel)} className="mt-5 min-h-11 w-full rounded-xl bg-[#0f766e] px-4 text-sm font-bold text-white disabled:bg-[#98a2b3]">{added ? '已在阅读器' : novel.owned ? '已拥有 · 加入阅读器' : novel.unlocked ? '加入阅读器' : `需要 ${novel.minimumPlan.toUpperCase()} 会员`}</button></div></article>;
+        return <article key={novel.id} className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-sm"><div className="relative h-44 bg-[linear-gradient(135deg,#134e4a,#0e7490)]">{novel.coverUrl && <img src={novel.coverUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}</div><div className="p-5"><div className="flex items-center justify-between gap-3"><span className="rounded-full bg-[#ecfdf5] px-2.5 py-1 text-xs font-bold text-[#047857]">{novel.minimumPlan.toUpperCase()}+</span><div className="flex gap-2">{novel.owned && <span className="rounded-full bg-[#eff4ff] px-2.5 py-1 text-xs font-bold text-[#155eef]">已拥有</span>}{novel.featured && <span className="rounded-full bg-[#fffaeb] px-2.5 py-1 text-xs font-bold text-[#b45309]">精选</span>}</div></div><h3 className="mt-4 font-serif text-xl font-bold">{novel.title}</h3><p className="mt-1 text-sm text-[var(--muted-foreground)]">{novel.author || '未知作者'} · {novel.category} · {novel.tags.join('、') || '无标签'}</p><button type="button" onClick={() => setDetailNovel(novel)} className="mt-2 text-left text-xs font-bold text-[#0f766e]">查看详细介绍</button><p className="mt-3 line-clamp-3 min-h-15 text-sm leading-5 text-[var(--muted-foreground)]">{novel.description || '暂无简介'}</p><button type="button" disabled={!novel.unlocked || added || importing} onClick={() => void addFromStore(novel)} className="mt-5 min-h-11 w-full rounded-xl bg-[#0f766e] px-4 text-sm font-bold text-white disabled:bg-[#98a2b3]">{added ? '已在阅读器' : novel.owned ? '已拥有 · 加入阅读器' : novel.unlocked ? '加入阅读器' : `需要 ${novel.minimumPlan.toUpperCase()} 会员`}</button></div></article>;
       })}</div>}
     </section>}
 

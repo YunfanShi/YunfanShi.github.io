@@ -1,0 +1,29 @@
+{
+  "renderer": "docx-preview fallback; bundled LibreOffice unavailable",
+  "pages": [
+    {
+      "height": 1056,
+      "scroll": 1056,
+      "contentBottom": 681.25,
+      "pageBottom": 1094
+    },
+    {
+      "height": 1056,
+      "scroll": 1056,
+      "contentBottom": 1659.734375,
+      "pageBottom": 2180
+    },
+    {
+      "height": 1056,
+      "scroll": 1056,
+      "contentBottom": 2208.109375,
+      "pageBottom": 2586
+    },
+    {
+      "height": 1056,
+      "scroll": 1056,
+      "contentBottom": 2051.8125,
+      "pageBottom": 2364
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWritingFeedbackRepairPrompt, buildWritingReviewPrompt, coerceWritingStage, countWords, createWritingArchiveEntry, diffWriting, findQuotedTextRange, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, upsertWritingArchive, writeRedundantJson } from '../src/lib/ielts-writing.ts';
+import { buildWritingFeedbackRepairPrompt, buildWritingReviewPrompt, coerceWritingStage, countWords, createWritingArchiveEntry, diffWriting, findQuotedTextRange, highlightQuotedText, parseWritingFeedback, readFirstValidJson, recurringRuleKeys, targetWords, updateErrorHistory, upsertWritingArchive, writeRedundantJson, splitWritingParagraphs, trackWritingQuotes, highlightWritingRanges } from '../src/lib/ielts-writing.ts';
 import { readFileSync } from 'node:fs';
 
 test('counts IELTS words and returns task targets deterministically', () => {
@@ -171,4 +171,48 @@ test('language upgrade remains available after a reload loses transient feedback
   assert.equal(entry.question, input.question);
   const replacement = createWritingArchiveEntry({ ...input, title: entry.title, content: 'A revised essay.' });
   assert.equal(upsertWritingArchive([entry], replacement)[0].title, 'Learning at home');
+});
+
+
+test('reader paragraphs preserve authored breaks across pasted text formats', () => {
+  assert.deepEqual(splitWritingParagraphs(' Intro.\r\nBody one.\r\n\r\nBody two.\nConclusion. '), ['Intro.', 'Body one.', 'Body two.', 'Conclusion.']);
+  assert.deepEqual(splitWritingParagraphs('First.\rSecond.\u2028Third.\u2029Fourth.'), ['First.', 'Second.', 'Third.', 'Fourth.']);
+  assert.deepEqual(splitWritingParagraphs('A single paragraph. With two sentences.'), ['A single paragraph. With two sentences.']);
+  assert.deepEqual(splitWritingParagraphs('  \n\t\r\n'), []);
+  assert.deepEqual(splitWritingParagraphs('Keep  internal spaces.\nNext paragraph.'), ['Keep  internal spaces.', 'Next paragraph.']);
+});
+
+
+test('edited quotes retain their highlight and current wording after deletions and replacements', () => {
+  const quote = 'the advantages for taking risks in the personal lives and professional lives can overwhelm the drawbacks';
+  const source = 'In conclusion, ' + quote + '. More evidence follows.';
+  for (const edited of [
+    'the advantages for taking risks in personal and professional lives can overwhelm the drawbacks',
+    'the advantages of taking risks in personal and professional lives outweigh the drawbacks',
+    'the advantages for taking calculated risks in the personal lives and professional lives can overwhelm the drawbacks',
+  ]) {
+    const current = 'New opening. In conclusion, ' + edited + '. More evidence follows.';
+    const ranges = trackWritingQuotes(source, current, [{ id: 'issue', quote }]);
+    assert.equal(ranges.length, 1);
+    assert.equal(current.slice(ranges[0].start, ranges[0].end), edited);
+    const chunks = highlightWritingRanges(current, ranges);
+    assert.equal(chunks.map(chunk => chunk.text).join(''), current);
+    assert.equal(chunks.filter(chunk => chunk.highlighted).map(chunk => chunk.text).join(''), edited);
+  }
+});
+
+test('quote anchors isolate duplicate passages and ignore adjacent inserted text', () => {
+  const source = 'First text. Same quoted phrase. Other text. Same quoted phrase.';
+  const current = 'New first text. Same edited phrase. Other text. Same quoted phrase.';
+  const ranges = trackWritingQuotes(source, current, [{ id: 'same', quote: 'Same quoted phrase' }]);
+  assert.deepEqual(ranges.map(range => current.slice(range.start, range.end)), ['Same edited phrase', 'Same quoted phrase']);
+  const adjacent = trackWritingQuotes('Before. Target words. After.', 'Before. Inserted Target words extra. After.', [{ id: 'target', quote: 'Target words' }]);
+  assert.equal('Before. Inserted Target words extra. After.'.slice(adjacent[0].start, adjacent[0].end), 'Target words');
+});
+
+test('deleted passages and unrelated pasted replacements are not highlighted as another sentence', () => {
+  assert.deepEqual(trackWritingQuotes('Before. Target words. After.', 'Before. After.', [{ id: 'x', quote: 'Target words' }]), []);
+  assert.deepEqual(trackWritingQuotes('Original sentence with a target phrase.', 'Completely unrelated replacement.', [{ id: 'x', quote: 'target phrase' }]), []);
+  const ranges = trackWritingQuotes('Before. Target words. After.', 'Before. New wording. After.', [{ id: 'x', quote: 'Target words' }]);
+  assert.equal('Before. New wording. After.'.slice(ranges[0].start, ranges[0].end), 'New wording');
 });

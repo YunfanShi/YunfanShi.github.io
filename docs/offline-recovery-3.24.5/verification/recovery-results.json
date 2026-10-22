@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-17",
+  "version": "3.24.5",
+  "database": {
+    "before": "SQL connection timeout and auth refresh 504",
+    "after": "SQL queries and business tables readable",
+    "state": "ACTIVE_HEALTHY",
+    "inRecovery": false,
+    "idleInTransaction": 0,
+    "authHealth": 200,
+    "profilesRestLimitZero": 200
+  },
+  "validation": {
+    "unitTests": 60,
+    "failed": 0,
+    "productionBuild": "passed",
+    "typescript": "passed after route types generation",
+    "targetedEslint": "passed",
+    "secretScan": "passed",
+    "browserViewports": [
+      1440,
+      390
+    ],
+    "cloudControlContractBrowser": "passed"
+  },
+  "quota": {
+    "egressGB": 6.08,
+    "allowanceGB": 5,
+    "restrictionDate": "2026-11-08"
+  },
+  "document": {
+    "pages": 3,
+    "renderer": "docx-preview fallback; LibreOffice unavailable",
+    "visualReview": "all pages reviewed"
+  }
+}

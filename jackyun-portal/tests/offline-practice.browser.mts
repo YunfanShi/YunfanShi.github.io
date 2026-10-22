@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {createEmptyScheduleState} from '../src/lib/learning/schedule-control.ts';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.JACKYUN_PLAYWRIGHT_PATH||'playwright');
+const base=process.env.JACKYUN_TEST_URL||'http://127.0.0.1:3177',out=process.env.JACKYUN_SCREENSHOT_DIR||'artifacts/verification/offline-practice';
+await mkdir(out,{recursive:true});
+const browser=await chromium.launch({headless:true,channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge'});const results=[];
+try {for(const width of [1440,390]){
+ const context=await browser.newContext({viewport:{width,height:1000}});
+ const seed=createEmptyScheduleState();seed.settings.tutorialSeenVersion=1;seed.timetable={version:1,name:'Test',courses:[{id:'physics',name:'Physics',color:'#abcdef',review:true,sessions:[{day:3,start:'08:00',end:'09:00'}]}],};
+ await context.addInitScript(seed=>{if(!localStorage.getItem('jackyun_schedule_control_v1'))localStorage.setItem('jackyun_schedule_control_v1',JSON.stringify(seed));},seed);
+ // Force the cached iframe to load before its React parent attaches listeners.
+ await context.route(/\/_next\/static\/chunks\/app\/.*\/practice-timer\/page-[^/]+\.js/,async route=>{await new Promise(resolve=>setTimeout(resolve,750));await route.continue();});
+ await context.route('**/api/practice-timer/live',route=>route.fulfill({status:503,contentType:'application/json',body:'{"error":"database unavailable"}'}));
+ const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(base+'/practice-timer');await page.waitForTimeout(1000);const skip=page.getByRole('button',{name:'暂时跳过',exact:true});if(await skip.isVisible())await skip.click();
+ await page.evaluate(()=>navigator.serviceWorker.ready);await page.reload();
+ const f=page.frameLocator('iframe[title="练习计时器"]');await f.locator('#subject option').first().waitFor({state:'attached',timeout:10000}).catch(async e=>{await page.screenshot({path:out+'/failure.png'});console.log((await page.locator('body').innerText()).slice(0,1200),errors);throw e;});
+ await page.waitForFunction(async()=>{for(const k of await caches.keys())if(k.includes('-pages-')&&await(await caches.open(k)).match(location.href))return true;return false;});
+ await context.setOffline(true);
+ await page.reload({waitUntil:'domcontentloaded'});
+ await f.locator('#contentType').selectOption('pastPaper');await f.locator('#scope').fill('Offline Paper 2');
+ await f.locator('#create').click();await f.locator('#workspace').waitFor({state:'visible',timeout:2500});
+ await f.locator('#toggle').click();await f.locator('#runStatus').getByText('正在计时',{exact:false}).waitFor();
+ assert.equal(await f.locator('#cloudStatus').isVisible(),false);
+ await page.clock.install();await page.clock.runFor(5000);await f.locator('#toggle').click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')!).practiceSessions?.[0]?.questions[0]?.elapsedMs>=4900);
+ await page.screenshot({path:out+'/timer-offline-'+width+'.png'});
+ await page.reload({waitUntil:'domcontentloaded'});await f.locator('#history').waitFor({state:'visible'});
+ await f.locator('[data-session]').first().click();await f.locator('#workspace').waitFor({state:'visible'});
+ assert.match(await f.locator('#used').textContent(),/00:05/);assert.match(await f.locator('#runStatus').textContent(),/暂停/);
+ await f.locator('#finish').click();await f.locator('#report').waitFor({state:'visible'});
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')!).practiceSessions[0].finished);
+ await page.screenshot({path:out+'/report-offline-'+width+'.png'});
+ assert.equal(await page.getByText('当前处于离线状态',{exact:true}).count(),0);
+ await context.setOffline(false);await page.goto(base+'/practice-timer');await f.locator('#subject option').first().waitFor({state:'attached'});
+ assert.deepEqual(errors,[]);results.push({width,coldOfflineStart:true,offlineReload:true,localSave:true,report:true,noOfflineBanner:true,errors});await context.close();
+}}finally{await browser.close();}
+await writeFile(out+'/browser-results.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results));

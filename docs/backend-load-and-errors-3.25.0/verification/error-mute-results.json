@@ -1,0 +1,26 @@
+[
+  {
+    "width": 1440,
+    "sameCodeAliasesAndDifferentSources": true,
+    "otherTypesVisible": true,
+    "reload": true,
+    "otherTab": true,
+    "expiresAt30Minutes": true,
+    "retriesDoNotExtend": true,
+    "autoExpiryDoesNotMute": true,
+    "consoleAndDiagnosticLogsPreserved": true,
+    "storageBlockedFallback": true
+  },
+  {
+    "width": 390,
+    "sameCodeAliasesAndDifferentSources": true,
+    "otherTypesVisible": true,
+    "reload": true,
+    "otherTab": true,
+    "expiresAt30Minutes": true,
+    "retriesDoNotExtend": true,
+    "autoExpiryDoesNotMute": true,
+    "consoleAndDiagnosticLogsPreserved": true,
+    "storageBlockedFallback": true
+  }
+]

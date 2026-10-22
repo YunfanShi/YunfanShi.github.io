@@ -115,9 +115,12 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
     const itemId = navigationIdFromPath(pathname);
     if (!itemId) return;
     let pending: string[] = [];
-    try { pending = JSON.parse(localStorage.getItem(PENDING_USAGE_KEY) || '[]'); } catch { pending = []; }
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem(PENDING_USAGE_KEY) || '[]');
+      if (Array.isArray(stored)) pending = stored.filter((item): item is string => typeof item === 'string');
+    } catch { /* Navigation also works when browser storage is unavailable. */ }
     const queue = [...pending, itemId].slice(-100);
-    localStorage.setItem(PENDING_USAGE_KEY, JSON.stringify(queue));
+    try { localStorage.setItem(PENDING_USAGE_KEY, JSON.stringify(queue)); } catch { /* Usage analytics must not interrupt navigation. */ }
     if (!signedIn) return;
     void (async () => {
       const remaining = [...queue];

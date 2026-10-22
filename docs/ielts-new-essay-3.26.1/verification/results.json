@@ -1,0 +1,45 @@
+{
+  "scope": "Real component and local persistence; AI and navigation mocked. No production or cloud-account acceptance.",
+  "results": [
+    {
+      "width": 1440,
+      "language": "en",
+      "passed": true,
+      "checks": [
+        "new essay",
+        "new identity",
+        "blank editor",
+        "task timer",
+        "outgoing snapshot",
+        "reload",
+        "restore",
+        "library",
+        "reader",
+        "transfer",
+        "save failure",
+        "AI busy guard"
+      ],
+      "errors": []
+    },
+    {
+      "width": 390,
+      "language": "zh",
+      "passed": true,
+      "checks": [
+        "new essay",
+        "new identity",
+        "blank editor",
+        "task timer",
+        "outgoing snapshot",
+        "reload",
+        "restore",
+        "library",
+        "reader",
+        "transfer",
+        "save failure",
+        "AI busy guard"
+      ],
+      "errors": []
+    }
+  ]
+}

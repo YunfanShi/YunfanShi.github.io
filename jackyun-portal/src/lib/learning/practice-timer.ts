@@ -22,6 +22,7 @@ export function currentPracticeRecords(state: ScheduleControlState): TimedPracti
 export interface PracticeSession {
   id: string; date: string; subject: string; source: TimedPracticeRecord['source'];
   courseId?: string; presetFamily?: string;
+  ieltsSection?: 'listening' | 'reading' | 'writing' | 'speaking';
   independent: boolean; scope: string; mode: 'relaxed' | 'normal' | 'exam';
   contentType?: PracticeContentType; questionRange?: string;
   unit?: string; subsection?: string;
@@ -32,9 +33,10 @@ export interface PracticeConfig { subjects: Record<string, PracticeType[]>; gree
   courseBindings?: Record<string, { family: string; name: string; source: 'auto' | 'manual' }>;
   courseTypes?: Record<string, PracticeType[]>;
 }
-const families = ['math','mechanics','statistics','further','furtherMechanics','furtherStatistics','physics','chemistry','biology','cs','economics','business','history','geography','english','custom'];
+const families = ['math','mechanics','statistics','further','furtherMechanics','furtherStatistics','physics','chemistry','biology','cs','economics','business','history','geography','english','custom','ielts'];
 export function validateSession(value: unknown): PracticeSession {
   const s = value as PracticeSession;
+  if (s?.ieltsSection !== undefined && (!['listening','reading','writing','speaking'].includes(s.ieltsSection) || s.presetFamily !== 'ielts')) throw Error('雅思板块无效，原记录已保留。');
   if (s && ['unit','subsection'].some(key => s[key as 'unit' | 'subsection'] !== undefined && (typeof s[key as 'unit' | 'subsection'] !== 'string' || s[key as 'unit' | 'subsection']!.length > 200))) throw Error('单元或小节格式无效，原记录已保留。');
   if (s && ((s.contentType !== undefined && !Object.hasOwn(PRACTICE_CONTENT_TYPES, s.contentType)) || (s.questionRange !== undefined && (typeof s.questionRange !== 'string' || s.questionRange.length > 200)))) throw Error('练习内容类型或题号无效，原记录已保留。');
   if (s && ((s.courseId !== undefined && (typeof s.courseId !== 'string' || !s.courseId || s.courseId.length > 150)) || (s.presetFamily !== undefined && !families.includes(s.presetFamily)))) throw Error('课表科目关联无效，原记录已保留。');

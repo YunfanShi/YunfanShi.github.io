@@ -80,7 +80,7 @@ test('watch gateway routes external task operations to Dida and keeps the intern
  class WatchError extends Error {status:number;code:string;constructor(status:number,code:string,message:string){super(message);this.status=status;this.code=code;}}
  const mocks:Record<string,unknown>={
   '@/lib/watch/server':{WatchError,body:(req:Request)=>req.json(),watchContext:async()=>({supabase:{...h.db,rpc:async()=>{localWrites++;return {data:{ok:true},error:null};}},user:{id:'owner'}}),fail:(status:number,code:string,message:string)=>{throw new WatchError(status,code,message);}},
-  '@/lib/watch/reader':{},'@/app/api/llm-proxy/route':{},'next/server':{},'@/lib/ai-smart-selection':{},'@/lib/watch/snapshot':{},
+  '@/lib/watch/ai-policy': {watchAiRequest:()=>({})},'@/lib/watch/reader':{},'@/app/api/llm-proxy/route':{},'next/server':{},'@/lib/ai-smart-selection':{},'@/lib/watch/snapshot':{},
   '@/lib/watch/policy':{digest,validateOperation,UUID:/^[a-f0-9-]{36}$/},'@/lib/integrations/dida-task-reference':refs,'@/lib/watch/dida-tasks':h.watch,'@/lib/integrations/dida365-server':{DidaApiError:h.DidaApiError},
  };
  const code=ts.transpileModule(readFileSync(new URL('../src/app/api/watch/v1/[...action]/route.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;

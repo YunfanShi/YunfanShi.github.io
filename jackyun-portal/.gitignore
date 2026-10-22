@@ -53,3 +53,6 @@ next-env.d.ts
 /artifacts/verification/ui-shell/
 /artifacts/verification/ui-shell-production/
 /artifacts/verification/ui-modernization-shell/
+
+/artifacts/verification/ui-acceptance/
+/artifacts/verification/ui-acceptance-*/
