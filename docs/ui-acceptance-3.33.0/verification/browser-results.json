@@ -216,5 +216,18 @@
     }
   ],
   "acceptedSuites": 31,
-  "scopeNote": "30 suites passed in the complete integrated run; after fixing the discovered cached-iframe handshake, offline-practice passed at 1440/390px on a rebuilt production snapshot. The final exact source is rerun by remote PR CI before merge."
+  "scopeNote": "30 suites passed in the complete integrated run; after fixing the discovered cached-iframe handshake, offline-practice passed at 1440/390px on a rebuilt production snapshot. The final exact source is rerun by remote PR CI before merge.",
+  "ciFollowupRetests": {
+    "ciRun": 39714057405,
+    "originalPassed": 28,
+    "originalTotal": 31,
+    "retestedOnLoopbackProduction": [
+      "settings-ui 16 checks",
+      "study-guide-state desktop/mobile, task field min-height 44px",
+      "active-legacy-ui 19 routes at 1440px and 390px",
+      "cue-route-draft fullscreen help and saved session"
+    ],
+    "result": "passed",
+    "finalCIRequired": true
+  }
 }

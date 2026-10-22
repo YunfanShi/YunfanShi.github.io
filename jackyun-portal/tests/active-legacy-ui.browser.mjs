@@ -32,6 +32,9 @@ const routes = [
 try {
   for (const width of [1440, 390]) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width < 768 });
+    // Local interaction coverage uses fallback text and bundled icons. Remote
+    // font availability must not hold the iframe parser or its bridge hostage.
+    await context.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
     await context.addInitScript(() => localStorage.setItem('jackyun_theme', 'gray'));
     await context.addCookies([{ name: 'sb-127-auth-token', value: `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}`, url: base }]);
     const page = await context.newPage();
@@ -67,7 +70,10 @@ try {
       await frame.locator('html[data-legacy-workspace]').waitFor();
       await page.waitForFunction(title => {
         const iframe = Array.from(document.querySelectorAll('iframe')).find(element => element.title === title);
-        return iframe?.contentDocument?.readyState === 'complete';
+        // DOM readiness includes the page scripts; background JSONP time sync
+        // and third-party embeds can keep the load event pending indefinitely.
+        const state = iframe?.contentDocument?.readyState;
+        return state === 'interactive' || state === 'complete';
       }, title);
       if (route === '/study-guide' && width === 1440) {
         assert.equal(studyGuideLoads, 2, 'retry must refetch the failed legacy document');

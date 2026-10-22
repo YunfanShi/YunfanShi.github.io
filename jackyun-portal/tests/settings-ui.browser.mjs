@@ -29,7 +29,7 @@ try {
   await input.fill('离线');
   await desktop.page.getByText('1 个匹配分类', { exact: true }).waitFor();
   assert.equal(await input.inputValue(), '离线', 'settings search typed before client chunks hydrate is preserved');
-  await desktop.context.unroute('**/_next/static/chunks/**');
+  await desktop.context.unrouteAll({ behavior: 'wait' });
   const initialChunks = await desktop.page.evaluate(() => performance.getEntriesByType('resource').filter(entry => entry.name.includes('/_next/static/chunks/') && entry.name.endsWith('.js')).map(entry => entry.name));
   const offline = desktop.page.getByRole('button', { name: /离线与 PWA/ });
   await offline.click();

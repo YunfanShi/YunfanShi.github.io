@@ -8,7 +8,7 @@
 
 ## 1 验收结论和适用边界
 
-本次交付统一主站基础控件、工具箱、导航、设置、学习页面常用操作及在用 iframe 的交互规范，保留 JackYun 蓝色和浅色、灰色、深色三主题。生产构建与源码逐文件核对，避免验收旧预览。验收发现并修复了语言 Provider 重挂载、导航统计存储异常和缓存计时 iframe 初始化竞态三个真实问题。
+本次交付统一主站基础控件、工具箱、导航、设置、学习页面常用操作及在用 iframe 的交互规范，保留 JackYun 蓝色和浅色、灰色、深色三主题。生产构建与源码逐文件核对，避免验收旧预览。验收发现并修复了语言 Provider 重挂载、导航统计存储异常、缓存计时 iframe 初始化竞态，以及 StudyGuide 输入框依赖字体高度而未达到 44px 触控目标的问题。
 
 最终本机浏览器结果：31 个套件均取得通过证据。其中完整集成运行的 30 项直接通过；发现缓存 iframe 竞态的离线计时套件，在修复并重建后分别于 1440px 和 390px 定向复验通过。最终源码仍由远程 CI 全量复跑后才合并。全部 Node 单元测试、TypeScript、ESLint、错误码生成物一致性和私钥 PEM 标记扫描均进入合并前检查。远程 CI 使用相同生产构建和浏览器脚本，成功后才允许合并 main。
 
@@ -34,6 +34,8 @@ main 的 package.json 为 3.32.0，而 APP_VERSION 仍为 3.30.4；旧改造快�
 | P0 | 合入较新 main 时，旧 PWA v7 断言和旧运行代码可能覆盖新版离线与账号隔离保护 | 保留 main 的现有 Service Worker、同步引擎、API、计时引擎和云端控制权逻辑；采用当前 pages-v10 导航缓存与既有静态缓存版本 | 离线/PWA 单测、管理员页不缓存、账号缓存隔离及计时接管保护；对受保护路径检查 diff |
 | P1 | 两侧错误提示改动冲突，一边提供浮层避让，另一边提供 30 分钟静默 | 同时保留标题栏下方提示、说明区点击穿透和手动关闭后的跨页面静默；从源脚本重新生成文档与运行产物 | 错误提示相关单测、构建脚本 --check、导航及旧页面全屏操作 |
 | P1 | 部分测试只认识开发版 chunk 名称、旧页面标题或旧组件依赖；本机曾读取不同服务的构建目录 | 使用 JACKYUN_BUILD_DIR 指向实际测试的构建；按内容识别生产懒加载 chunk；补齐真实组件依赖的 fixture；统一可配置浏览器通道 | 同一脚本在生产 webpack 构建执行，仍断言首次不加载、点击后加载和失败重试；没有删除这些功能断言 |
+| P1 | Linux 回归发现 StudyGuide 任务助手输入框依赖字体默认行高，实际高度不足 44px | 在现有 .tool-field 输入、选择和文本区域规则明确 min-height: 44px | 生产预览更新静态文件后，任务草稿、移动深链、实际边框高度和 16px 字号回归通过 |
+| P1 | 两项日期测试隐含上海时区；设置测试撤销拦截时仍有延迟 handler；旧页测试等待后台 JSONP 完成导致误超时 | 测试构造明确的本地日期；unrouteAll 等待 handler；等待 DOM 完成后验证主题语言桥，字体使用本地回退 | UTC 全量 797/797，上海和 UTC 各 15 项日期测试；设置 16 项、19 个旧入口双视口复验通过；最终远程 CI 仍需完整重跑 |
 
 相关实现位于 src/components/language-provider.tsx、src/components/layout/sidebar.tsx、src/components/modules/schedule/practice-timer-frame.tsx、scripts/build-error-system.mjs。核心回归位于 tests/reading-studio.browser.mjs、tests/ui-shell.browser.mjs、tests/offline-practice.browser.mts、tests/practice-cloud-frame.test.mts。
 
@@ -81,6 +83,8 @@ Dialog 与菜单检查焦点限制/恢复、Escape、键盘与触屏。普通输
 浏览器套件包含：工具箱、主站框架、认证通知退出、导航提示、管理员路由、公告失败/CRUD、QuizWise、IELTS 仪表盘、资源目录、设置、客服、阅读工坊、小说位置、快速任务、在用 iframe、StudyGuide、音乐、倒计时、答题卡、课程时间线、CUE 设置/草稿/搜索、复习队列、移动导航、云计时契约、IELTS 计时、离线计时、滴答日程和暖切换性能。
 
 复现时先启动 tests/fixtures/ui-backend.mjs 于 127.0.0.1:54329，再使用 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54329 和非真实占位 key 构建、运行应用。设定 JACKYUN_TEST_URL 为该 loopback 服务，然后执行 node scripts/verify-ui.mjs。若使用独立快照，JACKYUN_BUILD_DIR 必须指向被测服务的实际 .next。JACKYUN_BROWSER_CHANNEL 本机可选 msedge，CI 为 chromium。所有浏览器写操作只作用于本机 fixture 或隔离浏览器存储。
+
+远程首轮浏览器运行 28/31 通过，发现上述设置拦截竞争、旧页后台请求等待和 StudyGuide 触控高度问题，均已定向修复并在本机复验。新增 CUE 真实学习会话中的全屏帮助覆盖、关闭及焦点恢复回归通过；该场景现有 Portal 正常，未因此修改层级代码。此处记录问题发现过程；最终合并必须以最终提交对应的全量 CI 成功为准。
 
 ## 7 性能结果及限制
 
