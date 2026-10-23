@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.35.0', date: '2026-10-23', dateLabel: '2026 年 10 月 23 日', title: 'Watch AI 与数学显示升级', summary: 'Products 发布 2.1.1-beta.1 手表安装包，改进 AI 辅导、常用 LaTeX 显示和流式回答稳定性。', categories: ['平台体验', '稳定性'], accent: 'blue', highlights: ['PRODUCTS 提供与既有测试证书兼容的 2.1.1-beta.1 通用 APK。', 'AI 回答支持常用分数、根式、上下标、希腊字母和关系符号。', '手表界面减少流式重排，旧版 Android 提升提醒通知优先级。'] },
   { version: '3.34.2', date: '2026-10-23', dateLabel: '2026 年 10 月 23 日', title: '同步下载恢复与自动合并修复', summary: '限制整轮下载并发，超时后自动补读失败分片，单条失败不再阻塞其他同步。', categories: ['稳定性'], accent: 'blue', highlights: ['后台暂时故障进入自动重试，持续失败仍保留可见状态和待上传数据。', '同一标签页保留已下载分片，云端版本变化后重新校验；刷新页面后重新下载。', '多段文本中互不重叠的修改自动合并，重叠修改与删除冲突保留两份供选择。'] },
   { version: '3.34.1', date: '2026-10-23', dateLabel: '2026 年 10 月 23 日', title: 'CUE 分组学习部署修复', summary: '修复联合学习分组条件的类型检查错误，恢复 3.34.0 功能版本的生产部署。', categories: ['稳定性'], accent: 'blue', highlights: ['联合学习在独立 CUE 分支提前返回后，只对混合学习判断分组条件，避免不可达条件导致 Next.js 构建失败。'] },
   { version: '3.34.0', date: '2026-10-23', dateLabel: '2026 年 10 月 23 日', title: 'CUE 分组复习与轻量动效设置', summary: '大量 CUE 按每组最多 20 条逐组学习，最后统一汇总；间隔错题重练仍可跨组。设置可单独控制弹窗、轻反馈、庆祝和背景动效。', categories: ['学习体验', '平台体验'], accent: 'mint', featured: true, highlights: ['联合 CUE 学习超过 20 条时锁定后续组，完成当前组后继续；学习进度和最终记录汇总所有组。', '错题间隔重练仍使用完整选中队列，允许跨组抽取并保存重练结果。', '弹窗动画和重型 CUE 背景、庆祝效果默认关闭，轻量反馈默认开启；设置提供单独开关及全部开关预设。'] },
