@@ -6,8 +6,10 @@ import { LOCAL_SYNC_STATUS_EVENT } from '@/lib/local-workspace';
 import { fetchSyncWithTimeout } from '@/lib/request-timeout';
 import { getLatestSyncStatus } from '@/lib/sync/status';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
-import { getConflicts, getOrCreateDeviceId } from '@/lib/sync/outbox';
-import type { SyncConflict, SyncDevice, SyncStatusDetail } from '@/types/sync';
+import { getConflicts, getOrCreateDeviceId, getOutbox } from '@/lib/sync/outbox';
+import {BACKUP_PAGES,legacyBackupPage} from '@/lib/backup/pages';
+import SyncConflictReview from './sync-conflict-review';
+import type { SyncConflict, SyncDevice, SyncStatusDetail,SyncOperation,SyncResolutionRequest } from '@/types/sync';
 
 export default function SyncCenterPanel() {
   const { signedIn } = useAuthMode();
@@ -15,7 +17,20 @@ export default function SyncCenterPanel() {
   const [currentDeviceId, setCurrentDeviceId] = useState('');
   const [detail, setDetail] = useState<SyncStatusDetail>({ state: 'guest', pending: 0, conflicts: 0, lastSyncedAt: null });
   const [error, setError] = useState('');
-  const [conflicts,setConflicts]=useState<SyncConflict[]>([]);
+  const [reviews,setReviews]=useState<Array<{conflict:SyncConflict;raw:string|null;generation:number}>>([]);
+  const [pending,setPending]=useState<SyncOperation[]>([]);
+  const refreshReview=useCallback(async()=>{
+    try {
+      const [conflicts,operations]=await Promise.all([getConflicts(),getOutbox()]);
+      const snapshots=conflicts.map(conflict=>({conflict,raw:window.localStorage.getItem(conflict.key)}));
+      setReviews(previous=>snapshots.map(snapshot=>{
+        const old=previous.find(row=>row.conflict.operationId===snapshot.conflict.operationId);
+        return old&&old.raw===snapshot.raw&&old.conflict.remoteRevision===snapshot.conflict.remoteRevision&&old.conflict.remoteHash===snapshot.conflict.remoteHash
+          ?old:{...snapshot,generation:(old?.generation??0)+1};
+      }));
+      setPending(operations);
+    } catch { setError('本机同步列表无法读取，请保留当前页面。'); }
+  },[]);
 
   const load = useCallback(async () => {
     setError('');
@@ -38,12 +53,19 @@ export default function SyncCenterPanel() {
     const listener = (event: Event) => {
       const next = (event as CustomEvent<SyncStatusDetail>).detail;
       setDetail(next);
-      void getConflicts().then(setConflicts).catch(()=>setError('本机冲突列表无法读取，请保留当前页面。'));
+      if(next.state!=='syncing')void refreshReview();
     };
-    queueMicrotask(() => { const current = getLatestSyncStatus(); if (current) setDetail(current);void getConflicts().then(setConflicts).catch(()=>{}); });
+    queueMicrotask(() => { const current = getLatestSyncStatus(); if (current) setDetail(current);void refreshReview(); });
     window.addEventListener(LOCAL_SYNC_STATUS_EVENT, listener);
-    return () => { window.clearTimeout(initialLoad); window.removeEventListener(LOCAL_SYNC_STATUS_EVENT, listener); };
-  }, [load]);
+    const onLocal=()=>void refreshReview();
+    for(const name of ['storage','jackyun-sync-edit','focus'])window.addEventListener(name,onLocal);
+    return () => { window.clearTimeout(initialLoad); window.removeEventListener(LOCAL_SYNC_STATUS_EVENT, listener);for(const name of ['storage','jackyun-sync-edit','focus'])window.removeEventListener(name,onLocal); };
+  }, [load,refreshReview]);
+
+  function submitResolution(request:SyncResolutionRequest) {
+    setDetail(current=>({...current,state:'syncing',error:undefined,progress:'正在核对版本并上传合并结果…'}));
+    window.dispatchEvent(new CustomEvent('jackyun-sync-resolve',{detail:request}));
+  }
 
   const openDevices = useMemo(() => devices.filter((device) => !device.revokedAt), [devices]);
 
@@ -81,15 +103,9 @@ export default function SyncCenterPanel() {
     {detail.progress && <p role="status" aria-live="polite" className="text-sm text-[var(--muted-foreground)]">{detail.progress}</p>}
     {error ? <p className="rounded-lg bg-[#fce8e6] px-3 py-2 text-sm text-[#c5221f]">{error}</p> : null}
     {detail.error ? <p className="rounded-lg bg-[#fce8e6] px-3 py-2 text-sm text-[#c5221f]">{detail.error}</p> : null}
-    {conflicts.map(conflict=><div key={conflict.operationId} className="rounded-xl border border-amber-500 p-4 text-sm">
-      <p className="font-semibold">{conflict.key} · 云端版本 {conflict.remoteRevision}</p>
-      <p className="mt-2">相同内容发生不同修改，或删除与编辑同时发生。自动同步已暂停此页面，其他页面继续同步。</p>
-      {conflict.paths?.length ? <p className="mt-1 text-xs">需要选择的字段：{conflict.paths.slice(0,8).join('、')}{conflict.paths.length>8?'…':''}</p>:null}
-      <div className="mt-3 flex flex-wrap gap-3">
-        <button type="button" className="underline" onClick={()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(conflict,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='jackyun-sync-conflict.json';link.click();URL.revokeObjectURL(url);}}>下载两份内容对比</button>
-        {(['local','remote'] as const).map(choice=><button type="button" key={choice} disabled={!signedIn || detail.state==='syncing'} className="rounded-lg border px-3 py-2 disabled:opacity-50" onClick={async ()=>{if(!(await siteConfirm(choice==='local'?'保留本机冲突字段，并合并云端独有记录？操作前会保存本机版本。':'采用此云端版本？本机原始版本会先保存。')))return;setDetail(current=>({...current,state:'syncing',error:undefined}));window.dispatchEvent(new CustomEvent('jackyun-sync-resolve',{detail:{operationId:conflict.operationId,choice}}));}}>{choice==='local'?'保留本机差异并合并':'采用云端版本'}</button>)}
-      </div>
-    </div>)}
+    {reviews.length>0&&<div className="flex items-center justify-between gap-3"><h2 className="font-semibold">检查差异并决定合并结果</h2><button type="button" disabled={detail.state==='syncing'} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50" onClick={()=>{void refreshReview();window.dispatchEvent(new Event('jackyun-sync-retry'));}}>刷新对比</button></div>}
+    {reviews.map(({conflict,raw,generation})=><SyncConflictReview key={`${conflict.operationId}:${generation}`} conflict={conflict} localRaw={raw} disabled={!signedIn||detail.state==='syncing'} onSubmit={submitResolution}/>)}
+    {pending.length>0&&<details className="rounded-xl border border-[var(--card-border)] p-4 text-sm"><summary className="cursor-pointer font-semibold">查看待上传项目（{pending.length}）</summary><div className="mt-3 space-y-2">{pending.map(operation=><div key={operation.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-[var(--background)] p-3"><div className="min-w-0"><p>{BACKUP_PAGES.find(item=>item.id===legacyBackupPage(operation.key))?.label}</p><p className="break-all text-xs text-[var(--muted-foreground)]">{operation.key}</p></div><p className="text-xs text-[var(--muted-foreground)]">{reviews.some(row=>row.conflict.key===operation.key)?'等待选择合并结果':operation.resolvesOperationId?'合并结果待云端确认':operation.deleted?'删除待确认':'修改待上传'} · 基线版本 {operation.baseRevision}</p></div>)}</div></details>}
     <div className="rounded-xl border border-[var(--card-border)] p-4 text-sm leading-6">
       <h3 className="font-semibold">同步范围</h3>
       <p className="mt-1 text-[var(--muted-foreground)]">Cue、复习状态、学习记录、课表、计划、答题卡草稿、写作与阅读进度、刷题数据和界面偏好会随账号同步。</p>

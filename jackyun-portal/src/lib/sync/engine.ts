@@ -5,7 +5,7 @@ import { storageValueToString, isSyncableStorageKey } from '../local-workspace.t
 import { operationMatchesStorage } from './acknowledgment.ts';
 import { isServerUnavailable } from './service-error.ts';
 import { joinSyncParts, splitSyncBody, splitCompressedSyncBody, decodeSyncPart, MAX_SYNC_PARTS } from './transfer.ts';
-import type { SyncOperation, SyncRecord, SyncConflict } from '../../types/sync.ts';
+import type { SyncOperation, SyncRecord, SyncConflict, SyncResolutionChoice, SyncResolutionReview } from '../../types/sync.ts';
 
 export interface SyncStore {
   getOutbox(): Promise<SyncOperation[]>;
@@ -69,6 +69,14 @@ export class SyncProtocolError extends Error {
   status:number;
   constructor(message: string, status: number) { super(message);this.status=status; }
 }
+
+export class SyncReviewChangedError extends Error {
+  constructor() { super('冲突中的内容又有变化，对比已刷新；请检查最新差异后提交。'); this.name='SyncReviewChangedError'; }
+}
+
+const conflictRecord = (conflict:SyncConflict):SyncRecord => ({key:conflict.key,value:conflict.remoteValue,
+  deleted:conflict.remoteDeleted,revision:conflict.remoteRevision,contentHash:conflict.remoteHash,
+  updatedAt:conflict.remoteUpdatedAt ?? '',large:conflict.remoteLarge});
 
 /** Durable intent + optimistic concurrency. Wall-clock time never chooses a winner. */
 export function createWorkspaceSync(environment: SyncEnvironment) {
@@ -165,6 +173,26 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     if (record.key !== key) throw Error('同步记录不匹配。');
     return materialize(record);
   }
+  async function readVersion(key:string):Promise<SyncRecord|null> {
+    let after='';let scanned=0;
+    for(;;) {
+      const page=await json(`/api/sync/v3${after?`?after=${encodeURIComponent(after)}`:''}`);
+      if(page.syncProtocol!==3 || !Array.isArray(page.records) || page.records.length>100)throw Error('同步版本清单无效。');
+      compressedUploads=page.transferEncoding==='gzip';
+      let previous=after;
+      for(const record of page.records as SyncRecord[]) {
+        validate(record);
+        if(byteOrder(record.key,previous)<=0)throw Error('同步游标无效。');
+        previous=record.key;
+        if(record.key===key)return record;
+        if(byteOrder(record.key,key)>0)return null;
+      }
+      scanned+=page.records.length;
+      if(page.next===null)return null;
+      if(scanned>20_000 || !page.records.length || page.next!==previous || byteOrder(previous,after)<=0)throw Error('同步游标没有前进。');
+      after=previous;
+    }
+  }
   async function capture() {
     const snapshot = e.snapshot();
     const changed=[...new Set([...Object.keys(observed),...Object.keys(snapshot)])].filter(key=>!captured || observed[key]!==snapshot[key]);
@@ -242,6 +270,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     let deferred: unknown;
     const metadata = new Map((await store.getMetadata()).map(r=>[r.key,r]));
     const pendingKeys = new Set((await store.getOutbox()).map(op=>op.key));
+    const conflicts = new Map((await store.getConflicts()).map(c=>[c.key,c]));
     for (;;) {
       const page = await json(`/api/sync/v3${after ? `?after=${encodeURIComponent(after)}` : ''}`);
       if (page.syncProtocol !== 3 || !Array.isArray(page.records) || page.records.length > 100) throw Error('同步协议不兼容，原始数据已保留。');
@@ -253,6 +282,15 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
         validate(descriptor);
         if (byteOrder(descriptor.key,previous) <= 0) throw Error('同步游标无效。');
         previous = descriptor.key; scanned++;
+        const conflict=conflicts.get(descriptor.key);
+        if(conflict && !conflict.remoteLarge && conflict.remoteRevision===descriptor.revision
+          && conflict.remoteHash===descriptor.contentHash && conflict.remoteDeleted===descriptor.deleted) {
+          // A persisted conflict already contains the validated full cloud copy.
+          // Re-evaluate new local edits without downloading that copy again.
+          const current=e.read(descriptor.key);
+          if(!same(parse(current),conflict.localDeleted?undefined:conflict.localValue))await reconcile(conflictRecord(conflict));
+          continue;
+        }
         const base = metadata.get(descriptor.key);
         if (base?.revision === descriptor.revision && base.contentHash === descriptor.contentHash && base.deleted === descriptor.deleted
           && (base.deleted || e.read(descriptor.key) !== null || pendingKeys.has(descriptor.key))) continue;
@@ -327,22 +365,29 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       if (confirmed !== sent.length) throw Error('部分修改未被云端确认，待上传数据已保留。');
     }
   }
-  async function resolve(operationId: string, choice: 'local' | 'remote') {
+  async function resolve(operationId: string, choice: SyncResolutionChoice, review?:SyncResolutionReview) {
     const conflict = (await store.getConflicts()).find(c=>c.operationId === operationId);
     if (!conflict) return;
-    const remote = await readRecord(conflict.key);
+    if(!['local','remote','merged'].includes(choice))throw Error('不支持的合并选择。');
+    if(choice==='merged' && (!review || typeof review.deleted!=='boolean' || (!review.deleted && (!Object.hasOwn(review,'value') || review.value===undefined))))throw Error('合并结果无效。');
+    const descriptor=await readVersion(conflict.key);
+    const unchanged=descriptor && descriptor.revision===conflict.remoteRevision && descriptor.contentHash===conflict.remoteHash && descriptor.deleted===conflict.remoteDeleted;
+    const remote = unchanged && !conflict.remoteLarge ? conflictRecord(conflict) : await readRecord(conflict.key);
     const current = e.read(conflict.key), local = parse(current);
     if (!remote || remote.revision !== conflict.remoteRevision || remote.contentHash !== conflict.remoteHash
-      || !same(local,conflict.localDeleted ? undefined : conflict.localValue)) {
+      || (review ? current!==review.expectedLocal || review.remoteRevision!==remote.revision || review.remoteHash!==remote.contentHash
+        : !same(local,conflict.localDeleted ? undefined : conflict.localValue))) {
       if (remote) await store.saveConflict({...conflict,localValue:local ?? null,localDeleted:local === undefined,remoteValue:remote.value,
-        remoteDeleted:remote.deleted,remoteRevision:remote.revision,remoteHash:remote.contentHash,remoteUpdatedAt:remote.updatedAt});
-      throw Error('冲突中的内容又有变化，请重新检查后选择。');
+        remoteDeleted:remote.deleted,remoteLarge:false,remoteRevision:remote.revision,remoteHash:remote.contentHash,remoteUpdatedAt:remote.updatedAt});
+      throw new SyncReviewChangedError();
     }
     const operation = (await store.getOutbox()).find(op=>op.key === conflict.key);
     if (!operation) throw Error('本机修改队列已变化，请刷新同步中心。');
-    const chosen = choice === 'remote' ? valueOf(remote) : threeWayMerge(baseOf(conflict),local,valueOf(remote)).merged;
+    const chosen = choice === 'merged' ? review!.deleted ? undefined : review!.value
+      : choice === 'remote' ? valueOf(remote) : threeWayMerge(baseOf(conflict),local,valueOf(remote)).merged;
+    if(new TextEncoder().encode(JSON.stringify(chosen)??'null').length>24_000_000)throw Error('合并结果超过同步上限。');
     await e.backup(conflict.key);
-    if (e.cancelled() || e.read(conflict.key) !== current) throw Error('本机数据刚有修改，选择未应用。');
+    if (e.cancelled() || e.read(conflict.key) !== current) throw new SyncReviewChangedError();
     // Even accepting remote data needs an acknowledged no-op to close the
     // server conflict, not just remove this device's copy of it.
     const next: SyncOperation = {...operation,id:e.uuid(),baseRevision:remote.revision,

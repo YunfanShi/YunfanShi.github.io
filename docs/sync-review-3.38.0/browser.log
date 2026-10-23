@@ -1,0 +1,11 @@
+(node:61948) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/hash.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[
+  "Desktop per-field choice, preview, actual coordinator/IndexedDB upload and no full redownload",
+  "Mobile exact local result, no horizontal overflow and acknowledged upload",
+  "Tablet JSON import validates key, changes preview only, then uploads the reviewed result",
+  "A cloud edit after preview refreshes the comparison without upload or backoff; reviewed retry succeeds",
+  "A transient failure preserves the reviewed merge selection; reconnect uploads it without a second confirmation"
+]

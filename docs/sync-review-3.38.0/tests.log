@@ -1,0 +1,239 @@
+(node:33824) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/announcements.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Received `false` for a non-boolean attribute `busy`.
+
+If you want to write it to the DOM, pass a string instead: busy="false" or busy={value.toString()}.
+
+If you used to conditionally omit it with busy={condition && value}, pass busy={condition ? value : undefined} instead.
+✔ admin editor saves categories, page targets, dates and recovery reminders; preview makes no writes (130.0072ms)
+✔ page banners disappear immediately on navigation and do not render a modal (33.7977ms)
+✔ shared inbox retains public announcements when no support ticket is open (80.0299ms)
+(node:34908) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/announcements.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ page announcements match exact paths and descendants without leaking to similarly named pages (1.2626ms)
+✔ schedule and expiry boundaries prevent early display and stop at the end time (2.9208ms)
+✔ pinning and priority give deterministic order without mutating history (0.6947ms)
+✔ ordinary edits keep dismissal identity while deliberate recovery reminders use a new revision (0.124ms)
+✔ form validation normalizes scope and keeps metadata and delivery choices (0.6845ms)
+✔ action links reject executable, protocol-relative and credentialed URLs (1.5257ms)
+✔ editing a scheduled announcement preserves the same instant through a local time input (0.1549ms)
+(node:27488) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/azure-records.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ due page merges both marker sources, preserves tombstones, and commits before ack (43.209ms)
+✔ a failed source capture never acknowledges Azure changes (2.9871ms)
+✔ lost Azure acknowledgment is retried with the saved receipt and counted once (2.6896ms)
+✔ a changed Azure generation keeps newer changes pending without invalidating the saved version (1.0022ms)
+✔ no due markers avoid data reads and malformed marker sources fail before capture (1.2244ms)
+✔ backend marker endpoints retain verified user context, validate input and use narrow functions (1.3195ms)
+(node:29976) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/azure-records.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ schedule restore saves current Azure and source page snapshot before an optimistic write (31.6974ms)
+✔ a failed pre-restore RPC cannot mutate Azure or acknowledge recovery (2.011ms)
+✔ a concurrent revision after pre-restore backup stops recovery before posting (2.1005ms)
+✔ unavailable Azure and empty schedule fail before saving or mutating anything (0.41ms)
+✔ manual backup requires a valid committed ID and filters unselected pages (0.6024ms)
+✔ backend refuses a version changed after the final client read before any write (1.6514ms)
+(node:54012) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/azure-records.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ page restore retries the original operation after a lost commit response (28.2187ms)
+✔ page restore refuses missing pre-restore backup before any write (0.7197ms)
+✔ optimistic restore replays a matching prior operation without overwriting a later revision (5.4004ms)
+✔ login diagnostics distinguish provider failures without echoing sensitive messages (0.9193ms)
+(node:51028) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/azure-records.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ export paginates beyond 500 equal timestamps, skips blocked keys and uses the user context (73.3094ms)
+✔ large Unicode export reloads a changed revision and verifies the complete value (156.7271ms)
+✔ count-only and page-filtered reads avoid downloading unrelated large values (1.4013ms)
+✔ large imports keep one operation ID, use current metadata, and preserve Unicode through chunks (192.3345ms)
+✔ unconfirmed writes and unavailable Azure never acknowledge an import or fall back (1.9895ms)
+✔ malformed cursor, chunk hash and an untrusted destination fail closed (1.0114ms)
+✔ a changing export never returns a successful mixed-revision backup (0.9526ms)
+✔ delete acknowledgments preserve tombstones and reject a different content hash (0.812ms)
+✔ proxy transports only bearer and bounded JSON; preserves query, errors and no-store (25.1163ms)
+✔ proxy rejects untrusted endpoints and never retries a failed mutation on Supabase (6.6855ms)
+✔ streamed oversize JSON and missing login never reach Azure; unset endpoint keeps legacy path (5.3575ms)
+(node:10204) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/backup/pages.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ local backup retention stays at ten even with an older preference (1.2938ms)
+✔ every exported table belongs to a selectable backup page (1.6718ms)
+✔ backup allowlist excludes credentials, sync metadata, and debug keys (0.8108ms)
+(node:17984) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/backup/local.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ saving a large page reads only its latest snapshot and preserves the newest ten versions (60.3999ms)
+✔ unchanged snapshots with a different property order do not create duplicate backups (4.7366ms)
+✔ retention scans keys without reading snapshots and never prunes another account (13.1542ms)
+✔ a failed insertion aborts pruning and leaves all previous versions intact (6.5444ms)
+✔ visible idle scans fall to 240 per hour; hidden scans pause and exits still save immediately (176.4668ms)
+(node:2944) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/notice-policy.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ a single network failure never shows a global service banner (0.955ms)
+✔ dismiss and ten-minute snooze suppress the banner without claiming synchronization succeeded (0.2631ms)
+✔ logging ordinary failures no longer creates a sticky global service error (10.0158ms)
+✔ transient connection errors stay pending until actual sync attempts repeatedly fail (0.4342ms)
+(node:34976) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/engine.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ concurrent field edits preserve insertion anchors on either device (3.6271ms)
+✔ stale device with year 2999 clock retains additions on both devices (59.6063ms)
+✔ same field changes persist both copies across restart and stop automatic writes (3.507ms)
+✔ resolve rechecks a newer cloud version and refuses to overwrite it (3.2132ms)
+✔ delete versus edit conflicts without resurrecting or deleting silently (3.3938ms)
+✔ lost post-commit response is retried with immutable operation ID once (3.425ms)
+✔ edit after lost commit gets a new operation ID and is safely reconciled (2.5143ms)
+✔ backup failure prevents cloud replacement and keeps the old local value (1.6602ms)
+✔ metadata without startup data rehydrates instead of uploading a deletion (1.5981ms)
+✔ unchanged full records are downloaded and notified only once for 100 pulls (16.6034ms)
+✔ pull reads changed records with bounded concurrency (31.9245ms)
+✔ large record parts download concurrently and retain their integrity check (180.3876ms)
+✔ JSON null is distinct from a tombstone when recreating deleted state (2.9228ms)
+✔ delta addresses IDs, handles deletion/reordering and blocks prototype pollution (1.4246ms)
+✔ independent field edits preserve a single-side reorder and reject conflicting orders (0.6176ms)
+✔ stale React snapshot cannot erase another tab additions and conflicting drafts remain downloadable (1.0041ms)
+✔ failed startup metadata read is retried without forgetting initial local intent (0.814ms)
+✔ a failed local application preserves the pending operation and its baseline (2.0434ms)
+✔ remote conflict choice cannot discard intent when local storage rejects the write (2.4999ms)
+✔ queued same-tab edits retain latest text and remote-only fields after a held lock (0.4653ms)
+✔ accepting remote conflict sends an acknowledged resolution operation to the server (3.5003ms)
+(node:85976) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/run-gate.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ manual requests during a running sync coalesce into one subsequent run (1.0053ms)
+✔ sync client outlasts the 45-second proxy deadline and retains caller cancellation (0.816ms)
+✔ smaller chunks preserve Unicode while maximum payload stays within 200 database parts (963.1017ms)
+✔ smaller request batches can drain all operations without dropping any (8.9743ms)
+✔ late-mounted sync panels retrieve active upload progress (0.2507ms)
+(node:45256) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/engine.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ real protocol errors defer transient failures, but keep auth and validation actionable (1.7213ms)
+✔ one failed read retries with jitter and recovers without a conflict (32.1771ms)
+✔ a timeout while reading the response body retries, but cancellation never retries (2.9737ms)
+✔ failed manifest does not block durable uploads or falsely report successful sync (11.1336ms)
+✔ auth failure is neither retried nor followed by an upload (0.859ms)
+✔ one timed-out record preserves other downloads and retries only the missing record next cycle (2.4071ms)
+✔ failed chunk resumes in the same tab; a new revision discards cached fragments (252.5488ms)
+✔ nested record/chunk downloads share four request slots (181.3079ms)
+✔ independent Chinese and emoji text edits merge on both devices while overlaps remain conflicts (3.6957ms)
+✔ background transport suppresses premature global errors while explicit transport reports them (0.7769ms)
+✔ unchanged large Schedule is downloaded once across repeated syncs (276.3472ms)
+✔ new revisions and missing or edited local data are not skipped (9.712ms)
+✔ deleted and string records are compared without converting their representation (0.1594ms)
+(node:57000) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/engine.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unchanged persisted conflicts do not redownload any full content during 20 polls (56.594ms)
+✔ resolving local differences checks only metadata, then uploads a delta (10.0683ms)
+✔ new local edits in a blocked record refresh the review without downloading the same cloud copy (2.7544ms)
+✔ an explicitly reviewed latest local value can become the exact merged result (7.0091ms)
+✔ cloud changes refresh both copies and reject stale imported results before any upload (3.3587ms)
+✔ an edit made while checking metadata is preserved and requires refreshed review (3.4631ms)
+✔ review changes are still rejected when the local backup fails or changes during backup (4.4227ms)
+✔ long text comparison keeps the actual changed passage visible (2.2434ms)
+✔ comparison matches ID records and preserves remote additions when selecting a field (3.1344ms)
+✔ selecting a deletion removes the record without modifying the source or resurrecting it (0.4499ms)
+✔ imports accept raw JSON or a matching export and reject wrong-key or ambiguous backups (0.5582ms)
+✔ comparison output is bounded and prototype-like field names remain inert (2.4045ms)
+(node:28968) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/service-error.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ server failure is distinct from a disconnected device or an auth response (1.8618ms)
+(node:28760) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/engine.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ A edits offline while unchanged B syncs first; A additions survive and both converge (30.181ms)
+✔ A offline edit merges with B edit uploaded first without asking the user (4.6509ms)
+✔ undo replaces a queued edit instead of uploading the abandoned value (2.143ms)
+✔ a persisted conflict automatically resolves after local content converges and acknowledges the server (5.389ms)
+✔ cloud rollback never lowers the baseline or overwrites local content (0.9866ms)
+✔ primitive append-only lists merge deterministically while removal stays a conflict (0.3093ms)
+✔ gzip upload compresses Chinese content before base64 and retains raw compatibility (64.1867ms)
+✔ gzip download parts preserve Unicode byte boundaries and hash input (46.4174ms)
+✔ bounded decompression rejects corrupt gzip and oversized expanded uploads or parts (73.8805ms)
+✔ the real engine negotiates gzip uploads and falls back to raw on an older server (72.5097ms)
+✔ the real engine downloads negotiated gzip parts and verifies the canonical content hash (120.4425ms)
+✔ backend accepts compressed uploads and advertises capability with negotiated downloads (19.5077ms)
+✔ persistent operation numbers survive empty queues and serialize concurrent tabs (65.3816ms)
+(node:83960) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/local-workspace.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cached remote and conflict decisions return current small, large and deleted records on both backends (222.8901ms)
+✔ missing latest data does not acknowledge or discard the local operation (15.6038ms)
+✔ applied retries preserve their original acknowledgment without another remote query (17.5732ms)
+(node:74824) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/bilibili-security.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ empty or malformed Schedule cannot replace populated cloud state (1.618ms)
+✔ Schedule safety is enforced at browser sync, API, and database boundary (19.0469ms)
+✔ canonical JSON is stable across object key order (1.0692ms)
+✔ sync value limit measures the JSON sent to the API (5.8011ms)
+✔ large sync transfer preserves Unicode and rejects data above the cap (135.4663ms)
+✔ three-way merge combines independent object changes (0.5885ms)
+✔ Cue progress in separate subjects merges without overwriting another subject (0.2736ms)
+✔ three-way merge preserves local data and reports same-field conflicts (0.1531ms)
+✔ stable-id arrays merge records while anonymous arrays conflict (0.3266ms)
+✔ delete and edit is preserved as an explicit conflict (0.2004ms)
+✔ sync batches deduplicate keys while preserving the oldest base and newest value (0.3165ms)
+✔ sync request batching stays below the server byte and operation limits (4.7568ms)
+✔ Bilibili validation blocks SSRF and bounds media ranges (0.4215ms)
+✔ security migration uses tenant RLS and restricted RPC grants (4.7439ms)
+✔ legacy iframe bridge cannot bypass the durable v2 outbox (3.8162ms)
+✔ answer-sheet sync has no service-role fallback and authenticates every method (4.3119ms)
+✔ web sync writes use bounded concurrency instead of a serial database waterfall (2.8174ms)
+✔ repair migration recreates the production sync RPC and preserves invoker security (3.2498ms)
+✔ automatic sync excludes its timestamp ledger and preserves explicit conflict choices (4.7685ms)
+✔ sync migration normalizes legacy JSON and resolves concurrent edits by per-key time (4.798ms)
+✔ topbar avatar bypasses the image proxy and falls back after a load error (2.3467ms)
+(node:53964) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/workspace-idle.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 30 minutes idle saves once before sleeping and activity wakes once (6.2558ms)
+✔ activity while saving cancels sleep and duplicate ticks do not save twice (0.4578ms)
+✔ disabled idle and failed local save do not sleep (0.6701ms)
+✔ sleep flush waits for ongoing and queued manual sync (0.3332ms)
+(node:78508) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/syf26/Desktop/JACKYUN/.tools/sync-review-3380/snapshot/jackyun-portal/src/lib/sync/engine.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\C:\Users\syf26\Desktop\JACKYUN\.tools\sync-review-3380\snapshot\jackyun-portal\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ acknowledgment retains a newer edit compacted into the uploaded ID and rebases its retry (1.205ms)
+✔ in-flight edits and deletions never match an older upload, including JSON null and plain text (0.1544ms)
+✔ four tabs idle for an hour share 61 cloud reads and no full-value downloads or uploads (2406.9921ms)
+✔ hidden and offline pages pause automatic requests; network recovery uploads edits inside the cooldown (107.7676ms)
+✔ a newer local edit during a conflict reply is preserved and requires an explicit choice (61.6642ms)
+✔ component unmount aborts an outstanding request without acknowledging its pending edit (63.3033ms)
+✔ idle read failures retry after backoff and resume without any local edits (60.7824ms)
+✔ a stationary foreground page receives another device edit without focus or local activity (32.0072ms)
+ℹ tests 150
+ℹ suites 0
+ℹ pass 150
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4588.5737

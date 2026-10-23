@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.37.0",
+  "version": "3.38.0",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -48,7 +48,7 @@
     "check:companion-sources": "node scripts/sync-companion-hosted-sources.mjs --check",
     "check:study-guide": "node scripts/check-study-guide.mjs",
     "check:studyplan-import": "node scripts/check-studyplan-import.mjs",
-    "test:sync": "node --test tests/sync-engine.test.mts tests/workspace-sync-recovery.test.mts tests/sync-performance.test.mts tests/azure-sync-proxy.test.mjs tests/sync-stale-remote.test.mjs tests/azure-record-export.test.mts tests/azure-page-backup.test.mts tests/azure-page-restore.test.mts tests/azure-automatic-backup.test.mts tests/azure-real-login-diag.test.mjs tests/sync-v2.test.mts tests/sync-remote-record.test.mts tests/workspace-idle.test.mts tests/service-notice.test.mts tests/announcements.test.mts tests/announcements-ui.test.mts tests/backup-center.test.mts tests/local-backup-performance.test.mts tests/sync-smart.test.mts tests/sync-reliability.test.mts tests/sync-service-error.test.mts",
+    "test:sync": "node --test tests/sync-engine.test.mts tests/workspace-sync-recovery.test.mts tests/sync-performance.test.mts tests/azure-sync-proxy.test.mjs tests/sync-stale-remote.test.mjs tests/azure-record-export.test.mts tests/azure-page-backup.test.mts tests/azure-page-restore.test.mts tests/azure-automatic-backup.test.mts tests/azure-real-login-diag.test.mjs tests/sync-v2.test.mts tests/sync-remote-record.test.mts tests/workspace-idle.test.mts tests/service-notice.test.mts tests/announcements.test.mts tests/announcements-ui.test.mts tests/backup-center.test.mts tests/local-backup-performance.test.mts tests/sync-smart.test.mts tests/sync-reliability.test.mts tests/sync-service-error.test.mts tests/sync-review.test.mts",
     "test:notification-polling": "node --test tests/notification-polling.test.mts",
     "test:beta": "node --test tests/beta-enrollment.test.mts",
     "test:ai-platform": "node --test tests/ai-platform.test.mts",
@@ -86,7 +86,8 @@
     "test:music-player-state-ui": "node tests/music-player-state.browser.mjs",
     "test:countdown-state-ui": "node tests/countdown-state.browser.mjs",
     "test:cue-route-draft-ui": "node tests/cue-route-draft.browser.mts",
-    "test:support-ui": "node tests/support-conversation.browser.mjs"
+    "test:support-ui": "node tests/support-conversation.browser.mjs",
+    "test:sync-review-ui": "node tests/sync-review.browser.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

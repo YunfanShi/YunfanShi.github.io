@@ -177,7 +177,10 @@ test('automatic sync excludes its timestamp ledger and preserves explicit confli
   assert.equal(isSyncableStorageKey('jackyun_goal_data'), true);
   assert.equal(isSyncableStorageKey('jackyun_schedule_control_v1'), true);
   const panel = await readFile(new URL('../src/components/settings/sync-center-panel.tsx', import.meta.url), 'utf8');
-  assert.match(panel, /保留本机差异并合并/);
+  assert.match(panel, /SyncConflictReview/);
+  const review = await readFile(new URL('../src/components/settings/sync-conflict-review.tsx', import.meta.url), 'utf8');
+  assert.match(review, /上传此合并结果/);
+  assert.match(review, /以本机完整内容作为结果/);
   assert.match(panel, /待处理冲突/);
   assert.doesNotMatch(panel, /冲突自动处理/);
 });

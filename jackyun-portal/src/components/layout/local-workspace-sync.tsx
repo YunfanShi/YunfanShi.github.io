@@ -16,7 +16,7 @@ import {backupIsDue,recordBackupChange,type PendingBackup} from '@/lib/backup/ca
 import {createDueBackupVersions} from '@/actions/backup-center';
 import {emitDiagnostic,errorDetails} from '@/lib/diagnostic-events';
 import {syncFailureStatus} from '@/lib/sync/service-error';
-import type {SyncStatus} from '@/types/sync';
+import type {SyncStatus,SyncResolutionRequest} from '@/types/sync';
 
 function localSnapshot(includeLarge = false): Record<string, string> {
   const snapshot: Record<string, string> = {};
@@ -122,8 +122,8 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       progress:progress=>{if(!cancelled){const current=getLatestSyncStatus();announce({...current??{state:'syncing',pending:0,conflicts:0,lastSyncedAt:null},progress});}},
       deviceId:syncStore.getOrCreateDeviceId,device:deviceDescription,cancelled:()=>cancelled||signingOut,now:Date.now,uuid:()=>crypto.randomUUID(),
     });
-    let queuedResolution: {operationId:string;choice:'local'|'remote'} | undefined;
-    async function sync(manual=false,allowHidden=false,resolution?:{operationId:string;choice:'local'|'remote'},reason=manual?'manual':'periodic') {
+    let queuedResolution: SyncResolutionRequest | undefined;
+    async function sync(manual=false,allowHidden=false,resolution?:SyncResolutionRequest,reason=manual?'manual':'periodic') {
       if(cancelled||signingOut||!bound||isWorkspaceSleeping())return;
       if(!manual&&!allowHidden&&document.visibilityState!=='visible'){await engine.capture();return;}
       if(resolution)queuedResolution=resolution;
@@ -138,9 +138,9 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           if(authPaused||Date.now()<retryAt)return;
           const [pending,conflicts,lastRead]=await Promise.all([syncStore.getOutbox(),syncStore.getConflicts(),getSetting<number>('lastAutomaticPull')]);
           const blocked=new Set(conflicts.map(c=>c.key));
-          if(!manual&&!pending.some(op=>!blocked.has(op.key))&&Date.now()-(lastRead??0)<60_000){await publish('synced');return;}
+          if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&Date.now()-(lastRead??0)<60_000){await publish('synced');return;}
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
-          if(queuedResolution){const choice=queuedResolution;queuedResolution=undefined;await engine.resolve(choice.operationId,choice.choice);}
+          if(queuedResolution){const choice=queuedResolution;await engine.resolve(choice.operationId,choice.choice,choice.review);if(queuedResolution===choice)queuedResolution=undefined;await engine.flush();}
           await engine.synchronize();
           await engine.capture();
           await syncStore.setSetting('lastAutomaticPull',Date.now());
@@ -155,6 +155,10 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         else await work();
       } catch(error) {
         if(cancelled||signingOut)return;
+        if(error instanceof Error && error.name==='SyncReviewChangedError') {
+          queuedResolution=undefined;
+          await publish('conflict',undefined,error.message);return;
+        }
         failures++;retryAt=Date.now()+syncRetryDelay(failures);
         authPaused=shouldPauseSync(error)||(error as {status?:number}).status===426;
         emitDiagnostic('error','WorkspaceSync','同步未确认，原始内容与待上传修改保留',{error:errorDetails(error),failures,online:navigator.onLine});
@@ -171,7 +175,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const onWake=()=>void sync(false,false,undefined,'resume');
     const onOffline=()=>void publish('offline_pending');
     const onRetry=()=>void sync(true);
-    const onResolve=(event:Event)=>{const detail=(event as CustomEvent<{operationId:string;choice:'local'|'remote'}>).detail;if(detail?.operationId&&['local','remote'].includes(detail.choice))void sync(true,false,detail);};
+    const onResolve=(event:Event)=>{const detail=(event as CustomEvent<SyncResolutionRequest>).detail;if(detail?.operationId&&['local','remote','merged'].includes(detail.choice))void sync(true,false,detail);};
     const onVisibility=()=>{if(document.visibilityState==='visible')void sync();else void engine.capture();};
     const onLeave=()=>void engine.capture();
     const onSignOut=()=>{signingOut=true;};

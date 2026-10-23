@@ -51,6 +51,20 @@ export interface SyncConflict {
   paths?: string[];
 }
 
+export type SyncResolutionChoice = 'local' | 'remote' | 'merged';
+export interface SyncResolutionReview {
+  expectedLocal: string | null;
+  remoteRevision: number;
+  remoteHash: string | null;
+  value?: unknown;
+  deleted?: boolean;
+}
+export interface SyncResolutionRequest {
+  operationId: string;
+  choice: SyncResolutionChoice;
+  review?: SyncResolutionReview;
+}
+
 export interface SyncStatusDetail {
   state: SyncStatus;
   pending: number;

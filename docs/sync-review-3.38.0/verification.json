@@ -1,0 +1,32 @@
+{
+  "version": "3.38.0",
+  "baseline": "f35d6d6df416ed173542b38064797abb06b6bcf1",
+  "date": "2026-10-23",
+  "syncRegression": {
+    "passed": 150,
+    "failed": 0
+  },
+  "browser": {
+    "passed": 5,
+    "viewports": [
+      1440,
+      390,
+      1024
+    ],
+    "scope": "Actual sync center, coordinator, engine, IndexedDB; synthetic identity and loopback cloud"
+  },
+  "eslint": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "productionBuild": "passed",
+  "document": {
+    "pages": 3,
+    "renderer": "LibreOffice and Poppler",
+    "reviewed": "All page images"
+  },
+  "limits": [
+    "No real-account physical two-device weak-network roundtrip",
+    "Unqueued import previews and reviewed selections are retained only in the current open page"
+  ]
+}
