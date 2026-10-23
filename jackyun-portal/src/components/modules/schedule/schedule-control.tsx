@@ -1829,7 +1829,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     if (mode === 'cue') { (await startCueStudy({ ...task, cueIds: items.map((item) => item.id), scope: { ...task.scope, cueIds: items.map((item) => item.id) } }, shuffled)); return; }
     const cueIds = items.filter((item) => item.kind === 'cue').map((item) => item.id);
     const questionIds = items.filter((item) => item.kind === 'question').map((item) => item.id);
-    const batchSize = items.length > 20 && cueIds.length > 0 && (mode === 'cue' || mode === 'mixed') ? 20 : undefined;
+    const batchSize = items.length > 20 && cueIds.length > 0 && mode === 'mixed' ? 20 : undefined;
     const draft: StudyDraft = { id, mode, task: { ...task, cueIds, questionIds, scope: { ...task.scope, cueIds, questionIds } }, items, ...(batchSize ? { batchSize } : {}), index: 0, revealed: {}, responses: {}, assessments: {}, updatedAt: new Date().toISOString() };
     commitQuestionBank({ ...questionBank, drafts: { ...questionBank.drafts, [id]: draft } });
     setActiveStudyId(id); setStudyPreviewTask(null);
