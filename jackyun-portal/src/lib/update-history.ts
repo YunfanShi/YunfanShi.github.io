@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.36.0', date: '2026-10-23', dateLabel: '2026 年 10 月 23 日', title: '手表学术数学排版', summary: 'Products 更新 JackYun Watch 2.2.0-beta.1，离线渲染 KaTeX 支持范围内的 LaTeX 与 AMS 数学表达式。', categories: ['学习体验', '平台体验'], accent: 'blue', highlights: ['随 APK 内置 KaTeX，支持分数、根式、矩阵、分段函数、对齐公式、希腊字母、积分与关系符号。', '公式在本地排版，不依赖联网资源；流式生成阶段保持轻量文本，完成后统一呈现。', 'Products 发布与现有测试签名兼容的 2.2.0-beta.1 通用 APK。'] },
   { version: '3.35.0', date: '2026-10-23', dateLabel: '2026 年 10 月 23 日', title: 'Watch AI 与数学显示升级', summary: 'Products 发布 2.1.1-beta.1 手表安装包，改进 AI 辅导、常用 LaTeX 显示和流式回答稳定性。', categories: ['平台体验', '稳定性'], accent: 'blue', highlights: ['PRODUCTS 提供与既有测试证书兼容的 2.1.1-beta.1 通用 APK。', 'AI 回答支持常用分数、根式、上下标、希腊字母和关系符号。', '手表界面减少流式重排，旧版 Android 提升提醒通知优先级。'] },
   { version: '3.34.2', date: '2026-10-23', dateLabel: '2026 年 10 月 23 日', title: '同步下载恢复与自动合并修复', summary: '限制整轮下载并发，超时后自动补读失败分片，单条失败不再阻塞其他同步。', categories: ['稳定性'], accent: 'blue', highlights: ['后台暂时故障进入自动重试，持续失败仍保留可见状态和待上传数据。', '同一标签页保留已下载分片，云端版本变化后重新校验；刷新页面后重新下载。', '多段文本中互不重叠的修改自动合并，重叠修改与删除冲突保留两份供选择。'] },
   { version: '3.34.1', date: '2026-10-23', dateLabel: '2026 年 10 月 23 日', title: 'CUE 分组学习部署修复', summary: '修复联合学习分组条件的类型检查错误，恢复 3.34.0 功能版本的生产部署。', categories: ['稳定性'], accent: 'blue', highlights: ['联合学习在独立 CUE 分支提前返回后，只对混合学习判断分组条件，避免不可达条件导致 Next.js 构建失败。'] },
