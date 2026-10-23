@@ -15,10 +15,34 @@ function hasStableIds(value: unknown[]): value is Array<Record<string, unknown> 
     && new Set(value.map(item => (item as { id: string }).id)).size === value.length;
 }
 
+/** Merge disjoint text edits against the same base, including multi-line drafts.
+ * Ambiguous overlapping edits still retain both copies for explicit resolution.
+ */
+function mergeText(base:string,local:string,remote:string): string | undefined {
+  const edit=(next:string)=>{
+    let start=0,end=base.length,nextEnd=next.length;
+    while(start<end && start<nextEnd && base[start]===next[start])start++;
+    while(end>start && nextEnd>start && base[end-1]===next[nextEnd-1]){end--;nextEnd--;}
+    return {start,end,text:next.slice(start,nextEnd)};
+  };
+  const a=edit(local),b=edit(remote);
+  // Touching insertion/deletion boundaries are ambiguous; be conservative.
+  const [first,second]=a.start<b.start?[a,b]:[b,a];
+  if(first.end>=second.start)return undefined;
+  return base.slice(0,first.start)+first.text+base.slice(first.end,second.start)+second.text+base.slice(second.end);
+}
+
 export function threeWayMerge(base: unknown, local: unknown, remote: unknown, path = '$'): MergeResult {
   if (equal(local, remote)) return { merged: local, conflicts: [] };
   if (equal(local, base)) return { merged: remote, conflicts: [] };
   if (equal(remote, base)) return { merged: local, conflicts: [] };
+
+  // Only prose with paragraph boundaries: opaque IDs, URLs and enum settings
+  // must never be spliced into a third value neither device selected.
+  if(typeof base==='string' && base.includes('\n') && typeof local==='string' && typeof remote==='string') {
+    const merged=mergeText(base,local,remote);
+    if(merged!==undefined)return {merged,conflicts:[]};
+  }
 
   if ((base === undefined || base === null || isObject(base)) && isObject(local) && isObject(remote)) {
     const original = isObject(base) ? base : {};

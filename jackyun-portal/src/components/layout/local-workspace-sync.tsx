@@ -118,7 +118,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       write:(key,value)=>{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value);},
       backup:async key=>{if(isBackupableLegacyKey(key))await saveLocalBackup(userId,legacyBackupPage(key),localPageValues(localSnapshot(true),legacyBackupPage(key)));},
       changed:keys=>window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{keys,source:'cloud'}})),
-      request:(url,init)=>fetchSyncWithTimeout(url,{...init,headers:{...init?.headers,'X-Sync-Reason':requestReason},signal:controller.signal}),
+      request:(url,init)=>fetchSyncWithTimeout(url,{...init,headers:{...init?.headers,'X-Sync-Reason':requestReason},signal:controller.signal},false),
       progress:progress=>{if(!cancelled){const current=getLatestSyncStatus();announce({...current??{state:'syncing',pending:0,conflicts:0,lastSyncedAt:null},progress});}},
       deviceId:syncStore.getOrCreateDeviceId,device:deviceDescription,cancelled:()=>cancelled||signingOut,now:Date.now,uuid:()=>crypto.randomUUID(),
     });
@@ -141,8 +141,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           if(!manual&&!pending.some(op=>!blocked.has(op.key))&&Date.now()-(lastRead??0)<60_000){await publish('synced');return;}
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
           if(queuedResolution){const choice=queuedResolution;queuedResolution=undefined;await engine.resolve(choice.operationId,choice.choice);}
-          await engine.pull();
-          await engine.flush();
+          await engine.synchronize();
           await engine.capture();
           await syncStore.setSetting('lastAutomaticPull',Date.now());
           const remaining=await syncStore.getOutbox(), unresolved=await syncStore.getConflicts();

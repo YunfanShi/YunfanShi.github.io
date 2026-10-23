@@ -3,6 +3,7 @@ import { createRecordDelta } from './delta.ts';
 import { threeWayMerge } from './merge.ts';
 import { storageValueToString, isSyncableStorageKey } from '../local-workspace.ts';
 import { operationMatchesStorage } from './acknowledgment.ts';
+import { isServerUnavailable } from './service-error.ts';
 import { joinSyncParts, splitSyncBody, splitCompressedSyncBody, decodeSyncPart, MAX_SYNC_PARTS } from './transfer.ts';
 import type { SyncOperation, SyncRecord, SyncConflict } from '../../types/sync.ts';
 
@@ -31,6 +32,7 @@ export interface SyncEnvironment {
   cancelled(): boolean;
   now(): number;
   uuid(): string;
+  wait?(milliseconds: number): Promise<void>;
 }
 
 const parse = (value: string | null | undefined): unknown => {
@@ -40,15 +42,18 @@ const parse = (value: string | null | undefined): unknown => {
 const SYNC_READ_CONCURRENCY = 4;
 async function mapWithConcurrency<T, R>(items: readonly T[], concurrency: number, task: (item: T, index: number) => Promise<R>): Promise<R[]> {
   const results = new Array<R>(items.length);
+  const errors: unknown[] = [];
   let next = 0;
   async function worker() {
     for (;;) {
       const index = next++;
       if (index >= items.length) return;
-      results[index] = await task(items[index], index);
+      try { results[index] = await task(items[index], index); }
+      catch(error) { errors.push(error); }
     }
   }
   await Promise.all(Array.from({ length: Math.min(items.length, concurrency) }, worker));
+  if (errors.length) throw errors[0];
   return results;
 }
 const same = (left: unknown, right: unknown) => (left === undefined) === (right === undefined) && canonicalJson(left) === canonicalJson(right);
@@ -71,17 +76,50 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   let observed = e.snapshot();
   let captured=false;
   let compressedUploads=false;
-  async function json(url: string, init?: RequestInit): Promise<Record<string, unknown>> {
-    const response = await e.request(url,init);
-    if (e.cancelled()) throw new DOMException('Sync cancelled','AbortError');
-    const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
-    if (!response.ok) {
-      const error = typeof payload?.error === 'object' ? payload.error as {code?: string;message?:string} : {code:String(payload?.code ?? payload?.error ?? '')};
-      throw new SyncProtocolError(error?.code === 'SYNC_UPGRADE_REQUIRED' ? '请刷新所有设备的旧页面后再同步；本机修改已保留。'
-        : `同步请求未完成 (${response.status}${error?.code ? ` · ${error.code}` : ''})`,response.status);
+  // Revision-bound parts survive a failed cycle in this tab. Never combine
+  // fragments from different revisions; bound retained transfer memory.
+  const downloads = new Map<string, Map<number, {count:number;data:string}>>();
+  let cachedBytes = 0;
+  let activeRequests = 0;
+  const requestWaiters: Array<()=>void> = [];
+  function dropDownload(id:string) {
+    for (const part of downloads.get(id)?.values() ?? []) cachedBytes -= part.data.length;
+    downloads.delete(id);
+  }
+  async function requestJson(url: string, init?: RequestInit): Promise<Record<string, unknown>> {
+    // Share one budget across records AND their chunks (4 x 4 is not 4).
+    if (activeRequests >= SYNC_READ_CONCURRENCY) await new Promise<void>(resolve=>requestWaiters.push(resolve));
+    else activeRequests++;
+    try {
+      if (e.cancelled()) throw new DOMException('Sync cancelled','AbortError');
+      const response = await e.request(url,init);
+      if (e.cancelled()) throw new DOMException('Sync cancelled','AbortError');
+      const payload = await response.json().catch(error => {
+        if (error instanceof SyntaxError) return null;
+        throw error; // A timeout while streaming the body is a retryable read too.
+      }) as Record<string, unknown> | null;
+      if (!response.ok) {
+        const error = typeof payload?.error === 'object' ? payload.error as {code?: string;message?:string} : {code:String(payload?.code ?? payload?.error ?? '')};
+        throw new SyncProtocolError(error?.code === 'SYNC_UPGRADE_REQUIRED' ? '请刷新所有设备的旧页面后再同步；本机修改已保留。'
+          : `同步请求未完成 (${response.status}${error?.code ? ` · ${error.code}` : ''})`,response.status);
+      }
+      if (!payload || payload.ok !== true) throw Error('同步响应未确认，修改已保留。');
+      return payload;
+    } finally {
+      const next=requestWaiters.shift();
+      if(next)next();else activeRequests--;
     }
-    if (!payload || payload.ok !== true) throw Error('同步响应未确认，修改已保留。');
-    return payload;
+  }
+  async function json(url: string, init?: RequestInit): Promise<Record<string, unknown>> {
+    for (let attempt=0;;attempt++) {
+      try { return await requestJson(url,init); }
+      catch (error) {
+        // Mutations retain their durable operation IDs and retry next cycle.
+        // Only safe reads get one short, jittered retry here.
+        if (e.cancelled() || attempt >= 1 || (init?.method && init.method !== 'GET') || !isServerUnavailable(error,true)) throw error;
+        await (e.wait ?? (ms=>new Promise(resolve=>setTimeout(resolve,ms))))(500+Math.floor(Math.random()*500));
+      }
+    }
   }
   function validate(record: SyncRecord) {
     if (!record || !isSyncableStorageKey(record.key) || !Number.isSafeInteger(record.revision) || record.revision < 0
@@ -90,20 +128,33 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   async function materialize(record: SyncRecord): Promise<SyncRecord> {
     validate(record);
     if (!record.large || record.deleted) return record;
+    const downloadId = JSON.stringify([record.key,record.revision,record.contentHash]);
+    for (const id of downloads.keys()) if (JSON.parse(id)[0] === record.key && id !== downloadId) dropDownload(id);
     const readPart = async (part: number, expectedCount?: number) => {
+      const cached = downloads.get(downloadId)?.get(part);
+      if (cached && (expectedCount === undefined || cached.count === expectedCount)) return cached;
       e.progress(`下载分片 ${part+1}${expectedCount ? ` / ${expectedCount}` : ''}`);
       const chunk = await json(`/api/sync/v2/large?key=${encodeURIComponent(record.key)}&revision=${record.revision}&part=${part}${typeof DecompressionStream === 'function' ? '&encoding=gzip' : ''}`);
       if (chunk.revision !== record.revision || chunk.part !== part || !Number.isInteger(chunk.count) || Number(chunk.count) < 1 || Number(chunk.count) > MAX_SYNC_PARTS
         || typeof chunk.data !== 'string' || (expectedCount !== undefined && chunk.count !== expectedCount)) throw Error('同步分片不完整，原始数据已保留。');
-      return { count: Number(chunk.count), data: await decodeSyncPart(chunk.data,chunk.encoding) };
+      const decoded = { count: Number(chunk.count), data: await decodeSyncPart(chunk.data,chunk.encoding) };
+      if (cachedBytes+decoded.data.length > 32_000_000) { downloads.clear(); cachedBytes=0; }
+      if (!downloads.has(downloadId)) downloads.set(downloadId,new Map());
+      downloads.get(downloadId)!.set(part,decoded); cachedBytes+=decoded.data.length;
+      return decoded;
     };
     const first = await readPart(0);
     const remaining = await mapWithConcurrency(Array.from({ length: first.count - 1 }, (_, index) => index + 1), SYNC_READ_CONCURRENCY,
       (part) => readPart(part, first.count));
     const parts = [first.data, ...remaining.map((part) => part.data)];
-    const value = joinSyncParts(parts);
+    let value: unknown;
+    try { value = joinSyncParts(parts); }
+    catch(error) { dropDownload(downloadId); throw error; }
     const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(value)));
-    if (record.contentHash && [...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('') !== record.contentHash) throw Error('同步内容校验失败，原始数据已保留。');
+    if (record.contentHash && [...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('') !== record.contentHash) {
+      dropDownload(downloadId); throw Error('同步内容校验失败，原始数据已保留。');
+    }
+    dropDownload(downloadId);
     return {...record,value,large:false};
   }
   async function readRecord(key: string): Promise<SyncRecord | null> {
@@ -188,6 +239,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   }
   async function pull() {
     let after = ''; let scanned = 0;
+    let deferred: unknown;
     const metadata = new Map((await store.getMetadata()).map(r=>[r.key,r]));
     const pendingKeys = new Set((await store.getOutbox()).map(op=>op.key));
     for (;;) {
@@ -206,13 +258,22 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
           && (base.deleted || e.read(descriptor.key) !== null || pendingKeys.has(descriptor.key))) continue;
         toRead.push(descriptor);
       }
-      const records = await mapWithConcurrency(toRead, SYNC_READ_CONCURRENCY, (descriptor) => readRecord(descriptor.key));
-      for (const record of records) if (record) await reconcile(record);
+      const records = await mapWithConcurrency(toRead, SYNC_READ_CONCURRENCY, async (descriptor) => {
+        try { return {record:await readRecord(descriptor.key)}; }
+        catch(error) { return {error}; }
+      });
+      for (const result of records) {
+        if ('error' in result) {
+          if (!isServerUnavailable(result.error,true)) throw result.error;
+          deferred ??= result.error;
+        } else if (result.record) await reconcile(result.record);
+      }
       if (scanned > 20_000) throw Error('单次同步记录超过上限，修改已保留。');
       if (page.next === null) break;
       if (!page.records.length || page.next !== previous || byteOrder(previous,after) <= 0) throw Error('同步游标没有前进。');
       after = previous;
     }
+    if (deferred) throw deferred;
   }
   async function flush() {
     const attempts = new Map<string,number>();
@@ -292,5 +353,16 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     await store.saveMetadata(remote);
     await store.removeConflict(operationId);
   }
-  return {capture,pull,flush,resolve};
+  async function synchronize() {
+    let deferred: unknown;
+    try { await pull(); } catch (error) {
+      if (!isServerUnavailable(error,true) || e.cancelled()) throw error;
+      deferred=error;
+    }
+    // Failed reads must not starve unrelated durable uploads. The server's
+    // revision/hash checks still protect every write from stale overwrites.
+    await flush();
+    if (deferred) throw deferred;
+  }
+  return {capture,pull,flush,resolve,synchronize};
 }

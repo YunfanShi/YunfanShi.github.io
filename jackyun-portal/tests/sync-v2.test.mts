@@ -32,7 +32,7 @@ test('Schedule safety is enforced at browser sync, API, and database boundary', 
   const server = await readFile(new URL('../src/lib/sync/server.ts', import.meta.url), 'utf8');
   const migration = await readFile(new URL('../supabase/migrations/20260923235541_schedule_version_backups.sql', import.meta.url), 'utf8');
   assert.match(browser, /createWorkspaceSync/);
-  assert.match(browser, /await engine.pull\(\);\s+await engine.flush\(\);/);
+  assert.match(browser, /await engine.synchronize\(\);/);
   assert.match(route, /applySyncBody/);
   assert.match(server, /unsafeScheduleReplacement/);
   assert.match(migration, /before update on public\.legacy_sync_data/i);

@@ -17,10 +17,10 @@ test('manual requests during a running sync coalesce into one subsequent run', (
   assert.equal(gate.finish(), false);
 });
 
-test('sync requests allow 45 seconds and retain caller cancellation', async () => {
+test('sync client outlasts the 45-second proxy deadline and retains caller cancellation', async () => {
   const originalFetch = globalThis.fetch;
   const originalTimeout = AbortSignal.timeout;
-  AbortSignal.timeout = (ms) => { assert.equal(ms, 45_000); return new AbortController().signal; };
+  AbortSignal.timeout = (ms) => { assert.equal(ms, 60_000); return new AbortController().signal; };
   globalThis.fetch = async (_input, init) => {
     assert.equal(init?.signal?.aborted, true);
     throw init?.signal?.reason;

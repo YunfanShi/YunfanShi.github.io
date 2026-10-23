@@ -1,0 +1,30 @@
+{
+  "version": "3.34.2",
+  "date": "2026-10-23",
+  "baseline": "35c630afe2d6e3ca15af67cdeb6a97622ae43429",
+  "syncRegression": {
+    "total": 138,
+    "passed": 138,
+    "failed": 0
+  },
+  "eslint": {
+    "errors": 0,
+    "warnings": 0,
+    "scope": "Changed synchronization modules, component and new tests"
+  },
+  "productionBuild": "passed",
+  "document": {
+    "pages": 3,
+    "renderer": "LibreOffice and Poppler",
+    "visualInspection": "all pages reviewed"
+  },
+  "limits": [
+    "Physical two-device authenticated weak-network roundtrip not performed",
+    "Download fragment checkpoints last only within the same open tab"
+  ],
+  "references": [
+    "https://docs.couchdb.org/en/stable/replication/protocol.html",
+    "https://doc.replicache.dev/concepts/how-it-works",
+    "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/"
+  ]
+}

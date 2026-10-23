@@ -12,7 +12,9 @@ export class SyncHttpError extends Error {
 }
 
 export function isServerUnavailable(error: unknown, online: boolean): boolean {
-  return online && ((error instanceof SyncHttpError && error.status >= 500) || error instanceof TypeError || (error instanceof Error && error.name === 'TimeoutError'));
+  const status = error && typeof error === 'object' && 'status' in error ? error.status : undefined;
+  return online && ((typeof status === 'number' && (status >= 500 || status === 408 || status === 429))
+    || error instanceof TypeError || (error instanceof Error && error.name === 'TimeoutError'));
 }
 
 export function syncFailureStatus(error: unknown, online: boolean, failures: number): SyncStatus {
