@@ -383,4 +383,5 @@ main, nav, [data-scroll-region], .quiz-scroll {
 [data-portal-main][data-page-size="large"] :is(p, li, label, .text-sm) { font-size: max(1em, 16px); line-height: 1.7; }
 [data-portal-main][data-page-spacing="compact"] { padding: 12px; }
 [data-portal-main][data-page-spacing="compact"] :is(.gap-6, .gap-8) { gap: 12px; }
+html:not([data-dialog-motion='true']) [role='dialog'] { animation: none !important; transition: none !important; }
 [data-portal-main][data-page-motion="false"] *, [data-portal-main][data-page-motion="false"] *::before, [data-portal-main][data-page-motion="false"] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }

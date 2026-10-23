@@ -21,7 +21,6 @@ export default function CloudSettingsHydrator({ appearance, interfaceCustomizati
     } catch {}
   }, [learning, learningUpdatedAt, signedIn]);
   useEffect(() => {
-    if (!signedIn || Object.keys(appearance).length === 0) return;
     let resolved = appearance;
     try {
       const localRaw = localStorage.getItem(LOCAL_KEY);
@@ -33,6 +32,8 @@ export default function CloudSettingsHydrator({ appearance, interfaceCustomizati
         if (updatedAt) localStorage.setItem(LOCAL_UPDATED_KEY, updatedAt);
       }
     } catch {}
+    document.documentElement.dataset.dialogMotion = resolved.dialogAnimations === true ? 'true' : 'false';
+    if (!signedIn || Object.keys(appearance).length === 0) return;
     const theme = resolved.theme === 'gray' || resolved.theme === 'dark' ? resolved.theme : 'light';
     localStorage.setItem('jackyun_theme', theme);
     document.documentElement.dataset.theme = theme;

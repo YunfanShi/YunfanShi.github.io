@@ -12,7 +12,13 @@ export const CUE_GAME_UNLOCKS = [
 
 export function cueStudyPreferences(value: unknown) {
   const settings = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-  return { cueGameEnabled: settings.cueGameEnabled === true, cueShuffle: settings.cueShuffle !== false };
+  return {
+    cueGameEnabled: settings.cueGameEnabled === true,
+    cueShuffle: settings.cueShuffle !== false,
+    cueItemMotion: settings.cueItemMotion !== false,
+    cueCelebrationMotion: settings.cueCelebrationMotion === true,
+    cueAmbientMotion: settings.cueAmbientMotion === true,
+  };
 }
 
 /** One reward per Cue per local calendar day, independent of rating and session. */

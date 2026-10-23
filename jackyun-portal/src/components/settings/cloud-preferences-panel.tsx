@@ -6,13 +6,15 @@ import { PREFERENCES_CHANGED, SETTINGS_PENDING_KEY } from '@/lib/page-preference
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 interface Field { key: string; label: string; description: string; type: 'boolean' | 'number' | 'select'; min?: number; max?: number; options?: Array<{ value: string; label: string }>; }
+interface QuickSet { label: string; values: Record<string, unknown>; }
 
-export default function CloudPreferencesPanel({ sectionKey, initialValue, fields }: { sectionKey: SettingsKey; initialValue: Record<string, unknown>; fields: Field[] }) {
+export default function CloudPreferencesPanel({ sectionKey, initialValue, fields, quickSets = [] }: { sectionKey: SettingsKey; initialValue: Record<string, unknown>; fields: Field[]; quickSets?: QuickSet[] }) {
   const { signedIn, userId } = useAuthMode();
   const owner = userId ?? 'guest';
   const savedRef = useRef(false);
   const dirtyFields = useRef(new Set<string>());
   function update(key: string, next: unknown) { dirtyFields.current.add(key); savedRef.current = false; setStatus('有未保存修改'); setValue(current => ({ ...current, [key]: next })); }
+  function applyQuickSet(values: Record<string, unknown>) { for (const [key, next] of Object.entries(values)) update(key, next); }
   const initialRef = useRef(initialValue);
   const [value, setValue] = useState(initialValue);
   const [status, setStatus] = useState('');
@@ -45,6 +47,7 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-density', value.density === 'compact' ? 'compact' : 'comfortable');
     document.documentElement.setAttribute('data-reduced-motion', value.reducedMotion === true ? 'true' : 'false');
+    document.documentElement.dataset.dialogMotion = value.dialogAnimations === true ? 'true' : 'false';
     document.documentElement.style.setProperty('color-scheme', theme === 'light' ? 'light' : 'dark');
     document.querySelectorAll('iframe').forEach((frame) => frame.contentWindow?.postMessage({ type: 'jackyun-theme', theme }, '*'));
     window.dispatchEvent(new StorageEvent('storage', { key: 'show_fullscreen_btn', newValue: String(showFullscreen) }));
@@ -82,6 +85,7 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
     window.dispatchEvent(new Event(PREFERENCES_CHANGED));
   }
   return <div className="space-y-1">
+    {quickSets.length > 0 && <div className="flex flex-wrap items-center gap-2 border-b border-[var(--card-border)] py-3"><span className="text-sm text-[var(--muted-foreground)]">快速设置</span>{quickSets.map((item) => <button key={item.label} type="button" onClick={() => applyQuickSet(item.values)} className="min-h-10 rounded-lg border border-[var(--card-border)] px-3 text-sm">{item.label}</button>)}</div>}
     {fields.map((field) => <label key={field.key} className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--card-border)] py-4 last:border-0"><span className="min-w-0 flex-1 basis-48"><strong className="block text-sm font-medium">{field.label}</strong><small className="mt-1 block leading-5 text-[var(--muted-foreground)]">{field.description}</small></span>{field.type === 'boolean' ? <input type="checkbox" checked={value[field.key] === true} onChange={(event) => update(field.key, event.target.checked)} className="h-5 w-5 shrink-0" /> : field.type === 'number' ? <input type="number" min={field.min} max={field.max} value={Number(value[field.key] ?? field.min ?? 0)} onChange={(event) => update(field.key, Number(event.target.value))} className="w-24 rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2" /> : <select value={String(value[field.key] ?? field.options?.[0]?.value ?? '')} onChange={(event) => update(field.key, event.target.value)} className="min-h-11 w-full sm:w-44 rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2">{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>}</label>)}
     <div className="flex flex-wrap items-center gap-3 pt-4"><button type="button" onClick={save} className="rounded-xl bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">保存设置</button>{status && <span className="text-xs text-[var(--muted-foreground)]">{status}</span>}</div>
   </div>;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { cueEncouragement, cueAnimationPlan, cueGameProgress, cueStarAlbum, cueStarPosition, cueStarWeek, cueConstellations, CUE_STAR_COLORS, CUE_LEVEL_XP, type CueStar, type CueStarFeedback, type CueAnimationSituation } from '@/lib/learning/cue-game';
 import { dateKey, type CueReview, type StudyCue, type LearningRecord } from '@/lib/learning/schedule-control';
 import CuePracticeBurst from './cue-practice-burst';
@@ -9,7 +10,7 @@ import CueSkyViewer from './cue-sky-viewer';
 import { reconcileCueGameAccount, cueShopBalance, cueEquippedValue, type CueGameAccount, type CueShopAction } from '@/lib/learning/cue-shop';
 import { useCallback } from 'react';
 import CueUniverseBackdrop from './cue-universe-backdrop';
-import { useCueReducedMotion } from './use-cue-study-preferences';
+import { useCueReducedMotion, useCueStudyPreferences } from './use-cue-study-preferences';
 import styles from './cue-game-panel.module.css';
 import studyLayout from './cue-study-layout.module.css';
 import { useWorkspaceLayout } from '@/hooks/use-workspace-layout';
@@ -30,12 +31,16 @@ const emptyRecords: LearningRecord[] = [];
 export default function CueGamePanel({ reviews, cues = emptyCues, records = emptyRecords, animations: requestedAnimations = true, feedback, summary = false, initialAlbumOpen = false, onDismiss, account: savedAccount, onShopAction, sessionKey, sessionStartedAt, sessionCount, compact = false }: { account?: CueGameAccount; onShopAction?: (action: CueShopAction) => void; sessionKey?: string; sessionStartedAt?: string; sessionCount?: number; compact?: boolean; reviews: CueReview[]; cues?: StudyCue[]; records?: LearningRecord[]; animations?: boolean; feedback?: CueStarFeedback; summary?: boolean; initialAlbumOpen?: boolean; onDismiss?: () => void }) {
   const layout = useWorkspaceLayout();
   const reducedMotion = useCueReducedMotion();
-  const animations = requestedAnimations && !reducedMotion;
+  const { cueItemMotion, cueCelebrationMotion, cueAmbientMotion } = useCueStudyPreferences();
+  const animations = requestedAnimations && !reducedMotion && cueItemMotion;
+  const celebrationAnimations = animations && cueCelebrationMotion;
+  const ambientAnimations = requestedAnimations && !reducedMotion && cueAmbientMotion;
   const account = useMemo(() => reconcileCueGameAccount(savedAccount, reviews), [savedAccount, reviews]);
   const balance = cueShopBalance(account);
   const [shopOpen,setShopOpen] = useState(false);
   const [skyDay,setSkyDay] = useState<string>();
   const closeSky=useCallback(()=>setSkyDay(undefined),[]);
+  const [resultMessage, setResultMessage] = useState('');
   const [receipt,setReceipt]=useState<{stars:number;extra:number;xp:number}>();
   const credited=useRef(new Set(account.earnings.map(entry=>entry.id)));
   const sessionExtra=account.earnings.filter(entry=>entry.extra&&entry.sessionKey===sessionKey&&(!sessionStartedAt||entry.at>=sessionStartedAt)).reduce((sum,entry)=>sum+entry.stars,0);
@@ -49,14 +54,14 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
   },[account,summary]);
   useEffect(()=>{
     if (!receipt) return;
-    const timeout = setTimeout(() => setReceipt(undefined), 1000);
+    const timeout = setTimeout(() => setReceipt(undefined), 5000);
     return () => clearTimeout(timeout);
   },[receipt]);
   const progress = useMemo(() => cueGameProgress(reviews), [reviews]);
   const stars = useMemo(() => cueStarAlbum(reviews, cues, records), [reviews, cues, records]);
   const today = dateKey(new Date());
   const todayStars = useMemo(() => stars.filter((star) => star.day === today), [stars, today]);
-  const previous = useRef({ xp: progress.xp, count: progress.todayCount, level: progress.level, effort: progress.todayEffortCount });
+  const previous = useRef({ xp: progress.xp, count: progress.todayCount, level: balance.level, effort: progress.todayEffortCount });
   const variants = useRef(new Map<CueAnimationSituation, number>());
   const session = useRef({ seen: new Set<string>(), count: 0, streak: 0 });
   const handled = useRef<number | undefined>(feedback?.id);
@@ -76,9 +81,11 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
   const [period, setPeriod] = useState<'day' | 'week'>('day');
   useEffect(() => {
     const before = previous.current;
-    previous.current = { xp: progress.xp, count: progress.todayCount, level: progress.level, effort: progress.todayEffortCount };
+    previous.current = { xp: progress.xp, count: progress.todayCount, level: balance.level, effort: progress.todayEffortCount };
     if (!feedback || handled.current === feedback.id) return;
     handled.current = feedback.id;
+    const message = balance.level > before.level ? `升级至 Lv.${balance.level}` : feedback.retrieval ? '重练成果已保存' : '评价已保存，星光保留';
+    queueMicrotask(() => setResultMessage(message));
     if (!animations) return;
     const gained = Math.max(0, progress.xp - before.xp);
     const milestone = Math.floor(progress.todayCount / 10) > Math.floor(before.count / 10);
@@ -88,7 +95,7 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
       session.current.count++;
       session.current.streak = feedback.status === 'stable' ? session.current.streak + 1 : 0;
     } else if (feedback.status !== 'stable') session.current.streak = 0;
-    const encouragement = fresh ? cueEncouragement(progress.todayEffortCount, session.current.streak, progress.level > before.level, milestone) : null;
+    const encouragement = fresh ? cueEncouragement(progress.todayEffortCount, session.current.streak, balance.level > before.level, milestone) : null;
     const situation = encouragement ?? (!gained ? 'updated' : feedback.status);
     const occurrence = variants.current.get(situation) ?? 0;
     variants.current.set(situation, occurrence + 1);
@@ -97,9 +104,11 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
     if (timer.current) clearTimeout(timer.current);
     queueMicrotask(() => { setCelebration(next); if (next.regular) setParticleShow(next); });
     timer.current = setTimeout(() => setCelebration(null), next.duration);
-  }, [animations, feedback, progress.xp, progress.todayCount, progress.level, progress.todayEffortCount]);
+  }, [animations, feedback, progress.xp, progress.todayCount, balance.level, progress.todayEffortCount]);
   useEffect(() => {
-    if (!animations || !summary || initialAlbumOpen || !progress.todayCount) return;
+    if (!summary || initialAlbumOpen || !progress.todayCount) return;
+    queueMicrotask(() => setResultMessage('学习完成，成果已保存'));
+    if (!animations) return;
     const next: Celebration = { id: -1, cueId: '', status: 'stable', gained: 0, milestone: true, ...cueAnimationPlan('finish', progress.todayCount) };
     queueMicrotask(() => setCelebration(next));
     timer.current = setTimeout(() => setCelebration(null), next.duration);
@@ -114,12 +123,12 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
     groups.set(key, [...(groups.get(key) ?? []), star]);
   }
   const subjects = [...new Map(stars.map((star) => [star.subjectId, star.subjectName])).entries()];
-  const globalTitle = activeCelebration?.situation === 'streak' ? `连续 ${activeCelebration.streak} 条通过` : activeCelebration?.situation === 'flow' ? `认真完成 ${activeCelebration.completed} 条复习` : activeCelebration?.situation === 'level' ? `升至 Lv.${progress.level}` : '新星座已点亮';
+  const globalTitle = activeCelebration?.situation === 'streak' ? `连续 ${activeCelebration.streak} 条通过` : activeCelebration?.situation === 'flow' ? `认真完成 ${activeCelebration.completed} 条复习` : activeCelebration?.situation === 'level' ? `升至 Lv.${balance.level}` : '新星座已点亮';
   const globalCelebration = activeCelebration && ['streak', 'flow', 'level', 'constellation'].includes(activeCelebration.situation);
-  return <>{particleShow && animations && <CuePracticeBurst key={`particles-${particleShow.id}`} variant={Number(cueEquippedValue(account,'effect') ?? (Math.floor((particleShow.completed ?? 4) / 4) - 1) % 3)} status={particleShow.status} count={particleShow.completed ?? 4} />}{globalCelebration && animations && <div key={`global-${activeCelebration.id}`} className={styles.globalCelebration} data-cue-global-celebration data-motion={animations} data-situation={activeCelebration.situation} data-variant={activeCelebration.variant} aria-hidden="true">
+  return <>{particleShow && celebrationAnimations && <CuePracticeBurst key={`particles-${particleShow.id}`} variant={Number(cueEquippedValue(account,'effect') ?? (Math.floor((particleShow.completed ?? 4) / 4) - 1) % 3)} status={particleShow.status} count={particleShow.completed ?? 4} />}{globalCelebration && celebrationAnimations && <div key={`global-${activeCelebration.id}`} className={styles.globalCelebration} data-cue-global-celebration data-motion={celebrationAnimations} data-situation={activeCelebration.situation} data-variant={activeCelebration.variant} aria-hidden="true">
     <div className={styles.aurora} /><svg className={styles.globalSky} viewBox="0 0 1000 700" preserveAspectRatio="none"><ellipse className={styles.globalOrbit} cx="500" cy="350" rx="430" ry="260" /><ellipse className={styles.globalOrbit} cx="500" cy="350" rx="370" ry="210" />{Array.from({ length: 18 }, (_, i) => <path key={i} className={styles.globalMeteor} d={`M${i % 2 ? 900 : 100} ${30 + i * 36} l${i % 2 ? -90 : 90} -45`} style={{ '--spark-delay': `${i * 45}ms` } as CSSProperties} />)}</svg>
     <div className={styles.globalTitle}><span>✦</span><strong>{globalTitle}</strong><small>{activeCelebration.situation === 'streak' ? '你正在建立扎实的掌握' : '每一次认真回忆，都留下星光'}</small></div>
-  </div>}{animations && particleShow && !activeCelebration && <button type="button" className={styles.celebration} onClick={() => setParticleShow(null)}>跳过动画</button>}{!summary && <CueUniverseBackdrop theme={theme} stars={todayStars} animations={animations} highlight={activeCelebration?.cueId} celebration={activeCelebration ?? undefined} />}<aside data-frame={cueEquippedValue(account,'frame')} className={styles.dock} data-cue-game data-motion={animations} data-summary={summary} data-situation={activeCelebration?.situation} data-variant={activeCelebration?.variant} aria-label="CUE 星空侧栏" style={{ '--star-color': activeCelebration ? CUE_STAR_COLORS[activeCelebration.status] : '#a5b4fc' } as CSSProperties}>
+  </div>}{celebrationAnimations && particleShow && !activeCelebration && <button type="button" className={styles.celebration} onClick={() => setParticleShow(null)}>跳过动画</button>}{!summary && <CueUniverseBackdrop theme={theme} stars={todayStars} animations={ambientAnimations} highlight={activeCelebration?.cueId} celebration={ambientAnimations ? activeCelebration ?? undefined : undefined} />}<aside data-feature="star-results" data-frame={cueEquippedValue(account,'frame')} className={styles.dock} data-cue-game data-motion={animations} data-summary={summary} data-situation={activeCelebration?.situation} data-variant={activeCelebration?.variant} aria-label="CUE 星空侧栏" style={{ '--star-color': activeCelebration ? CUE_STAR_COLORS[activeCelebration.status] : '#a5b4fc' } as CSSProperties}>
     <details data-cue-game-compact={compact} open={!compact || layout === 'desktop' ? true : undefined} className={studyLayout.game}><summary>✦ 本次星空 · {sessionCount ?? progress.todayCount} 颗星 · Lv.{balance.level}<span>查看成果</span></summary><div className={styles.panel} data-milestone={activeCelebration?.milestone || undefined}>
       <div className={styles.top}><span className={styles.eyebrow}>STAR JOURNAL</span>{onDismiss && <button type="button" onClick={onDismiss} aria-label="收起学习成果">×</button>}</div>
       <h2>{summary ? `今天完成 ${progress.todayCount} 条` : sessionCount !== undefined ? '本次星空' : '今日星空'}</h2>
@@ -135,12 +144,13 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
       <p className={styles.ship}>{cueEquippedValue(account,'title') ?? progress.ship.name}</p>
       <button type="button" ref={albumButton} className={styles.albumButton} onClick={() => setAlbumOpen(true)}>星空收藏 · {new Set(stars.map((star) => star.day)).size} 天</button>
       {onShopAction && <button type="button" className={styles.albumButton} onClick={()=>setShopOpen(true)}>✦ 星空商店 · {balance.stars} 点</button>}
+      {resultMessage && <p role="status" data-cue-result-feedback className={styles.celebration}>{resultMessage}</p>}
       <div className={styles.receiptSlot} aria-live="polite" aria-atomic="true">{receipt && <span data-cue-star-receipt className={styles.receipt}>✦ +{receipt.stars + receipt.extra} 星空点{receipt.extra > 0 ? ` · EXTRA +${receipt.extra}` : ""}</span>}</div>
       <p className={styles.rule}>每 5 条连接一组星座<br />记录保留，休息一天也不会消失</p>
-      {activeCelebration && <div key={`activeCelebration-${activeCelebration.id}`} className={styles.celebration} role="status"><span>{globalCelebration ? `✦ ${globalTitle}` : activeCelebration.situation === 'finish' ? '✦ 今天的星光已珍藏' : activeCelebration.situation === 'level' ? `✦ 升至 Lv.${progress.level}` : activeCelebration.milestone ? '✦ 新星座已点亮' : activeCelebration.regular ? `✦ 今天完成 ${progress.todayEffortCount} 次检索` : activeCelebration.gained ? `+${activeCelebration.gained} XP · 星光已收下` : feedback?.retrieval ? '间隔重练已记录 · 每次认真回忆都有价值' : '评价已更新，星光保留'}</span><button type="button" onClick={() => { setCelebration(null); setParticleShow(null); }}>跳过动画</button></div>}
+      {activeCelebration && <div key={`activeCelebration-${activeCelebration.id}`} className={styles.celebration} role="status"><span>{globalCelebration ? `✦ ${globalTitle}` : activeCelebration.situation === 'finish' ? '✦ 今天的星光已珍藏' : activeCelebration.situation === 'level' ? `✦ 升至 Lv.${balance.level}` : activeCelebration.milestone ? '✦ 新星座已点亮' : activeCelebration.regular ? `✦ 今天完成 ${progress.todayEffortCount} 次检索` : activeCelebration.gained ? `+${activeCelebration.gained} XP · 星光已收下` : feedback?.retrieval ? '间隔重练已记录 · 每次认真回忆都有价值' : '评价已更新，星光保留'}</span><button type="button" onClick={() => { setCelebration(null); setParticleShow(null); }}>跳过动画</button></div>}
     </div></details>
     {activeCelebration && activeCelebration.situation !== 'finish' && <div key={`flight-${activeCelebration.id}`} className={`${styles.flight} ${styles[activeCelebration.status]}`} aria-hidden="true"><span className={styles.cardGhost}>{activeCelebration.status === 'stable' ? '√' : activeCelebration.status === 'partial' ? '△' : '○'}</span><span className={styles.comet}>{Array.from({ length: 6 }, (_, i) => <i key={i} style={{ '--dust-x': `${Math.cos(i * Math.PI / 3) * 18}px`, '--dust-y': `${Math.sin(i * Math.PI / 3) * 18}px`, '--spark-delay': `${i * 30}ms` } as CSSProperties} />)}</span></div>}
-    {albumOpen && <div className={styles.album} role="dialog" aria-modal="true" aria-label="星空收藏册" tabIndex={-1} onKeyDown={(event) => {
+    {albumOpen && typeof document !== 'undefined' && createPortal(<div className={styles.album} role="dialog" aria-modal="true" aria-label="星空收藏册" tabIndex={-1} onKeyDown={(event) => {
       event.stopPropagation();
       if (event.key === 'Escape') closeAlbum();
       if (event.key === 'Tab') {
@@ -153,10 +163,10 @@ export default function CueGamePanel({ reviews, cues = emptyCues, records = empt
       <div className={styles.filters}><label>时间视图<select value={period} onChange={(event) => setPeriod(event.target.value as 'day' | 'week')}><option value="day">每天</option><option value="week">每周</option></select></label><label>学科<select value={subject} onChange={(event) => setSubject(event.target.value)}><option value="">全部学科</option>{subjects.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label></div>
       <p className={styles.albumNote}>复习记录生成的真实成果 · √ / △ / ○ 同样计入 · 随学习记录同步</p>
       <div className={styles.pages}>{[...groups].sort(([a], [b]) => b.localeCompare(a)).map(([day, items]) => <article key={day}><div><strong>{period === 'week' ? `${day} 起的一周` : day}</strong><span>{items.length} 颗星</span></div><button type="button" className={styles.dayView} aria-label={`查看 ${day} 星空`} onClick={()=>setSkyDay(period==='day'?day:items[0].day)}><CueStarSky stars={items} /></button>{period==='week'&&<div>{[...new Set(items.map(star=>star.day))].sort().map(date=><button type="button" key={date} onClick={()=>setSkyDay(date)}>查看 {date}</button>)}</div>}<p>{[...new Set(items.map((star) => star.subjectName))].join(' · ')}</p></article>)}{!groups.size && <p>完成复习后，第一幅星空就会保存在这里。</p>}</div>
-    </div>}
+    </div>, document.body)}
   </aside>
 
   {shopOpen&&onShopAction&&<CueStarShop account={account} onAction={onShopAction} animations={animations} onClose={()=>setShopOpen(false)}/>}
-  {skyDay&&<CueSkyViewer day={skyDay} stars={stars.filter(star=>star.day===skyDay)} animations={animations} theme={theme} onClose={closeSky}/>}
+  {skyDay&&<CueSkyViewer day={skyDay} stars={stars.filter(star=>star.day===skyDay)} animations={ambientAnimations} theme={theme} onClose={closeSky}/>}
   </>;
 }

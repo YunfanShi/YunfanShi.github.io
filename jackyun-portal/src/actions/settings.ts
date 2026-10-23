@@ -130,11 +130,14 @@ function integer(value: unknown, min: number, max: number, fallback: number) { c
 function sanitizeSettingsSection(key: SettingsKey, value: Record<string, unknown>): Record<string, unknown> {
   if (key === 'page_preferences') return sanitizePagePreferences(value);
   if (key === 'general_preferences') return { startPage: oneOf(value.startPage, ['dashboard', 'study', 'time-management'], 'dashboard'), timezone: oneOf(value.timezone, ['auto', 'Asia/Shanghai'], 'auto'), notifications: value.notifications !== false };
-  if (key === 'appearance_preferences') return { theme: oneOf(value.theme, ['light', 'gray', 'dark'], 'light'), density: oneOf(value.density, ['comfortable', 'compact'], 'comfortable'), reducedMotion: value.reducedMotion === true, showFullscreen: value.showFullscreen !== false };
+  if (key === 'appearance_preferences') return { theme: oneOf(value.theme, ['light', 'gray', 'dark'], 'light'), density: oneOf(value.density, ['comfortable', 'compact'], 'comfortable'), reducedMotion: value.reducedMotion === true, dialogAnimations: value.dialogAnimations === true, showFullscreen: value.showFullscreen !== false };
   if (key === 'companion_preferences') return { enabled: value.enabled !== false, countAI: value.countAI !== false, idleSeconds: Number(oneOf(String(value.idleSeconds ?? ''), ['30', '60', '120', '300'], '60')), goalMinutes: integer(value.goalMinutes, 10, 1440, 120), retentionDays: Number(oneOf(String(value.retentionDays ?? ''), ['30', '90', '180', '365'], '365')), savePageTitles: value.savePageTitles === true };
   if (key === 'learning_preferences') return {
     cueGameEnabled: value.cueGameEnabled === true,
     cueShuffle: value.cueShuffle !== false,
+    cueItemMotion: value.cueItemMotion !== false,
+    cueCelebrationMotion: value.cueCelebrationMotion === true,
+    cueAmbientMotion: value.cueAmbientMotion === true,
     streakReminder: value.streakReminder !== false,
     focusNotifications: value.focusNotifications !== false,
     quizUiLanguage: oneOf(value.quizUiLanguage, ['zh', 'en'], 'zh'),

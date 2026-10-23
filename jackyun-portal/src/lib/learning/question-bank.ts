@@ -68,6 +68,8 @@ export interface StudyDraft {
   mode: StudyMode;
   task: LearningTask;
   items: StudyItemRef[];
+  /** Optional size for gated study groups; assessments remain on the full draft. */
+  batchSize?: number;
   index: number;
   revealed: Record<string, boolean>;
   responses: Record<string, QuestionResponse>;

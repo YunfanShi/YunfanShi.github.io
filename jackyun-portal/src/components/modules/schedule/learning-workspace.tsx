@@ -94,6 +94,15 @@ export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, me
   const [error, setError] = useState('');
   const [linkedPreviewId, setLinkedPreviewId] = useState('');
   const index = Math.min(draft.index, Math.max(0, draft.items.length - 1));
+  const batchSize = draft.batchSize && draft.batchSize > 0 ? draft.batchSize : Math.max(1, draft.items.length);
+  const groupIndex = Math.floor(index / batchSize);
+  const groupCount = Math.ceil(draft.items.length / batchSize);
+  const groupStart = groupIndex * batchSize;
+  const groupEnd = Math.min(draft.items.length, groupStart + batchSize);
+  const groupItems = draft.items.slice(groupStart, groupEnd);
+  const groupAssessedCount = groupItems.filter((ref) => draft.assessments[itemKey(ref)]).length;
+  const groupComplete = groupItems.length > 0 && groupAssessedCount === groupItems.length;
+  const canEnterGroup = (target: number) => target <= groupIndex || draft.items.slice(0, target * batchSize).every((ref) => draft.assessments[itemKey(ref)]);
   const item = draft.items[index];
   const key = item ? itemKey(item) : '';
   const cue = item?.kind === 'cue' ? cues.find((cue) => cue.id === item.id) : undefined;
@@ -107,7 +116,8 @@ export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, me
   const assessedCount = draft.items.filter((ref) => draft.assessments[itemKey(ref)]).length;
   const update = (changes: Partial<StudyDraft>) => onDraft({ ...draft, ...changes, updatedAt: new Date().toISOString() });
   const updateResponse = (changes: Partial<QuestionResponse>) => update({ responses: { ...draft.responses, [key]: { ...response, ...changes } } });
-  const move = (offset: number) => { setLinkedPreviewId(''); setError(''); update({ index: Math.max(0, Math.min(draft.items.length - 1, index + offset)) }); };
+  const move = (offset: number) => { setLinkedPreviewId(''); setError(''); update({ index: Math.max(groupStart, Math.min(groupEnd - 1, index + offset)) }); };
+  const moveGroup = (target: number) => { if (target < 0 || target >= groupCount || !canEnterGroup(target)) return; setLinkedPreviewId(''); setError(''); update({ index: target * batchSize }); };
   const rate = (status: LearningStatus) => { if (!item) return; try { onRate(draft, item, status); if (item.kind === 'cue') setStarFeedback((previous) => ({ id: (previous?.id ?? 0) + 1, cueId: item.id, status })); setError(''); } catch (error) { setError(error instanceof Error ? error.message : '保存失败。'); } };
   useEffect(() => {
     const previousFocus = document.activeElement;
@@ -133,7 +143,7 @@ export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, me
     if (event.key === 'ArrowLeft') { event.preventDefault(); move(-1); }
     if (event.key === 'ArrowRight') { event.preventDefault(); move(1); }
   }}>
-    <header className="shrink-0 border-b border-[var(--card-border)] px-4 py-3"><div className="mx-auto flex max-w-4xl items-center justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold">{draft.task.subjectName} · {modes[draft.mode]}</h2><p className="text-xs text-[var(--muted-foreground)]">{draft.items.length ? index + 1 : 0} / {draft.items.length} · 已评价 {assessedCount} 项 · 进度自动保存</p></div><button className={studyButtonClass} onClick={onClose}>退出并保存</button></div></header>
+    <header className="shrink-0 border-b border-[var(--card-border)] px-4 py-3"><div className="mx-auto flex max-w-4xl items-center justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold">{draft.task.subjectName} · {modes[draft.mode]}</h2><p className="text-xs text-[var(--muted-foreground)]">第 {groupIndex + 1} / {groupCount} 组 · 当前组 {groupAssessedCount} / {groupItems.length} 项 · 累计 {assessedCount} / {draft.items.length} 项 · 进度自动保存</p></div><button className={studyButtonClass} onClick={onClose}>退出并保存</button></div></header>
       {cueGameEnabled && draft.items.some((item) => item.kind === 'cue') && <CueGamePanel compact account={gameAccount} onShopAction={onShopAction} sessionKey={draft.id} sessionCount={draft.items.filter(item=>item.kind==='cue'&&draft.assessments[itemKey(item)]).length} reviews={reviews} cues={cues} records={starRecords} feedback={starFeedback} />}
     <main data-cue-study-content className="min-h-0 flex-1 overflow-y-auto px-4 py-5"><div className="mx-auto max-w-4xl space-y-4">
       {!content && <p className="rounded-xl border border-[var(--card-border)] p-6">队列中的内容已移除。退出后重新选择学习内容。</p>}
@@ -150,8 +160,9 @@ export function LearningSession({ draft, cues, bank, onDraft, onRate, onMemo, me
       {question && question.linkedCueIds.length > 0 && <aside className="space-y-2 rounded-xl border border-[var(--card-border)] p-4"><h3 className="text-sm font-semibold">相关知识 CUE（仅查看，不改变评价）</h3>{correct === false && <p className="text-sm text-[var(--muted-foreground)]">可检查相关知识，再决定是否安排一次独立检索。</p>}<div className="flex flex-wrap gap-2">{question.linkedCueIds.map((id) => { const cue = cues.find((cue) => cue.id === id); return cue ? <button key={id} className={studyButtonClass} onClick={() => setLinkedPreviewId(linkedPreviewId === id ? '' : id)}>{cue.prompt.slice(0, 60)}</button> : <span key={id} className="text-xs text-[var(--muted-foreground)]">关联 CUE 已移除</span>; })}</div>{linkedCue && <div className="rounded-xl bg-black/5 p-3 dark:bg-white/5"><MarkdownRenderer content={linkedCue.prompt} /><MarkdownRenderer content={linkedCue.answer ?? ''} /></div>}</aside>}
       </>}
       {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
-      <details><summary className="cursor-pointer text-sm">本次学习队列</summary><div className="mt-2 flex flex-wrap gap-2">{draft.items.map((ref, index) => <button key={itemKey(ref)} className={studyButtonClass} onClick={() => update({ index })}>{index + 1} · {ref.kind === 'cue' ? 'CUE' : '题'} · {studyStatusMark(draft.assessments[itemKey(ref)])}</button>)}</div></details>
+      <details><summary className="cursor-pointer text-sm">本次学习队列</summary><div className="mt-2 flex flex-wrap gap-2">{draft.items.map((ref, itemIndex) => <button key={itemKey(ref)} disabled={!canEnterGroup(Math.floor(itemIndex / batchSize))} className={`${studyButtonClass} disabled:cursor-not-allowed disabled:opacity-40`} onClick={() => update({ index: itemIndex })}>{itemIndex + 1} · {ref.kind === 'cue' ? 'CUE' : '题'} · {studyStatusMark(draft.assessments[itemKey(ref)])}</button>)}</div></details>
     </div></main>
+    {groupCount > 1 && <nav aria-label="CUE 学习分组" className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--card-border)] bg-[var(--card)] px-4 py-2"><button type="button" disabled={groupIndex === 0} onClick={() => moveGroup(groupIndex - 1)} className={`${studyButtonClass} disabled:opacity-40`}>上一组</button><p aria-live="polite" className="text-sm">第 {groupIndex + 1} 组 · 本组 {groupAssessedCount} / {groupItems.length} 项 · 全部 {assessedCount} / {draft.items.length} 项</p><button type="button" disabled={groupIndex >= groupCount - 1 || !groupComplete} onClick={() => moveGroup(groupIndex + 1)} className={`${studyButtonClass} disabled:cursor-not-allowed disabled:opacity-40`}>{groupComplete ? `完成本组并进入第 ${groupIndex + 2} 组` : '完成本组后进入下一组'}</button></nav>}
     <footer className={`${deviceStyles.footer} shrink-0 border-t border-[var(--card-border)] bg-[var(--card)] px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3`}>
 {revealed && content && <div className={deviceStyles.touchRatings} role="group" aria-label="触控掌握评价">{(['stable', 'partial', 'unclear'] as const).map((status) => <button aria-pressed={currentStatus === status} key={status} className={`${studyButtonClass} ${currentStatus === status ? 'ring-2 ring-[var(--brand)]' : ''}`} onClick={() => rate(status)}>{studyStatusMark(status)} {status === 'stable' ? '稳定掌握' : status === 'partial' ? '仍不稳定' : '未掌握'}</button>)}</div>}
 <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-2"><button disabled={index === 0} className={studyButtonClass} onClick={() => move(-1)}>上一项</button><button disabled={!draft.items.length || assessedCount !== draft.items.length} className={`${studyButtonClass} bg-[var(--brand)] text-white`} onClick={async () => { try { await onComplete(draft); } catch (error) { setError(error instanceof Error ? error.message : '完成失败。'); } }}>完成学习 · {assessedCount}/{draft.items.length}</button><button disabled={index >= draft.items.length - 1} className={studyButtonClass} onClick={() => move(1)}>下一项</button></div></footer>
