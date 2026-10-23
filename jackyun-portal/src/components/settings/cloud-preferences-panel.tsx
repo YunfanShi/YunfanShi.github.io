@@ -47,7 +47,7 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-density', value.density === 'compact' ? 'compact' : 'comfortable');
     document.documentElement.setAttribute('data-reduced-motion', value.reducedMotion === true ? 'true' : 'false');
-    document.documentElement.dataset.dialogMotion = value.dialogAnimations === true ? 'true' : 'false';
+    document.documentElement.setAttribute('data-dialog-motion', value.dialogAnimations === true ? 'true' : 'false');
     document.documentElement.style.setProperty('color-scheme', theme === 'light' ? 'light' : 'dark');
     document.querySelectorAll('iframe').forEach((frame) => frame.contentWindow?.postMessage({ type: 'jackyun-theme', theme }, '*'));
     window.dispatchEvent(new StorageEvent('storage', { key: 'show_fullscreen_btn', newValue: String(showFullscreen) }));
