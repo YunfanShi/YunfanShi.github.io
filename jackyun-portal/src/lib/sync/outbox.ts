@@ -1,6 +1,6 @@
 'use client';
 
-import type { SyncConflict, SyncOperation, SyncRecord } from '@/types/sync';
+import type { SyncConflict, SyncOperation, SyncRecord,SyncSubmission,SyncDownloadPart } from '@/types/sync';
 import { compactSyncOperations } from '@/lib/sync/batch';
 import { reconcileAcknowledgment } from '@/lib/sync/acknowledgment';
 
@@ -159,6 +159,54 @@ export async function getSetting<T>(key: string): Promise<T | null> {
 
 export async function setSetting(key: string, value: unknown): Promise<void> {
   await storeRequest('settings', 'readwrite', (store) => store.put({ key, value }));
+}
+
+export const getSubmission = () => getSetting<SyncSubmission>('syncSubmission');
+export const saveSubmission = (value:SyncSubmission|null) => setSetting('syncSubmission',value);
+
+const DOWNLOAD_PREFIX='sync-download:';
+const DOWNLOAD_USAGE='syncDownloadCharacters';
+const downloadPrefix=(key:string)=>DOWNLOAD_PREFIX+encodeURIComponent(key)+':';
+const downloadId=(part:SyncDownloadPart)=>`${downloadPrefix(part.key)}${part.revision}:${part.hash}:${part.index}`;
+const prefixRange=(prefix:string)=>IDBKeyRange.bound(prefix,prefix+'\uffff');
+export async function getDownloadParts(key:string,revision:number,hash:string|null):Promise<SyncDownloadPart[]> {
+  const rows=await storeRequest<Array<{key:string;value:SyncDownloadPart}>>('settings','readonly',store=>store.getAll(prefixRange(`${downloadPrefix(key)}${revision}:${hash}:`)));
+  return rows.map(row=>row.value);
+}
+/** Per-part rows avoid rewriting an entire multi-megabyte download per chunk.
+ * The cache and its budget change atomically, even across overlapping workers.
+ */
+export async function saveDownloadPart(part:SyncDownloadPart):Promise<void> {
+  if(part.data.length>160_000)throw Error('同步分片缓存超过上限。');
+  const db=await openDatabase();
+  try { await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction('settings','readwrite'),store=tx.objectStore('settings'),id=downloadId(part);
+    const usage=store.get(DOWNLOAD_USAGE);
+    usage.onsuccess=()=>{
+      const existing=store.get(id);
+      existing.onsuccess=()=>{
+        const used=usage.result?.value??0;
+        const invalidUsage=!Number.isSafeInteger(used)||used<0||used>32_000_000;
+        const next=Math.max(0,Number(used)-Number(existing.result?.value?.data?.length??0))+part.data.length;
+        const put=()=>store.put({key:id,value:part});
+        if(invalidUsage||next>32_000_000) {
+          const keys=store.getAllKeys(prefixRange(DOWNLOAD_PREFIX));
+          keys.onsuccess=()=>{for(const key of keys.result)store.delete(key);put();store.put({key:DOWNLOAD_USAGE,value:part.data.length});};
+        } else {put();store.put({key:DOWNLOAD_USAGE,value:next});}
+      };
+    };
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('同步缓存写入中止。'));
+  }); } finally {db.close();}
+}
+export async function clearDownload(key:string):Promise<void> {
+  const db=await openDatabase();
+  try {await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction('settings','readwrite'),store=tx.objectStore('settings');let removed=0;
+    const cursor=store.openCursor(prefixRange(downloadPrefix(key)));
+    cursor.onsuccess=()=>{const row=cursor.result;if(row){removed+=typeof row.value?.value?.data==='string'?row.value.value.data.length:0;row.delete();row.continue();}
+      else {const usage=store.get(DOWNLOAD_USAGE);usage.onsuccess=()=>store.put({key:DOWNLOAD_USAGE,value:Math.max(0,Number(usage.result?.value??0)-removed)});}};
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('同步缓存清理中止。'));
+  });}finally{db.close();}
 }
 
 export async function getOrCreateDeviceId(): Promise<string> {

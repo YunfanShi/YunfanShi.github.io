@@ -51,10 +51,11 @@ test('lost post-commit response is retried with immutable operation ID once',asy
   await assert.rejects(d.engine.flush(),/response lost/);const id=(await d.store.getOutbox())[0].id;
   await d.restart().flush();assert.equal(cloud.writes,1);assert.equal((await d.store.getOutbox()).length,0);assert.ok(id);
 });
-test('edit after lost commit gets a new operation ID and is safely reconciled',async()=>{
+test('edit after lost commit recovers its own receipt before comparing a newer local edit',async()=>{
   const base=remote({cues:[{id:'a',text:'base'}]}),cloud=server(base),d=device(cloud,base);d.set({cues:[{id:'a',text:'first'}]});cloud.loseNextReply();
   await assert.rejects(d.engine.flush());const id=(await d.store.getOutbox())[0].id;d.set({cues:[{id:'a',text:'second'}]});await d.engine.capture();assert.notEqual((await d.store.getOutbox())[0].id,id);
-  await d.engine.pull();assert.equal((await d.store.getConflicts()).length,1);assert.equal((d.value as Page).cues[0].text,'second');
+  await d.restart().pull();assert.equal((await d.store.getConflicts()).length,0);assert.equal((d.value as Page).cues[0].text,'second');
+  await d.restart().flush();assert.equal((cloud.cloud!.value as Page).cues[0].text,'second');assert.equal(cloud.writes,2);
 });
 test('backup failure prevents cloud replacement and keeps the old local value',async()=>{
   const base=remote({cues:[{id:'a',text:'old'}]}),cloud=server(base),d=device(cloud,base);cloud.cloud=remote({cues:[{id:'a',text:'new'}]},2);d.failBackup=true;

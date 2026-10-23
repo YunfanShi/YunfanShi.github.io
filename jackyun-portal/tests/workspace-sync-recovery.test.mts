@@ -55,6 +55,8 @@ function harness() {
   const storage = { get length() { return values.size; }, key: (i: number) => [...values.keys()][i] ?? null,
     getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) };
   const outboxApi = {
+    getSubmission:async()=>settings.get('syncSubmission')??null,saveSubmission:async(value:unknown)=>{settings.set('syncSubmission',value);},
+    getDownloadParts:async()=>[],saveDownloadPart:async()=>{},clearDownload:async()=>{},
     bindSyncUser: async () => {}, clearConflicts: async () => {}, getOrCreateDeviceId: async () => 'device',
     getSetting: async (key: string) => settings.get(key) ?? null,
     setSetting: async (key: string, value: unknown) => { settings.set(key, value); },

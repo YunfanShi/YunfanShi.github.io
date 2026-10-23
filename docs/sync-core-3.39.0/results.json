@@ -1,0 +1,12 @@
+{
+  "passed": 6,
+  "checks": [
+    "Desktop per-field choice, preview, actual coordinator/IndexedDB upload and no full redownload",
+    "Mobile exact local result, no horizontal overflow and acknowledged upload",
+    "Tablet JSON import validates key, changes preview only, then uploads the reviewed result",
+    "A cloud edit after preview refreshes the comparison without upload or backoff; reviewed retry succeeds",
+    "A transient failure preserves the reviewed merge selection; reconnect uploads it without a second confirmation",
+    "Committed response lost, newer local edit, full browser reload: immutable receipt replay and final convergence with exactly two writes"
+  ],
+  "fixture": "Real components, coordinator, engine and IndexedDB; synthetic authentication and loopback cloud"
+}

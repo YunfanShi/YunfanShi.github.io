@@ -21,12 +21,12 @@ const tailwind=spawnSync(process.execPath,[require.resolve('tailwindcss/lib/cli.
 if(tailwind.status)throw Error(tailwind.stderr);
 const key='jackyun_schedule_control_v1',hash=value=>createHash('sha256').update(canonicalJson(value)).digest('hex');
 const record=(value,revision)=>({key,value,revision,contentHash:hash(value),deleted:false,updatedAt:'2026-10-23T12:00:00Z'});
-let fixture,cloud,calls=[],receipts=new Map(),manifestFailures=0;
+let fixture,cloud,calls=[],receipts=new Map(),manifestFailures=0,dropNextReply=false,writeCount=0,bodies=[];
 function reset() {
   const base=record({cues:[{id:'a',title:'动量练习',text:'共同原文'}]},1),local={cues:[{id:'a',title:'动量练习',text:'本机答案'}]};
   cloud=record({cues:[{id:'a',title:'动量练习',text:'云端答案'},{id:'r',title:'云端独有题目',text:'保留这条'}]},2);
   const id=randomUUID();fixture={key,base,local,operation:{id,key,baseRevision:1,baseHash:base.contentHash,baseValue:base.value,baseDeleted:false,value:local,deleted:false,clientUpdatedAt:base.updatedAt},conflict:{operationId:id,key,baseRevision:1,baseValue:base.value,baseDeleted:false,localValue:local,localDeleted:false,remoteValue:cloud.value,remoteDeleted:false,remoteRevision:2,remoteHash:cloud.contentHash,remoteUpdatedAt:cloud.updatedAt,paths:['$.cues[a].text']}};
-  calls=[];receipts=new Map();manifestFailures=0;
+  calls=[];receipts=new Map();manifestFailures=0;dropNextReply=false;writeCount=0;bodies=[];
 }
 reset();
 const server=createServer(async(req,res)=>{
@@ -43,13 +43,15 @@ const server=createServer(async(req,res)=>{
       }
       if(req.method==='GET')return json({ok:true,records:[cloud]});
       const chunks=[];for await(const chunk of req)chunks.push(chunk);const body=JSON.parse(Buffer.concat(chunks));
+      bodies.push(Buffer.concat(chunks).toString());
       const applied=[],conflicts=[];
       for(const op of body.operations) {
         if(receipts.has(op.id)){applied.push(receipts.get(op.id));continue;}
         if(op.baseRevision!==cloud.revision||op.baseHash!==cloud.contentHash){conflicts.push({...fixture.conflict,operationId:op.id,remoteValue:cloud.value,remoteRevision:cloud.revision,remoteHash:cloud.contentHash});continue;}
-        const value=applyRecordDelta(cloud.value,op.patch);cloud=record(value,cloud.revision+1);
+        const value=applyRecordDelta(cloud.value,op.patch);cloud=record(value,cloud.revision+1);writeCount++;
         const receipt={operationId:op.id,key,revision:cloud.revision,contentHash:cloud.contentHash};receipts.set(op.id,receipt);applied.push(receipt);
       }
+      if(dropNextReply){dropNextReply=false;return json({ok:false,error:{code:'REPLY_LOST_AFTER_COMMIT'}},503);}
       return json({ok:true,applied,conflicts,remote:[]});
     }
     if(url.pathname==='/app.js'||url.pathname==='/style.css'){res.writeHead(200,{'Content-Type':url.pathname.endsWith('.js')?'text/javascript':'text/css'});res.end(await readFile(path.join(out,url.pathname.slice(1))));return;}
@@ -64,7 +66,7 @@ async function pageFor(width) {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto(base);await page.getByRole('heading',{name:'检查差异并决定合并结果'}).waitFor();
   await page.getByRole('button',{name:'上传此合并结果',exact:true}).waitFor({state:'visible'});
-  await assert.doesNotReject(()=>page.getByRole('button',{name:'上传此合并结果',exact:true}).isEnabled());
+  assert.equal(await page.getByRole('button',{name:'上传此合并结果',exact:true}).isEnabled(),false);
   return {context,page,errors};
 }
 async function upload(page) {
@@ -113,6 +115,7 @@ try {
     await page.getByText('冲突中的内容又有变化，对比已刷新；请检查最新差异后提交。',{exact:true}).waitFor();
     assert.equal(calls.filter(c=>c.method==='POST').length,0);
     assert.ok(await page.getByText('预览之后的云端更新',{exact:true}).count());
+    await page.getByRole('button',{name:'使用本机',exact:true}).first().click();
     await upload(page);assert.equal(cloud.value.cues[0].text,'本机答案');assert.equal(cloud.value.cues.length,2);assert.deepEqual(errors,[]);
     results.push('A cloud edit after preview refreshes the comparison without upload or backoff; reviewed retry succeeds');await context.close();
   }
@@ -124,6 +127,17 @@ try {
     await page.evaluate(()=>window.dispatchEvent(new Event('online')));
     await page.getByText('数据已自动同步',{exact:true}).waitFor();assert.deepEqual(cloud.value,fixture.local);assert.deepEqual(errors,[]);
     results.push('A transient failure preserves the reviewed merge selection; reconnect uploads it without a second confirmation');await context.close();
+  }
+  {
+    const {context,page,errors}=await pageFor(1440);
+    await page.getByRole('button',{name:'以本机完整内容作为结果',exact:true}).click();dropNextReply=true;
+    await page.getByRole('button',{name:'上传此合并结果',exact:true}).click();await page.getByRole('button',{name:'确认继续',exact:true}).click();
+    await page.getByText('修改已保存在本机，联网后自动同步',{exact:true}).waitFor();
+    const newest={cues:[{id:'a',title:'动量练习',text:'提交后继续编辑的新答案'}]};
+    await page.evaluate(({key,value})=>localStorage.setItem(key,JSON.stringify(value)),{key,value:newest});
+    await page.reload();await page.getByText('数据已自动同步',{exact:true}).waitFor();
+    assert.deepEqual(cloud.value,newest);assert.equal(bodies[0],bodies[1]);assert.equal(writeCount,2);assert.deepEqual(errors,[]);
+    results.push('Committed response lost, newer local edit, full browser reload: immutable receipt replay and final convergence with exactly two writes');await context.close();
   }
   await writeFile(path.join(out,'results.json'),JSON.stringify({passed:results.length,checks:results,fixture:'Real components, coordinator, engine and IndexedDB; synthetic authentication and loopback cloud'},null,2));
   console.log(JSON.stringify(results,null,2));

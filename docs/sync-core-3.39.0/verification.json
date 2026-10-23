@@ -1,0 +1,42 @@
+{
+  "version": "3.39.0",
+  "baseline": "b7b90f301f83a4e3242b74387e894668188d00e2",
+  "date": "2026-10-23",
+  "syncRegression": {
+    "passed": 163,
+    "failed": 0
+  },
+  "protocolRecovery": {
+    "newTests": 13,
+    "deterministicTwoDeviceSteps": 24
+  },
+  "browser": {
+    "passed": 6,
+    "viewports": [
+      1440,
+      390,
+      1024
+    ],
+    "scope": "Actual components, coordinator, engine and IndexedDB, with browser reload; synthetic identity and loopback cloud"
+  },
+  "eslint": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "productionBuild": "passed",
+  "document": {
+    "pages": 4,
+    "renderer": "LibreOffice and Poppler",
+    "reviewed": "All page images"
+  },
+  "references": [
+    "https://doc.replicache.dev/concepts/how-it-works",
+    "https://doc.replicache.dev/reference/server-push",
+    "https://docs.couchdb.org/en/stable/intro/consistency.html"
+  ],
+  "limits": [
+    "No real-account physical two-device long-running weak-network test",
+    "Historical lost requests without a journal cannot be proven retroactively",
+    "Server changes feed and entity-level splitting not implemented"
+  ]
+}

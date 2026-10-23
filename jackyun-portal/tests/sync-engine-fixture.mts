@@ -4,7 +4,7 @@ import {canonicalJson} from '../src/lib/sync/hash.ts';
 import {applyRecordDelta} from '../src/lib/sync/delta.ts';
 import {compactSyncOperations} from '../src/lib/sync/batch.ts';
 import {reconcileAcknowledgment} from '../src/lib/sync/acknowledgment.ts';
-import type {SyncConflict,SyncOperation,SyncRecord} from '../src/types/sync.ts';
+import type {SyncConflict,SyncOperation,SyncRecord,SyncSubmission,SyncDownloadPart} from '../src/types/sync.ts';
 export const key='jackyun_schedule_control_v1';
 export const checksum=(value:unknown,deleted=false)=>createHash('sha256').update(deleted?'__deleted__':canonicalJson(value)).digest('hex');
 export function remote(value:unknown,revision=1,deleted=false):SyncRecord{return {key,value,revision,contentHash:checksum(value,deleted),deleted,updatedAt:'2026-10-11T00:00:00Z'};}
@@ -33,7 +33,12 @@ export function device(backend:ReturnType<typeof server>,initial?:SyncRecord){
   const values=new Map<string,string>(),metadata=new Map<string,SyncRecord>();
   if(initial){metadata.set(key,structuredClone(initial));if(!initial.deleted)values.set(key,JSON.stringify(initial.value));}
   let operations:SyncOperation[]=[],conflicts:SyncConflict[]=[],sequence=0,backups=0,changes=0,failBackup=false;
+  let submission:SyncSubmission|null=null;const parts=new Map<string,SyncDownloadPart>();
   const store:SyncStore={
+    getSubmission:async()=>structuredClone(submission),saveSubmission:async value=>{submission=structuredClone(value);},
+    getDownloadParts:async(k,revision,hash)=>structuredClone([...parts.values()].filter(part=>part.key===k&&part.revision===revision&&part.hash===hash)),
+    saveDownloadPart:async part=>{parts.set(JSON.stringify([part.key,part.revision,part.hash,part.index]),structuredClone(part));},
+    clearDownload:async k=>{for(const [id,part] of parts)if(part.key===k)parts.delete(id);},
     getMetadata:async()=>structuredClone([...metadata.values()]),saveMetadata:async r=>{metadata.set(r.key,structuredClone(r));},
     getOutbox:async()=>structuredClone(operations),queueOperation:async op=>{operations=compactSyncOperations([...operations,{...op,sequence:++sequence}]);},
     replaceOperation:async(sent,next)=>{const found=operations.find(op=>op.id===sent.id);if(canonicalJson(found)!==canonicalJson(sent))return false;operations=operations.filter(op=>op.id!==sent.id);if(next)operations.push(next);return true;},

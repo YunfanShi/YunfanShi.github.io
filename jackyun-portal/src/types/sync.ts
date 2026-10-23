@@ -32,6 +32,22 @@ export interface SyncOperation {
   sequence?: number;
 }
 
+/** Immutable request, retained until every operation has a verified receipt. */
+export interface SyncSubmission {
+  body: string;
+  operations: SyncOperation[];
+  compressed: boolean;
+}
+export interface SyncDownloadPart {
+  key: string;
+  revision: number;
+  hash: string | null;
+  index: number;
+  count: number;
+  data: string;
+  receivedAt: number;
+}
+
 export interface SyncConflict {
   id?: string;
   operationId: string;

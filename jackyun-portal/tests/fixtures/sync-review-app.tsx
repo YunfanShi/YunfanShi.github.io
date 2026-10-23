@@ -7,11 +7,14 @@ import * as store from '../../src/lib/sync/outbox';
 
 async function start() {
   const fixture=await (await fetch('/_fixture')).json();
-  localStorage.setItem(fixture.key,JSON.stringify(fixture.local));
   await store.bindSyncUser('browser-review-fixture');
-  await store.saveMetadata(fixture.base);
-  await store.queueOperation(fixture.operation);
-  await store.saveConflict(fixture.conflict);
+  if(!await store.getSetting('fixtureInitialized')) {
+    localStorage.setItem(fixture.key,JSON.stringify(fixture.local));
+    await store.saveMetadata(fixture.base);
+    await store.queueOperation(fixture.operation);
+    await store.saveConflict(fixture.conflict);
+    await store.setSetting('fixtureInitialized',true);
+  }
   createRoot(document.getElementById('root')!).render(<><LocalWorkspaceSync userId="browser-review-fixture"/><SyncCenterPanel/></>);
 }
 void start();

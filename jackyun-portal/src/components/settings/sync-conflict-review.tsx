@@ -3,13 +3,13 @@
 import {useMemo,useState} from 'react';
 import {siteConfirm} from '@/lib/site-dialog';
 import {BACKUP_PAGES,legacyBackupPage} from '@/lib/backup/pages';
-import {chooseComparisonValue,compareSyncValues,comparisonTextParts,conflictBase,defaultMerge,formatComparisonValue,parseMergeImport,readComparisonLocal} from '@/lib/sync/comparison';
+import {chooseComparisonValue,compareSyncValues,comparisonTextParts,conflictBase,defaultMerge,formatComparisonValue,parseMergeImport,readComparisonLocal,summarizeComparisonValue} from '@/lib/sync/comparison';
 import type {SyncConflict,SyncResolutionChoice,SyncResolutionRequest} from '@/types/sync';
 
 const button='rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50';
 function DifferenceValue({value,other}:{value:unknown;other:unknown}) {
   const text=typeof value==='string'&&typeof other==='string'?comparisonTextParts(value,other):null;
-  return <pre className="max-h-52 overflow-auto whitespace-pre-wrap break-words text-xs leading-5">{text?<>{text.before}<mark className="rounded bg-amber-400/30 text-inherit">{text.change||'（此处没有文字）'}</mark>{text.after}</>:formatComparisonValue(value)}</pre>;
+  return <div className="max-h-52 overflow-auto whitespace-pre-wrap break-words text-sm leading-6">{text?<>{text.before}<mark className="rounded bg-amber-400/30 text-inherit">{text.change||'（此处没有文字）'}</mark>{text.after}</>:summarizeComparisonValue(value).slice(0,2000)}</div>;
 }
 function download(key:string,value:unknown,deleted:boolean,suffix:string) {
   const url=URL.createObjectURL(new Blob([JSON.stringify({format:'jackyun-sync-merge-v1',key,value:deleted?null:value,deleted},null,2)],{type:'application/json'}));
@@ -19,13 +19,13 @@ function download(key:string,value:unknown,deleted:boolean,suffix:string) {
 export default function SyncConflictReview({conflict,localRaw,disabled,onSubmit}:{conflict:SyncConflict;localRaw:string|null;disabled:boolean;onSubmit:(request:SyncResolutionRequest)=>void}) {
   const local=useMemo(()=>readComparisonLocal(localRaw),[localRaw]);
   const remote=conflict.remoteDeleted?undefined:conflict.remoteValue;
-  const comparison=useMemo(()=>compareSyncValues(conflictBase(conflict),local,remote),[conflict,local,remote]);
+  const comparison=useMemo(()=>compareSyncValues(conflictBase(conflict),local,remote,200,conflict.key),[conflict,local,remote]);
   const automatic=useMemo(()=>defaultMerge(conflict,local),[conflict,local]);
   const [choices,setChoices]=useState<Record<string,'local'|'remote'>>({});
   const [custom,setCustom]=useState<{value:unknown;deleted:boolean;name:string}|null>(null);
   const [error,setError]=useState('');
   const [filter,setFilter]=useState('');
-  const [onlyConflicts,setOnlyConflicts]=useState(false);
+  const [onlyConflicts,setOnlyConflicts]=useState(true);
   const [page,setPage]=useState(0);
   const [importing,setImporting]=useState(false);
   const candidate=useMemo(()=>{
@@ -37,6 +37,8 @@ export default function SyncConflictReview({conflict,localRaw,disabled,onSubmit}
   const visible=comparison.rows.filter(row=>(!onlyConflicts||row.conflict)&&(!filter||row.label.toLowerCase().includes(filter.toLowerCase())||formatComparisonValue(row.local,200).toLowerCase().includes(filter.toLowerCase())||formatComparisonValue(row.remote,200).toLowerCase().includes(filter.toLowerCase())));
   const lastPage=Math.max(0,Math.ceil(visible.length/12)-1),currentPage=Math.min(page,lastPage),shown=visible.slice(currentPage*12,currentPage*12+12);
   const moduleLabel=BACKUP_PAGES.find(item=>item.id===legacyBackupPage(conflict.key))?.label??'页面数据';
+  const unresolved=custom?0:comparison.conflictCount-comparison.rows.filter(row=>row.conflict&&choices[row.id]).length;
+  const impact=useMemo(()=>compareSyncValues(local,local,candidate,12,conflict.key),[local,candidate,conflict.key]);
   function chooseField(id:string,path:Parameters<typeof chooseComparisonValue>[1],side:'local'|'remote',value:unknown) {
     setChoices(current=>({...current,[id]:side}));
     setCustom(current=>{
@@ -66,7 +68,8 @@ export default function SyncConflictReview({conflict,localRaw,disabled,onSubmit}
     <header className="space-y-2 border-b border-[var(--card-border)] p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">{moduleLabel} · 内容对比</h3><span className="text-xs text-[var(--muted-foreground)]">云端版本 {conflict.remoteRevision}</span></div>
       <p className="break-all text-xs text-[var(--muted-foreground)]">{conflict.key}</p>
-      <p className="text-sm">共 {comparison.rows.length}{comparison.truncated?'＋':''} 项差异，其中 {comparison.rows.filter(row=>row.conflict).length} 项需要选择。默认合并保留双方独有内容，冲突处优先本机，可逐项改选。</p>
+      <p className="text-sm">{comparison.automaticCount} 项可自动处理，{comparison.conflictCount} 项需要你决定。只处理不同设备对同一内容的真实分歧，其余修改自动合并。</p>
+      <p className="text-xs text-[var(--muted-foreground)]">判断依据：共同基线、字段实际改动、稳定条目 ID 和已登记的元数据规则。不会按设备时间直接覆盖正文、学习结果或删除操作。</p>
       <p className="text-xs text-[var(--muted-foreground)]">本机为当前页面已保存内容。云端为已下载的对比快照{conflict.remoteUpdatedAt?`（${new Date(conflict.remoteUpdatedAt).toLocaleString()}）`:''}，提交时再次检查版本。</p>
     </header>
     <div className="space-y-4 p-4 sm:p-5">
@@ -84,7 +87,7 @@ export default function SyncConflictReview({conflict,localRaw,disabled,onSubmit}
       </article>)}</div>
       {!shown.length&&<p className="text-sm text-[var(--muted-foreground)]">当前筛选没有差异。</p>}
       {visible.length>12&&<nav aria-label="差异分页" className="flex items-center justify-between text-sm"><button type="button" className={button} disabled={!currentPage} onClick={()=>setPage(currentPage-1)}>上一页</button><span>{currentPage+1} / {lastPage+1}</span><button type="button" className={button} disabled={currentPage===lastPage} onClick={()=>setPage(currentPage+1)}>下一页</button></nav>}
-      {comparison.truncated&&<p className="text-xs text-[var(--muted-foreground)]">页面最多列出 200 项差异。合并结果始终使用完整内容，未展示字段沿用默认规则；可下载完整结果检查。</p>}
+      {comparison.truncated&&<p className="text-xs text-[var(--muted-foreground)]">页面最多列出 200 项差异，需要选择的项目优先显示。仍有未选择项时不能直接提交默认结果，可明确选择完整本机内容或导入完整结果。</p>}
       <div className="space-y-3 rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
         <h4 className="font-semibold">合并结果</h4>
         <p role="status" className="text-sm">{custom?`使用${custom.name}`:Object.keys(choices).length?`已逐项选择 ${Object.keys(choices).length} 项，其余沿用默认合并`:'使用默认合并，保留双方独有内容'}</p>
@@ -94,9 +97,11 @@ export default function SyncConflictReview({conflict,localRaw,disabled,onSubmit}
           <label className={`${button} cursor-pointer`}><span>{importing?'正在读取…':'导入本地 JSON 作为结果'}</span><input aria-label="导入本地 JSON 作为结果" type="file" accept=".json,application/json" disabled={disabled||importing} className="sr-only" onChange={event=>{const file=event.target.files?.[0];event.target.value='';if(file)void importFile(file);}}/></label>
         </div>
         {custom&&<p className="text-xs text-[var(--muted-foreground)]">完整内容模式：云端独有记录也会以此结果为准。提交前请检查预览；导入只修改待提交结果。</p>}
-        <details><summary className="cursor-pointer text-sm font-medium">预览将上传的结果</summary><pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--background)] p-3 text-xs leading-5">{formatComparisonValue(candidate,12000)}</pre></details>
+        <details><summary className="cursor-pointer text-sm font-medium">预览将上传的结果</summary><div className="mt-3 space-y-3 text-sm"><p>相对本机将调整 {impact.total} 项{impact.total>12?'，先展示前 12 项':''}：</p>{impact.rows.map(row=><div key={row.id} className="rounded-lg bg-[var(--background)] p-3"><p className="font-medium">{row.label}</p><p className="mt-1 whitespace-pre-wrap break-words">{summarizeComparisonValue(row.remote).slice(0,1500)}</p></div>)}{!impact.total&&<p>保持本机内容，仍会向云端提交确认。</p>}</div></details>
+        <details className="text-xs text-[var(--muted-foreground)]"><summary className="cursor-pointer">高级：查看原始 JSON</summary><pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words">{formatComparisonValue(candidate,12000)}</pre></details>
+        {unresolved>0&&<p role="status" className="text-sm">还需选择 {unresolved} 项。可逐项选择，或明确使用本机 / 导入文件作为完整结果。</p>}
         <div className="flex flex-wrap gap-3">
-          <button type="button" disabled={disabled||importing} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" onClick={()=>void submit('merged',candidate)}>上传此合并结果</button>
+          <button type="button" disabled={disabled||importing||unresolved>0} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" onClick={()=>void submit('merged',candidate)}>上传此合并结果</button>
           <button type="button" disabled={disabled||importing} className={button} onClick={()=>void submit('remote')}>采用云端完整内容</button>
           <button type="button" className="text-sm underline" onClick={()=>download(conflict.key,candidate,candidate===undefined,'merged')}>下载合并结果</button>
         </div>

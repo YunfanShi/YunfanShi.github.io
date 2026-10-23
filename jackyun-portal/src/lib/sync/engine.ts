@@ -1,11 +1,11 @@
 import { canonicalJson } from './hash.ts';
 import { createRecordDelta } from './delta.ts';
-import { threeWayMerge } from './merge.ts';
+import { mergeWorkspaceValues } from './merge-policy.ts';
 import { storageValueToString, isSyncableStorageKey } from '../local-workspace.ts';
 import { operationMatchesStorage } from './acknowledgment.ts';
 import { isServerUnavailable } from './service-error.ts';
 import { joinSyncParts, splitSyncBody, splitCompressedSyncBody, decodeSyncPart, MAX_SYNC_PARTS } from './transfer.ts';
-import type { SyncOperation, SyncRecord, SyncConflict, SyncResolutionChoice, SyncResolutionReview } from '../../types/sync.ts';
+import type { SyncOperation, SyncRecord, SyncConflict, SyncResolutionChoice, SyncResolutionReview,SyncSubmission,SyncDownloadPart } from '../../types/sync.ts';
 
 export interface SyncStore {
   getOutbox(): Promise<SyncOperation[]>;
@@ -17,6 +17,11 @@ export interface SyncStore {
   getConflicts(): Promise<SyncConflict[]>;
   saveConflict(conflict: SyncConflict): Promise<void>;
   removeConflict(id: string): Promise<void>;
+  getSubmission(): Promise<SyncSubmission|null>;
+  saveSubmission(value:SyncSubmission|null): Promise<void>;
+  getDownloadParts(key:string,revision:number,hash:string|null):Promise<SyncDownloadPart[]>;
+  saveDownloadPart(part:SyncDownloadPart):Promise<void>;
+  clearDownload(key:string):Promise<void>;
 }
 export interface SyncEnvironment {
   store: SyncStore;
@@ -73,6 +78,7 @@ export class SyncProtocolError extends Error {
 export class SyncReviewChangedError extends Error {
   constructor() { super('冲突中的内容又有变化，对比已刷新；请检查最新差异后提交。'); this.name='SyncReviewChangedError'; }
 }
+class SyncTransferShapeError extends Error {}
 
 const conflictRecord = (conflict:SyncConflict):SyncRecord => ({key:conflict.key,value:conflict.remoteValue,
   deleted:conflict.remoteDeleted,revision:conflict.remoteRevision,contentHash:conflict.remoteHash,
@@ -84,6 +90,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   let observed = e.snapshot();
   let captured=false;
   let compressedUploads=false;
+  const reassessedConflicts=new Set<string>();
   // Revision-bound parts survive a failed cycle in this tab. Never combine
   // fragments from different revisions; bound retained transfer memory.
   const downloads = new Map<string, Map<number, {count:number;data:string}>>();
@@ -138,31 +145,47 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     if (!record.large || record.deleted) return record;
     const downloadId = JSON.stringify([record.key,record.revision,record.contentHash]);
     for (const id of downloads.keys()) if (JSON.parse(id)[0] === record.key && id !== downloadId) dropDownload(id);
+    if(!downloads.has(downloadId)) {
+      const saved=await store.getDownloadParts(record.key,record.revision,record.contentHash).catch(()=>[]);
+      for(const part of saved)if(part && part.receivedAt>=e.now()-24*60*60_000 && Number.isInteger(part.index) && part.index>=0 && part.index<MAX_SYNC_PARTS
+        && Number.isInteger(part.count) && part.count>part.index && part.count<=MAX_SYNC_PARTS && typeof part.data==='string' && part.data.length<=160_000) {
+        if(cachedBytes+part.data.length>32_000_000){downloads.clear();cachedBytes=0;}
+        if(!downloads.has(downloadId))downloads.set(downloadId,new Map());
+        downloads.get(downloadId)!.set(part.index,{count:part.count,data:part.data});cachedBytes+=part.data.length;
+      }
+    }
     const readPart = async (part: number, expectedCount?: number) => {
       const cached = downloads.get(downloadId)?.get(part);
       if (cached && (expectedCount === undefined || cached.count === expectedCount)) return cached;
       e.progress(`下载分片 ${part+1}${expectedCount ? ` / ${expectedCount}` : ''}`);
       const chunk = await json(`/api/sync/v2/large?key=${encodeURIComponent(record.key)}&revision=${record.revision}&part=${part}${typeof DecompressionStream === 'function' ? '&encoding=gzip' : ''}`);
       if (chunk.revision !== record.revision || chunk.part !== part || !Number.isInteger(chunk.count) || Number(chunk.count) < 1 || Number(chunk.count) > MAX_SYNC_PARTS
-        || typeof chunk.data !== 'string' || (expectedCount !== undefined && chunk.count !== expectedCount)) throw Error('同步分片不完整，原始数据已保留。');
+        || typeof chunk.data !== 'string' || (expectedCount !== undefined && chunk.count !== expectedCount)) throw new SyncTransferShapeError('同步分片布局发生变化，原始数据已保留，下一轮重新核对。');
       const decoded = { count: Number(chunk.count), data: await decodeSyncPart(chunk.data,chunk.encoding) };
+      await store.saveDownloadPart({key:record.key,revision:record.revision,hash:record.contentHash,index:part,...decoded,receivedAt:e.now()}).catch(()=>{});
       if (cachedBytes+decoded.data.length > 32_000_000) { downloads.clear(); cachedBytes=0; }
       if (!downloads.has(downloadId)) downloads.set(downloadId,new Map());
       downloads.get(downloadId)!.set(part,decoded); cachedBytes+=decoded.data.length;
       return decoded;
     };
-    const first = await readPart(0);
-    const remaining = await mapWithConcurrency(Array.from({ length: first.count - 1 }, (_, index) => index + 1), SYNC_READ_CONCURRENCY,
-      (part) => readPart(part, first.count));
+    let first:{count:number;data:string},remaining:Array<{count:number;data:string}>;
+    try {
+      first=await readPart(0);
+      remaining=await mapWithConcurrency(Array.from({length:first.count-1},(_,index)=>index+1),SYNC_READ_CONCURRENCY,(part)=>readPart(part,first.count));
+    } catch(error) {
+      if(error instanceof SyncTransferShapeError){dropDownload(downloadId);await store.clearDownload(record.key).catch(()=>{});}
+      throw error;
+    }
     const parts = [first.data, ...remaining.map((part) => part.data)];
     let value: unknown;
     try { value = joinSyncParts(parts); }
-    catch(error) { dropDownload(downloadId); throw error; }
+    catch(error) { dropDownload(downloadId); await store.clearDownload(record.key).catch(()=>{}); throw error; }
     const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(value)));
     if (record.contentHash && [...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('') !== record.contentHash) {
-      dropDownload(downloadId); throw Error('同步内容校验失败，原始数据已保留。');
+      dropDownload(downloadId); await store.clearDownload(record.key).catch(()=>{}); throw Error('同步内容校验失败，原始数据已保留。');
     }
     dropDownload(downloadId);
+    await store.clearDownload(record.key).catch(()=>{});
     return {...record,value,large:false};
   }
   async function readRecord(key: string): Promise<SyncRecord | null> {
@@ -232,6 +255,8 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     if (record.revision < Math.max(metadata?.revision ?? 0,pending?.baseRevision ?? 0)) {
       throw Error('云端版本发生回退，本机修改和同步基准已保留。');
     }
+    if(metadata && record.revision===metadata.revision
+      && (record.contentHash!==metadata.contentHash || record.deleted!==metadata.deleted))throw Error('相同云端版本出现不同内容，已停止覆盖并保留本机数据。');
     const blocked = (await store.getConflicts()).find(c=>c.key === record.key);
     if (blocked && !pending) {
       return;
@@ -242,7 +267,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       return;
     }
     const base = baseOf(pending);
-    const merged = threeWayMerge(base,local,valueOf(record));
+    const merged = mergeWorkspaceValues(record.key,base,local,valueOf(record));
     if (merged.conflicts.length) {
       await e.backup(record.key);
       if (e.cancelled() || e.read(record.key) !== expected) return;
@@ -266,6 +291,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     if (blocked && blocked.operationId !== pending.id) await store.removeConflict(blocked.operationId);
   }
   async function pull() {
+    await recoverSubmission();
     let after = ''; let scanned = 0;
     let deferred: unknown;
     const metadata = new Map((await store.getMetadata()).map(r=>[r.key,r]));
@@ -288,7 +314,10 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
           // A persisted conflict already contains the validated full cloud copy.
           // Re-evaluate new local edits without downloading that copy again.
           const current=e.read(descriptor.key);
-          if(!same(parse(current),conflict.localDeleted?undefined:conflict.localValue))await reconcile(conflictRecord(conflict));
+          const assessmentId=`${conflict.operationId}:${conflict.remoteRevision}:${conflict.remoteHash}`;
+          if(!reassessedConflicts.has(assessmentId)||!same(parse(current),conflict.localDeleted?undefined:conflict.localValue)) {
+            reassessedConflicts.add(assessmentId);await reconcile(conflictRecord(conflict));
+          }
           continue;
         }
         const base = metadata.get(descriptor.key);
@@ -313,12 +342,17 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     }
     if (deferred) throw deferred;
   }
-  async function flush() {
+  async function recoverSubmission() {
+    if(await store.getSubmission()){e.progress('正在核对上次上传结果，保留期间的新修改…');await flush(true);}
+  }
+  async function flush(recoveryOnly=false) {
     const attempts = new Map<string,number>();
     for (let batch = 0; batch < 4; batch++) {
       await capture();
+      const submission=await store.getSubmission();
+      if(recoveryOnly&&!submission)break;
       const blocked = new Set((await store.getConflicts()).map(c=>c.key));
-      const operations = (await store.getOutbox()).filter(op=>!blocked.has(op.key) && (attempts.get(op.key) ?? 0) < 2).slice(0,10);
+      const operations = submission?.operations ?? (await store.getOutbox()).filter(op=>!blocked.has(op.key) && (attempts.get(op.key) ?? 0) < 2).slice(0,10);
       if (!operations.length || e.cancelled()) break;
       const wire: Array<Record<string,unknown>> = []; const sent: SyncOperation[] = [];
       for (const operation of operations) {
@@ -328,10 +362,14 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
         if (wire.length && bytes > 220_000) break;
         wire.push(next); sent.push(operation);
       }
-      const body = JSON.stringify({syncProtocol:3,requireCurrentVersion:true,deviceId:await e.deviceId(),device:e.device(),operations:wire});
+      const body = submission?.body ?? JSON.stringify({syncProtocol:3,requireCurrentVersion:true,deviceId:await e.deviceId(),device:e.device(),operations:wire});
+      const compressed=submission?.compressed??compressedUploads;
+      // A later local edit must never change the identity/body of this request.
+      // Persist BEFORE the first network write, including before large parts.
+      if(!submission)await store.saveSubmission({body,operations:sent,compressed});
       let response: Record<string,unknown>;
       if (new TextEncoder().encode(body).length > 250_000) {
-        const parts = compressedUploads ? await splitCompressedSyncBody(body) : splitSyncBody(body), uploadId = sent[0].id;
+        const parts = compressed ? await splitCompressedSyncBody(body) : splitSyncBody(body), uploadId = sent[0].id;
         for (let part = 0; part < parts.length; part++) {
           e.progress(`上传分片 ${part+1} / ${parts.length}`);
           await json('/api/sync/v2/large',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uploadId,index:part,count:parts.length,data:parts[part]})});
@@ -349,7 +387,9 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
           const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(operation.deleted ? '__deleted__' : canonicalJson(operation.value)));
           if (applied.revision < operation.baseRevision || (applied.revision===operation.baseRevision && applied.contentHash!==operation.baseHash)
             || applied.contentHash !== [...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('')) throw Error('上传确认与本机内容不符，修改已保留。');
-          await store.saveMetadata(cloud);
+          const currentMetadata=(await store.getMetadata()).find(row=>row.key===cloud.key);
+          if(currentMetadata?.revision===cloud.revision && (currentMetadata.contentHash!==cloud.contentHash || currentMetadata.deleted!==cloud.deleted))throw Error('上传确认与已知版本冲突，发送记录已保留。');
+          if(!currentMetadata || currentMetadata.revision<=cloud.revision)await store.saveMetadata(cloud);
           await store.acknowledgeOperation(operation,cloud);
           if (operation.resolvesOperationId) await store.removeConflict(operation.resolvesOperationId);
           confirmed++; continue;
@@ -363,9 +403,12 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
         }
       }
       if (confirmed !== sent.length) throw Error('部分修改未被云端确认，待上传数据已保留。');
+      await store.saveSubmission(null);
+      if(recoveryOnly)break;
     }
   }
   async function resolve(operationId: string, choice: SyncResolutionChoice, review?:SyncResolutionReview) {
+    await recoverSubmission();
     const conflict = (await store.getConflicts()).find(c=>c.operationId === operationId);
     if (!conflict) return;
     if(!['local','remote','merged'].includes(choice))throw Error('不支持的合并选择。');
@@ -384,7 +427,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     const operation = (await store.getOutbox()).find(op=>op.key === conflict.key);
     if (!operation) throw Error('本机修改队列已变化，请刷新同步中心。');
     const chosen = choice === 'merged' ? review!.deleted ? undefined : review!.value
-      : choice === 'remote' ? valueOf(remote) : threeWayMerge(baseOf(conflict),local,valueOf(remote)).merged;
+      : choice === 'remote' ? valueOf(remote) : mergeWorkspaceValues(conflict.key,baseOf(conflict),local,valueOf(remote)).merged;
     if(new TextEncoder().encode(JSON.stringify(chosen)??'null').length>24_000_000)throw Error('合并结果超过同步上限。');
     await e.backup(conflict.key);
     if (e.cancelled() || e.read(conflict.key) !== current) throw new SyncReviewChangedError();

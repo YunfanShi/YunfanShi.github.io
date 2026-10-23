@@ -1,6 +1,7 @@
 import { canonicalJson } from './hash.ts';
 
 export type MergeResult = { merged: unknown; conflicts: string[] };
+export type MergePolicy = (base:unknown,local:unknown,remote:unknown,path:string)=>{value:unknown}|undefined;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -32,10 +33,12 @@ function mergeText(base:string,local:string,remote:string): string | undefined {
   return base.slice(0,first.start)+first.text+base.slice(first.end,second.start)+second.text+base.slice(second.end);
 }
 
-export function threeWayMerge(base: unknown, local: unknown, remote: unknown, path = '$'): MergeResult {
+export function threeWayMerge(base: unknown, local: unknown, remote: unknown, path = '$', policy?:MergePolicy): MergeResult {
   if (equal(local, remote)) return { merged: local, conflicts: [] };
   if (equal(local, base)) return { merged: remote, conflicts: [] };
   if (equal(remote, base)) return { merged: local, conflicts: [] };
+  const resolution=policy?.(base,local,remote,path);
+  if(resolution)return {merged:resolution.value,conflicts:[]};
 
   // Only prose with paragraph boundaries: opaque IDs, URLs and enum settings
   // must never be spliced into a third value neither device selected.
@@ -50,7 +53,7 @@ export function threeWayMerge(base: unknown, local: unknown, remote: unknown, pa
     const conflicts: string[] = [];
     const keys = new Set([...Object.keys(original), ...Object.keys(local), ...Object.keys(remote)]);
     for (const key of keys) {
-      const result = threeWayMerge(Object.hasOwn(original,key)?original[key]:undefined, Object.hasOwn(local,key)?local[key]:undefined, Object.hasOwn(remote,key)?remote[key]:undefined, `${path}.${key}`);
+      const result = threeWayMerge(Object.hasOwn(original,key)?original[key]:undefined, Object.hasOwn(local,key)?local[key]:undefined, Object.hasOwn(remote,key)?remote[key]:undefined, `${path}.${key}`,policy);
       if (result.merged !== undefined) Object.defineProperty(merged, key, { value: result.merged, enumerable: true, writable: true, configurable: true });
       conflicts.push(...result.conflicts);
     }
@@ -66,7 +69,7 @@ export function threeWayMerge(base: unknown, local: unknown, remote: unknown, pa
     const conflicts: string[] = [];
     const ids = new Set([...baseMap.keys(), ...localMap.keys(), ...remoteMap.keys()]);
     for (const id of ids) {
-      const result = threeWayMerge(baseMap.get(id), localMap.get(id), remoteMap.get(id), `${path}[${id}]`);
+      const result = threeWayMerge(baseMap.get(id), localMap.get(id), remoteMap.get(id), `${path}[${id}]`,policy);
       if (result.merged !== undefined) mergedMap.set(id,result.merged);
       conflicts.push(...result.conflicts);
     }

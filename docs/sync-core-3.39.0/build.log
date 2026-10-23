@@ -1,0 +1,140 @@
+▲ Next.js 16.3.8 (webpack)
+- Environments: .env.local
+✓ Running next.config.ts took 64ms
+- Experiments (use with caution):
+  · serverActions
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 29.7s
+  Running TypeScript ...
+  Finished TypeScript in 14.7s ...
+  Collecting page data using 31 workers ...
+  Generating static pages using 31 workers (0/96) ...
+  Generating static pages using 31 workers (24/96)
+  Generating static pages using 31 workers (48/96)
+  Generating static pages using 31 workers (72/96)
+✓ Generating static pages using 31 workers (96/96) in 860ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /[code]
+├ ƒ /account-status
+├ ƒ /activity
+├ ƒ /admin
+├ ƒ /admin/access
+├ ƒ /admin/ai
+├ ƒ /admin/ai/test
+├ ƒ /admin/announcements
+├ ƒ /admin/content
+├ ƒ /admin/content/library
+├ ƒ /admin/enforcer
+├ ƒ /admin/network
+├ ƒ /admin/system
+├ ƒ /admin/test
+├ ƒ /admin/test-ai
+├ ƒ /admin/tickets
+├ ƒ /admin/update-hub
+├ ƒ /admin/users
+├ ƒ /ai
+├ ƒ /answer-sheet
+├ ƒ /answer-sheet-sync
+├ ƒ /api/admin/azure-sync-check
+├ ƒ /api/admin/novels
+├ ƒ /api/admin/novels/upload-ticket
+├ ƒ /api/answer-sheet-sync
+├ ƒ /api/auth/signout
+├ ƒ /api/bilibili-proxy
+├ ƒ /api/companion/beta
+├ ƒ /api/companion/config
+├ ƒ /api/companion/devices
+├ ƒ /api/companion/learning-queue
+├ ƒ /api/companion/sync
+├ ƒ /api/focus-sessions
+├ ƒ /api/health
+├ ƒ /api/ielts-reading/news
+├ ƒ /api/ielts-writing/workspaces
+├ ƒ /api/integrations/dida365/accounts
+├ ƒ /api/integrations/dida365/accounts/[id]
+├ ƒ /api/integrations/dida365/schedule-sync
+├ ƒ /api/integrations/dida365/tasks
+├ ƒ /api/legacy-sync
+├ ƒ /api/llm-proxy
+├ ƒ /api/music-clock
+├ ƒ /api/navigation-usage
+├ ƒ /api/network-access/register
+├ ƒ /api/notifications/snapshot
+├ ƒ /api/offline/workspace
+├ ƒ /api/personal-sites
+├ ƒ /api/practice-timer/live
+├ ƒ /api/reader/novels/[id]
+├ ƒ /api/review/queue
+├ ƒ /api/sync/conflicts
+├ ƒ /api/sync/devices
+├ ƒ /api/sync/v2
+├ ƒ /api/sync/v2/large
+├ ƒ /api/sync/v3
+├ ƒ /api/timetable-sync
+├ ƒ /api/watch/v1/[...action]
+├ ƒ /articles
+├ ƒ /articles/[slug]
+├ ƒ /auth/callback
+├ ƒ /beta
+├ ƒ /bilibili-sync
+├ ƒ /control/focus
+├ ƒ /countdown
+├ ƒ /dashboard
+├ ƒ /definitions
+├ ƒ /examcountdown
+├ ƒ /goal
+├ ƒ /help
+├ ƒ /ielts
+├ ƒ /ielts-writing
+├ ƒ /igcountdown
+├ ƒ /login
+├ ○ /manifest.webmanifest
+├ ƒ /md2word
+├ ƒ /memory
+├ ƒ /mock-portal
+├ ƒ /music
+├ ƒ /music-sync
+├ ƒ /network-access
+├ ƒ /network-access/enter
+├ ○ /oauth/consent
+├ ƒ /poem
+├ ƒ /pomodoro
+├ ƒ /practice-timer
+├ ƒ /properties
+├ ƒ /quiz
+├ ƒ /reading
+├ ƒ /relax
+├ ○ /reset-password
+├ ƒ /resources
+├ ƒ /review
+├ ƒ /schedule
+├ ƒ /server-failure
+├ ƒ /settings
+├ ƒ /settings/watch
+├ ƒ /sleep
+├ ƒ /studio
+├ ƒ /study
+├ ƒ /study-guide
+├ ƒ /study/tasks
+├ ○ /Techempire
+├ ƒ /temp/redirecting
+├ ƒ /time-management
+├ ƒ /timetable-hub
+├ ƒ /tools
+├ ƒ /unauthorized
+├ ƒ /update
+├ ○ /update-password
+├ ƒ /userscripts
+└ ƒ /vocab
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
