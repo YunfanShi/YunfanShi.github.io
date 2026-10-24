@@ -15,7 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
-  { version: '3.42.4', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 待办兼容缺失关联详情', summary: 'SEIUE 对部分待办省略 related 时，仍使用顶层标识、标题与状态显示可用信息。', categories: ['稳定性', '学习体验'], accent: 'blue', highlights: ['缺失 related 不再让整周课程、待办和校历同步失败；无截止时间的任务仍可见。', '待办类型可从已知 type 或 domain 识别，保留顶层状态并按 ID 去重。', '增加合成样本覆盖无 related 的 ignored 待办及 domain-only 选课截止。'] },
+  { version: '3.42.5', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 待办按 domain 兼容映射', summary: '同时依据已知 type 和顶层 domain 识别作业与选课待办。', categories: ['稳定性'], accent: 'blue', highlights: ['对于 SEIUE 变体或未知 type，只在 domain 明确为 task 或 election 时映射；其他未知类型仍跳过。', '保留顶层 ID、标题和状态，按 ID 去重，避免一条缺失 related 的记录阻断快照。'] },
   { version: '3.42.2', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 按周保留成功快照', summary: '切换账户或周次时独立缓存成功结果，避免同步失败后显示其他周的数据。', categories: ['稳定性'], accent: 'blue', highlights: ['缓存按账户与所选周区分，失败时保留同一视图上次成功的数据。', '课后复习只读取当前账户和周次的快照，避免跨周生成或显示重复学习任务。'] },
   { version: '3.42.1', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 连接信息安全提示', summary: '在账户关联页醒目标注授权信息的截图与分享风险。', categories: ['稳定性'], accent: 'blue', highlights: ['不要分享包含 Authorization 请求头或连接包的截图，也不要发送完整 HAR。', '授权信息意外暴露时优先使用 SEIUE 官方撤销方式；若不支持撤销，等待短期 Token 到期再重新连接。'] },
   { version: '3.42.0', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 连接助手自动检测', summary: '打开 SEIUE 个人课表后，连接助手自动识别一次个人课程请求，减少手动步骤。', categories: ['学习体验', '平台体验', '稳定性'], accent: 'blue', highlights: ['限定在学校前端对一个个人课程 GET 请求观察最多 60 秒；连接字段仅在当前页面内存短暂暂存。', 'Token 不会自动显示、联网发送或写入存储；由用户点击复制后再粘贴到 JackYun。', '账户关联失败定位为旧 provider 数据库约束，迁移现已通过只读查询核对。'] },

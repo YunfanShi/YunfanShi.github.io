@@ -92,8 +92,8 @@ export function normalizeSeiueLessons(value: unknown): SeiueLesson[] {
 function parseTodo(item: unknown): SeiueTodo | null {
   const row = record(item), related = record(row?.related) ?? {};
   if (!row) return null;
-  const domain = text(row.type, 120) || text(row.domain, 120) || text(related.domain, 120) || text(related.type, 120), id = text(row.id, 200);
-  const kind = domain === 'seiue.task_submit_todo' || domain === 'task' ? 'assignment' : domain === 'seiue.scms.election.student' || domain === 'election' ? 'election' : null;
+  const type = text(row.type, 120), domain = text(row.domain, 120) || text(related.domain, 120) || text(related.type, 120), id = text(row.id, 200);
+  const kind = type === 'seiue.task_submit_todo' || domain === 'task' ? 'assignment' : type === 'seiue.scms.election.student' || domain === 'election' ? 'election' : null;
   if (!id || !kind) return null;
   const deadline = kind === 'assignment' ? text(related.expired_at, 80) : text(related.end_at, 80);
   return { id, kind, title: text(row.title, 300) || (kind === 'assignment' ? '作业/资料待办' : '选课截止'), ...(draftText(related.content) ? { description: draftText(related.content) } : {}), ...(deadline ? { deadline } : {}), status: text(row.status, 40) || 'unknown', ...(text(row.created_at, 80) ? { createdAt: text(row.created_at, 80) } : {}) };
