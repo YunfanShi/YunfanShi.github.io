@@ -12,15 +12,18 @@ test('one-time browser-helper bundle accepts only bounded student credentials fo
   assert.equal(parseSeiueHelperBundle('x'.repeat(6001)), null);
 });
 
-test('SEIUE helper is click-armed, route-limited, memory-only, and has no network or persistence channel', () => {
+test('SEIUE helper auto-detects only a bounded course request, keeps memory-only, and waits for a click to copy', () => {
   const helper = readFileSync(new URL('../public/userscripts/seiue-connector.user.js', import.meta.url), 'utf8');
   assert.match(helper, /@grant\s+none/);
   assert.match(helper, /@include\s+\/\^https:/);
   assert.match(helper, /chalk-\[a-z0-9-\]/);
   assert.match(helper, /https:\/\/api\.seiue\.com/);
-  assert.match(helper, /click/);
-  assert.match(helper, /60_000/);
+  assert.match(helper, /let armed = true/);
+  assert.match(helper, /installHooks\(\);\s*timeoutId = window\.setTimeout/);
+  assert.match(helper, /copyButton\.addEventListener\('click', copyBundle\)/);
   assert.match(helper, /navigator\.clipboard\.writeText/);
+  assert.match(helper, /60_000/);
+  assert.ok(helper.includes('const EVENT_PATH = /^\\/chalk\\/calendar\\/personals'));
   assert.doesNotMatch(helper, /localStorage|sessionStorage|document\.cookie|GM_xmlhttpRequest|@connect|console\.(log|info|warn|error)/i);
   assert.doesNotMatch(helper, /fetch\s*\(\s*['"`]/i);
 });
