@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.42.8', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 待办映射实测通过', summary: '真实预览账户的 54 条 SEIUE 待办已完整映射为作业/资料和选课截止。', categories: ['稳定性', '学习体验'], accent: 'blue', highlights: ['已验证 52 条作业/资料待办和 2 条选课截止，顶层状态与 ID 可用。', '真实周快照同时返回 38 节课、20 条校历事件；响应未包含授权字段。', '数值待办 ID 转为稳定十进制键，未知异常结构仍保留上次成功快照。'] },
   { version: '3.42.7', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 数值待办 ID 兼容', summary: 'SEIUE 待办 ID 为安全整数时按十进制稳定键同步，避免丢弃整批作业和选课记录。', categories: ['稳定性', '学习体验'], accent: 'blue', highlights: ['只接受非负安全整数或原有字符串 ID，拒绝小数、负数和不安全整数。', '异常结构继续触发不含记录内容的诊断，并保留上次成功快照。'] },
   { version: '3.42.6', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 空待办结构安全诊断', summary: '待办源记录存在但尚未映射时，保留上一份成功快照并提供不含记录内容的结构计数。', categories: ['稳定性'], accent: 'blue', highlights: ['仅输出源记录数量、固定白名单字段和已知类型/状态的计数，不输出 ID、标题、描述或授权信息。', '无任务且源列表确实为空时仍可正常显示空状态；无法识别有记录的响应时不清空旧数据。'] },
   { version: '3.42.5', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 待办按 domain 兼容映射', summary: '同时依据已知 type 和顶层 domain 识别作业与选课待办。', categories: ['稳定性'], accent: 'blue', highlights: ['对于 SEIUE 变体或未知 type，只在 domain 明确为 task 或 election 时映射；其他未知类型仍跳过。', '保留顶层 ID、标题和状态，按 ID 去重，避免一条缺失 related 的记录阻断快照。'] },
