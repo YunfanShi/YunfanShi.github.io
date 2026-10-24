@@ -101,7 +101,7 @@ export default function AccountConnectionsPanel() {
   return <div className="space-y-5">
     <section className="space-y-4 rounded-2xl border border-[var(--card-border)] p-4" aria-label="SEIUE 账户关联">
       <div className="flex items-start gap-3"><span aria-hidden="true" className="material-icons-round mt-0.5 text-[var(--brand)]">school</span><div><h3 className="font-semibold">关联 SEIUE 学生账户</h3><p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)]">读取课程、作业/资料待办、选课截止和校历。只读同步，不会代提交或修改 SEIUE 数据。</p></div></div>
-      <p className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">安全说明：你粘贴的 Token 会发送到 JackYun 服务端，并使用 AES-256-GCM 加密保存，最长 24 小时；到期、SEIUE 返回 401 或解除关联时会删除。未配置加密密钥时服务端拒绝关联。不要粘贴学校密码或 Cookie。</p>
+      <p className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">安全说明：你粘贴的 Token 会发送到 JackYun 服务端，并使用 AES-256-GCM 加密保存，最长 24 小时；到期、SEIUE 返回 401 或解除关联时会删除。未配置加密密钥时服务端拒绝关联。不要粘贴学校密码或 Cookie，也不要分享包含 Authorization 请求头或连接包的截图。</p>
       <details className="rounded-xl border border-[var(--card-border)] p-3 text-sm">
         <summary className="min-h-9 cursor-pointer font-medium">详细教程：自动获取连接信息或手动复制</summary>
         <ol className="mt-2 list-decimal space-y-2 pl-5 text-xs leading-5 text-[var(--muted-foreground)]">

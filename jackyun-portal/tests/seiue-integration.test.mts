@@ -28,6 +28,12 @@ test('SEIUE helper auto-detects only a bounded course request, keeps memory-only
   assert.doesNotMatch(helper, /fetch\s*\(\s*['"`]/i);
 });
 
+test('SEIUE connection instructions warn users not to share authorization screenshots', () => {
+  const panel = readFileSync(new URL('../src/components/settings/account-connections-panel.tsx', import.meta.url), 'utf8');
+  assert.match(panel, /不要分享包含 Authorization 请求头或连接包的截图/);
+  assert.match(panel, /不要把 Token、连接包或请求详情截图发给任何人/);
+});
+
 test('SEIUE naive times are strict Asia/Shanghai wall clock values', () => {
   assert.deepEqual(parseSeiueDateTime('2026-10-23 09:05:00'), { date: '2026-10-23', time: '09:05', epoch: Date.UTC(2026, 9, 23, 1, 5) });
   assert.equal(parseSeiueDateTime('2026-02-30 09:00:00'), null);
