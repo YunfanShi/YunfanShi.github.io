@@ -79,5 +79,12 @@ export async function fetchSeiueSnapshot(credentials: SeiueCredentials, weekDate
     const result = await getJson(credentials, `/chalk/todo/executors/${encodeURIComponent(credentials.reflectionId)}/todos?expand=related&paginated=1&per_page=100&page=${page}&sort=-created_at&status_in=pending,completed,ignored,invalid`);
     todoPages.push(arr(result.body, '待办'));
   }
-  return { lessons: normalizeSeiueLessons(arr(events.body, '课程')), todos: normalizeSeiueTodos(todoPages), calendar: normalizeSeiueCalendar(arr(calendar.body, '校历')) };
+  let lessons: SeiueLesson[], todos: SeiueTodo[], calendarEvents: SeiueCalendarEvent[];
+  try { lessons = normalizeSeiueLessons(arr(events.body, '课程')); }
+  catch { throw new SeiueApiError('SEIUE 课程数据结构与当前适配器不兼容；未保存本次快照，请保留现有数据后重试。'); }
+  try { todos = normalizeSeiueTodos(todoPages); }
+  catch { throw new SeiueApiError('SEIUE 待办数据结构与当前适配器不兼容；未保存本次快照，请保留现有数据后重试。'); }
+  try { calendarEvents = normalizeSeiueCalendar(arr(calendar.body, '校历')); }
+  catch { throw new SeiueApiError('SEIUE 校历数据结构与当前适配器不兼容；未保存本次快照，请保留现有数据后重试。'); }
+  return { lessons, todos, calendar: calendarEvents };
 }

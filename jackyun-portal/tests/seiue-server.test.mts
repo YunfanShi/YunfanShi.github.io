@@ -110,3 +110,28 @@ test('calendar lookup uses the current semester and fails safely when none is av
     assert.equal(calls.some(url => url.includes('/scms/schcal/events')), false);
   } finally { globalThis.fetch = original; }
 });
+
+test('snapshot normalization failures identify only the affected resource', async () => {
+  const original = globalThis.fetch;
+  const cases = [
+    { resource: '课程', match: '/chalk/calendar/personals/', body: [{ ...lesson, start_time: 'invalid' }] },
+    { resource: '待办', match: '/todos?', body: [{ id: 'todo-1', type: 'seiue.task_submit_todo', status: 'pending' }] },
+    { resource: '校历', match: '/scms/schcal/events', body: [{ id: 'holiday-1', title: 'Holiday' }] },
+  ];
+  try {
+    for (const item of cases) {
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes(item.match)) return Response.json(item.body);
+        if (url.includes('/chalk/calendar/personals/')) return Response.json([]);
+        if (url.includes('/todos?')) return Response.json([]);
+        if (url.includes('/chalk/system/semesters?')) return Response.json([{ id: 'semester-1', is_current: true }]);
+        if (url.includes('/scms/schcal/events')) return Response.json([]);
+        return Response.json({}, { status: 404 });
+      }) as typeof fetch;
+      await assert.rejects(fetchSeiueSnapshot(credentials, '2026-10-23'), error =>
+        error instanceof SeiueApiError && error.message.includes(`${item.resource}数据结构`) && !error.message.includes(credentials.token),
+      );
+    }
+  } finally { globalThis.fetch = original; }
+});
