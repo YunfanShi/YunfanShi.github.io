@@ -20,12 +20,13 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
   const [accounts, setAccounts] = useState<SeiueAccountView[]>([]);
   const [accountId, setAccountId] = useState('');
   const [snapshots, setSnapshots] = useState<SeiueSnapshotCache>({});
-  const [prefs, setPrefs] = useState<Record<string, boolean>>({});
+  const [prefsByAccount, setPrefsByAccount] = useState<Record<string, Record<string, boolean>>>({});
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const ownerRef = useRef('');
   const week = useMemo(() => { const date = new Date(`${selectedDate}T12:00:00`); date.setDate(date.getDate() - ((date.getDay() + 6) % 7)); return date.toLocaleDateString('en-CA'); }, [selectedDate]);
   const weekEnd = useMemo(() => { const date = new Date(`${week}T12:00:00`); date.setDate(date.getDate() + 6); return date.toLocaleDateString('en-CA'); }, [week]);
+  const prefs = useMemo(() => accountId ? prefsByAccount[accountId] ?? readPrefs(accountId) : {}, [accountId, prefsByAccount]);
   const activeSnapshot = getSeiueSnapshot(snapshots, accountId, week) ?? EMPTY;
   const loadAccounts = useCallback(async () => {
     const response = await fetch('/api/integrations/seiue/accounts', { cache: 'no-store' });
@@ -44,7 +45,6 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
     finally { setBusy(false); }
   }, [accountId, week]);
   useEffect(() => { let cancelled = false; queueMicrotask(() => { if (!cancelled) void loadAccounts().catch(() => {}); }); return () => { cancelled = true; }; }, [loadAccounts]);
-  useEffect(() => { setPrefs(accountId ? readPrefs(accountId) : {}); }, [accountId]);
   useEffect(() => {
     const changed = ownerRef.current !== accountId; ownerRef.current = accountId;
     queueMicrotask(() => { if (changed && !accountId) onReviewTasks([]); });
@@ -60,8 +60,10 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
   }, [activeSnapshot.lessons, onReviewTasks, prefs]);
   function toggleReview(subject: string, enabled: boolean) {
     const next = { ...prefs, [courseKey(subject)]: enabled };
-    setPrefs(next);
-    if (accountId) localStorage.setItem(`${PREF}:${accountId}`, JSON.stringify(next));
+    if (accountId) {
+      setPrefsByAccount(current => ({ ...current, [accountId]: next }));
+      localStorage.setItem(`${PREF}:${accountId}`, JSON.stringify(next));
+    }
   }
   if (!accounts.length) return null;
   const lessons = activeSnapshot.lessons;

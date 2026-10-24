@@ -54,7 +54,7 @@ export function summarizeSeiueTodoShape(pages: unknown[][]) {
   const buckets = <T extends string>(allowed: readonly T[]) => Object.fromEntries([...allowed.map(value => [value, 0] as const), ['other', 0] as const]) as Record<T | 'other', number>;
   const domains = buckets(allowedDomains), types = buckets(allowedTypes), statuses = buckets(allowedStatuses);
   const fields = { id: 0, type: 0, domain: 0, status: 0, related: 0, attributes: 0 };
-  let records = pages.reduce((total, page) => total + page.length, 0);
+  const records = pages.reduce((total, page) => total + page.length, 0);
   for (const page of pages) for (const item of page) {
     const row = record(item);
     if (!row) continue;
