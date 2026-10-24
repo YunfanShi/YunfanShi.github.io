@@ -115,7 +115,6 @@ test('snapshot normalization failures identify only the affected resource', asyn
   const original = globalThis.fetch;
   const cases = [
     { resource: '课程', match: '/chalk/calendar/personals/', body: [{ ...lesson, start_time: 'invalid' }] },
-    { resource: '待办', match: '/todos?', body: [{ id: 'todo-1', type: 'seiue.task_submit_todo', status: 'pending' }] },
     { resource: '校历', match: '/scms/schcal/events', body: [{ id: 'holiday-1', title: 'Holiday' }] },
   ];
   try {
