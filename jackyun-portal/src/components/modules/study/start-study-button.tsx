@@ -3,13 +3,16 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { prepareStudyFocus } from '@/actions/study';
+import { useAuthMode } from '@/components/auth/auth-mode-provider';
 
 interface StartStudyButtonProps {
   taskId: string;
   durationMinutes: number;
+  taskTitle: string;
 }
 
-export default function StartStudyButton({ taskId, durationMinutes }: StartStudyButtonProps) {
+export default function StartStudyButton({ taskId, durationMinutes, taskTitle }: StartStudyButtonProps) {
+  const { userId } = useAuthMode();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +21,17 @@ export default function StartStudyButton({ taskId, durationMinutes }: StartStudy
     setError(null);
     startTransition(async () => {
       try {
-        const launch = await prepareStudyFocus(taskId, durationMinutes);
+        let launch;
+        if (navigator.onLine) {
+          try { launch = await prepareStudyFocus(taskId, durationMinutes); }
+          catch {
+            if (!userId) throw new Error('请登录后开始并同步此学习任务');
+          }
+        }
+        if (!launch) {
+          if (!userId) throw new Error('请登录后开始并同步此学习任务');
+          launch = { focusTaskId: crypto.randomUUID(), studyTaskId: taskId, title: taskTitle, durationMinutes };
+        }
         localStorage.setItem('jackyun_pomodoro_launch', JSON.stringify({
           ...launch,
           autoStart: true,

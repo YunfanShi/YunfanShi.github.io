@@ -50,12 +50,20 @@ export async function POST(request: NextRequest) {
     return apiError(requestId, 'Invalid focus session', 400, 'INVALID_SESSION');
   }
 
-  const [{ data: studyTask }, { data: focusTask }] = await Promise.all([
-    supabase.from('study_tasks').select('id').eq('id', studyTaskId).eq('user_id', user.id).maybeSingle(),
+  const [{ data: studyTask }, { data: existingFocusTask }] = await Promise.all([
+    supabase.from('study_tasks').select('id, title, estimated_minutes').eq('id', studyTaskId).eq('user_id', user.id).maybeSingle(),
     supabase.from('focus_tasks').select('id, study_task_id').eq('id', focusTaskId).eq('user_id', user.id).maybeSingle(),
   ]);
-  if (!studyTask || !focusTask || focusTask.study_task_id !== studyTask.id) {
+  if (!studyTask || (existingFocusTask && existingFocusTask.study_task_id !== studyTask.id)) {
     return apiError(requestId, 'Focus task not found', 404, 'NOT_FOUND');
+  }
+  const focusTask = existingFocusTask ?? (await supabase.from('focus_tasks').upsert({
+    id: focusTaskId, user_id: user.id, study_task_id: studyTask.id, title: studyTask.title,
+    estimated_pomodoros: Math.max(1, Math.ceil((studyTask.estimated_minutes ?? 25) / 25)),
+    is_completed: false, updated_at: new Date().toISOString(),
+  }, { onConflict: 'id', ignoreDuplicates: true }).select('id, study_task_id').single()).data;
+  if (!focusTask || focusTask.study_task_id !== studyTask.id) {
+    return apiError(requestId, 'Unable to prepare focus task', 500, 'FOCUS_TASK_WRITE_FAILED');
   }
 
   const { data: session, error } = await supabase

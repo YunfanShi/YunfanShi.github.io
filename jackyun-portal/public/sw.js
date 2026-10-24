@@ -1,7 +1,7 @@
 const CACHE_PREFIX = 'jackyun-pwa';
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v13';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
-const PREVIOUS_STATIC_CACHE = `${CACHE_PREFIX}-static-v11`;
+const PREVIOUS_STATIC_CACHE = `${CACHE_PREFIX}-static-v12`;
 // Navigation entries survive worker updates; old immutable assets stay available for them.
 const NAVIGATION_CACHE = `${CACHE_PREFIX}-pages-v10`;
 const OWNER_CACHE = `${CACHE_PREFIX}-owner-v1`;

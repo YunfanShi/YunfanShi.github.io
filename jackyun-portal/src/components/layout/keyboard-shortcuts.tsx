@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { OPEN_GLOBAL_SEARCH_EVENT } from '@/components/layout/global-search';
 
 export default function KeyboardShortcuts() {
   const router = useRouter();
@@ -25,13 +26,9 @@ export default function KeyboardShortcuts() {
         return;
       }
 
-      // `/` — focus search or open search
-      if (e.key === '/') {
+      if ((e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey)) || (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey)) {
         e.preventDefault();
-        const searchInput = document.querySelector<HTMLInputElement>(
-          'input[type="search"], input[placeholder*="搜索"], input[placeholder*="search"]',
-        );
-        if (searchInput) searchInput.focus();
+        window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT));
         return;
       }
 

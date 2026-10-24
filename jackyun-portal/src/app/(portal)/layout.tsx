@@ -128,7 +128,7 @@ export default async function PortalLayout({
       <div data-portal-shell className="isolate flex h-[100dvh] min-h-0 overflow-hidden bg-[var(--background)]">
         <Sidebar initialPrefs={sidebarPrefs} adaptiveScores={adaptiveScores} initialIsAdmin={isAdmin} betaActive={betaEnrollment?.status === 'accepted'} allowedFeatureKeys={featureSnapshot && Object.keys(featureSnapshot.features).length ? Object.values(featureSnapshot.features).filter((feature) => feature.allowed).map((feature) => feature.key) : ['reading']} />
         <div data-portal-content className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <Topbar user={user} betaActive={betaEnrollment?.status === 'accepted'} />
+          <Topbar user={user} betaActive={betaEnrollment?.status === 'accepted'} isAdmin={isAdmin} />
           <ServerFailureNotice />
           <SiteNotificationModal />
           {claimsError && <SessionRecovery />}

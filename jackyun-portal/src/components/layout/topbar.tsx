@@ -15,6 +15,8 @@ import { saveSettingsField } from '@/actions/settings';
 import { t } from '@/lib/i18n';
 import NotificationInbox from '@/components/modules/notification-inbox';
 import SyncStatusIndicator from '@/components/layout/sync-status-indicator';
+import OfflineQueueStatus from '@/components/layout/offline-queue-status';
+import GlobalSearch, { OPEN_GLOBAL_SEARCH_EVENT } from '@/components/layout/global-search';
 import { APP_VERSION } from '@/lib/utils';
 import LogoutButton from '@/components/auth/logout-button';
 
@@ -25,6 +27,7 @@ interface TopbarProps {
     user_metadata: Record<string, unknown>;
   } | null;
   betaActive?: boolean;
+  isAdmin?: boolean;
 }
 
 type Theme = 'light' | 'gray' | 'dark';
@@ -35,7 +38,7 @@ const THEME_META: Record<Theme, { next: Theme; label: string; icon: string }> = 
   dark: { next: 'light', label: '切换到亮色主题', icon: 'light_mode' },
 };
 
-export default function Topbar({ user, betaActive = false }: TopbarProps) {
+export default function Topbar({ user, betaActive = false, isAdmin = false }: TopbarProps) {
   const { lang } = useLanguage();
   const pathname = usePathname();
   const currentItem = NAVIGATION_ITEMS.find((item) => item.id === navigationIdFromPath(pathname));
@@ -137,6 +140,10 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
+        <Button type="button" variant="ghost" size="icon" aria-label={lang === 'zh' ? '全站搜索' : 'Search everywhere'} title={lang === 'zh' ? '搜索页面、任务和错题（Ctrl K）' : 'Search pages, tasks, and reviews (Ctrl K)'} onClick={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}>
+          <span aria-hidden="true" className="material-icons-round text-lg">search</span>
+        </Button>
+        <OfflineQueueStatus userId={user?.id ?? null} />
         {betaActive && (
           <Link href="/beta" prefetch={false} className="hidden rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm transition hover:bg-[#6941c6] lg:inline-flex sm:text-xs" title="打开 BETA 测试中心">
             BETA v{APP_VERSION}
@@ -183,6 +190,7 @@ export default function Topbar({ user, betaActive = false }: TopbarProps) {
           </a></Button>
         )}
       </div>
+      <GlobalSearch userId={user?.id ?? null} betaActive={betaActive} isAdmin={isAdmin} />
     </header>
   );
 }
