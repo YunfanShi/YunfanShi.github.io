@@ -16,6 +16,7 @@ import {backupIsDue,recordBackupChange,type PendingBackup} from '@/lib/backup/ca
 import {createDueBackupVersions} from '@/actions/backup-center';
 import {emitDiagnostic,errorDetails} from '@/lib/diagnostic-events';
 import {syncFailureStatus} from '@/lib/sync/service-error';
+import {reportSyncFailure} from '@/lib/sync/report-failure';
 import type {SyncStatus,SyncResolutionRequest} from '@/types/sync';
 
 function localSnapshot(includeLarge = false): Record<string, string> {
@@ -162,12 +163,16 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         failures++;retryAt=Date.now()+syncRetryDelay(failures);
         authPaused=shouldPauseSync(error)||(error as {status?:number}).status===426;
         emitDiagnostic('error','WorkspaceSync','同步未确认，原始内容与待上传修改保留',{error:errorDetails(error),failures,online:navigator.onLine});
+        void reportSyncFailure(error,'cycle');
         await publish(syncFailureStatus(error,navigator.onLine,failures),error instanceof Error?error.message:'同步失败');
       } finally {if(gate.finish()&&!cancelled&&!signingOut)void sync(true);}
     }
     localStorage.removeItem('jackyun_guest_mode');
     void publish('syncing',undefined,'正在初始化版本同步…');
-    void syncStore.bindSyncUser(userId).then(()=>{bound=true;return sync();}).catch(error=>void publish('error',error instanceof Error?error.message:'无法绑定账号'));
+    void syncStore.bindSyncUser(userId).then(()=>{bound=true;return sync();}).catch(error=>{
+      void reportSyncFailure(error,'initialization');
+      void publish('error',error instanceof Error?error.message:'无法绑定账号');
+    });
     let editTimer:number|null=null;
     const onEdit=()=>{if(editTimer!==null)window.clearTimeout(editTimer);editTimer=window.setTimeout(()=>{editTimer=null;void sync(false,false,undefined,'edit');},8_000);};
     const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void sync();},30_000);

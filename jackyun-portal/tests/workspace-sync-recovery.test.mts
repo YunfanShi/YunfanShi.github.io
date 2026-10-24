@@ -103,6 +103,7 @@ function harness() {
       '@/lib/sync/remote-record': { remoteRecordIsCurrent: () => false },
       '@/actions/backup-center': { createDueBackupVersions: async () => {} },
       '@/lib/diagnostic-events': { emitDiagnostic: () => {}, errorDetails: () => ({}) },
+      '@/lib/sync/report-failure': { reportSyncFailure: async () => {} },
       '@/lib/sync/service-error': { SyncHttpError: class extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status; } }, syncFailureStatus: () => 'server_unavailable' },
       '@/lib/request-timeout': { fetchSyncWithTimeout: async (url: string, init?: RequestInit) => {
         const method = init?.method ?? 'GET', body = init?.body ? JSON.parse(String(init.body)) : undefined;
