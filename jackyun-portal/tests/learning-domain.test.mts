@@ -1176,8 +1176,20 @@ test('legacy Pomodoro bridge records linked sessions through the authenticated a
   const route = readFileSync(new URL('../src/app/api/focus-sessions/route.ts', import.meta.url), 'utf8');
   assert.match(html, /jackyun_pomodoro_launch/);
   assert.match(html, /fetch\('\/api\/focus-sessions'/);
+  assert.match(html, /PENDING_FOCUS_KEY/);
+  assert.match(html, /retryPendingFocusSessions/);
   assert.match(route, /\.eq\('user_id', user\.id\)/);
   assert.match(route, /onConflict: 'user_id,client_operation_id'/);
+  assert.match(route, /focus_tasks'\)\.upsert/);
+});
+
+test('global search reads only navigation and current account offline snapshots', () => {
+  const search = readFileSync(new URL('../src/components/layout/global-search.tsx', import.meta.url), 'utf8');
+  assert.match(search, /NAVIGATION_ITEMS/);
+  assert.match(search, /OPEN_GLOBAL_SEARCH_EVENT/);
+  assert.match(search, /readOfflineSnapshot\(userId, 'tasks'\)/);
+  assert.match(search, /readOfflineSnapshot\(userId, 'review'\)/);
+  assert.match(search, /item\.adminOnly/);
 });
 
 test('review queue migration is private, durable, and Data API-ready', () => {

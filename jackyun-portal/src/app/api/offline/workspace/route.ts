@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await getVerifiedUser(supabase);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const body = await request.json().catch(() => null) as { kind?: string; payload?: Record<string, unknown> } | null;
+  const body = await request.json().catch(() => null) as { operationId?: string; kind?: string; payload?: Record<string, unknown> } | null;
   if (!body?.kind || !body.payload) return NextResponse.json({ error: 'Invalid mutation' }, { status: 400 });
   const payload = body.payload;
   const now = new Date().toISOString();
@@ -52,7 +52,8 @@ export async function POST(request: NextRequest) {
     const title = stringValue(payload.title, 140);
     if (!title) return NextResponse.json({ error: 'Task title required' }, { status: 400 });
     const minutes = Math.min(360, Math.max(10, Number(payload.estimatedMinutes) || 25));
-    const { error } = await supabase.from('study_tasks').insert({ user_id: user.id, plan_id: stringValue(payload.planId, 80) || null, title, completed: false, due_date: stringValue(payload.dueDate, 10) || null, estimated_minutes: minutes });
+    const operationId = typeof body.operationId === 'string' && /^[0-9a-f-]{36}$/i.test(body.operationId) ? body.operationId : crypto.randomUUID();
+    const { error } = await supabase.from('study_tasks').upsert({ id: operationId, user_id: user.id, plan_id: stringValue(payload.planId, 80) || null, title, completed: false, due_date: stringValue(payload.dueDate, 10) || null, estimated_minutes: minutes }, { onConflict: 'id', ignoreDuplicates: true });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   } else if (body.kind === 'plan.delete') {
     const planId = stringValue(payload.planId, 80);

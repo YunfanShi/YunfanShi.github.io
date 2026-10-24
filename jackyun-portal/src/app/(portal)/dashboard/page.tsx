@@ -184,8 +184,9 @@ async function DashboardOverview({ user }: { user: { id: string } | null }) {
   const now = new Date();
   const today = dateKey(now, 'Asia/Shanghai');
   const todayStart = new Date(`${today}T00:00:00+08:00`).toISOString();
-  const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 6);
-  const [vocabResult, masteredResult, studyResult, companionResult, deviceResult, reviewResult, focusResult, countdownResult] = user ? await Promise.all([
+  const weekStartKey = new Date(Date.parse(`${today}T00:00:00Z`) - 6 * 86_400_000).toISOString().slice(0, 10);
+  const weekStartIso = `${weekStartKey}T00:00:00+08:00`;
+  const [vocabResult, masteredResult, studyResult, companionResult, deviceResult, reviewResult, focusResult, focusWeekResult, reviewWeekResult, countdownResult] = user ? await Promise.all([
     supabase
       .from('vocab_words')
       .select('id', { count: 'exact', head: true })
@@ -199,12 +200,14 @@ async function DashboardOverview({ user }: { user: { id: string } | null }) {
       .from('study_tasks')
       .select('id, title, completed, due_date, estimated_minutes, priority, scheduled_at, completed_at', { count: 'exact', head: false })
       .eq('user_id', user.id),
-    supabase.from('companion_activity_daily').select('activity_date, hostname, category, active_seconds, visits').eq('user_id', user.id).gte('activity_date', weekStart.toISOString().slice(0, 10)),
+    supabase.from('companion_activity_daily').select('activity_date, hostname, category, active_seconds, visits').eq('user_id', user.id).gte('activity_date', weekStartKey),
     supabase.from('companion_devices').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('revoked_at', null),
     supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active').lte('next_review_at', now.toISOString()),
     supabase.from('focus_sessions').select('duration_seconds').eq('user_id', user.id).gte('completed_at', todayStart),
+    supabase.from('focus_sessions').select('duration_seconds, completed_at').eq('user_id', user.id).gte('completed_at', weekStartIso),
+    supabase.from('review_attempts').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('attempted_at', weekStartIso),
     supabase.from('countdowns').select('title, target_date').eq('user_id', user.id).gte('target_date', today).order('target_date').limit(1).maybeSingle(),
-  ]) : [null, null, null, null, null, null, null, null];
+  ]) : [null, null, null, null, null, null, null, null, null, null];
 
   const totalVocab = vocabResult?.count ?? 0;
   const masteredVocab = masteredResult?.count ?? 0;
@@ -232,6 +235,21 @@ async function DashboardOverview({ user }: { user: { id: string } | null }) {
   });
   const todayCompleted = tasks.filter((task) => task.completed_at && dateKey(new Date(task.completed_at), 'Asia/Shanghai') === today).length;
   const focusTodayMinutes = Math.round((focusResult?.data ?? []).reduce((sum, session) => sum + Number(session.duration_seconds || 0), 0) / 60);
+  const focusWeekRows = focusWeekResult?.data ?? [];
+  const focusWeekMinutes = Math.round(focusWeekRows.reduce((sum, session) => sum + Number(session.duration_seconds || 0), 0) / 60);
+  const reviewWeekCount = reviewWeekResult?.count ?? 0;
+  const completedThisWeek = tasks.filter(task => task.completed_at && task.completed_at >= weekStartIso).length;
+  const focusByDay = new Map<string, number>();
+  for (const session of focusWeekRows) {
+    const day = dateKey(new Date(session.completed_at), 'Asia/Shanghai');
+    focusByDay.set(day, (focusByDay.get(day) ?? 0) + Number(session.duration_seconds || 0));
+  }
+  const focusDays = Array.from({ length: 7 }, (_, index) => {
+    const key = new Date(Date.parse(`${weekStartKey}T00:00:00Z`) + index * 86_400_000).toISOString().slice(0, 10);
+    const day = new Date(`${key}T12:00:00+08:00`);
+    return { key, label: new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', weekday: 'short' }).format(day), minutes: Math.round((focusByDay.get(key) ?? 0) / 60) };
+  });
+  const focusScale = Math.max(30, ...focusDays.map(day => day.minutes));
   const nextCountdown = countdownResult?.data;
   const countdownDays = nextCountdown ? Math.max(0, Math.ceil((Date.parse(`${nextCountdown.target_date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)) : null;
 
@@ -250,6 +268,30 @@ async function DashboardOverview({ user }: { user: { id: string } | null }) {
         <StatCard icon="check_circle" color="#34A853" label="已掌握词汇" value={masteredVocab} />
         <StatCard icon="task_alt" color="#4285F4" label={`全部任务完成率（${completedTasks}/${tasks.length}）`} value={`${completionRate}%`} />
       </div>
+
+      <section aria-labelledby="weekly-progress-heading" className="mb-10 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-[var(--surface-shadow)] sm:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div><p className="text-xs font-semibold uppercase tracking-[.14em] text-[#1a73e8]">Last seven days</p><h3 id="weekly-progress-heading" className="mt-1 text-lg font-semibold">近七日学习进展</h3></div>
+          <Link prefetch={false} href="/activity" className="text-xs font-semibold text-[#1a73e8] hover:underline">查看完整活动 →</Link>
+        </div>
+        <div className="mt-5 grid gap-5 md:grid-cols-[1fr_1.2fr] md:items-end">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-[var(--background)] p-3"><strong className="block text-xl tabular-nums">{focusWeekMinutes}<span className="ml-1 text-xs font-medium">分</span></strong><span className="mt-1 block text-[11px] text-[var(--muted-foreground)]">专注时长</span></div>
+            <div className="rounded-xl bg-[var(--background)] p-3"><strong className="block text-xl tabular-nums">{completedThisWeek}</strong><span className="mt-1 block text-[11px] text-[var(--muted-foreground)]">完成任务</span></div>
+            <div className="rounded-xl bg-[var(--background)] p-3"><strong className="block text-xl tabular-nums">{reviewWeekCount}</strong><span className="mt-1 block text-[11px] text-[var(--muted-foreground)]">复习答题</span></div>
+          </div>
+          <div aria-label="近七日每天专注分钟数" className="grid grid-cols-7 gap-2">
+            {focusDays.map(day => <div key={day.key} className="flex min-w-0 flex-col items-center gap-1.5" title={`${day.key}：${day.minutes} 分钟`}>
+              <span className="text-[10px] tabular-nums text-[var(--muted-foreground)]">{day.minutes || '·'}</span>
+              <div className="flex h-12 w-full items-end overflow-hidden rounded-md bg-[var(--background)]"><div className="w-full rounded-md bg-[#4285f4]" style={{ height: `${Math.max(day.minutes ? 12 : 0, Math.round(day.minutes / focusScale * 100))}%` }} /></div>
+              <span className="text-[10px] text-[var(--muted-foreground)]">{day.label}</span>
+            </div>)}
+          </div>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-[var(--card-border)] pt-4 text-xs text-[var(--muted-foreground)]">
+          <Link href="/study/tasks" className="font-semibold text-[var(--foreground)] hover:text-[#1a73e8]">选择学习任务</Link><span aria-hidden="true">→</span><Link href="/pomodoro" className="font-semibold text-[var(--foreground)] hover:text-[#1a73e8]">记录专注</Link><span aria-hidden="true">→</span><Link href="/review" className="font-semibold text-[var(--foreground)] hover:text-[#1a73e8]">复习巩固</Link><span className="sm:ml-auto">近七日任务、专注和复习汇总</span>
+        </div>
+      </section>
 
       <section className="mb-10 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Link prefetch={false} href="/study/tasks" className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 transition-transform hover:-translate-y-0.5">
@@ -304,7 +346,7 @@ async function DashboardOverview({ user }: { user: { id: string } | null }) {
                     {reasons.length > 0 ? reasons.join(' · ') : '计划中的待完成任务'} · 预计 {task.estimated_minutes ?? 25} 分钟
                   </span>
                 </div>
-                <StartStudyButton taskId={task.id} durationMinutes={task.estimated_minutes ?? 25} />
+                <StartStudyButton taskId={task.id} taskTitle={task.title} durationMinutes={task.estimated_minutes ?? 25} />
               </li>
             ))}
           </ol>
