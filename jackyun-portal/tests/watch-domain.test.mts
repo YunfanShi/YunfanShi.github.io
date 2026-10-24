@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { digest, sameHash, seal, unseal, validateOperation } from '../src/lib/watch/policy.ts';
-import { calendarDate, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
+import { calendarDate, normalizeWatchSeiueTodos, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
 import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.ts';
 
 test('pair payload encryption authenticates its key and ciphertext',()=>{
@@ -29,6 +30,31 @@ test('calendar uses China midnight independently of server timezone',()=>{
   assert.equal(calendarDate(new Date('2026-10-12T16:00:00Z')),'2026-10-13');
   assert.equal(zonedEpoch('2026-10-13','09:00'),Date.parse('2026-10-13T01:00:00Z'));
   assert.equal(zonedEpoch('2026-07-01','09:00','America/New_York'),Date.parse('2026-07-01T13:00:00Z'));
+});
+test('Watch SEIUE agenda includes only pending tasks and preserves deadline and useful context',()=>{
+  const items=normalizeWatchSeiueTodos([
+    {id:'pending-1',kind:'assignment',title:'实验报告',status:'pending',deadline:'2026-10-14 23:59',courseName:'物理实验',assignmentType:'课程作业',creatorName:'老师甲',description:'上传 PDF'},
+    {id:'done-1',kind:'assignment',title:'已完成任务',status:'completed',deadline:'2026-10-14 20:00'},
+    {id:'unknown-1',kind:'election',title:'未知状态',status:'unknown',deadline:'2026-10-14 20:00'},
+    {id:'no-deadline',kind:'election',title:'待选课程',status:'pending'},
+  ],new Date('2026-10-14T04:00:00Z'));
+  assert.equal(items.items.length,2);assert.equal(items.hasMore,false);
+  assert.equal(items.items[0].deadlineLabel,'2026-10-14 23:59');
+  assert.equal(items.items[0].dueAt,Date.parse('2026-10-14T15:59:00Z'));
+  assert.match(items.items[0].detail,/物理实验/);assert.match(items.items[0].detail,/老师甲/);assert.match(items.items[0].detail,/上传 PDF/);
+  assert.equal(items.items[1].deadlineLabel,'未提供截止时间');assert.equal(items.items[1].dueAt,0);
+});
+test('Watch SEIUE server integration is user-scoped, read-only and cache-safe',()=>{
+  const snapshotSource=readFileSync(new URL('../src/lib/watch/snapshot.ts',import.meta.url),'utf8');
+  const routeSource=readFileSync(new URL('../src/app/api/watch/v1/[...action]/route.ts',import.meta.url),'utf8');
+  assert.match(snapshotSource,/\.eq\('user_id',userId\)\.eq\('provider','seiue'\)/);
+  assert.match(snapshotSource,/external_account_secrets[\s\S]*?\.eq\('account_id',account\.id\)\.eq\('user_id',userId\)/);
+  assert.match(snapshotSource,/credentials\.role!=='student'[\s\S]*?fetchSeiueSnapshot/);
+  assert.match(snapshotSource,/external\.todos\.filter\(todo=>todo\.status==='pending'\)/);
+  assert.match(routeSource,/Cache-Control':'private, no-store/);
+  assert.match(snapshotSource,/const agenda=normalizeWatchSeiueTodos/);
+  assert.match(snapshotSource,/result\.seiueAgenda=agenda\.items/);
+  assert.doesNotMatch(snapshotSource,/result\.seiueAgenda\s*=\s*credentials/);
 });
 test('empty synchronized schedule is a valid empty result',()=>{
   const summary=scheduleSnapshot(createEmptyScheduleState(),new Date('2026-10-13T00:00:00Z'));

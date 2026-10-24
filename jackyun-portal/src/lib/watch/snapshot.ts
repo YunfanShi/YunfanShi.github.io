@@ -3,6 +3,8 @@ import { readScheduleState, SCHEDULE_STORAGE_KEY } from '../learning/workspace-r
 import { sessionsForDate, tasksForDate } from '../learning/schedule-control.ts';
 import { createAzureRecordClient } from '../sync/azure-records.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { decryptSecret } from '../secret-crypto.ts';
+import { safeSeiueSite, type SeiueTodo } from '../integrations/seiue.ts';
 
 export function calendarDate(at: Date, timezone='Asia/Shanghai') {
   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(at);
@@ -53,6 +55,41 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
   let didaTasks: Array<{id:string;title:string;completed:boolean;version:string;date:string;start:string;minutes:number;subject:string;detail:string;source:string}> = [];
   async function load(name:string,action:()=>Promise<void>){try{await action();if(modules[name]!=='partial')modules[name]='ready';}catch{modules[name]='error';}}
   await Promise.all([
+    load('seiue',async()=>{
+      result.seiueAgenda=[];
+      const {data:accounts,error:accountError}=await supabase.from('external_accounts').select('id,settings,status').eq('user_id',userId).eq('provider','seiue').order('created_at',{ascending:false}).limit(10);
+      if(accountError)throw accountError;
+      const account=(accounts??[]).find(item=>item.status==='active')??accounts?.[0]??null;
+      if(!account)return;
+      const settings=account.settings&&typeof account.settings==='object'?account.settings as Record<string,unknown>:{};
+      const expiresAt=typeof settings.tokenExpiresAt==='string'?settings.tokenExpiresAt:'';
+      if(!expiresAt||Date.parse(expiresAt)<=now.getTime()) {
+        const {error:deleteError}=await supabase.from('external_account_secrets').delete().eq('account_id',account.id).eq('user_id',userId);
+        if(deleteError)throw Error('SEIUE expired credential cleanup failed');
+        const {error:updateError}=await supabase.from('external_accounts').update({status:'error',updated_at:now.toISOString()}).eq('id',account.id).eq('user_id',userId).eq('provider','seiue');
+        if(updateError)throw Error('SEIUE expired account update failed');
+        throw Error('SEIUE authorization expired');
+      }
+      if(account.status!=='active')throw Error('SEIUE account needs reconnection');
+      const {data:secret,error:secretError}=await supabase.from('external_account_secrets').select('encrypted_access_token').eq('account_id',account.id).eq('user_id',userId).maybeSingle();
+      if(secretError||!secret?.encrypted_access_token)throw Error('SEIUE authorization unavailable');
+      const credentials=JSON.parse(decryptSecret(secret.encrypted_access_token)) as import('../integrations/seiue-server.ts').SeiueCredentials;
+      if(credentials.role!=='student'||credentials.expiresAt!==expiresAt||credentials.token.length<16||credentials.token.length>4000||!/^[-A-Za-z0-9_]{1,200}$/.test(credentials.reflectionId)||!/^[-A-Za-z0-9_]{1,200}$/.test(credentials.schoolId)||!safeSeiueSite(credentials.schoolSite))throw Error('SEIUE authorization invalid');
+      const {fetchSeiueSnapshot}=await import('../integrations/seiue-server.ts');
+      let external;
+      try { external=await fetchSeiueSnapshot(credentials,calendarDate(now)); }
+      catch(error) {
+        const status=error&&typeof error==='object'&&'status' in error?(error as {status?:unknown}).status:null;
+        if(status===401||status===403) {
+          const {error:deleteError}=status===401?await supabase.from('external_account_secrets').delete().eq('account_id',account.id).eq('user_id',userId):{error:null};
+          const {error:updateError}=await supabase.from('external_accounts').update({status:'error',updated_at:now.toISOString()}).eq('id',account.id).eq('user_id',userId).eq('provider','seiue');
+          if(deleteError||updateError)throw Error('SEIUE authorization status update failed');
+        }
+        throw error;
+      }
+      const agenda=normalizeWatchSeiueTodos(external.todos.filter(todo=>todo.status==='pending'),now);
+      result.seiueAgenda=agenda.items;result.seiueAgendaHasMore=agenda.hasMore;
+    }),
     load('dida',async()=>{
       const { watchDidaSnapshot } = await import('./dida-tasks');
       const remote = await watchDidaSnapshot(supabase,userId,calendarDate(now));
@@ -99,6 +136,26 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
     }),
   ]);
   return mergeWatchDidaTasks(result,modules,didaTasks,now);
+}
+
+export function normalizeWatchSeiueTodos(todos:SeiueTodo[],now:Date) {
+  const today=calendarDate(now);
+  const endDate=new Date(`${today}T12:00:00+08:00`);endDate.setUTCDate(endDate.getUTCDate()+14);
+  const end=calendarDate(endDate);
+  const candidates=todos.filter(todo=>todo.status==='pending').map(todo=>{
+    const parsed=todo.deadline?parseSeiueDeadline(todo.deadline):null;
+    const dueDate=parsed?.date??today;
+    const detail=[todo.kind==='assignment'?(todo.assignmentType??'作业/资料'):'选课截止',todo.courseName,todo.creatorName?`布置人：${todo.creatorName}`:null,parsed?`截止：${todo.deadline}`:'未提供截止时间',todo.description].filter(Boolean).join('\n');
+    return {id:`seiue:${todo.id}`,title:todo.title,date:dueDate<today?today:dueDate,sourceDate:dueDate,start:parsed?.time??'',minutes:0,subject:todo.courseName??'SEIUE',detail,source:'seiue',status:'pending',deadlineLabel:todo.deadline??'未提供截止时间',dueAt:parsed?zonedEpoch(parsed.date,parsed.time):0};
+  }).filter(todo=>!todo.dueAt||todo.sourceDate<=end).sort((a,b)=>(a.dueAt||Number.MAX_SAFE_INTEGER)-(b.dueAt||Number.MAX_SAFE_INTEGER)||a.id.localeCompare(b.id));
+  return {items:candidates.slice(0,200),hasMore:candidates.length>200};
+}
+function parseSeiueDeadline(value:string):{date:string;time:string}|null {
+  const match=/^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/.exec(value);
+  if(!match||!Number.isFinite(Date.parse(`${match[1]}T${match[2]}:${match[3]}:00+08:00`)))return null;
+  const date=new Date(`${match[1]}T12:00:00+08:00`);
+  if(date.toISOString().slice(0,10)!==match[1]||Number(match[2])>23||Number(match[3])>59)return null;
+  return {date:match[1],time:`${match[2]}:${match[3]}`};
 }
 export function mergeWatchDidaTasks(result:Record<string,unknown>, modules:Record<string,string>, didaTasks:Array<{id:string;title:string;completed:boolean;version:string;date:string;start:string;minutes:number;subject:string;detail:string;source:string}>, now=new Date()) {
   const localTasks=Array.isArray(result.tasks)?result.tasks:[];

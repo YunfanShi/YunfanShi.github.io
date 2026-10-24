@@ -11,7 +11,8 @@ export type SeiueLesson = {
 };
 export type SeiueTodo = {
   id: string; kind: 'assignment' | 'election'; title: string; description?: string;
-  deadline?: string; status: string; createdAt?: string;
+  deadline?: string; status: string; createdAt?: string; courseName?: string;
+  assignmentType?: '课程作业' | '课程资料'; creatorName?: string;
 };
 export type SeiueCalendarEvent = { id: string; title: string; date: string; endDate?: string; description?: string };
 export type SeiueSnapshot = { lessons: SeiueLesson[]; todos: SeiueTodo[]; calendar: SeiueCalendarEvent[]; syncedAt: string };
@@ -99,8 +100,14 @@ function parseTodo(item: unknown): SeiueTodo | null {
   const type = text(row.type, 120), domain = text(row.domain, 120) || text(related.domain, 120) || text(related.type, 120), id = stableId(row.id, 200);
   const kind = type === 'seiue.task_submit_todo' || domain === 'task' ? 'assignment' : type === 'seiue.scms.election.student' || domain === 'election' ? 'election' : null;
   if (!id || !kind) return null;
-  const deadline = kind === 'assignment' ? text(related.expired_at, 80) : text(related.end_at, 80);
-  return { id, kind, title: text(row.title, 300) || (kind === 'assignment' ? '作业/资料待办' : '选课截止'), ...(draftText(related.content) ? { description: draftText(related.content) } : {}), ...(deadline ? { deadline } : {}), status: text(row.status, 40) || 'unknown', ...(text(row.created_at, 80) ? { createdAt: text(row.created_at, 80) } : {}) };
+  const deadlineValue = kind === 'assignment' ? text(related.expired_at, 80) : text(related.end_at, 80);
+  const deadline = deadlineValue && parseSeiueDateTime(deadlineValue) ? deadlineValue.slice(0, 16) : '';
+  const labels = record(related.labels);
+  const labelType = text(labels?.type, 100);
+  const assignmentType = labelType === 'seiue.class_homework_task' ? '课程作业' : labelType === 'seiue.class_document_task' ? '课程资料' : undefined;
+  const courseName = text(record(related.group)?.name, 200);
+  const creatorName = text(record(related.creator)?.name, 100);
+  return { id, kind, title: text(row.title, 300) || (kind === 'assignment' ? '作业/资料待办' : '选课截止'), ...(draftText(related.content) ? { description: draftText(related.content) } : {}), ...(deadline ? { deadline } : {}), status: text(row.status, 40) || 'unknown', ...(text(row.created_at, 80) ? { createdAt: text(row.created_at, 80) } : {}), ...(courseName ? { courseName } : {}), ...(assignmentType ? { assignmentType } : {}), ...(creatorName ? { creatorName } : {}) };
 }
 export function normalizeSeiueTodos(pages: unknown[]): SeiueTodo[] {
   if (!pages.length || pages.some(page => !Array.isArray(page))) throw new Error('SEIUE 待办分页数据格式异常。');

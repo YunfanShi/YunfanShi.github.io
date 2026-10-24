@@ -89,7 +89,7 @@ export async function fetchSeiueSnapshot(credentials: SeiueCredentials, weekDate
   const personalPath = `/chalk/calendar/personals/${encodeURIComponent(credentials.reflectionId)}/events?start_time=${encodeURIComponent(range.start)}&end_time=${encodeURIComponent(range.end)}&expand=address,initiators`;
   const [events, firstTodos, semesters] = await Promise.all([
     getJson(credentials, personalPath),
-    getJson(credentials, `/chalk/todo/executors/${encodeURIComponent(credentials.reflectionId)}/todos?expand=related&paginated=1&per_page=100&page=1&sort=-created_at&status_in=pending,completed,ignored,invalid`),
+    getJson(credentials, `/chalk/todo/executors/${encodeURIComponent(credentials.reflectionId)}/todos?expand=related&paginated=1&per_page=100&page=1&sort=-created_at&status_in=pending`),
     getJson(credentials, '/chalk/system/semesters?expand=is_current&paginated=0&sort=-start_at'),
   ]);
   const currentSemester = arr(semesters.body, '校历').map(record).find((semester) => semester?.is_current === true);
@@ -99,7 +99,7 @@ export async function fetchSeiueSnapshot(credentials: SeiueCredentials, weekDate
   const todoPages = [arr(firstTodos.body, '待办')];
   const count = pageCount(firstTodos.headers, firstTodos.body);
   for (let page = 2; page <= count; page++) {
-    const result = await getJson(credentials, `/chalk/todo/executors/${encodeURIComponent(credentials.reflectionId)}/todos?expand=related&paginated=1&per_page=100&page=${page}&sort=-created_at&status_in=pending,completed,ignored,invalid`);
+    const result = await getJson(credentials, `/chalk/todo/executors/${encodeURIComponent(credentials.reflectionId)}/todos?expand=related&paginated=1&per_page=100&page=${page}&sort=-created_at&status_in=pending`);
     todoPages.push(arr(result.body, '待办'));
   }
   let lessons: SeiueLesson[], todos: SeiueTodo[], calendarEvents: SeiueCalendarEvent[];
@@ -113,5 +113,5 @@ export async function fetchSeiueSnapshot(credentials: SeiueCredentials, weekDate
   }
   try { calendarEvents = normalizeSeiueCalendar(arr(calendar.body, '校历')); }
   catch { throw new SeiueApiError('SEIUE 校历数据结构与当前适配器不兼容；未保存本次快照，请保留现有数据后重试。'); }
-  return { lessons, todos, calendar: calendarEvents };
+  return { lessons, todos: todos.filter(todo => todo.status === 'pending'), calendar: calendarEvents };
 }

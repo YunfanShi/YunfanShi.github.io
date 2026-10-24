@@ -38,13 +38,14 @@ test('snapshot sends only pinned GET requests and reads every todo page', async 
   try {
     const result = await fetchSeiueSnapshot(credentials, '2026-10-23');
     assert.equal(result.lessons[0].id, 'lesson-1');
-    assert.equal(result.todos.length, 2);
-    assert.equal(result.todos[1].status, 'completed');
+    assert.equal(result.todos.length, 1);
+    assert.equal(result.todos[0].status, 'pending');
     assert.equal(result.calendar[0].title, 'Break');
     assert.equal(calls.length, 5);
     assert.ok(calls.some(call => call.url.includes('/scms/schcal/events?semester_id=semester-1')));
     for (const call of calls) {
       assert.equal(new URL(call.url).origin, 'https://api.seiue.com');
+      if (call.url.includes('/todos?')) assert.equal(new URL(call.url).searchParams.get('status_in'), 'pending');
       assert.equal(call.init?.method, 'GET');
       assert.equal(call.init?.redirect, 'error');
       const headers = new Headers(call.init?.headers);

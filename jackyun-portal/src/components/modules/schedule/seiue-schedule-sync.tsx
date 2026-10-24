@@ -12,7 +12,9 @@ function courseKey(subject: string) { return subject.trim().toLocaleLowerCase().
 function readPrefs(accountId: string): Record<string, boolean> {
   try { const value = JSON.parse(localStorage.getItem(`${PREF}:${accountId}`) ?? '{}'); return value && typeof value === 'object' ? value : {}; } catch { return {}; }
 }
-function statusLabel(status: string) { return ({ pending: '待完成', completed: '已完成', ignored: '已忽略', invalid: '已失效' } as Record<string, string>)[status] ?? status; }
+function todoDetails(todo: SeiueSnapshot['todos'][number]) {
+  return [todo.kind === 'assignment' ? (todo.assignmentType ?? '作业/资料') : '选课截止', todo.courseName, todo.creatorName ? `布置人：${todo.creatorName}` : '', todo.createdAt ? `布置时间：${todo.createdAt.slice(0, 16)}` : ''].filter(Boolean).join(' · ');
+}
 
 export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { selectedDate: string; onReviewTasks: (tasks: LearningTask[]) => void }) {
   const [accounts, setAccounts] = useState<SeiueAccountView[]>([]);
@@ -64,10 +66,10 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
   if (!accounts.length) return null;
   const lessons = activeSnapshot.lessons;
   const todos = activeSnapshot.todos.filter(todo => {
+    if (todo.status !== 'pending') return false;
     const deadline = todo.deadline?.slice(0, 10);
-    if (todo.status === 'invalid' || todo.status === 'ignored') return false;
-    if (!deadline) return todo.status === 'pending';
-    return deadline <= weekEnd && (todo.status === 'pending' || deadline >= week);
+    if (!deadline) return true;
+    return deadline <= weekEnd;
   });
   const calendar = activeSnapshot.calendar.filter(event => event.date <= weekEnd && (!event.endDate || event.endDate >= week));
   const subjects = [...new Set(activeSnapshot.lessons.map(item => item.subject))];
@@ -76,7 +78,7 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
     {notice && <p role="status" className="mt-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">{notice}。已缓存的成功快照未被覆盖。</p>}
     {subjects.length > 0 && <details className="mt-3 rounded-2xl bg-[var(--background)] p-3"><summary className="min-h-9 cursor-pointer text-sm font-medium">课后复习设置（默认关闭）</summary><div className="mt-2 space-y-2">{subjects.map(subject => <label key={subject} className="flex min-h-10 items-center gap-3 text-sm"><input type="checkbox" checked={Boolean(prefs[courseKey(subject)])} onChange={event => toggleReview(subject, event.target.checked)} className="h-4 w-4 accent-[var(--brand)]" />课后复习 · {subject}</label>)}</div><p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">开启后，课程结束时会按单次课程 ID 创建一项 JackYun 学习任务；设置仅保存在本浏览器，不包含 Token。</p></details>}
     <div className="mt-4 grid gap-4 lg:grid-cols-3"><div><h3 className="text-sm font-semibold">所选周课程</h3>{lessons.length ? <ul className="mt-2 divide-y divide-[var(--card-border)]">{lessons.map(lesson => <li key={lesson.id} className={`py-2 text-sm ${lesson.date === selectedDate ? 'rounded-lg bg-[var(--background)] px-2' : ''}`}><strong>{lesson.date} · {lesson.subject}</strong><p className="mt-1 text-xs text-[var(--muted-foreground)]">{lesson.start}–{lesson.end}{lesson.location ? ` · ${lesson.location}` : ''}{lesson.teacher ? ` · ${lesson.teacher}` : ''}{lesson.adjustment ? ` · 调课：${lesson.adjustment}` : ''}</p>{lesson.description && <details className="mt-1 text-xs"><summary>课堂备注</summary><p className="mt-1 whitespace-pre-wrap">{lesson.description}</p></details>}</li>)}</ul> : <p className="mt-2 text-xs text-[var(--muted-foreground)]">所选周没有课程。</p>}</div>
-      <div><h3 className="text-sm font-semibold">作业 / 资料与选课截止</h3>{todos.length ? <ul className="mt-2 space-y-2">{todos.map(todo => <li key={todo.id} className="rounded-xl bg-[var(--background)] p-3"><p className="text-sm font-medium">{todo.title}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{todo.kind === 'assignment' ? '作业/资料' : '选课截止'} · {todo.deadline ?? '未提供截止时间'} · {statusLabel(todo.status)}</p>{todo.description && <details className="mt-1 text-xs"><summary>任务说明</summary><p className="mt-1 whitespace-pre-wrap">{todo.description}</p></details>}<a href={accounts.find(item => item.id === accountId)?.schoolSite ?? 'https://www.seiue.com/'} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-9 items-center rounded-full border border-[var(--card-border)] px-3 text-xs font-semibold">前往 SEIUE 查看 / 提交</a></li>)}</ul> : <p className="mt-2 text-xs text-[var(--muted-foreground)]">所选日期之前没有待完成事项。</p>}</div>
+      <div><h3 className="text-sm font-semibold">未完成作业 / 资料与选课截止</h3>{todos.length ? <ul className="mt-2 space-y-2">{todos.map(todo => <li key={todo.id} className="rounded-xl bg-[var(--background)] p-3"><p className="text-sm font-medium">{todo.title}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{todoDetails(todo)} · 截止：{todo.deadline ?? '未提供截止时间'} · SEIUE 状态：待完成</p>{todo.description && <details className="mt-1 text-xs"><summary>任务说明</summary><p className="mt-1 whitespace-pre-wrap">{todo.description}</p></details>}<a href={accounts.find(item => item.id === accountId)?.schoolSite ?? 'https://www.seiue.com/'} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-9 items-center rounded-full border border-[var(--card-border)] px-3 text-xs font-semibold">前往 SEIUE 查看 / 提交</a></li>)}</ul> : <p className="mt-2 text-xs text-[var(--muted-foreground)]">所选周没有未完成事项。</p>}</div>
       <div><h3 className="text-sm font-semibold">校历事件</h3>{calendar.length ? <ul className="mt-2 space-y-2">{calendar.map(event => <li key={event.id} className="rounded-xl bg-[var(--background)] p-3"><p className="text-sm font-medium">{event.title}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{event.date}{event.endDate ? ` 至 ${event.endDate}` : ''}</p>{event.description && <p className="mt-1 whitespace-pre-wrap text-xs">{event.description}</p>}</li>)}</ul> : <p className="mt-2 text-xs text-[var(--muted-foreground)]">所选日期没有校历事件。</p>}</div></div>
     <p className="mt-4 text-xs text-[var(--muted-foreground)]">{activeSnapshot.syncedAt ? `最近成功同步 ${new Date(activeSnapshot.syncedAt).toLocaleString('zh-CN')}` : '尚未成功同步'} · 不代提交，不更改源端完成状态。</p>
   </section>;

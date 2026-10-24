@@ -44,6 +44,11 @@ test('SEIUE connection instructions warn users not to share authorization screen
   const panel = readFileSync(new URL('../src/components/settings/account-connections-panel.tsx', import.meta.url), 'utf8');
   assert.match(panel, /不要分享包含 Authorization 请求头或连接包的截图/);
   assert.match(panel, /不要把 Token、连接包或请求详情截图发给任何人/);
+  const schedule = readFileSync(new URL('../src/components/modules/schedule/seiue-schedule-sync.tsx', import.meta.url), 'utf8');
+  assert.match(schedule, /if \(todo\.status !== 'pending'\) return false/);
+  assert.match(schedule, /截止：\{todo\.deadline/);
+  assert.match(schedule, /todo\.courseName/);
+  assert.match(schedule, /前往 SEIUE 查看 \/ 提交/);
 });
 
 test('SEIUE naive times are strict Asia/Shanghai wall clock values', () => {
@@ -66,7 +71,7 @@ test('course normalization keeps occurrence ID, content, instructor, location an
 
 test('todo pages deduplicate IDs and use top-level status plus the domain deadline', () => {
   const pages = [[
-    { id: 'todo-1', title: '交实验报告', status: 'pending', type: 'seiue.task_submit_todo', related: { status: 'completed', expired_at: '2026-10-24 23:59:00', content: { blocks: [{ text: '上传 PDF' }, { text: '附数据表' }] } } },
+    { id: 'todo-1', title: '交实验报告', status: 'pending', type: 'seiue.task_submit_todo', related: { status: 'completed', expired_at: '2026-10-24 23:59:00', content: { blocks: [{ text: '上传 PDF' }, { text: '附数据表' }] }, group: { name: '物理实验' }, creator: { name: '老师甲' }, labels: { type: 'seiue.class_homework_task' } } },
     { id: 'todo-2', title: '选课', status: 'pending', type: 'seiue.scms.election.student', related: { end_at: '2026-10-25 12:00:00' } },
     { id: 'todo-partial', title: '已忽略的旧作业', status: 'ignored', type: 'seiue.task_submit_todo' },
     { id: 'todo-domain', title: '补选截止', status: 'pending', domain: 'election', related: { end_at: '2026-10-26 12:00:00' } },
@@ -77,13 +82,17 @@ test('todo pages deduplicate IDs and use top-level status plus the domain deadli
   const todos = normalizeSeiueTodos(pages);
   assert.equal(todos.length, 6);
   assert.equal(todos[0].status, 'completed');
+  assert.equal(todos[0].courseName, '物理实验');
+  assert.equal(todos[0].creatorName, '老师甲');
+  assert.equal(todos[0].assignmentType, '课程作业');
+  assert.equal(todos[0].deadline, '2026-10-24 23:59');
   assert.match(todos[0].description ?? '', /上传 PDF\n附数据表/);
-  assert.equal(todos[1].deadline, '2026-10-25 12:00:00');
+  assert.equal(todos[1].deadline, '2026-10-25 12:00');
   assert.equal(todos[2].id, 'todo-partial');
   assert.equal(todos[2].status, 'ignored');
   assert.equal(todos[2].deadline, undefined);
   assert.equal(todos[3].kind, 'election');
-  assert.equal(todos[3].deadline, '2026-10-26 12:00:00');
+  assert.equal(todos[3].deadline, '2026-10-26 12:00');
   assert.equal(todos[4].kind, 'assignment');
   assert.equal(todos[4].status, 'pending');
   assert.equal(todos[5].id, '20261024001');
