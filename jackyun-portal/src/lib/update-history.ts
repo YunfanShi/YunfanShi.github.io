@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.42.2', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 按周保留成功快照', summary: '切换账户或周次时独立缓存成功结果，避免同步失败后显示其他周的数据。', categories: ['稳定性'], accent: 'blue', highlights: ['缓存按账户与所选周区分，失败时保留同一视图上次成功的数据。', '课后复习只读取当前账户和周次的快照，避免跨周生成或显示重复学习任务。'] },
   { version: '3.42.1', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 连接信息安全提示', summary: '在账户关联页醒目标注授权信息的截图与分享风险。', categories: ['稳定性'], accent: 'blue', highlights: ['不要分享包含 Authorization 请求头或连接包的截图，也不要发送完整 HAR。', '授权信息意外暴露时优先使用 SEIUE 官方撤销方式；若不支持撤销，等待短期 Token 到期再重新连接。'] },
   { version: '3.42.0', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 连接助手自动检测', summary: '打开 SEIUE 个人课表后，连接助手自动识别一次个人课程请求，减少手动步骤。', categories: ['学习体验', '平台体验', '稳定性'], accent: 'blue', highlights: ['限定在学校前端对一个个人课程 GET 请求观察最多 60 秒；连接字段仅在当前页面内存短暂暂存。', 'Token 不会自动显示、联网发送或写入存储；由用户点击复制后再粘贴到 JackYun。', '账户关联失败定位为旧 provider 数据库约束，迁移现已通过只读查询核对。'] },
   { version: '3.41.1', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 校历同步修复', summary: '校历查询改为先识别当前学期，再按学期读取校历事件。', categories: ['稳定性'], accent: 'blue', highlights: ['使用学生可读的学期列表确定当前 semester_id，再请求只读校历接口。', '缺少当前学期时保留上次成功数据，并显示可恢复提示。', '补充测试，覆盖当前学期参数、无当前学期和上游错误；未记录 Token 或上游原始响应。'] },

@@ -1,7 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { normalizeSeiueCalendar, normalizeSeiueLessons, normalizeSeiueTodos, parseSeiueDateTime, parseSeiueHelperBundle, safeSeiueSite, seiueCourseReviewKey } from '../src/lib/integrations/seiue.ts';
+import { normalizeSeiueCalendar, normalizeSeiueLessons, normalizeSeiueTodos, parseSeiueDateTime, parseSeiueHelperBundle, safeSeiueSite, seiueCourseReviewKey, type SeiueSnapshot } from '../src/lib/integrations/seiue.ts';
+import { getSeiueSnapshot, withSeiueSnapshot } from '../src/lib/integrations/seiue-snapshot-cache.ts';
+
+test('snapshot cache is scoped by account and selected week and preserves the last success on failure', () => {
+  const monday: SeiueSnapshot = { lessons: [{ id: 'week-1', title: 'Algebra', subject: 'Math', date: '2026-10-20', start: '09:00', end: '09:45' }], todos: [], calendar: [], syncedAt: '2026-10-24T00:00:00.000Z' };
+  const cache = withSeiueSnapshot({}, 'account-1', '2026-10-19', monday);
+  assert.equal(getSeiueSnapshot(cache, 'account-1', '2026-10-19'), monday);
+  assert.equal(getSeiueSnapshot(cache, 'account-1', '2026-10-26'), null);
+  assert.equal(getSeiueSnapshot(cache, 'account-2', '2026-10-19'), null);
+  assert.equal(withSeiueSnapshot(cache, 'account-1', 'invalid-week', monday), cache);
+  // A failed refresh does not call withSeiueSnapshot, so the cached success stays intact.
+  assert.equal(getSeiueSnapshot(cache, 'account-1', '2026-10-19'), monday);
+});
 
 test('one-time browser-helper bundle accepts only bounded student credentials for an HTTPS SEIUE school site', () => {
   const bundle = JSON.stringify({ version: 1, token: 'synthetic-token-0123456789', reflectionId: '4226602', schoolId: '120', role: 'student', schoolSite: 'https://chalk-c3.seiue.com/' });
