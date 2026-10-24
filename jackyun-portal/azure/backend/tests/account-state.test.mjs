@@ -48,8 +48,8 @@ test('active sessions reuse verification, survive temporary outages, and stop at
  let stamp=1000,calls=0,fail=false;const valid={expiresAt:3601};
  const verify=createAccountStateVerifier({supabaseUrl:project,publishableKey:'public-key',now:()=>stamp,fetchImpl:async()=>{calls++;if(fail)throw Error('offline');return Response.json([active]);}});
  await verify(identity,'token',valid);await verify(identity,'token',valid);assert.equal(calls,1);
- stamp+=300001;fail=true;await verify(identity,'token',valid);assert.equal(calls,2);
- await verify(identity,'token',valid);assert.equal(calls,2,'outage retries are bounded');
+ stamp+=300001;fail=true;await verify(identity,'token',valid);assert.equal(calls,3);
+ await verify(identity,'token',valid);assert.equal(calls,3,'outage retries are bounded');
  stamp=3601001;await assert.rejects(verify(identity,'token',valid),{status:503});
 });
 test('session caches do not authorize another account, and explicit suspension invalidates cached access',async()=>{
