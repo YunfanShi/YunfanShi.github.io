@@ -54,7 +54,7 @@
     "test:ai-platform": "node --test tests/ai-platform.test.mts",
     "test:learning": "node --test tests/learning-domain.test.mts tests/question-bank.test.mts tests/learning-assistance.test.mts tests/study-insights.test.mts tests/cue-rating.test.mts tests/cue-game.test.mts tests/cue-shop.test.mts tests/cue-practice.test.mts tests/memory-cue-import.test.mts tests/joint-cue-study.test.mts tests/cue-change-history.test.mts tests/mobile-cue-study.test.mts tests/cue-answer-card.test.mts tests/cue-mastery.test.mts",
     "test:integrations": "node --test tests/dida365-integration.test.mts",
-    "test:seiue": "node --test tests/seiue-integration.test.mts tests/seiue-server.test.mts",
+    "test:seiue": "node --test tests/seiue-integration.test.mts tests/seiue-server.test.mts tests/seiue-routes.test.mts",
     "test:sleep": "node --test tests/sleep-calculator.test.mts",
     "test:property-decks": "node --test tests/property-decks.test.mts",
     "test:ielts-writing-ui": "node tests/ielts-new-essay.browser.mjs",
