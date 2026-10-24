@@ -105,12 +105,14 @@ test('the viewport dialog overrides generic height caps and traps background wid
   assert.match(layout, /data-portal-shell className="isolate /);
 });
 
-test('phone filters retain all desktop options and hide desktop keyboard instructions', () => {
+test('phone filters retain all options and hide desktop keyboard hints in touch mode', () => {
   const source = readFileSync(new URL('../src/components/modules/schedule/schedule-control.tsx', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../src/components/modules/schedule/schedule-control.module.css', import.meta.url), 'utf8');
   assert.match(source, /aria-label="选择学习科目"/);
   assert.match(source, /aria-label="选择学习单元"/);
   assert.match(source, /aria-label="选择学习范围"[^\n]*filterOptions\.map/);
-  assert.match(source, /hidden md:block[^\n]*快捷键/);
+  assert.match(source, /className=\{styles\.keyboardHint\}>K/);
+  assert.match(css, /@media \(max-width: 1023px\), \(pointer: coarse\) \{\s*\.keyboardHint \{ display: none; \}/);
   assert.match(source, /aria-label="触屏题目目录"/);
 });
 
