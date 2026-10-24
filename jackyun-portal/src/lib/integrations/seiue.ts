@@ -45,6 +45,10 @@ function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 function text(value: unknown, limit = 1000): string { return typeof value === 'string' ? value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, limit) : ''; }
+function stableId(value: unknown, limit = 200): string {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value >= 0 ? String(value) : '';
+  return text(value, limit);
+}
 function datePart(value: string): string | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;
@@ -92,7 +96,7 @@ export function normalizeSeiueLessons(value: unknown): SeiueLesson[] {
 function parseTodo(item: unknown): SeiueTodo | null {
   const row = record(item), related = record(row?.related) ?? {};
   if (!row) return null;
-  const type = text(row.type, 120), domain = text(row.domain, 120) || text(related.domain, 120) || text(related.type, 120), id = text(row.id, 200);
+  const type = text(row.type, 120), domain = text(row.domain, 120) || text(related.domain, 120) || text(related.type, 120), id = stableId(row.id, 200);
   const kind = type === 'seiue.task_submit_todo' || domain === 'task' ? 'assignment' : type === 'seiue.scms.election.student' || domain === 'election' ? 'election' : null;
   if (!id || !kind) return null;
   const deadline = kind === 'assignment' ? text(related.expired_at, 80) : text(related.end_at, 80);

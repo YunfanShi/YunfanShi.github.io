@@ -71,10 +71,11 @@ test('todo pages deduplicate IDs and use top-level status plus the domain deadli
     { id: 'todo-partial', title: '已忽略的旧作业', status: 'ignored', type: 'seiue.task_submit_todo' },
     { id: 'todo-domain', title: '补选截止', status: 'pending', domain: 'election', related: { end_at: '2026-10-26 12:00:00' } },
     { id: 'todo-domain-task', title: '材料阅读', status: 'pending', type: 'seiue.task_submit_todo_v2', domain: 'task' },
+    { id: 20261024001, title: '数值 ID 作业', status: 'pending', type: 'seiue.task_submit_todo', domain: 'task' },
     { id: 'ignore', status: 'pending', related: { domain: 'unknown' } },
   ], [{ id: 'todo-1', title: '交实验报告', status: 'completed', type: 'seiue.task_submit_todo', related: { expired_at: '2026-10-24 23:59:00' } }]];
   const todos = normalizeSeiueTodos(pages);
-  assert.equal(todos.length, 5);
+  assert.equal(todos.length, 6);
   assert.equal(todos[0].status, 'completed');
   assert.match(todos[0].description ?? '', /上传 PDF\n附数据表/);
   assert.equal(todos[1].deadline, '2026-10-25 12:00:00');
@@ -85,6 +86,7 @@ test('todo pages deduplicate IDs and use top-level status plus the domain deadli
   assert.equal(todos[3].deadline, '2026-10-26 12:00:00');
   assert.equal(todos[4].kind, 'assignment');
   assert.equal(todos[4].status, 'pending');
+  assert.equal(todos[5].id, '20261024001');
   assert.throws(() => normalizeSeiueTodos([{}]));
 });
 
