@@ -165,7 +165,7 @@ export default function PlanCard({ plan, onToggleTask, onDeleteTask, onCreateTas
                   {task.title}
                 </span>
                 {!task.completed && (
-                  <StartStudyButton taskId={task.id} durationMinutes={task.estimated_minutes ?? 25} />
+                  <StartStudyButton taskId={task.id} taskTitle={task.title} durationMinutes={task.estimated_minutes ?? 25} />
                 )}
                 <button
                   onClick={() => handleDeleteTask(task.id)}

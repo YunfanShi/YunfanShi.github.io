@@ -1,5 +1,7 @@
 'use client';
 
+import { fetchSyncWithTimeout } from '@/lib/request-timeout';
+
 export type OfflineScope = 'tasks' | 'review' | 'reading';
 
 export interface OfflineMutation {
@@ -8,6 +10,9 @@ export interface OfflineMutation {
   kind: string;
   payload: Record<string, unknown>;
   createdAt: string;
+  attemptCount?: number;
+  nextAttemptAt?: string;
+  lastError?: string;
 }
 
 interface SnapshotRow<T = unknown> {
@@ -110,26 +115,63 @@ export async function listOfflineMutations(userId: string): Promise<OfflineMutat
 
 export async function removeOfflineMutation(id: string): Promise<void> {
   await transact('outbox', 'readwrite', (transaction) => transaction.objectStore('outbox').delete(id));
+  window.dispatchEvent(new CustomEvent('jackyun-offline-synced', { detail: { id } }));
+}
+
+export async function deferOfflineMutation(id: string, error: string, now = Date.now()): Promise<void> {
+  const db = await openDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction('outbox', 'readwrite');
+      const store = transaction.objectStore('outbox');
+      const request = store.get(id);
+      request.onsuccess = () => {
+        const operation = request.result as OfflineMutation | undefined;
+        if (!operation) return;
+        const attemptCount = (operation.attemptCount ?? 0) + 1;
+        const delay = Math.min(5 * 60_000, 5_000 * 2 ** Math.min(attemptCount - 1, 6));
+        store.put({ ...operation, attemptCount, nextAttemptAt: new Date(now + delay).toISOString(), lastError: error.slice(0, 240) });
+      };
+      request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error('Offline retry schedule aborted'));
+    });
+  } finally { db.close(); }
 }
 
 class OfflineApiError extends Error {}
 
 export async function runOfflineMutation(userId: string, kind: string, payload: Record<string, unknown>): Promise<'synced' | 'queued'> {
-  if (!navigator.onLine) {
-    await queueOfflineMutation(userId, kind, payload);
+  const operation: OfflineMutation = { id: crypto.randomUUID(), userId, kind, payload, createdAt: new Date().toISOString() };
+  if (typeof navigator === 'undefined' || !navigator.onLine) {
+    await persistMutation(operation);
     return 'queued';
   }
   try {
-    const response = await fetch('/api/offline/workspace', {
+    const response = await fetchSyncWithTimeout('/api/offline/workspace', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind, payload }),
+      body: JSON.stringify({ operationId: operation.id, kind, payload }),
     });
-    if (!response.ok) throw new OfflineApiError(`Offline mutation failed (${response.status})`);
+    if (!response.ok) {
+      if (response.status >= 500 || response.status === 408 || response.status === 429 || response.status === 401 || response.status === 403 || response.status === 409) {
+        await persistMutation(operation);
+        await deferOfflineMutation(operation.id, `HTTP ${response.status}`);
+        return 'queued';
+      }
+      throw new OfflineApiError(`Offline mutation failed (${response.status})`);
+    }
     return 'synced';
   } catch (error) {
     if (error instanceof OfflineApiError) throw error;
-    await queueOfflineMutation(userId, kind, payload);
+    await persistMutation(operation);
+    await deferOfflineMutation(operation.id, error instanceof Error ? error.message : 'Network request failed');
     return 'queued';
   }
+}
+
+async function persistMutation(operation: OfflineMutation): Promise<void> {
+  await transact('outbox', 'readwrite', (transaction) => transaction.objectStore('outbox').put(operation));
+  window.dispatchEvent(new CustomEvent('jackyun-offline-queued', { detail: operation }));
 }

@@ -30,7 +30,7 @@ export default function TaskInbox({ tasks, onToggle, onDelete }: { tasks: InboxT
               <p className={task.completed ? 'text-sm text-[var(--muted-foreground)] line-through' : 'text-sm font-medium'}>{task.title}</p>
               <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{task.due_date ? `${task.due_date} · ` : ''}预计 {task.estimated_minutes} 分钟</p>
             </div>
-            {!task.completed && <StartStudyButton taskId={task.id} durationMinutes={task.estimated_minutes} />}
+            {!task.completed && <StartStudyButton taskId={task.id} taskTitle={task.title} durationMinutes={task.estimated_minutes} />}
             <Button type="button" variant="ghost" size="icon" onClick={() => onDelete(task.id)} className="text-[var(--muted-foreground)] hover:text-[#d93025]" aria-label={`删除 ${task.title}`}>
               <span className="material-icons-round text-lg">delete_outline</span>
             </Button>
