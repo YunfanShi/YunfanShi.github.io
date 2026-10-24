@@ -35,7 +35,7 @@ const grant = {
   schoolSite: 'https://chalk-c3.seiue.com/',
 };
 
-type Row = Record<string, any>;
+type Row = Record<string, unknown>;
 type State = ReturnType<typeof stateFor>;
 
 function stateFor(overrides: Partial<{ user: { id: string } | null; failEncrypt: boolean; verifyError: Error | null; fetchError: Error | null; fetchValue: unknown } > = {}) {
@@ -52,8 +52,8 @@ function stateFor(overrides: Partial<{ user: { id: string } | null; failEncrypt:
       return `cipher.${Buffer.from(value).toString('base64url')}`;
     },
     decrypt(value: string) { return Buffer.from(value.slice('cipher.'.length), 'base64url').toString('utf8'); },
-    verify(_value: unknown) { state.verifyCount += 1; if (state.verifyError) throw state.verifyError; },
-    fetch(_value: unknown, _week: string) { state.fetchCount += 1; if (state.fetchError) throw state.fetchError; return state.fetchValue; },
+    verify(value: unknown) { void value; state.verifyCount += 1; if (state.verifyError) throw state.verifyError; },
+    fetch(value: unknown, week: string) { void value; void week; state.fetchCount += 1; if (state.fetchError) throw state.fetchError; return state.fetchValue; },
     client() {
       return {
         auth: { getUser: async () => ({ data: { user: state.user } }) },
@@ -75,11 +75,11 @@ class Query {
   private readonly state: State;
   private readonly table: string;
   constructor(state: State, table: string) { this.state = state; this.table = table; }
-  select(_columns?: string) { this.selected = true; return this; }
+  select(columns?: string) { void columns; this.selected = true; return this; }
   eq(column: string, value: unknown) { this.filters.push([column, value]); return this; }
-  order(_column: string) { return this; }
+  order(column: string) { void column; return this; }
   insert(value: Row | Row[]) { this.operation = 'insert'; this.payload = value; return this; }
-  upsert(value: Row, _options?: unknown) { this.operation = 'upsert'; this.payload = value; return this; }
+  upsert(value: Row, options?: unknown) { void options; this.operation = 'upsert'; this.payload = value; return this; }
   update(value: Row) { this.operation = 'update'; this.payload = value; return this; }
   delete() { this.operation = 'delete'; return this; }
   single() { this.resultShape = 'single'; return Promise.resolve(this.execute()); }
