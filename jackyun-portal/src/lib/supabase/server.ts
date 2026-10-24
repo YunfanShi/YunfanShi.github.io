@@ -1,4 +1,4 @@
-import { fetchWithTimeout } from '@/lib/request-timeout';
+import { fetchWithReadRecovery } from '@/lib/supabase/read-recovery';
 import { createServerClient, type SetAllCookies } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
@@ -21,7 +21,7 @@ export const createClient = cache(async (response?: NextResponse, timeoutMs = 8_
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      global: { fetch: (input: RequestInfo | URL, init?: RequestInit) => fetchWithTimeout(input, init, timeoutMs) },
+      global: { fetch: (input: RequestInfo | URL, init?: RequestInit) => fetchWithReadRecovery(input, init, timeoutMs) },
       cookies: {
         getAll() {
           return cookieStore.getAll();

@@ -1,0 +1,13 @@
+{
+  "portalVersion": "3.40.2",
+  "backendVersion": "3.6.1",
+  "backendDeploymentId": "ec2569c4-bc94-4aa7-9b82-40b21163c58f",
+  "backendDeploymentResult": "Deployment was successful.",
+  "backendLiveVersion": "3.6.1",
+  "backendArchiveSha256": "3d1ecbe9f4e2ca61c3bb596edad1d06484eeacf455b840c4b5300e69f5770981",
+  "portalBuild": "Next.js production build and TypeScript passed",
+  "modifiedSupabaseModulesLint": "passed",
+  "automatedTestsRun": false,
+  "realAccountCrossDeviceAcceptance": "not yet verified",
+  "documentRenderer": "docx-preview browser fallback; LibreOffice unavailable"
+}
