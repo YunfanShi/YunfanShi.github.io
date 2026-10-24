@@ -16,10 +16,11 @@ test('snapshot sends only pinned GET requests and reads every todo page', async 
   const original = globalThis.fetch, calls: Array<{ url: string; init?: RequestInit }> = [];
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input); calls.push({ url, init });
-    if (url.includes('/events?')) return Response.json([lesson]);
+    if (url.includes('/chalk/calendar/personals/') && url.includes('/events?')) return Response.json([lesson]);
     if (url.includes('/todos?') && new URL(url).searchParams.get('page') === '1') return Response.json([{ id: 'todo-1', type: 'seiue.task_submit_todo', status: 'pending', title: 'Homework', related: { expired_at: '2026-10-24 23:59:00', content: { blocks: [{ text: 'Write report' }] } } }], { headers: { 'X-Pagination-Page-Count': '2' } });
     if (url.includes('/todos?') && new URL(url).searchParams.get('page') === '2') return Response.json([{ id: 'todo-2', type: 'seiue.scms.election.student', status: 'completed', title: 'Course election', related: { end_at: '2026-10-25 12:00:00' } }]);
-    if (url.endsWith('/scms/schcal/events')) return Response.json([{ id: 'holiday-1', title: 'Break', start_at: '2026-10-26', end_at: '2026-10-28' }]);
+    if (url.includes('/chalk/system/semesters?')) return Response.json([{ id: 'semester-1', is_current: true }]);
+    if (url.endsWith('/scms/schcal/events?semester_id=semester-1')) return Response.json([{ id: 'holiday-1', semester_id: 'semester-1', title: 'Break', start_at: '2026-10-26', end_at: '2026-10-28' }]);
     return Response.json({}, { status: 404 });
   }) as typeof fetch;
   try {
@@ -28,7 +29,8 @@ test('snapshot sends only pinned GET requests and reads every todo page', async 
     assert.equal(result.todos.length, 2);
     assert.equal(result.todos[1].status, 'completed');
     assert.equal(result.calendar[0].title, 'Break');
-    assert.equal(calls.length, 4);
+    assert.equal(calls.length, 5);
+    assert.ok(calls.some(call => call.url.includes('/scms/schcal/events?semester_id=semester-1')));
     for (const call of calls) {
       assert.equal(new URL(call.url).origin, 'https://api.seiue.com');
       assert.equal(call.init?.method, 'GET');
@@ -69,7 +71,9 @@ test('upstream HTTP errors identify the failing resource without exposing creden
         const url = String(input);
         return url.includes(item.match)
           ? Response.json({ message: credentials.token }, { status: 400 })
-          : url.includes('/events?')
+          : url.includes('/chalk/system/semesters?')
+            ? Response.json([{ id: 'semester-1', is_current: true }])
+          : url.includes('/chalk/calendar/personals/') && url.includes('/events?')
             ? Response.json([lesson])
             : Response.json([]);
       }) as typeof fetch;
@@ -89,4 +93,20 @@ test('expired tokens and unsafe pagination are rejected without fallback truncat
   assert.equal(pageCount(new Headers({ 'X-Pagination-Page-Count': '2' }), []), 2);
   assert.throws(() => pageCount(new Headers({ 'X-Pagination-Page-Count': 'not-a-number' }), []), SeiueApiError);
   assert.throws(() => pageCount(new Headers({ 'X-Pagination-Page-Count': '101' }), []), SeiueApiError);
+});
+
+test('calendar lookup uses the current semester and fails safely when none is available', async () => {
+  const original = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input); calls.push(url);
+    if (url.includes('/chalk/system/semesters?')) return Response.json([{ id: 'semester-1', is_current: false }]);
+    if (url.includes('/chalk/calendar/personals/')) return Response.json([lesson]);
+    if (url.includes('/todos?')) return Response.json([]);
+    throw new Error('校历接口不应在缺少当前学期时调用');
+  }) as typeof fetch;
+  try {
+    await assert.rejects(fetchSeiueSnapshot(credentials, '2026-10-23'), error => error instanceof SeiueApiError && error.message.includes('当前学期') && !error.message.includes(credentials.token));
+    assert.equal(calls.some(url => url.includes('/scms/schcal/events')), false);
+  } finally { globalThis.fetch = original; }
 });

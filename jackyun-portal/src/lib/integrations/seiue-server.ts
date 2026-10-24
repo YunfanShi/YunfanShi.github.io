@@ -7,6 +7,7 @@ export class SeiueApiError extends Error {
   constructor(message: string, status = 502) { super(message); this.status = status; }
 }
 function safeId(value: string) { return /^[A-Za-z0-9_-]{1,200}$/.test(value); }
+function record(value: unknown): Record<string, unknown> | null { return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null; }
 function monday(date: Date) { const day = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())); day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7)); return day; }
 function plusDays(date: Date, days: number) { const value = new Date(date); value.setUTCDate(value.getUTCDate() + days); return value; }
 function ymd(date: Date) { return date.toISOString().slice(0, 10); }
@@ -14,7 +15,7 @@ function queryDate(date: Date) { return `${ymd(date)} ${date.toISOString().slice
 
 async function getJson(credentials: SeiueCredentials, path: string): Promise<{ body: unknown; headers: Headers }> {
   if (!path.startsWith('/') || path.startsWith('//')) throw new SeiueApiError('无效的 SEIUE 接口路径。', 400);
-  const resource = path.includes('/todos?') ? '待办' : path.startsWith('/scms/schcal/') ? '校历' : '课程';
+  const resource = path.includes('/todos?') ? '待办' : path.startsWith('/scms/schcal/') || path.startsWith('/chalk/system/semesters?') ? '校历' : '课程';
   let response: Response;
   try {
     response = await fetch(`${SEIUE_API_BASE}${path}`, { method: 'GET', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(12_000), headers: { Authorization: `Bearer ${credentials.token}`, 'X-Reflection-Id': credentials.reflectionId, 'X-Role': credentials.role, 'X-School-Id': credentials.schoolId, Accept: 'application/json' } });
@@ -63,11 +64,15 @@ export async function fetchSeiueSnapshot(credentials: SeiueCredentials, weekDate
   if (Date.parse(credentials.expiresAt) <= Date.now()) throw new SeiueApiError('SEIUE Token 已过期，请重新粘贴 Token。', 401);
   const range = weekRange(weekDate);
   const personalPath = `/chalk/calendar/personals/${encodeURIComponent(credentials.reflectionId)}/events?start_time=${encodeURIComponent(range.start)}&end_time=${encodeURIComponent(range.end)}&expand=address,initiators`;
-  const [events, firstTodos, calendar] = await Promise.all([
+  const [events, firstTodos, semesters] = await Promise.all([
     getJson(credentials, personalPath),
     getJson(credentials, `/chalk/todo/executors/${encodeURIComponent(credentials.reflectionId)}/todos?expand=related&paginated=1&per_page=100&page=1&sort=-created_at&status_in=pending,completed,ignored,invalid`),
-    getJson(credentials, '/scms/schcal/events'),
+    getJson(credentials, '/chalk/system/semesters?expand=is_current&paginated=0&sort=-start_at'),
   ]);
+  const currentSemester = arr(semesters.body, '校历').map(record).find((semester) => semester?.is_current === true);
+  const semesterId = currentSemester && (typeof currentSemester.id === 'string' || typeof currentSemester.id === 'number') ? String(currentSemester.id) : '';
+  if (!semesterId || !safeId(semesterId)) throw new SeiueApiError('SEIUE 未返回当前学期信息，无法读取校历；请保留现有数据后重试。');
+  const calendar = await getJson(credentials, `/scms/schcal/events?semester_id=${encodeURIComponent(semesterId)}`);
   const todoPages = [arr(firstTodos.body, '待办')];
   const count = pageCount(firstTodos.headers, firstTodos.body);
   for (let page = 2; page <= count; page++) {
