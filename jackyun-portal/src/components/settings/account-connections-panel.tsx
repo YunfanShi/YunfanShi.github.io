@@ -1,9 +1,9 @@
 'use client';
 
 import { siteConfirm } from '@/lib/site-dialog';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ClipboardEvent } from 'react';
 import type { DidaAccountView, DidaProject } from '@/lib/integrations/dida365';
-import type { SeiueAccountView } from '@/lib/integrations/seiue';
+import { parseSeiueHelperBundle, type SeiueAccountView } from '@/lib/integrations/seiue';
 
 async function readJson(response: Response) {
   const data = await response.json().catch(() => ({})) as { error?: string; accounts?: DidaAccountView[]; projects?: DidaProject[] };
@@ -60,6 +60,16 @@ export default function AccountConnectionsPanel() {
     catch (error) { setMessage(error instanceof Error ? error.message : '解除关联失败。'); }
     finally { setBusy(false); }
   };
+  const pasteSeiueHelperBundle = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    event.preventDefault();
+    const bundle = parseSeiueHelperBundle(event.clipboardData.getData('text/plain'));
+    if (!bundle) { setMessage('连接包格式无效或已截断。请从 SEIUE 助手重新复制；不要粘贴密码、Cookie 或整份请求标头。'); return; }
+    setSeiueToken(bundle.token);
+    setSeiueReflectionId(bundle.reflectionId);
+    setSeiueSchoolId(bundle.schoolId);
+    setSeiueSite(bundle.schoolSite);
+    setMessage('已读取连接包并填入本页表单。连接包不会保存在浏览器存储；请验证并关联，之后清除剪贴板。');
+  };
 
   const probe = async () => {
     setBusy(true); setMessage('');
@@ -93,19 +103,25 @@ export default function AccountConnectionsPanel() {
       <div className="flex items-start gap-3"><span aria-hidden="true" className="material-icons-round mt-0.5 text-[var(--brand)]">school</span><div><h3 className="font-semibold">关联 SEIUE 学生账户</h3><p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)]">读取课程、作业/资料待办、选课截止和校历。只读同步，不会代提交或修改 SEIUE 数据。</p></div></div>
       <p className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">安全说明：你粘贴的 Token 会发送到 JackYun 服务端，并使用 AES-256-GCM 加密保存，最长 24 小时；到期、SEIUE 返回 401 或解除关联时会删除。未配置加密密钥时服务端拒绝关联。不要粘贴学校密码或 Cookie。</p>
       <details className="rounded-xl border border-[var(--card-border)] p-3 text-sm">
-        <summary className="min-h-9 cursor-pointer font-medium">详细教程：从 Chrome / Edge 获取短期 Token</summary>
+        <summary className="min-h-9 cursor-pointer font-medium">详细教程：自动获取连接信息或手动复制</summary>
         <ol className="mt-2 list-decimal space-y-2 pl-5 text-xs leading-5 text-[var(--muted-foreground)]">
           <li><strong>先登录学校网站。</strong>用电脑上的 Chrome 或 Edge 打开学校平时使用的 SEIUE 网址，只在学校官方登录页正常登录，并进入“学生”身份下的个人课表。确认地址栏是学校的 HTTPS SEIUE 网站。</li>
+          <li><strong>安装可选的一次性连接助手。</strong>先安装 Tampermonkey 或 Violentmonkey，然后<a className="font-semibold text-[var(--brand)] underline" href="/userscripts/seiue-connector.user.js" target="_blank" rel="noopener noreferrer">打开 JackYun SEIUE 连接助手脚本</a>并在脚本管理器中确认安装。脚本只在 <code>chalk-*.seiue.com</code> 学校前端运行，没有外部请求或存储权限；查看脚本源码后再安装。</li>
+          <li><strong>在 SEIUE 上一次性捕获。</strong>回到个人课表，点击页面右下角“开始一次性捕获”，再切换一周或刷新课表。它只观察下一次发往官方 API 的个人课程 <code>GET</code> 请求，60 秒后自动停止；捕获成功后点击“复制连接包”。它不会读取登录密码、Cookie、其他请求或响应内容。</li>
+          <li><strong>粘贴连接包。</strong>回到本页，把连接包粘贴到下方“从助手粘贴连接信息”框；页面会拦截粘贴事件并只填入需要的字段，不会把整段 JSON 显示在页面上。随即清除剪贴板内容，再点击“验证并关联”。</li>
+          <li><strong>连接包的安全边界。</strong>其中包含短期 Bearer Token。只有你点击复制时才会写入系统剪贴板；请立即粘贴并清除剪贴板。脚本只在本页内存暂存一次，刷新/关闭页面即消失，不发送到 JackYun 或其他网站。粘贴后，Token 会通过 HTTPS 发送到 JackYun 服务端，并以 AES-256-GCM 加密保存，最长 24 小时。</li>
+          <li><strong>手动方式仍可用。</strong>不想安装脚本时，可用下列开发者工具步骤从一个成功的个人课表 GET 请求复制 Authorization、Reflection ID 和 School ID。</li>
           <li><strong>打开网络请求面板。</strong>按 <kbd>F12</kbd>（部分笔记本要按 <kbd>Fn + F12</kbd>），或按 <kbd>Ctrl + Shift + I</kbd>；选择 <strong>Network（网络）</strong>，再选 Fetch/XHR（获取/XHR）。点击清除记录按钮，避免误看之前的请求。</li>
           <li><strong>重新加载课表。</strong>保持 Network 面板打开，回到 SEIUE 页面刷新，再在过滤框输入 <code>api.seiue.com</code>。找到一个状态码为 <code>200</code> 的 <code>GET</code> 请求，路径类似 <code>/chalk/calendar/personals/…/events</code>，点开该行。</li>
           <li><strong>只取三个值。</strong>在请求详情的 <strong>Headers（标头）→ Request Headers（请求标头）</strong> 中，找到 <code>Authorization</code>、<code>X-Reflection-Id</code>、<code>X-School-Id</code>。Token 输入框只粘贴 <code>Authorization</code> 里 <code>Bearer </code> 后面的值，不要连同 <code>Bearer </code> 一起粘贴。Reflection ID 和 School ID 分别粘贴到同名输入框；如果请求头里没有 Reflection ID，可从该 events 请求路径中 <code>personals/</code> 与 <code>/events</code> 之间读取。</li>
           <li><strong>填写并验证。</strong>学校网址填浏览器地址栏中的 SEIUE 学校网站地址（不要填 <code>api.seiue.com</code>）；账户备注可自定义。学生角色由 JackYun 固定为 student。点击“验证并关联 SEIUE”；成功后 Token 输入框会清空，再到 SCHEDULE 切换周查看同步内容。</li>
           <li><strong>过期后手动续期。</strong>Token 最长保存 24 小时，没有受支持的自动续期。回到仍可正常使用的 SEIUE 页面，重新刷新课表并从新的 200 请求复制最新 Token；粘贴到学生 Token 输入框，点击已关联账户旁的“粘贴新 Token 并续期”。若学校、学生身份或 School ID 已变化，先解除关联再按本教程重新关联。</li>
         </ol>
-        <div className="mt-3 rounded-lg bg-black/[.04] p-3 text-xs leading-5 dark:bg-white/[.05]"><strong>安全核对：</strong>JackYun 不会要求学校密码、Cookie 或 refresh token。不要导出 HAR、不要“复制为 cURL”、不要复制全部请求标头，也不要把 Token、请求详情截图或原始响应发给任何人（包括 JackYun 支持聊天）。完成后清除 Network 记录并关闭开发者工具。只把三个指定值填入本页；Token 通过 HTTPS 发送到 JackYun 服务端，以 AES-256-GCM 加密保存，最长 24 小时，且不会写入浏览器存储。</div>
+        <div className="mt-3 rounded-lg bg-black/[.04] p-3 text-xs leading-5 dark:bg-white/[.05]"><strong>安全核对：</strong>JackYun 不会要求学校密码、Cookie 或 refresh token。不要导出 HAR、不要“复制为 cURL”、不要复制全部请求标头，也不要把 Token、连接包或请求详情截图发给任何人（包括 JackYun 支持聊天）。手动方式完成后清除 Network 记录并关闭开发者工具。自动助手不读取响应正文，且不发起新的 SEIUE 请求。</div>
         <p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]"><strong>常见问题：</strong>列表为空时先确认 Network 面板在刷新前已打开，并查看 Fetch/XHR；没有 200 events 请求时回到学生身份并重新打开个人课表。验证提示 Token 失效/401 时重新复制最新 Token；403 通常要检查三个值是否来自同一个请求、当前是否选中学生身份。自动登录/续期保持关闭：目前未发现官方 refresh token，而自动登录需把学校密码交给服务器。</p>
       </details>
       {seiueAccounts.map(account => <div key={account.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-black/[.035] p-3 dark:bg-white/[.05]"><div className="min-w-0 flex-1"><strong className="block truncate text-sm">{account.displayName}</strong><p className="mt-1 text-xs text-[var(--muted-foreground)]">学生账户 · Token 到期 {account.tokenExpiresAt ? new Date(account.tokenExpiresAt).toLocaleString('zh-CN') : '待续期'} · {account.schoolSite}</p><span className="text-xs">{account.status === 'active' ? '已连接' : '需要重新验证'}</span></div><button type="button" disabled={busy || seiueToken.trim().length < 16} onClick={() => void renewSeiue(account)} className="min-h-10 rounded-full border border-[var(--card-border)] px-3 text-xs disabled:opacity-40">粘贴新 Token 并续期</button><button type="button" disabled={busy} onClick={() => void disconnectSeiue(account)} className="min-h-10 rounded-full border border-[var(--card-border)] px-3 text-xs text-rose-600 disabled:opacity-40">解除关联</button></div>)}
+      <label className="block text-sm font-medium">从助手粘贴连接信息<textarea value="" onChange={event => { event.currentTarget.value = ''; }} onPaste={pasteSeiueHelperBundle} rows={2} autoComplete="off" spellCheck={false} placeholder="在此处粘贴脚本复制的一次性连接包；粘贴内容不会显示" className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 text-xs" /><span className="mt-1 block text-xs font-normal text-[var(--muted-foreground)]">也可继续手动填写下方字段。此框只接受助手格式，并会拦截粘贴文本。</span></label>
       <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm font-medium">账户备注<input value={seiueName} maxLength={80} onChange={event => setSeiueName(event.target.value)} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="text-sm font-medium">SEIUE 学校前端网址<input type="url" value={seiueSite} onChange={event => setSeiueSite(event.target.value)} placeholder="https://school.seiue.com/" className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="text-sm font-medium">Reflection ID<input value={seiueReflectionId} onChange={event => setSeiueReflectionId(event.target.value)} autoComplete="off" className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="text-sm font-medium">School ID<input value={seiueSchoolId} onChange={event => setSeiueSchoolId(event.target.value)} autoComplete="off" className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="text-sm font-medium sm:col-span-2">学生 Token<input type="password" value={seiueToken} onChange={event => setSeiueToken(event.target.value)} autoComplete="new-password" placeholder="仅粘贴短期 Bearer Token；不要提供密码或 Cookie" className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label></div>
       <p className="text-xs leading-5 text-[var(--muted-foreground)]">学校网址仅接受 HTTPS 的 `*.seiue.com`。Token 由 JackYun 服务端固定请求 `api.seiue.com` 的只读接口。请从 SEIUE 官方界面获取 Token；JackYun 不会收集学校密码、Cookie 或 refresh token。</p>
       <button type="button" disabled={busy || seiueToken.trim().length < 16 || !seiueReflectionId || !seiueSchoolId} onClick={() => void connectSeiue()} className="min-h-11 rounded-full bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-40">{busy ? '验证中…' : '验证并关联 SEIUE'}</button>

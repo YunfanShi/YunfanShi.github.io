@@ -39,6 +39,23 @@ export interface UserscriptEntry {
 
 export const USERSCRIPTS: UserscriptEntry[] = [
   {
+    id: 'seiue-connector',
+    name: 'JackYun SEIUE 连接助手',
+    version: '1.0.0',
+    category: 'portal',
+    description: '在你明确点击后，从下一次个人课表只读请求临时取得 SEIUE 连接字段，便于安全填入 JackYun。',
+    sites: ['chalk-*.seiue.com'],
+    features: ['一次性捕获课程 GET 请求头', '不读密码、Cookie 或响应正文', '无网络请求、无持久化存储', '60 秒自动停止'],
+    file: '/userscripts/seiue-connector.user.js',
+    license: 'MIT',
+    sourceLabel: 'JackYun',
+    safety: 'selected',
+    permissions: ['仅 chalk-*.seiue.com', '读取你明确触发的下一次课程 API 请求头', '点击后写入剪贴板', '不访问密码或 Cookie', '无网络请求', '无持久化存储'],
+    updated: '2026-10-24',
+    installSteps: ['安装 Tampermonkey 或 Violentmonkey', '打开“安装脚本”并先检查源码', '在 SEIUE 个人课表点击一次性捕获，再切换周或刷新', '点击复制连接包，粘贴到 JackYun 账户关联页', '关联成功后清除系统剪贴板'],
+    caution: '脚本复制的是短期 Bearer Token。仅在本人已登录的设备上按需运行；复制后立即粘贴并清空剪贴板。',
+  },
+  {
     id: 'tr3000-manager',
     name: 'JackYun TR3000 管理增强器',
     version: '2.2.0',

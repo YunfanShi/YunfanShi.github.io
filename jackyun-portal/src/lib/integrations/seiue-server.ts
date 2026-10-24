@@ -14,26 +14,27 @@ function queryDate(date: Date) { return `${ymd(date)} ${date.toISOString().slice
 
 async function getJson(credentials: SeiueCredentials, path: string): Promise<{ body: unknown; headers: Headers }> {
   if (!path.startsWith('/') || path.startsWith('//')) throw new SeiueApiError('无效的 SEIUE 接口路径。', 400);
+  const resource = path.includes('/todos?') ? '待办' : path.startsWith('/scms/schcal/') ? '校历' : '课程';
   let response: Response;
   try {
     response = await fetch(`${SEIUE_API_BASE}${path}`, { method: 'GET', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(12_000), headers: { Authorization: `Bearer ${credentials.token}`, 'X-Reflection-Id': credentials.reflectionId, 'X-Role': credentials.role, 'X-School-Id': credentials.schoolId, Accept: 'application/json' } });
-  } catch { throw new SeiueApiError('SEIUE 请求超时或暂时不可用，请保留现有数据后重试。', 502); }
+  } catch { throw new SeiueApiError(`SEIUE ${resource} 请求超时或暂时不可用，请保留现有数据后重试。`, 502); }
   if (!response.ok) {
     if (response.status === 401) throw new SeiueApiError('SEIUE Token 已失效，请重新粘贴 Token。', 401);
-    if (response.status === 403) throw new SeiueApiError('SEIUE 拒绝访问，请检查学生角色、学校和账号权限。', 403);
-    throw new SeiueApiError(`SEIUE 暂时无法读取数据（${response.status}）。`, 502);
+    if (response.status === 403) throw new SeiueApiError(`SEIUE ${resource}接口拒绝访问，请检查学生角色、学校和账号权限。`, 403);
+    throw new SeiueApiError(`SEIUE ${resource}接口暂时无法读取（${response.status}）。`, 502);
   }
   try { return { body: await response.json(), headers: response.headers }; }
-  catch { throw new SeiueApiError('SEIUE 返回了无法识别的数据格式。', 502); }
+  catch { throw new SeiueApiError(`SEIUE ${resource}接口返回了无法识别的数据格式。`, 502); }
 }
-function arr(body: unknown): unknown[] {
+function arr(body: unknown, resource: string): unknown[] {
   if (Array.isArray(body)) return body;
   if (body && typeof body === 'object') {
     const value = body as Record<string, unknown>;
     if (Array.isArray(value.data)) return value.data;
     if (value.data && typeof value.data === 'object' && Array.isArray((value.data as Record<string, unknown>).data)) return (value.data as Record<string, unknown>).data as unknown[];
   }
-  throw new SeiueApiError('SEIUE 返回了无法识别的数据格式。');
+  throw new SeiueApiError(`SEIUE ${resource}列表格式无法识别。`);
 }
 export function pageCount(headers: Headers, body: unknown): number {
   const meta = body && typeof body === 'object' ? (body as Record<string, unknown>).meta as Record<string, unknown> | undefined : undefined;
@@ -67,11 +68,11 @@ export async function fetchSeiueSnapshot(credentials: SeiueCredentials, weekDate
     getJson(credentials, `/chalk/todo/executors/${encodeURIComponent(credentials.reflectionId)}/todos?expand=related&paginated=1&per_page=100&page=1&sort=-created_at&status_in=pending,completed,ignored,invalid`),
     getJson(credentials, '/scms/schcal/events'),
   ]);
-  const todoPages = [arr(firstTodos.body)];
+  const todoPages = [arr(firstTodos.body, '待办')];
   const count = pageCount(firstTodos.headers, firstTodos.body);
   for (let page = 2; page <= count; page++) {
     const result = await getJson(credentials, `/chalk/todo/executors/${encodeURIComponent(credentials.reflectionId)}/todos?expand=related&paginated=1&per_page=100&page=${page}&sort=-created_at&status_in=pending,completed,ignored,invalid`);
-    todoPages.push(arr(result.body));
+    todoPages.push(arr(result.body, '待办'));
   }
-  return { lessons: normalizeSeiueLessons(arr(events.body)), todos: normalizeSeiueTodos(todoPages), calendar: normalizeSeiueCalendar(arr(calendar.body)) };
+  return { lessons: normalizeSeiueLessons(arr(events.body, '课程')), todos: normalizeSeiueTodos(todoPages), calendar: normalizeSeiueCalendar(arr(calendar.body, '校历')) };
 }
