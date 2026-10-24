@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.42.6', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 空待办结构安全诊断', summary: '待办源记录存在但尚未映射时，保留上一份成功快照并提供不含记录内容的结构计数。', categories: ['稳定性'], accent: 'blue', highlights: ['仅输出源记录数量、固定白名单字段和已知类型/状态的计数，不输出 ID、标题、描述或授权信息。', '无任务且源列表确实为空时仍可正常显示空状态；无法识别有记录的响应时不清空旧数据。'] },
   { version: '3.42.5', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 待办按 domain 兼容映射', summary: '同时依据已知 type 和顶层 domain 识别作业与选课待办。', categories: ['稳定性'], accent: 'blue', highlights: ['对于 SEIUE 变体或未知 type，只在 domain 明确为 task 或 election 时映射；其他未知类型仍跳过。', '保留顶层 ID、标题和状态，按 ID 去重，避免一条缺失 related 的记录阻断快照。'] },
   { version: '3.42.2', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 按周保留成功快照', summary: '切换账户或周次时独立缓存成功结果，避免同步失败后显示其他周的数据。', categories: ['稳定性'], accent: 'blue', highlights: ['缓存按账户与所选周区分，失败时保留同一视图上次成功的数据。', '课后复习只读取当前账户和周次的快照，避免跨周生成或显示重复学习任务。'] },
   { version: '3.42.1', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 连接信息安全提示', summary: '在账户关联页醒目标注授权信息的截图与分享风险。', categories: ['稳定性'], accent: 'blue', highlights: ['不要分享包含 Authorization 请求头或连接包的截图，也不要发送完整 HAR。', '授权信息意外暴露时优先使用 SEIUE 官方撤销方式；若不支持撤销，等待短期 Token 到期再重新连接。'] },

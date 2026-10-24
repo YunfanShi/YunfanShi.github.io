@@ -6,11 +6,23 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier === './seiue' && context.parentURL?.endsWith('/seiue-server.ts')) return nextResolve('./seiue.ts', context);
   return nextResolve(specifier, context);
 } });
-const { fetchSeiueSnapshot, pageCount, SeiueApiError } = await import('../src/lib/integrations/seiue-server.ts');
+const { fetchSeiueSnapshot, pageCount, SeiueApiError, summarizeSeiueTodoShape } = await import('../src/lib/integrations/seiue-server.ts');
 import type { SeiueCredentials } from '../src/lib/integrations/seiue-server.ts';
 
 const credentials: SeiueCredentials = { token: 'synthetic-secret-token-123456', reflectionId: 'reflection-1', schoolId: 'school-1', role: 'student', schoolSite: 'https://chalk-c3.seiue.com/', expiresAt: new Date(Date.now() + 60_000).toISOString() };
 const lesson = { type: 'lesson', title: 'Algebra', subject: { name: 'Mathematics' }, start_time: '2026-10-23 09:00:00', end_time: '2026-10-23 09:45:00', custom: { id: 'lesson-1' } };
+
+test('todo mismatch diagnostics contain only bounded counts and allowlisted categories', () => {
+  const summary = summarizeSeiueTodoShape([[{ id: 'private-id', title: 'private title', type: 'unknown-secret-type', domain: 'task', status: 'pending', related: {} }, { id: 'another-id', type: 'seiue.scms.election.student', domain: 'private-domain', status: 'unknown', attributes: {} }]]);
+  assert.equal(summary.records, 2);
+  assert.equal(summary.fields.id, 2);
+  assert.equal(summary.fields.related, 1);
+  assert.equal(summary.fields.attributes, 1);
+  assert.deepEqual(summary.domains, { task: 1, election: 0, other: 1 });
+  assert.deepEqual(summary.types, { 'seiue.task_submit_todo': 0, 'seiue.scms.election.student': 1, other: 1 });
+  assert.deepEqual(summary.statuses, { pending: 1, completed: 0, ignored: 0, invalid: 0, other: 1 });
+  assert.equal(JSON.stringify(summary).includes('private'), false);
+});
 
 test('snapshot sends only pinned GET requests and reads every todo page', async () => {
   const original = globalThis.fetch, calls: Array<{ url: string; init?: RequestInit }> = [];

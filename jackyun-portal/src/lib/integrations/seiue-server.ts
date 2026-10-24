@@ -46,6 +46,29 @@ export function pageCount(headers: Headers, body: unknown): number {
   return count;
 }
 
+/** Builds a bounded, value-free summary for empty/unsupported todo responses. */
+export function summarizeSeiueTodoShape(pages: unknown[][]) {
+  const allowedDomains = ['task', 'election'] as const;
+  const allowedTypes = ['seiue.task_submit_todo', 'seiue.scms.election.student'] as const;
+  const allowedStatuses = ['pending', 'completed', 'ignored', 'invalid'] as const;
+  const buckets = <T extends string>(allowed: readonly T[]) => Object.fromEntries([...allowed.map(value => [value, 0] as const), ['other', 0] as const]) as Record<T | 'other', number>;
+  const domains = buckets(allowedDomains), types = buckets(allowedTypes), statuses = buckets(allowedStatuses);
+  const fields = { id: 0, type: 0, domain: 0, status: 0, related: 0, attributes: 0 };
+  let records = pages.reduce((total, page) => total + page.length, 0);
+  for (const page of pages) for (const item of page) {
+    const row = record(item);
+    if (!row) continue;
+    for (const key of Object.keys(fields) as Array<keyof typeof fields>) if (Object.hasOwn(row, key)) fields[key]++;
+    const domain = typeof row.domain === 'string' ? row.domain : '';
+    const type = typeof row.type === 'string' ? row.type : '';
+    const status = typeof row.status === 'string' ? row.status : '';
+    domains[(allowedDomains as readonly string[]).includes(domain) ? domain as typeof allowedDomains[number] : 'other']++;
+    types[(allowedTypes as readonly string[]).includes(type) ? type as typeof allowedTypes[number] : 'other']++;
+    statuses[(allowedStatuses as readonly string[]).includes(status) ? status as typeof allowedStatuses[number] : 'other']++;
+  }
+  return { records, fields, domains, types, statuses };
+}
+
 export function weekRange(dateValue: string): { start: string; end: string } {
   const parsed = parseSeiueDateTime(`${dateValue} 12:00:00`);
   if (!parsed) throw new SeiueApiError('所选周日期无效。', 400);
@@ -84,6 +107,10 @@ export async function fetchSeiueSnapshot(credentials: SeiueCredentials, weekDate
   catch { throw new SeiueApiError('SEIUE 课程数据结构与当前适配器不兼容；未保存本次快照，请保留现有数据后重试。'); }
   try { todos = normalizeSeiueTodos(todoPages); }
   catch { throw new SeiueApiError('SEIUE 待办数据结构与当前适配器不兼容；未保存本次快照，请保留现有数据后重试。'); }
+  if (todos.length === 0 && todoPages.some(page => page.length > 0)) {
+    const summary = summarizeSeiueTodoShape(todoPages);
+    throw new SeiueApiError(`SEIUE 待办结构未识别，未保存本次快照，请保留上次成功数据重试。安全诊断：源记录 ${summary.records}，可识别 0 条；顶层字段计数 id=${summary.fields.id}、type=${summary.fields.type}、domain=${summary.fields.domain}、related=${summary.fields.related}、attributes=${summary.fields.attributes}；domain task=${summary.domains.task}、election=${summary.domains.election}、other=${summary.domains.other}；type 作业=${summary.types['seiue.task_submit_todo']}、选课=${summary.types['seiue.scms.election.student']}、other=${summary.types.other}；status pending=${summary.statuses.pending}、completed=${summary.statuses.completed}、ignored=${summary.statuses.ignored}、invalid=${summary.statuses.invalid}、other=${summary.statuses.other}。`);
+  }
   try { calendarEvents = normalizeSeiueCalendar(arr(calendar.body, '校历')); }
   catch { throw new SeiueApiError('SEIUE 校历数据结构与当前适配器不兼容；未保存本次快照，请保留现有数据后重试。'); }
   return { lessons, todos, calendar: calendarEvents };
