@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.41.0', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 一键连接助手与同步诊断', summary: '为 SEIUE 只读同步增加受控的浏览器连接助手，并完善上游错误定位。', categories: ['学习体验', '稳定性'], accent: 'blue', highlights: ['安装可选用户脚本后，由用户明确开启一次性捕获个人课程 GET 请求，自动整理短期连接信息。', '脚本不读取密码或 Cookie，不联网或持久化；连接包只在用户点击后复制到剪贴板。', '修复 SEIUE 账户 provider 约束并同步迁移版本；课程、待办或校历失败提示安全的资源类别和状态码。'] },
   { version: '3.40.1', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: '触屏学习回归检查修复', summary: '修正手机学习界面回归检查，使其验证当前触屏模式下隐藏桌面快捷键提示的规则。', categories: ['稳定性'], accent: 'blue', highlights: ['不改变课程、复习或同步行为；CI 数据安全回归可按当前界面实现正确验证。'] },
   { version: '3.40.0', date: '2026-10-23', dateLabel: '2026 年 10 月 23 日', title: 'SEIUE 只读日程同步', summary: '课程、作业资料待办、选课截止和校历可在 Schedule 中查看；逐科课后复习默认关闭。', categories: ['学习体验', '平台体验', '稳定性'], accent: 'mint', highlights: ['课程作为只读叠加层显示，不写入本地课表或 dateOverrides；待办仅链接至 SEIUE，由学生手动提交。', 'SEIUE Bearer Token 仅服务器 AES-256-GCM 加密保存，最多 24 小时；过期或 401 后要求重新粘贴。', '仅固定官方 API 域名的 GET 请求；不收集学校密码或 Cookie，也不代提交或写回源端状态。'] },
   { version: '3.39.0', date: '2026-10-23', dateLabel: '2026 年 10 月 23 日', title: '同步发送日志与确认恢复', summary: '上传前保存不可变发送记录，丢失响应或刷新后先恢复确认，再处理新编辑；下载分片支持跨刷新恢复。', categories: ['稳定性', '平台体验'], accent: 'blue', highlights: ['结合操作身份、服务端确认、共同基线、内容哈希与实际字段改动判断，减少自己的上传被误报为冲突。', '下载缓存按记录、修订号和哈希隔离，校验失败不覆盖本机；缓存不可用时仍可完成校验下载。', '已知课表结构的编辑时间作为元数据合并；正文、学习结果、计时和删除继续保护。', '对比优先显示真正需选择的内容，自动差异折叠；未选择的真实冲突不能默认提交。'] },

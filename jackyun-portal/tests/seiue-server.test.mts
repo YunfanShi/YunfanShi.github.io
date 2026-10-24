@@ -56,6 +56,30 @@ test('unauthorized, forbidden, timeout and malformed upstream responses fail wit
   } finally { globalThis.fetch = original; }
 });
 
+test('upstream HTTP errors identify the failing resource without exposing credentials or response bodies', async () => {
+  const original = globalThis.fetch;
+  const cases = [
+    { match: '/chalk/calendar/personals/', label: '课程' },
+    { match: '/todos?', label: '待办' },
+    { match: '/scms/schcal/events', label: '校历' },
+  ];
+  try {
+    for (const item of cases) {
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const url = String(input);
+        return url.includes(item.match)
+          ? Response.json({ message: credentials.token }, { status: 400 })
+          : url.includes('/events?')
+            ? Response.json([lesson])
+            : Response.json([]);
+      }) as typeof fetch;
+      await assert.rejects(fetchSeiueSnapshot(credentials, '2026-10-23'), error =>
+        error instanceof SeiueApiError && error.status === 502 && error.message.includes(item.label) && !error.message.includes(credentials.token),
+      );
+    }
+  } finally { globalThis.fetch = original; }
+});
+
 test('expired tokens and unsafe pagination are rejected without fallback truncation', async () => {
   const original = globalThis.fetch;
   globalThis.fetch = (async () => { throw new Error('must not call'); }) as typeof fetch;

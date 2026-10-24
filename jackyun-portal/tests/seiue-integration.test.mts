@@ -1,7 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { normalizeSeiueCalendar, normalizeSeiueLessons, normalizeSeiueTodos, parseSeiueDateTime, safeSeiueSite, seiueCourseReviewKey } from '../src/lib/integrations/seiue.ts';
+import { normalizeSeiueCalendar, normalizeSeiueLessons, normalizeSeiueTodos, parseSeiueDateTime, parseSeiueHelperBundle, safeSeiueSite, seiueCourseReviewKey } from '../src/lib/integrations/seiue.ts';
+
+test('one-time browser-helper bundle accepts only bounded student credentials for an HTTPS SEIUE school site', () => {
+  const bundle = JSON.stringify({ version: 1, token: 'synthetic-token-0123456789', reflectionId: '4226602', schoolId: '120', role: 'student', schoolSite: 'https://chalk-c3.seiue.com/' });
+  assert.deepEqual(parseSeiueHelperBundle(bundle), { token: 'synthetic-token-0123456789', reflectionId: '4226602', schoolId: '120', role: 'student', schoolSite: 'https://chalk-c3.seiue.com/' });
+  assert.equal(parseSeiueHelperBundle(JSON.stringify({ version: 1, token: 'synthetic-token-0123456789', reflectionId: '4226602', schoolId: '120', role: 'admin', schoolSite: 'https://chalk-c3.seiue.com/' })), null);
+  assert.equal(parseSeiueHelperBundle(JSON.stringify({ version: 1, token: 'synthetic-token-0123456789', reflectionId: '4226602', schoolId: '120', role: 'student', schoolSite: 'https://attacker.example/' })), null);
+  assert.equal(parseSeiueHelperBundle('Cookie: synthetic-secret'), null);
+  assert.equal(parseSeiueHelperBundle('x'.repeat(6001)), null);
+});
+
+test('SEIUE helper is click-armed, route-limited, memory-only, and has no network or persistence channel', () => {
+  const helper = readFileSync(new URL('../public/userscripts/seiue-connector.user.js', import.meta.url), 'utf8');
+  assert.match(helper, /@grant\s+none/);
+  assert.match(helper, /@include\s+\/\^https:/);
+  assert.match(helper, /chalk-\[a-z0-9-\]/);
+  assert.match(helper, /https:\/\/api\.seiue\.com/);
+  assert.match(helper, /click/);
+  assert.match(helper, /60_000/);
+  assert.match(helper, /navigator\.clipboard\.writeText/);
+  assert.doesNotMatch(helper, /localStorage|sessionStorage|document\.cookie|GM_xmlhttpRequest|@connect|console\.(log|info|warn|error)/i);
+  assert.doesNotMatch(helper, /fetch\s*\(\s*['"`]/i);
+});
 
 test('SEIUE naive times are strict Asia/Shanghai wall clock values', () => {
   assert.deepEqual(parseSeiueDateTime('2026-10-23 09:05:00'), { date: '2026-10-23', time: '09:05', epoch: Date.UTC(2026, 9, 23, 1, 5) });

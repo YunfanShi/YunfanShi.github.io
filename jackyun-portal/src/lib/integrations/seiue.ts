@@ -25,6 +25,22 @@ export function safeSeiueSite(value: unknown): string | null {
   } catch { return null; }
 }
 
+export type SeiueHelperBundle = { token: string; reflectionId: string; schoolId: string; role: 'student'; schoolSite: string };
+/** Parse the one-time bundle copied by the official JackYun SEIUE userscript. */
+export function parseSeiueHelperBundle(value: unknown): SeiueHelperBundle | null {
+  if (typeof value !== 'string' || value.length > 6000) return null;
+  let decoded: unknown;
+  try { decoded = JSON.parse(value); } catch { return null; }
+  const row = record(decoded);
+  if (!row || row.version !== 1 || row.role !== 'student') return null;
+  const token = typeof row.token === 'string' ? row.token.trim() : '';
+  const reflectionId = typeof row.reflectionId === 'string' ? row.reflectionId.trim() : '';
+  const schoolId = typeof row.schoolId === 'string' ? row.schoolId.trim() : '';
+  const schoolSite = safeSeiueSite(row.schoolSite);
+  if (token.length < 16 || token.length > 4000 || !/^[A-Za-z0-9_-]{1,200}$/.test(reflectionId) || !/^[A-Za-z0-9_-]{1,200}$/.test(schoolId) || !schoolSite) return null;
+  return { token, reflectionId, schoolId, role: 'student', schoolSite };
+}
+
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
