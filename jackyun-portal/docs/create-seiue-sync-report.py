@@ -6,7 +6,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from pathlib import Path
 
-OUT = Path(__file__).with_name("SEIUE-Schedule-3.42.9-20261024.docx")
+OUT = Path(__file__).with_name("SEIUE-Schedule-3.42.10-20261024.docx")
 doc = Document()
 sec = doc.sections[0]
 sec.top_margin = Inches(.7)
@@ -35,7 +35,7 @@ header.style = "Caption"
 header.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 footer = sec.footer.paragraphs[0]
 footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-footer.add_run("内部实现说明 · 3.42.9 · 2026-10-24    |    ")
+footer.add_run("内部实现说明 · 3.42.10 · 2026-10-24    |    ")
 fld = OxmlElement("w:fldSimple")
 fld.set(qn("w:instr"), "PAGE")
 footer._p.append(fld)
@@ -81,7 +81,7 @@ p.add_run("版本整合与安全验收记录\n").bold = True
 title = doc.add_paragraph(style="Title")
 title.add_run("SEIUE SCHEDULE\n只读同步与 Main 同步恢复")
 sub = doc.add_paragraph(style="Subtitle")
-sub.add_run("功能分支基线：3.42.8  →  3.42.9    |    记录日期：2026 年 10 月 24 日")
+sub.add_run("功能分支基线：3.42.8  →  3.42.10    |    记录日期：2026 年 10 月 24 日")
 doc.add_paragraph("本说明记录把 Main 的账户状态读取恢复与安全诊断整合进 SEIUE 集成分支后的实现边界、已验证内容和仍需的验收步骤。外部账户仍为只读；本地 SCHEDULE 课表及尚未同步的本机操作继续由原同步队列管理。")
 
 doc.add_heading("1. 变更摘要", level=1)
@@ -117,6 +117,7 @@ table(["数据", "同步规则", "明确限制"], [
 doc.add_heading("4. 回归验证", level=1)
 table(["检查", "结果", "覆盖范围"], [
     ("SEIUE + 同步诊断/恢复定向测试", "通过：49/49", "账户隔离、token 不回传、401/403/过期、固定只读上游、课程/待办/校历映射、按周缓存、连接助手约束、失败诊断过滤、离线队列及冲突保留。"),
+    ("PostgREST 只读恢复边界测试", "通过：5/5", "直接验证短暂网络失败、指定 503、429 Retry-After、稳定错误、Auth 路径、写入请求、调用方取消与未知异常的重试边界。"),
     ("Azure 权威会话测试", "通过：7/7", "用户身份、权限拒绝、短暂故障、会话缓存边界及原 JWT 到期约束。"),
     ("Azure Functions 适配器测试", "未运行", "当前工作区 azure/backend/node_modules 未安装锁定依赖 @azure/functions@4.16.5；不是测试失败，需在可安装依赖的 CI/构建环境运行。"),
     ("Next.js webpack production build", "通过", "next build --webpack 已成功完成 TypeScript 检查、页面生成与 trace 收集；/schedule 和 SEIUE 连接及快照 API 均进入产物路由清单。"),
@@ -133,7 +134,7 @@ numbered("完成后再核对课程周、作业跳转、回站刷新、解除连�
 
 doc.add_heading("6. 发布与版本记录", level=1)
 bullet("功能分支：feat/seiue-schedule-sync；Main 当前基线为 4c55462c1e1b1309826f5ed4b69fcf36881cfccf。")
-bullet("应用版本统一更新为 3.42.9：package.json、package-lock.json、APP_VERSION 与更新历史同步。")
+bullet("应用版本统一更新为 3.42.10：package.json、package-lock.json、APP_VERSION 与更新历史同步。")
 bullet("本记录用于提交到仓库 docs/ 目录。完成分支构建与人工验收前，不把预览通过等同于生产发布，也不宣称已经合并 Main 或生产成功。")
 
 doc.add_heading("7. 本次实施范围", level=1)
