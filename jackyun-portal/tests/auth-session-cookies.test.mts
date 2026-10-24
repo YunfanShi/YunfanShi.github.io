@@ -24,7 +24,7 @@ const refreshed = { name: 'sb-test-auth-token', value: 'fresh', options: { path:
 test('refresh forwards fresh request cookies and persists all response cookie batches', async () => {
   let cookies: any;
   const middleware = loadModule('../src/lib/supabase/middleware.ts', {
-    '@/lib/request-timeout': { fetchWithTimeout: async () => {} },
+    '@/lib/supabase/read-recovery': { fetchWithReadRecovery: async () => {} },
     '@supabase/ssr': { createServerClient: (_url: string, _key: string, options: any) => {
       cookies = options.cookies;
       return {};

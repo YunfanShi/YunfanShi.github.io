@@ -6,7 +6,7 @@ import ts from 'typescript';
 
 const code = ts.transpileModule(readFileSync(new URL('../src/lib/sync/azure-proxy.ts', import.meta.url), 'utf8'),
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-function fixture(endpoint, fetcher, session = { access_token: 'transported-token' }) {
+function fixture(endpoint, fetcher, session = { access_token: 'transported-token' }, logs = []) {
   const exports = {};
   const modules = {
     'server-only': {}, 'next/server': { NextResponse: Response },
@@ -17,10 +17,21 @@ function fixture(endpoint, fetcher, session = { access_token: 'transported-token
   vm.runInNewContext(code, { exports, require: name => {
     if (!(name in modules)) throw Error('Unexpected dependency'); return modules[name];
   }, process: { env: { AZURE_SYNC_API_URL: endpoint } }, URL, Headers, Uint8Array, AbortSignal,
-  fetch: fetcher });
+  fetch: fetcher, console:{warn:(...args)=>logs.push(args.join(' '))} });
   return request => exports.forwardAzureSync(Object.assign(request, { nextUrl: new URL(request.url) }));
 }
 const endpoint = 'https://jackyun-sync-9d26b2cc.azurewebsites.net';
+test('failed upstream transport logs phase and safe system code without messages or credentials',async()=>{
+  const logs=[];
+  const error=Object.assign(new TypeError('private-token and learning content'),{cause:{code:'ECONNRESET',message:'private-password'}});
+  const forward=fixture(endpoint,()=>{throw error;},undefined,logs);
+  assert.equal((await forward(new Request('https://jackyun.top/api/sync/v3?private=value'))).status,503);
+  assert.equal(logs.length,1);
+  const event=JSON.parse(logs[0].slice('[sync-proxy] '.length));
+  assert.equal(event.stage,'upstream_fetch');assert.equal(event.causeCode,'ECONNRESET');
+  assert.equal(event.route,'/api/sync/v3');
+  assert.ok(!logs[0].includes('private')&&!logs[0].includes('transported-token'));
+});
 test('proxy transports only bearer and bounded JSON; preserves query, errors and no-store', async () => {
   let calls = 0;
   const forward = fixture(endpoint, async (url, options) => {

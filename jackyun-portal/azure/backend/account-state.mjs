@@ -11,6 +11,7 @@ export function createAccountStateVerifier({ supabaseUrl, publishableKey, fetchI
   if (origin.protocol !== 'https:' || origin.username || origin.password || origin.search || origin.hash
     || origin.pathname !== '/' || !/^[a-z0-9]+\.supabase\.co$/.test(origin.hostname)) throw Error('Trusted project origin required');
   const sessions = new Map();
+  const pending = new Map();
   return async function verifyAccount(identity, token, verified = {}) {
     // Only the authenticator may supply expiry, after signature and claim validation.
     const stamp=now(), expiresAt=Number(verified.expiresAt)*1000;
@@ -20,7 +21,17 @@ export function createAccountStateVerifier({ supabaseUrl, publishableKey, fetchI
     const usable=previous&&previous.until>stamp;
     if(usable&&previous.nextCheck>stamp)return;
     try {
-      await checkAccount(identity,token);
+      // Coalesce only the same verified session and signed expiry. A cold instance
+      // must still obtain an authoritative active profile before allowing access.
+      const flightKey = key + ':' + expiresAt;
+      let flight = cacheable ? pending.get(flightKey) : undefined;
+      if (!flight) {
+        if (pending.size >= MAX_SESSIONS) throw new ApiError(503, 'ACCOUNT_STATE_UNAVAILABLE');
+        flight = checkWithRecovery(identity, token);
+        if (cacheable) pending.set(flightKey, flight);
+      }
+      try { await flight; }
+      finally { if (pending.get(flightKey) === flight) pending.delete(flightKey); }
       if(cacheable){
         for(const [key,value] of sessions)if(value.until<=stamp)sessions.delete(key);
         sessions.delete(key);sessions.set(key,{until:expiresAt,nextCheck:Math.min(expiresAt,stamp+CACHE_MS)});
@@ -32,6 +43,15 @@ export function createAccountStateVerifier({ supabaseUrl, publishableKey, fetchI
       sessions.delete(key);throw error;
     }
   };
+  async function checkWithRecovery(identity, token) {
+    if (!publishableKey) throw new ApiError(503, 'ACCOUNT_STATE_UNAVAILABLE');
+    try { await checkAccount(identity, token); }
+    catch (error) {
+      // Only retry this read. Never replay sync writes or retry an explicit denial.
+      if (error.status !== 503) throw error;
+      await checkAccount(identity, token);
+    }
+  }
   async function checkAccount(identity, token) {
     if (!publishableKey) throw new ApiError(503, 'ACCOUNT_STATE_UNAVAILABLE');
     const url = new URL('/rest/v1/profiles', origin);
@@ -40,7 +60,7 @@ export function createAccountStateVerifier({ supabaseUrl, publishableKey, fetchI
     let response;
     try {
       response = await fetchImpl(url,{ headers:{ apikey:publishableKey,Authorization:`Bearer ${token}` },
-        cache:'no-store',redirect:'error',signal:AbortSignal.timeout(5_000) });
+        cache:'no-store',redirect:'error',signal:AbortSignal.timeout(8_000) });
     } catch { throw new ApiError(503,'ACCOUNT_STATE_UNAVAILABLE'); }
     if (response.status === 401) throw new ApiError(401,'UNAUTHORIZED');
     if (response.status === 403) throw new ApiError(403,'ACCOUNT_DISABLED');
