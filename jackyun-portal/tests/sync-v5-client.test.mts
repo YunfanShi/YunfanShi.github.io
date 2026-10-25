@@ -149,13 +149,13 @@ test('v5 worker keeps its account database scope and discards responses after ac
 });
 
 test('v5 client downloads only changed records, queues a stable resource operation, and stays incremental',async()=>{
-  const dbName=id(),schedule={schemaVersion:1,cues:[{id:'cue-1',prompt:'from cloud'}]},hash=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex');
+  const dbName=id(),schedule={schemaVersion:1,cues:[{id:'cue-1',prompt:'from cloud'}],legacyHistory:'x'.repeat(200_000)},hash=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex');
   const rows=new Map<string,{scope:'cue';recordId:string;revision:number;contentHash:string;deleted:boolean;updatedAt:string;value:unknown}>([
     ['cues:%24order',{scope:'cue',recordId:'cues:%24order',revision:1,contentHash:hash(['cue-1']),deleted:false,updatedAt:'now',value:['cue-1']}],
     ['cues:cue-1',{scope:'cue',recordId:'cues:cue-1',revision:1,contentHash:hash(schedule.cues[0]),deleted:false,updatedAt:'now',value:schedule.cues[0]}],
   ]);
-  await seed(dbName,JSON.stringify(schedule));let head=1,recordReads=0,manifestReads=0;const operationIds:string[]=[];
-  const request=async(url:string,init?:RequestInit)=>{
+  await seed(dbName,JSON.stringify(schedule));let head=1,recordReads=0,manifestReads=0;const operationIds:string[]=[],measurements:Array<{path:string;method:string;requestBytes:number;responseBytes:number}>=[];
+  const handleRequest=async(url:string,init?:RequestInit)=>{
     const parsed=new URL(url,'https://sync.test'),scope=parsed.searchParams.get('scope');
     if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:SYNC_V5_SCOPES});
     if(parsed.pathname==='/api/sync/v5/manifest'){manifestReads++;const field=parsed.searchParams.get('field');const records=[...rows.values()].filter(row=>row.recordId.startsWith(`${field}:`)).map(row=>({scope:row.scope,recordId:row.recordId,revision:row.revision,contentHash:row.contentHash,deleted:row.deleted,updatedAt:row.updatedAt}));return Response.json({syncProtocol:5,records,next:null,head});}
@@ -170,18 +170,37 @@ test('v5 client downloads only changed records, queues a stable resource operati
     }
     throw new Error(`Unexpected v5 request ${parsed.pathname} scope=${scope}`);
   };
+  const request=async(url:string,init?:RequestInit)=>{
+    const response=await handleRequest(url,init),parsed=new URL(url,'https://sync.test'),requestBody=typeof init?.body==='string'?new TextEncoder().encode(init.body).byteLength:0;
+    measurements.push({path:parsed.pathname,method:init?.method??'GET',requestBytes:requestBody,responseBytes:(await response.clone().arrayBuffer()).byteLength});
+    return response;
+  };
   let scheduleRaw=JSON.stringify(schedule);
   const engine=createV5ResourceSync({databaseScope:dbName,request,deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>scheduleRaw,projectSchedule:async value=>{if(value!==null)scheduleRaw=value;},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
   const readDocument=async()=>{const db=await openDatabase(dbName);try{return await new Promise<string>((resolve,reject)=>{const tx=db.transaction('documents','readonly'),r=tx.objectStore('documents').get('jackyun_schedule_control_v1');r.onsuccess=()=>resolve(r.result.value);r.onerror=()=>reject(r.error);});}finally{db.close();}};
+  const fullScheduleBytes=new TextEncoder().encode(scheduleRaw).byteLength,startInitial=performance.now(),initialOffset=measurements.length;
   await engine.synchronize([{scope:'cue',field:'cues'}]);
+  const initialMetrics=measurements.slice(initialOffset),initialElapsedMs=performance.now()-startInitial;
   assert.deepEqual(JSON.parse(await readDocument()),schedule);
   const changed={...schedule,cues:[{id:'cue-1',prompt:'edited locally'}]};scheduleRaw=JSON.stringify(changed);
   const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction('documents','readwrite');tx.objectStore('documents').put({key:'jackyun_schedule_control_v1',value:JSON.stringify(changed),updatedAt:Date.now()});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+  const mutationOffset=measurements.length,startMutation=performance.now();
   await engine.synchronize([{scope:'cue',field:'cues'}]);
+  const mutationMetrics=measurements.slice(mutationOffset),mutationElapsedMs=performance.now()-startMutation;
   assert.deepEqual(operationIds,['cues:cue-1']);
   assert.equal((await getV5Resources('cue',dbName)).find(row=>row.recordId==='cues:cue-1')?.revision,2);
-  const readsAfterMutation=recordReads;await engine.synchronize([{scope:'cue',field:'cues'}]);
+  const readsAfterMutation=recordReads,warmOffset=measurements.length,startWarm=performance.now();await engine.synchronize([{scope:'cue',field:'cues'}]);
+  const warmMetrics=measurements.slice(warmOffset),warmElapsedMs=performance.now()-startWarm;
   assert.equal(manifestReads,1);assert.equal(recordReads,readsAfterMutation);
+  const summarize=(rows:typeof measurements)=>({requests:rows.length,requestBytes:rows.reduce((sum,row)=>sum+row.requestBytes,0),responseBytes:rows.reduce((sum,row)=>sum+row.responseBytes,0),paths:rows.map(row=>row.path)});
+  const initial=summarize(initialMetrics),mutation=summarize(mutationMetrics),warm=summarize(warmMetrics);
+  assert.ok(initial.paths.some(path=>path==='/api/sync/v5/records'),'baseline must fetch record bodies');
+  assert.ok(mutation.paths.includes('/api/sync/v5/operations'),'local CUE edit must use the resource operation endpoint');
+  assert.ok(!mutation.paths.includes('/api/sync/v5/records'),'single-record update must not redownload CUE bodies');
+  assert.ok(mutation.requestBytes<fullScheduleBytes/10,`single CUE request ${mutation.requestBytes} B should be under one tenth of ${fullScheduleBytes} B Schedule`);
+  assert.ok(!warm.paths.includes('/api/sync/v5/records'),'warm unchanged sync must not request resource bodies');
+  assert.ok(warm.responseBytes<initial.responseBytes,'warm sync should transfer less response data than baseline');
+  console.log(JSON.stringify({kind:'v5-client-fixture',fullScheduleBytes,initial:{...initial,elapsedMs:Math.round(initialElapsedMs)},singleCueMutation:{...mutation,elapsedMs:Math.round(mutationElapsedMs)},unchangedWarmSync:{...warm,elapsedMs:Math.round(warmElapsedMs)}}));
 });
 
 test('page resource selection avoids unrelated CUE history and schedule scopes',()=>{
