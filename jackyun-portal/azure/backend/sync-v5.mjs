@@ -266,4 +266,3 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
   }
   fail(404,'NOT_FOUND');
 }
-
