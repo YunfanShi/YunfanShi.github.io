@@ -14,7 +14,7 @@ const suites = [
   'reading-studio', 'novel-reading-position', 'quick-task-ui', 'active-legacy-ui',
   'study-guide-state', 'music-player-state', 'countdown-state', 'answer-sheet-legacy',
   'class-timeline:mts', 'cue-session-settings:mts', 'cue-route-draft:mts', 'cue-search:mts',
-  'review-queue', 'mobile-navigation', 'practice-cloud:mts', 'ielts-timer:mts',
+  'review-queue', 'mobile-navigation', 'sync-status-indicator', 'practice-cloud:mts', 'ielts-timer:mts',
   'offline-practice:mts', 'dida-schedule-ui:mts', 'ui-modernization-performance',
 ];
 const results = [];

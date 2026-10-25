@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { APP_VERSION } from '../src/lib/utils.ts';
 import { UPDATE_CATEGORIES, UPDATE_HISTORY } from '../src/lib/update-history.ts';
 
 const projectDir = new URL('../', import.meta.url);
@@ -20,6 +21,12 @@ test('update history stays ordered, unique, and fully categorized', () => {
     assert.ok(entry.highlights.every((highlight) => highlight.trim().length > 0));
     assert.ok(entry.categories.every((category) => UPDATE_CATEGORIES.includes(category)));
   }
+});
+
+test('published package, client diagnostics, and latest update share one version', async () => {
+  const manifest = JSON.parse(await readFile(new URL('package.json', projectDir), 'utf8')) as { version: string };
+  assert.equal(APP_VERSION, manifest.version);
+  assert.equal(UPDATE_HISTORY[0].version, manifest.version);
 });
 
 test('update route uses the native showcase instead of the legacy iframe', async () => {
