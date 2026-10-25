@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LearningTask } from '@/lib/learning/schedule-control';
 import type { SeiueAccountView, SeiueSnapshot } from '@/lib/integrations/seiue';
-import { isSeiueCalendarEventInWeek, seiueCourseReviewKey } from '@/lib/integrations/seiue';
+import { parseSeiueHelperBundle, seiueCourseReviewKey } from '@/lib/integrations/seiue';
 import { getSeiueSnapshot, withSeiueSnapshot, type SeiueSnapshotCache } from '@/lib/integrations/seiue-snapshot-cache';
 
 const EMPTY: SeiueSnapshot = { lessons: [], todos: [], calendar: [], syncedAt: '' };
@@ -12,11 +12,7 @@ function courseKey(subject: string) { return subject.trim().toLocaleLowerCase().
 function readPrefs(accountId: string): Record<string, boolean> {
   try { const value = JSON.parse(localStorage.getItem(`${PREF}:${accountId}`) ?? '{}'); return value && typeof value === 'object' ? value : {}; } catch { return {}; }
 }
-function todoDetails(todo: SeiueSnapshot['todos'][number]) {
-  return [todo.kind === 'assignment' ? (todo.assignmentType ?? '作业/资料') : '选课截止', todo.courseName, todo.creatorName ? `布置人：${todo.creatorName}` : '', todo.createdAt ? `布置时间：${todo.createdAt.slice(0, 16)}` : ''].filter(Boolean).join(' · ');
-}
-
-export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { selectedDate: string; onReviewTasks: (tasks: LearningTask[]) => void }) {
+export default function SeiueScheduleSync({ selectedDate, onReviewTasks, onSnapshot }: { selectedDate: string; onReviewTasks: (tasks: LearningTask[]) => void; onSnapshot: (snapshot: SeiueSnapshot, account: SeiueAccountView | null) => void }) {
   const [accounts, setAccounts] = useState<SeiueAccountView[]>([]);
   const [accountId, setAccountId] = useState('');
   const [snapshots, setSnapshots] = useState<SeiueSnapshotCache>({});
@@ -24,11 +20,16 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
+  const [renewalPromptOpen, setRenewalPromptOpen] = useState(false);
+  const [renewalStarted, setRenewalStarted] = useState(false);
   const ownerRef = useRef('');
+  const lastAutomaticRefresh = useRef({ scope: '', at: 0 });
   const week = useMemo(() => { const date = new Date(`${selectedDate}T12:00:00`); date.setDate(date.getDate() - ((date.getDay() + 6) % 7)); return date.toLocaleDateString('en-CA'); }, [selectedDate]);
   const weekEnd = useMemo(() => { const date = new Date(`${week}T12:00:00`); date.setDate(date.getDate() + 6); return date.toLocaleDateString('en-CA'); }, [week]);
   const prefs = useMemo(() => accountId ? prefsByAccount[accountId] ?? readPrefs(accountId) : {}, [accountId, prefsByAccount]);
   const activeSnapshot = getSeiueSnapshot(snapshots, accountId, week) ?? EMPTY;
+  const activeAccount = accounts.find(item => item.id === accountId) ?? null;
+  const localDay = new Date().toLocaleDateString('en-CA');
   const enabledLessons = useMemo(() => activeSnapshot.lessons.filter(lesson => prefs[courseKey(lesson.subject)]), [activeSnapshot.lessons, prefs]);
   const nextReviewBoundary = enabledLessons.reduce((next, lesson) => {
     const end = Date.parse(`${lesson.date}T${lesson.end}:00+08:00`);
@@ -39,8 +40,12 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
     const data = await response.json(); if (!response.ok) throw new Error(data.error || '无法读取 SEIUE 关联。');
     const next = (data.accounts ?? []) as SeiueAccountView[]; setAccounts(next); setAccountId(current => next.some(item => item.id === current) ? current : next[0]?.id ?? '');
   }, []);
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (force = false) => {
     if (!accountId) return;
+    const now = Date.now();
+    const scope = `${accountId}:${week}`;
+    if (!force && lastAutomaticRefresh.current.scope === scope && now - lastAutomaticRefresh.current.at < 5000) return;
+    lastAutomaticRefresh.current = { scope, at: now };
     setBusy(true); setNotice('');
     try {
       const response = await fetch(`/api/integrations/seiue/snapshot?accountId=${encodeURIComponent(accountId)}&week=${encodeURIComponent(week)}`, { cache: 'no-store' });
@@ -49,7 +54,7 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
       setSnapshots(current => withSeiueSnapshot(current, accountId, week, data as SeiueSnapshot));
     } catch (error) { setNotice(error instanceof Error ? error.message : 'SEIUE 同步失败；该账户和所选周的上次成功数据仍会保留（若有）。'); }
     finally { setBusy(false); }
-  }, [accountId, week]);
+  }, [accountId, week, selectedDate]);
   useEffect(() => { let cancelled = false; queueMicrotask(() => { if (!cancelled) void loadAccounts().catch(() => {}); }); return () => { cancelled = true; }; }, [loadAccounts]);
   useEffect(() => {
     const changed = ownerRef.current !== accountId; ownerRef.current = accountId;
@@ -57,12 +62,25 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
     if (accountId) queueMicrotask(() => { void refresh(); });
   }, [accountId, refresh, onReviewTasks]);
   useEffect(() => {
+    if (!accountId) return;
+    const refreshWhenVisible = () => { if (!document.hidden) void refresh(); };
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => { window.removeEventListener('focus', refreshWhenVisible); document.removeEventListener('visibilitychange', refreshWhenVisible); };
+  }, [accountId, refresh]);
+  useEffect(() => {
     const tasks: LearningTask[] = enabledLessons.filter(lesson => Date.parse(`${lesson.date}T${lesson.end}:00+08:00`) <= clock).map(lesson => ({
       key: seiueCourseReviewKey(lesson), title: `复习 SEIUE 课程 · ${lesson.subject}`, detail: `回忆本节课程要点，补全笔记并整理需要复习的内容。${lesson.description ? `\n\n课堂备注：${lesson.description}` : ''}`,
       type: 'course-review', date: lesson.date, start: lesson.end, durationMinutes: 20, subjectName: lesson.subject, manual: false,
     }));
     onReviewTasks(tasks);
   }, [enabledLessons, onReviewTasks, clock]);
+  useEffect(() => { onSnapshot(activeAccount ? activeSnapshot : EMPTY, activeAccount); }, [activeAccount, activeSnapshot, onSnapshot]);
+  useEffect(() => {
+    if (!activeAccount || localStorage.getItem('jackyun:seiue-daily-renewal:v1') !== 'true') return;
+    const key = `jackyun:seiue-daily-renewal-prompted:${activeAccount.id}`;
+    if (localStorage.getItem(key) !== localDay) setRenewalPromptOpen(true);
+  }, [activeAccount, localDay]);
   useEffect(() => {
     if (!Number.isFinite(nextReviewBoundary)) return;
     const timer = window.setTimeout(() => setClock(Date.now()), Math.max(0, nextReviewBoundary - clock));
@@ -75,23 +93,45 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
       localStorage.setItem(`${PREF}:${accountId}`, JSON.stringify(next));
     }
   }
-  if (!accounts.length) return null;
-  const lessons = activeSnapshot.lessons;
-  const todos = activeSnapshot.todos.filter(todo => {
-    if (todo.status !== 'pending') return false;
-    const deadline = todo.deadline?.slice(0, 10);
-    if (!deadline) return true;
-    return deadline <= weekEnd;
-  });
-  const calendar = activeSnapshot.calendar.filter(event => isSeiueCalendarEventInWeek(event, week, weekEnd));
+  function markRenewalPrompted() {
+    if (activeAccount) localStorage.setItem(`jackyun:seiue-daily-renewal-prompted:${activeAccount.id}`, localDay);
+  }
+  function openRenewalSite() {
+    if (!activeAccount) return;
+    try {
+      const url = new URL(activeAccount.schoolSite);
+      if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== 'chalk-c3.seiue.com') throw new Error();
+      url.searchParams.set('jackyun_connect', '1');
+      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+      setRenewalStarted(true); markRenewalPrompted();
+      setNotice('SEIUE 已在新标签页打开。助手自动复制后，返回此处在弹窗中粘贴即可续期。');
+    } catch { setNotice('自动助手仅支持 https://chalk-c3.seiue.com/；请在连接设置中更新学校网址。'); }
+  }
+  async function pasteRenewalBundle(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+    event.preventDefault();
+    const bundle = parseSeiueHelperBundle(event.clipboardData.getData('text/plain'));
+    void navigator.clipboard?.writeText('').catch(() => {});
+    if (!bundle || !activeAccount) { setNotice('连接包无效。请从 chalk-c3.seiue.com 的助手重新获取；不要粘贴密码或 Cookie。'); return; }
+    setBusy(true); setNotice('正在验证新的短期授权…');
+    try {
+      const response = await fetch('/api/integrations/seiue/accounts', { method: 'PATCH', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: activeAccount.id, token: bundle.token }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '续期失败。');
+      await loadAccounts(); await refresh(true);
+      setRenewalStarted(false); setRenewalPromptOpen(false); setNotice('SEIUE 已续期，当前课程和待办已刷新。');
+    } catch (error) { setNotice(error instanceof Error ? error.message : '续期失败；已保留原有日程数据。'); }
+    finally { setBusy(false); }
+  }
   const subjects = [...new Set(activeSnapshot.lessons.map(item => item.subject))];
-  return <section aria-label="SEIUE 同步" className="mb-4 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-[var(--muted-foreground)]">SEIUE · 只读同步</p><h2 className="mt-1 text-lg font-semibold">课程、待办与校历</h2></div><div className="flex items-center gap-2"><select aria-label="SEIUE 账户" value={accountId} onChange={event => setAccountId(event.target.value)} className="min-h-10 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-2 text-xs">{accounts.map(account => <option key={account.id} value={account.id}>{account.displayName}</option>)}</select><button type="button" disabled={busy} onClick={() => void refresh()} className="min-h-10 rounded-full border border-[var(--card-border)] px-3 text-xs disabled:opacity-40">{busy ? '同步中…' : '刷新'}</button></div></div>
-    {notice && <p role="status" className="mt-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">{notice}。已缓存的成功快照未被覆盖。</p>}
-    {subjects.length > 0 && <details className="mt-3 rounded-2xl bg-[var(--background)] p-3"><summary className="min-h-9 cursor-pointer text-sm font-medium">课后复习设置（默认关闭）</summary><div className="mt-2 space-y-2">{subjects.map(subject => <label key={subject} className="flex min-h-10 items-center gap-3 text-sm"><input type="checkbox" checked={Boolean(prefs[courseKey(subject)])} onChange={event => toggleReview(subject, event.target.checked)} className="h-4 w-4 accent-[var(--brand)]" />课后复习 · {subject}</label>)}</div><p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">开启后，课程结束时会按单次课程 ID 创建一项 JackYun 学习任务；设置仅保存在本浏览器，不包含 Token。</p></details>}
-    <div className="mt-4 grid gap-4 lg:grid-cols-3"><div><h3 className="text-sm font-semibold">所选周课程</h3>{lessons.length ? <ul className="mt-2 divide-y divide-[var(--card-border)]">{lessons.map(lesson => <li key={lesson.id} className={`py-2 text-sm ${lesson.date === selectedDate ? 'rounded-lg bg-[var(--background)] px-2' : ''}`}><strong>{lesson.date} · {lesson.subject}</strong><p className="mt-1 text-xs text-[var(--muted-foreground)]">{lesson.start}–{lesson.end}{lesson.location ? ` · ${lesson.location}` : ''}{lesson.teacher ? ` · ${lesson.teacher}` : ''}{lesson.adjustment ? ` · 调课：${lesson.adjustment}` : ''}</p>{lesson.description && <details className="mt-1 text-xs"><summary>课堂备注</summary><p className="mt-1 whitespace-pre-wrap">{lesson.description}</p></details>}</li>)}</ul> : <p className="mt-2 text-xs text-[var(--muted-foreground)]">所选周没有课程。</p>}</div>
-      <div><h3 className="text-sm font-semibold">未完成作业 / 资料与选课截止</h3>{todos.length ? <ul className="mt-2 space-y-2">{todos.map(todo => <li key={todo.id} className="rounded-xl bg-[var(--background)] p-3"><p className="text-sm font-medium">{todo.title}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{todoDetails(todo)} · 截止：{todo.deadline ?? '未提供截止时间'} · SEIUE 状态：待完成</p>{todo.description && <details className="mt-1 text-xs"><summary>任务说明</summary><p className="mt-1 whitespace-pre-wrap">{todo.description}</p></details>}<a href={accounts.find(item => item.id === accountId)?.schoolSite ?? 'https://www.seiue.com/'} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-9 items-center rounded-full border border-[var(--card-border)] px-3 text-xs font-semibold">前往 SEIUE 查看 / 提交</a></li>)}</ul> : <p className="mt-2 text-xs text-[var(--muted-foreground)]">所选周没有未完成事项。</p>}</div>
-      <div><h3 className="text-sm font-semibold">校历事件</h3>{calendar.length ? <ul className="mt-2 space-y-2">{calendar.map(event => <li key={event.id} className="rounded-xl bg-[var(--background)] p-3"><p className="text-sm font-medium">{event.title}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">{event.date}{event.endDate ? ` 至 ${event.endDate}` : ''}</p>{event.description && <p className="mt-1 whitespace-pre-wrap text-xs">{event.description}</p>}</li>)}</ul> : <p className="mt-2 text-xs text-[var(--muted-foreground)]">所选日期没有校历事件。</p>}</div></div>
-    <p className="mt-4 text-xs text-[var(--muted-foreground)]">{activeSnapshot.syncedAt ? `最近成功同步 ${new Date(activeSnapshot.syncedAt).toLocaleString('zh-CN')}` : '尚未成功同步'} · 不代提交，不更改源端完成状态。</p>
-  </section>;
+  if (!accounts.length) return <p className="text-xs text-[var(--muted-foreground)]"><a href="/settings?section=connections" className="font-semibold text-[var(--brand)]">连接 SEIUE</a> 后，课程、待办和校历会出现在同一张 JackYun 日程中。</p>;
+  return <><div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-xs" aria-label="日程来源：SEIUE">
+    <span className="inline-flex items-center gap-1.5 font-semibold"><span className="h-2 w-2 rounded-full bg-emerald-500" />SEIUE 已连接</span>
+    {accounts.length > 1 && <select aria-label="SEIUE 日程账户" value={accountId} onChange={event => setAccountId(event.target.value)} className="min-h-8 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2">{accounts.map(account => <option key={account.id} value={account.id}>{account.displayName}</option>)}</select>}
+    <span className="text-[var(--muted-foreground)]">成功同步后，本周课程以 SEIUE 实际课次为准；待办和校历并入显示 · 只读</span>
+    <button type="button" disabled={busy} onClick={() => void refresh(true)} className="min-h-8 rounded-full border border-[var(--card-border)] px-3 font-medium disabled:opacity-40">{busy ? '刷新中…' : '刷新来源'}</button>
+    <a href="/settings?section=connections" className="font-medium text-[var(--brand)]">连接设置</a>
+    <span className="text-[var(--muted-foreground)]">{activeSnapshot.syncedAt ? `更新于 ${new Date(activeSnapshot.syncedAt).toLocaleString('zh-CN')}` : '正在读取当前周'}</span>
+    {notice && <span role="status" className="basis-full text-amber-700 dark:text-amber-200">{notice}；保留上次成功数据。</span>}
+    {subjects.length > 0 && <details className="basis-full"><summary className="min-h-8 cursor-pointer font-medium">课后复习 · 默认关闭</summary><div className="flex flex-wrap gap-x-4 gap-y-1 py-2">{subjects.map(subject => <label key={subject} className="inline-flex min-h-8 items-center gap-2"><input type="checkbox" checked={Boolean(prefs[courseKey(subject)])} onChange={event => toggleReview(subject, event.target.checked)} className="h-4 w-4 accent-[var(--brand)]" />{subject}</label>)}</div><p className="text-[var(--muted-foreground)]">开启后，课程结束时按单次课程 ID 创建一项 JackYun 学习任务。设置仅保存在本浏览器，不含 Token。</p></details>}
+  </div>{renewalPromptOpen && activeAccount && <div className="fixed inset-0 z-[90] grid place-items-center bg-black/40 p-4"><section role="dialog" aria-modal="true" aria-labelledby="seiue-renewal-title" className="w-full max-w-md rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-xl"><div className="flex items-start gap-3"><span className="material-icons-round text-2xl text-[var(--brand)]">sync</span><div><h2 id="seiue-renewal-title" className="text-lg font-semibold">获取今日 SEIUE 连接信息</h2><p className="mt-1 text-sm leading-5 text-[var(--muted-foreground)]">Token 最长 24 小时。打开已登录的学校页，助手会自动复制新连接包；回到这里粘贴后立即验证续期。</p></div></div>{renewalStarted && <label className="mt-4 block text-sm font-medium">粘贴连接包<textarea value="" onChange={event => { event.currentTarget.value = ''; }} onPaste={event => void pasteRenewalBundle(event)} rows={2} autoComplete="off" spellCheck={false} placeholder="在此处粘贴；不会显示或保存到浏览器" className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 text-xs" /></label>}<div className="mt-4 flex flex-wrap justify-end gap-2"><button type="button" onClick={() => { markRenewalPrompted(); setRenewalPromptOpen(false); setRenewalStarted(false); }} className="min-h-10 rounded-full border border-[var(--card-border)] px-4 text-sm">今天稍后</button><button type="button" disabled={busy} onClick={openRenewalSite} className="min-h-10 rounded-full bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">{renewalStarted ? (busy ? '验证中…' : '重新打开 SEIUE') : '现在获取 / 续期'}</button></div></section></div>}</>;
 }
