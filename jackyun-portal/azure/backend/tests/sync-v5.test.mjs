@@ -186,4 +186,3 @@ test('v4 projection applies v5 updates and tombstones to unknown root fields',as
   assert.deepEqual(deleted.value,{schemaVersion:1});
   assert.equal(deleted.projectionRecordCount,1);
 });
-
