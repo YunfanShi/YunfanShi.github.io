@@ -12,7 +12,9 @@ See the DOCX implementation report and `verification.json` for measured results 
 4. Enable a verified account with `SYNC_V4_USERS`, then verify two authenticated clients. Only enable `SYNC_V4_ENABLED=true` after that acceptance passes.
 5. Preserve in-flight protocol identity, outbox, receipts, conflicts, documents and tombstones on rollback.
 
-The attempted temporary single-IP firewall rule was rejected by automatic approval review. It was not created. Do not bypass that rejection with another tunnel or helper. Obtain explicit authorization or an approved existing network route before migrating Azure.
+Automatic approval review initially rejected a temporary database firewall rule. The user subsequently explicitly authorized a temporary current single-exit IPv4 rule, migration, and immediate verified cleanup. The Azure migration has now committed; runtime RLS, v3-triggered changes, duplicate suppression, CAS, tombstones and account sequence checks passed in a rollback transaction. See `jackyun-portal/azure/tests/sync-v4.sql`. No proxy helper was used. V4 rollout settings remain absent, so v4 stays disabled pending authenticated acceptance.
+
+Production website deployment `dpl_CRwyB39J51k4v2DUnj4zU2Ktc4bf` is READY for Main `199fde9b932b3697337d8eef7209b3c472791c52` and aliases `jackyun.top`. Public update content includes 3.44.0; Azure `/health/live` reports 3.7.0. An unauthenticated `/api/sync/v4` response is 401 with a request ID; this is an authentication check, not real-account sync acceptance.
 
 ## References
 

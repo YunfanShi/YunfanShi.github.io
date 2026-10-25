@@ -41,7 +41,24 @@
     "liveVersion": "3.7.0",
     "archiveSha256": "f6706f40f4d3b9e4d36f7dd14f7674713945d076bf5113efb34b363f77e233a5"
   },
-  "azureChangeLogMigration": "pending approved database network access",
+  "azureChangeLogMigration": {
+    "applied": true,
+    "database": "jackyun_migration_20261007",
+    "schemaBackup": "private schema-only dump before migration",
+    "runtimeValidation": "passed; all fixtures rolled back",
+    "checks": ["RLS and role boundaries", "v3 write trigger", "duplicate suppression", "CAS update", "tombstone", "monotonic account sequence", "cross-account isolation"],
+    "initialReadOnlyFailure": "transaction rolled back; explicit write mode applied only in migration session",
+    "temporaryFirewall": "explicit user authorization received; single current exit IPv4 only; deleted and absence verified",
+    "proxyUsed": false
+  },
+  "websiteDeployment": {
+    "id": "dpl_CRwyB39J51k4v2DUnj4zU2Ktc4bf",
+    "state": "READY",
+    "commit": "199fde9b932b3697337d8eef7209b3c472791c52",
+    "productionAlias": "jackyun.top",
+    "liveUpdateVersion": "3.44.0",
+    "unauthenticatedV4": "401 UNAUTHORIZED with requestId"
+  },
   "v4ProductionEnabled": false,
   "realAccountCrossDeviceAcceptance": "pending",
   "document": {
@@ -49,9 +66,8 @@
     "renderer": "docx-preview browser fallback; packaged renderer failed because soffice.exe is unavailable"
   },
   "limits": [
-    "Automatic approval review rejected creating a temporary single-IP PostgreSQL firewall rule and proxy transport; no rule was created.",
-    "No authenticated physical two-device acceptance has been performed.",
-    "V4 code and unit coverage do not establish that the Azure database migration has run."
+    "No authenticated two-client acceptance has been performed; login requested in the production browser tab.",
+    "SYNC_V4_ENABLED and SYNC_V4_USERS remain absent; v4 is disabled until account canary acceptance."
   ],
   "integratedRemoteBaseline": "c5d7ba8fb72ed161d386a375e7f1f4503ecd12f3",
   "learningRegression": {

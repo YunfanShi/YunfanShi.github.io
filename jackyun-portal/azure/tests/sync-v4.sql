@@ -1,0 +1,43 @@
+-- Run after azure/sync-v4.sql as migration administrator. All fixture mutations roll back.
+BEGIN READ WRITE;
+SET LOCAL statement_timeout='30s';
+SET LOCAL lock_timeout='5s';
+SET LOCAL plpgsql.check_asserts=on;
+CREATE TEMP TABLE sync_v4_context ON COMMIT DROP AS SELECT ARRAY(SELECT id FROM public.profiles WHERE account_status='active' AND deleted_at IS NULL ORDER BY id LIMIT 2) AS users,gen_random_uuid() AS device,gen_random_uuid() AS operation,'azure_v4_verify_'||gen_random_uuid()::text AS key;
+GRANT SELECT ON sync_v4_context TO jackyun_sync_runtime;
+SET LOCAL ROLE jackyun_sync_runtime;
+DO $$
+DECLARE ctx record; result jsonb; repeated jsonb; revision_hash text; before_seq bigint; after_seq bigint;
+BEGIN
+ SELECT * INTO ctx FROM sync_v4_context;
+ ASSERT cardinality(ctx.users)=2,'Two active users required';
+ ASSERT NOT (SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname=current_user),'Runtime cannot bypass RLS';
+ ASSERT has_table_privilege(current_user,'public.sync_change_heads','SELECT,INSERT,UPDATE'),'Head grants required';
+ ASSERT NOT has_table_privilege(current_user,'public.sync_change_heads','DELETE'),'Head deletion prohibited';
+ ASSERT NOT has_table_privilege('anon','public.sync_change_log','SELECT'),'Anonymous log access prohibited';
+ ASSERT NOT has_table_privilege('authenticated','public.sync_change_log','SELECT'),'No blanket authenticated grant';
+ PERFORM set_config('request.jwt.claim.sub',ctx.users[1]::text,true);
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',ctx.users[1],'role','authenticated')::text,true);
+ SELECT coalesce((SELECT sequence FROM public.sync_change_heads WHERE user_id=ctx.users[1]),0) INTO before_seq;
+ INSERT INTO public.web_sync_devices(id,user_id,name,platform) VALUES(ctx.device,ctx.users[1],'v4 rollback validation','web');
+ result:=public.apply_web_sync_operation(ctx.operation,ctx.device,ctx.key,0,NULL,NULL,'{"verified":1}',repeat('a',64),false,now());
+ ASSERT result->>'status'='applied' AND result->>'revision'='1','Legacy v3 function write';
+ repeated:=public.apply_web_sync_operation(ctx.operation,ctx.device,ctx.key,0,NULL,NULL,'{"verified":1}',repeat('a',64),false,now());
+ ASSERT result=repeated,'Same operation returns original result';
+ ASSERT (SELECT count(*) FROM public.sync_change_log WHERE user_id=ctx.users[1] AND storage_key=ctx.key)=1,'Duplicate operation creates one change';
+ result:=public.apply_web_sync_operation(gen_random_uuid(),ctx.device,ctx.key,1,repeat('a',64),'{"verified":1}','{"verified":2}',repeat('b',64),false,now());
+ ASSERT result->>'status'='applied' AND result->>'revision'='2','CAS update';
+ result:=public.apply_web_sync_operation(gen_random_uuid(),ctx.device,ctx.key,2,repeat('b',64),'{"verified":2}','null',repeat('c',64),true,now());
+ ASSERT result->>'status'='applied' AND result->>'revision'='3','Tombstone update';
+ SELECT sequence INTO after_seq FROM public.sync_change_heads WHERE user_id=ctx.users[1];
+ ASSERT after_seq=before_seq+3,'Monotonic account sequence';
+ ASSERT (SELECT count(*) FROM public.sync_change_log WHERE user_id=ctx.users[1] AND storage_key=ctx.key)=3,'All mutations have logs';
+ PERFORM public.prune_sync_changes();
+ PERFORM set_config('request.jwt.claim.sub',ctx.users[2]::text,true);
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',ctx.users[2],'role','authenticated')::text,true);
+ ASSERT NOT EXISTS(SELECT FROM public.sync_change_log WHERE user_id=ctx.users[1]),'Other account log invisible';
+ ASSERT NOT EXISTS(SELECT FROM public.sync_change_heads WHERE user_id=ctx.users[1]),'Other account head invisible';
+ RAISE NOTICE 'PASS runtime RLS, v3 change trigger, duplicate suppression, CAS, tombstones and monotonic sequence';
+END $$;
+ROLLBACK;
+SELECT 'migration_verified_with_fixtures_rolled_back' AS result;
