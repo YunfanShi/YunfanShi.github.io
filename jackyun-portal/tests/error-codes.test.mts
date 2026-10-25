@@ -42,7 +42,7 @@ test('browser bundle and TypeScript resolve identical codes and repeated errors 
   const raw=JSON.stringify(api.getNotices());assert.doesNotMatch(raw,/token=private|other=value/);
 });
 
-test('notices expire after 30 seconds without extending on retries and never replay background errors',()=>{
+test('notices expire after 8 seconds without extending on retries and never replay background errors',()=>{
   let now=0,focused=true,id=0;
   const timers=new Map<number,{at:number;callback:()=>void}>();
   const window=new EventTarget() as EventTarget & Record<string,unknown>;
@@ -57,9 +57,9 @@ test('notices expire after 30 seconds without extending on retries and never rep
   });
   const api=window.JackyunErrors as {report(input:unknown):void;getNotices():unknown[]};
   const advance=(time:number)=>{now=time;for(const [id,timer] of [...timers])if(timer.at<=now){timers.delete(id);timer.callback();}};
-  api.report({code:'SYNC_WRITE_FAILED'});advance(9000);api.report({code:'SYNC_WRITE_FAILED'});
-  advance(18000);api.report({code:'SYNC_WRITE_FAILED'});assert.equal(api.getNotices().length,1);
-  advance(29999);assert.equal(api.getNotices().length,1);advance(30000);assert.equal(api.getNotices().length,0);
+  api.report({code:'SYNC_WRITE_FAILED'});advance(2000);api.report({code:'SYNC_WRITE_FAILED'});
+  advance(4000);api.report({code:'SYNC_WRITE_FAILED'});assert.equal(api.getNotices().length,1);
+  advance(7999);assert.equal(api.getNotices().length,1);advance(8000);assert.equal(api.getNotices().length,0);
   api.report({code:'STORAGE_FAILED'});document.visibilityState='hidden';document.dispatchEvent(new Event('visibilitychange'));
   assert.equal(api.getNotices().length,0);api.report({code:'SYNC_WRITE_FAILED'});assert.equal(api.getNotices().length,0);
   document.visibilityState='visible';document.dispatchEvent(new Event('visibilitychange'));assert.equal(api.getNotices().length,0);

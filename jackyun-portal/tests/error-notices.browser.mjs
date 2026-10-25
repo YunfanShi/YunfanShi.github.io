@@ -28,7 +28,7 @@ try{
     const card=page.locator('[data-code="JY-2102"]');await card.waitFor();
     assert.equal(await page.locator('#draft').evaluate(element=>element===document.activeElement),true,'errors never steal input focus');
     assert.ok((await card.locator('.message').textContent()).includes('本次修改尚未被云端确认'));
-    const box=await card.boundingBox();assert.ok(box.x>=0 && box.x+box.width<=width);assert.ok(box.y>=72,'error notices stay below the portal top bar');
+    const box=await card.boundingBox();assert.ok(box.height<=44,'default notice is a single compact row');assert.equal(await card.locator('details').getAttribute('open'),null);await card.screenshot({path:new URL(`compact-${width}.png`,out).pathname.slice(1)});await card.locator('summary').click();assert.ok(box.x>=0 && box.x+box.width<=width);assert.ok(box.y>=72,'error notices stay below the portal top bar');
     await page.locator('#draft').click();
     assert.equal(await page.locator('#draft').evaluate(element=>element===document.activeElement),true,'non-action areas of error notices let underlying controls receive clicks');
     await card.getByRole('button',{name:'复制日志',exact:true}).click();await card.getByRole('button',{name:'已复制'}).waitFor();
@@ -38,16 +38,16 @@ try{
     assert.equal(await page.locator('[data-code="JY-2102"]').count(),1);
     await page.evaluate(()=>window.JackyunErrors.report({code:'STORAGE_FAILED',password:'hidden-password',message:'token=hidden-token'}));
     await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('denied');}}}));
-    const storage=page.locator('[data-code="JY-3101"]');await storage.getByRole('button',{name:'复制日志',exact:true}).click();
+    const storage=page.locator('[data-code="JY-3101"]');await storage.locator('summary').click();await storage.getByRole('button',{name:'复制日志',exact:true}).click();
     const text=await storage.getByRole('textbox',{name:'可复制的错误日志'}).inputValue();assert.doesNotMatch(text,/hidden-password|hidden-token/);
     await page.screenshot({path:new URL(`toast-${width}.png`,out).pathname.slice(1),fullPage:true});
     await storage.getByRole('button',{name:'关闭错误提示'}).click();assert.equal(await storage.count(),0);
     await page.evaluate(async()=>{try{await fetch('/api/test',{signal:AbortSignal.abort()});}catch{}});
     assert.equal(await page.locator('[role="alert"]').count(),1);
-    await page.clock.fastForward(9000);
+    await page.clock.fastForward(2000);
     await page.evaluate(()=>window.JackyunErrors.report({code:'SYNC_WRITE_FAILED',url:location.origin+'/api/test'}));
-    await page.clock.fastForward(9000);await page.evaluate(()=>window.JackyunErrors.report({code:'SYNC_WRITE_FAILED',url:location.origin+'/api/test'}));
-    await page.clock.fastForward(11999);assert.equal(await page.locator('[role="alert"]').count(),1);
+    await page.clock.fastForward(2000);await page.evaluate(()=>window.JackyunErrors.report({code:'SYNC_WRITE_FAILED',url:location.origin+'/api/test'}));
+    await page.clock.fastForward(3999);assert.equal(await page.locator('[role="alert"]').count(),1);
     await page.clock.fastForward(1);assert.equal(await page.locator('[role="alert"]').count(),0);
     await page.evaluate(()=>window.JackyunErrors.report({code:'AI_PARSE_FAILED'}));
     // Headless Chromium emulates every tab as focused; exercise native event
@@ -59,13 +59,13 @@ try{
     await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});document.dispatchEvent(new Event('visibilitychange'));});
     assert.equal(await page.locator('[role="alert"]').count(),0);
     await page.evaluate(()=>window.JackyunErrors.report({code:'AI_PARSE_FAILED'}));
-    const foreground=page.locator('[data-code="JY-5001"]');await foreground.getByRole('button',{name:'复制日志',exact:true}).click();
+    const foreground=page.locator('[data-code="JY-5001"]');await foreground.locator('summary').click();await foreground.getByRole('button',{name:'复制日志',exact:true}).click();
     assert.match(await foreground.getByRole('textbox',{name:'可复制的错误日志'}).inputValue(),/background-marker/);
     await page.evaluate(()=>{Object.defineProperty(document,'hasFocus',{configurable:true,value:()=>false});window.dispatchEvent(new Event('blur'));window.JackyunErrors.report({code:'AI_PARSE_FAILED'});});
     assert.equal(await page.locator('[role="alert"]').count(),0);
     await page.evaluate(()=>{delete document.hasFocus;});
     await page.goto(base+'/docs/errors.html');assert.equal(await page.locator('tbody tr').count(),25);
-    results.push({width,message:true,code:true,copy:true,redaction:true,clipboardFallback:true,focusPreserved:true,boundedRepeatedErrors:true,abortSilent:true,autoHide30Seconds:true,retriesDoNotExtend:true,backgroundSilent:true,noReplay:true,backgroundLogsPreserved:true,docs:true});
+    results.push({width,message:true,code:true,copy:true,redaction:true,clipboardFallback:true,focusPreserved:true,boundedRepeatedErrors:true,abortSilent:true,autoHide8Seconds:true,compactSingleRow:true,retriesDoNotExtend:true,backgroundSilent:true,noReplay:true,backgroundLogsPreserved:true,docs:true});
     await context.close();
   }
   await writeFile(new URL('results.json',out),JSON.stringify(results,null,2));console.log(JSON.stringify(results));

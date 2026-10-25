@@ -7,6 +7,8 @@ import { apiError, requestIdFrom } from '@/lib/api-response';
 export async function forwardAzureSync(request: NextRequest): Promise<NextResponse | null> {
   const endpoint = process.env.AZURE_SYNC_API_URL;
   const requestId = requestIdFrom(request);
+  const origin=request.headers.get('origin');
+  if(origin&&origin!==request.nextUrl.origin)return apiError(requestId,'Cross-site sync request denied',403,'ORIGIN_DENIED');
   const started = Date.now();
   const trace = (stage:string,status:number,error?:unknown,upstreamRequestId?:string|null) => {
     const failure = error && typeof error === 'object' ? error as {name?:unknown;cause?:{code?:unknown}} : undefined;
@@ -47,9 +49,9 @@ export async function forwardAzureSync(request: NextRequest): Promise<NextRespon
   if(expectedAccount&&/^[0-9a-f-]{36}$/i.test(expectedAccount))headers.set('X-Sync-Account',expectedAccount);
   if(reason && ['manual','periodic','edit','online','resume'].includes(reason))headers.set('X-Sync-Reason',reason);
   const contentType = request.headers.get('content-type');
-  const origin = request.headers.get('origin');
   if (contentType) headers.set('Content-Type', contentType);
-  if (origin) headers.set('Origin', origin);
+  // Origin is verified above at the browser-facing boundary. This authenticated
+  // server-to-server request must not reuse a deployment's browser CORS origin.
   let body: ArrayBuffer | undefined;
   if (request.body && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
     const reader = request.body.getReader();

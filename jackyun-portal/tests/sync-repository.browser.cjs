@@ -56,7 +56,13 @@ const loader=`const sources=${JSON.stringify(modules)},cache={};function load(na
   assert.equal(await a.evaluate(()=>window.repository.workspaceStorage.getItem('study')),null);
   await a.evaluate(()=>window.repository.initializeRepository('browser-alice'));
   assert.deepEqual(JSON.parse(await a.evaluate(()=>window.repository.workspaceStorage.getItem('study'))),{a:4,b:3});
-  const output={passed:8,cases:['two-tab independent merge','browser reload retains local data and intent','legacy-write crash recovery','account projection isolation','original account restoration','business snapshot and operation atomic commit','business quota abort retains prior snapshot','account switch drains pending writes without circular initialization'],realAccount:false};
+  const frameSource=fs.readFileSync('src/components/modules/legacy-frame.tsx','utf8');
+  const frameTemplate=frameSource.match(/const interceptScript = `([\s\S]*?)`;/)[1];
+  const frameScript=new Function('languageRef','return `'+frameTemplate+'`;')({current:'zh'}).replace(/<\/?script>/g,'');
+  assert.ok(!frameScript.includes('workspaceStorage'),'iframe scripts cannot reference parent module variables');
+  const iframeErrors=[];a.on('pageerror',error=>iframeErrors.push(error.message));
+  await a.addScriptTag({content:frameScript});assert.deepEqual(iframeErrors,[]);
+  const output={passed:9,cases:['two-tab independent merge','browser reload retains local data and intent','legacy-write crash recovery','account projection isolation','original account restoration','business snapshot and operation atomic commit','business quota abort retains prior snapshot','account switch drains pending writes without circular initialization','legacy iframe injection executes without parent module references'],realAccount:false};
   fs.mkdirSync('.migration-private',{recursive:true});fs.writeFileSync('.migration-private/sync-repository-browser.json',JSON.stringify(output,null,2));console.log(JSON.stringify(output));
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -168,8 +168,8 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
     'ai_custom_endpoint',
   ];
 
-  var _origGetItem = workspaceStorage.getItem.bind(localStorage);
-  workspaceStorage.getItem = function(key) {
+  var _origGetItem = localStorage.getItem.bind(localStorage);
+  localStorage.getItem = function(key) {
     if (KNOWN_KEYS.indexOf(key) !== -1) {
       // Return placeholder so getKey()/aiKey() think it's configured
       return PLACEHOLDER;
@@ -180,7 +180,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
   // Also intercept direct property access via Storage prototype
   // Some scripts might use localStorage['ds_key'] instead of getItem
   var _origStorageGet = Object.getOwnPropertyDescriptor(Storage.prototype, 'getItem');
-  // Already handled above via workspaceStorage.getItem override
+  // Already handled above via localStorage.getItem override
 
   // ═══════════════════════════════════════════
   // 2. Request interception (fetch + XHR)
@@ -249,7 +249,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
     }
 
     try {
-      var savedConfig = JSON.parse(workspaceStorage.getItem('jackyun-ai-config') || '{}');
+      var savedConfig = JSON.parse(localStorage.getItem('jackyun-ai-config') || '{}');
       if (savedConfig.providerMode === 'browser') {
         var requestId = crypto.randomUUID();
         var requestBody = JSON.parse(proxyOptions.body || '{}');

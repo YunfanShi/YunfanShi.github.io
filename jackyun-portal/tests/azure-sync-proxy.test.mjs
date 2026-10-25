@@ -39,7 +39,7 @@ test('proxy transports only bearer and bounded JSON; preserves query, errors and
     assert.equal(url.href, `${endpoint}/api/sync/v2?cursor=abc`);
     assert.equal(options.headers.get('Authorization'), 'Bearer transported-token');
     assert.equal(options.headers.get('Cookie'), null);
-    assert.equal(options.headers.get('Origin'), 'https://jackyun.top');
+    assert.equal(options.headers.get('Origin'), null);
     assert.equal(new TextDecoder().decode(options.body), '{"value":"学习📚"}');
     assert.equal(options.redirect, 'error');
     return Response.json({ code: 'DEVICE_REVOKED' }, { status: 403 });
@@ -68,4 +68,13 @@ test('streamed oversize JSON and missing login never reach Azure; unset endpoint
   assert.equal((await fixture(endpoint, () => { calls++; }, null)(new Request('https://jackyun.top/api/sync/v2'))).status, 401);
   assert.equal(await fixture(undefined, () => { calls++; })(new Request('https://jackyun.top/api/sync/v2')), null);
   assert.equal(calls, 0);
+});
+
+test('each deployment validates its own browser origin before authenticated server transport',async()=>{
+ let calls=0;
+ const forward=fixture(endpoint,async(_url,options)=>{calls++;assert.equal(options.headers.has('Origin'),false);return Response.json({ok:true});});
+ const origin='https://jackyun-portal-yunfanshis-projects.vercel.app';
+ assert.equal((await forward(new Request(origin+'/api/sync/v4',{method:'POST',headers:{origin,'content-type':'application/json'},body:'{}'}))).status,200);
+ const denied=await forward(new Request(origin+'/api/sync/v4',{method:'POST',headers:{origin:'https://untrusted.example','content-type':'application/json'},body:'{}'}));
+ assert.equal(denied.status,403);assert.equal((await denied.json()).code,'ORIGIN_DENIED');assert.equal(calls,1);
 });

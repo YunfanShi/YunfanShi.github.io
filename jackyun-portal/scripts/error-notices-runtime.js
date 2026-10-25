@@ -5,7 +5,7 @@
   const catalog=window.JackyunErrorCatalog,resolve=window.JackyunResolveErrorCode;
   let host,shadow,logProvider,expiryTimer,activityEpoch=0;
   const notices=[],recent=[];
-  const NOTICE_DURATION=30000;
+  const NOTICE_DURATION=8000;
   const MUTE_DURATION=30*60*1000;
   // Debug-prefixed UI preferences never enter workspace cloud synchronization.
   const MUTE_PREFIX='jackyun_debug_error_notice_muted:v1:';
@@ -91,18 +91,20 @@
     if(!ensureHost())return;
     shadow.replaceChildren();
     const style=document.createElement('style');
-    style.textContent=':host{position:fixed;top:max(4.5rem,calc(4rem + env(safe-area-inset-top)));right:max(16px,env(safe-area-inset-right));z-index:89;width:min(380px,calc(100vw - 32px));font:14px/1.55 system-ui,"Microsoft YaHei",sans-serif;color:var(--foreground,#182230);pointer-events:none}.stack{display:grid;gap:10px;max-height:calc(100dvh - 5rem);overflow:auto}.notice{pointer-events:none;border:1px solid #fda29b;border-radius:16px;padding:16px;background:var(--card,#fff);box-shadow:0 8px 32px #10182822;overflow-wrap:anywhere}.message{margin:0 24px 8px 0;font-weight:600}.code{font:12px/1.6 ui-monospace,monospace;color:var(--muted-foreground,#667085);margin:0 0 12px}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}button,a,textarea{pointer-events:auto}button,a{font:inherit}button{cursor:pointer;min-height:44px;min-width:44px;padding:6px 12px;border-radius:8px;border:1px solid #d0d5dd;background:var(--background,#f9fafb);color:inherit}.close{position:absolute;right:10px;top:10px;padding:2px 8px;min-height:44px;min-width:44px;border:0}.notice{position:relative}a{color:#155eef;font-size:12px}textarea{box-sizing:border-box;width:100%;height:130px;margin-top:12px;font:12px/1.4 monospace;border-radius:8px}button:focus-visible,a:focus-visible,textarea:focus-visible{outline:2px solid #155eef;outline-offset:2px}@media(max-width:480px){:host{top:max(4.5rem,calc(4rem + env(safe-area-inset-top)));right:12px;width:calc(100vw - 24px)}}';
+    style.textContent=':host{position:fixed;top:max(4.5rem,calc(4rem + env(safe-area-inset-top)));right:max(12px,env(safe-area-inset-right));z-index:89;width:min(420px,calc(100vw - 24px));font:12px/1.4 system-ui,"Microsoft YaHei",sans-serif;color:var(--foreground,#182230);pointer-events:none}.stack{display:block}.notice{position:relative;display:flex;align-items:center;gap:6px;box-sizing:border-box;min-height:40px;padding:4px 6px 4px 12px;border:1px solid #d0d5dd;border-radius:10px;background:var(--card,#fff);box-shadow:0 3px 12px #10182812;pointer-events:none}.message{min-width:0;flex:1;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400}.code{font:11px/1.5 ui-monospace,monospace;margin:0 0 8px;color:var(--muted-foreground,#667085)}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button,a,textarea,summary{pointer-events:auto}button,a,summary{font:inherit}button,summary{cursor:pointer;min-height:32px;min-width:32px;padding:4px 6px;box-sizing:border-box;border-radius:6px;border:0;background:transparent;color:inherit}.close{font-size:18px;order:3}summary{list-style:none;color:var(--muted-foreground,#667085);display:flex;align-items:center}summary::-webkit-details-marker{display:none}.panel{position:absolute;right:0;top:calc(100% + 6px);box-sizing:border-box;width:min(420px,calc(100vw - 24px));padding:12px;border:1px solid #d0d5dd;border-radius:10px;background:var(--card,#fff);box-shadow:0 4px 16px #10182818;pointer-events:auto}.full-message{margin:0 0 8px;white-space:normal;overflow-wrap:anywhere}a{color:#155eef}textarea{box-sizing:border-box;width:100%;height:110px;margin-top:8px;font:11px/1.4 monospace;border-radius:6px}button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visible{outline:2px solid #155eef;outline-offset:2px}';
     shadow.appendChild(style);const stack=document.createElement('section');stack.className='stack';stack.setAttribute('aria-label','错误提示');shadow.appendChild(stack);
-    for(const notice of notices){
+    for(const notice of notices.slice(-1)){
       const card=document.createElement('article');card.className='notice';card.dataset.code=notice.code;card.setAttribute('role','alert');
-      const message=document.createElement('p');message.className='message';message.textContent=catalog[notice.code].message;card.appendChild(message);
-      const code=document.createElement('p');code.className='code';code.textContent=notice.code+(notice.count>1?' · 重复 '+notice.count+' 次':'');card.appendChild(code);
+      const message=document.createElement('p');message.className='message';message.textContent=catalog[notice.code].message;message.title=catalog[notice.code].message;card.appendChild(message);
+      const details=document.createElement('details');details.open=Boolean(notice.expanded);details.ontoggle=()=>{notice.expanded=details.open;};const summary=document.createElement('summary');summary.textContent='详情';details.appendChild(summary);const panel=document.createElement('div');panel.className='panel';details.appendChild(panel);card.appendChild(details);
+      const full=document.createElement('p');full.className='full-message';full.textContent=catalog[notice.code].message;panel.appendChild(full);
+      const code=document.createElement('p');code.className='code';code.textContent=notice.code+(notice.count>1?' · 重复 '+notice.count+' 次':'');panel.appendChild(code);
       const close=document.createElement('button');close.className='close';close.type='button';close.textContent='×';close.setAttribute('aria-label','关闭错误提示');close.title='关闭后相同类型的错误 30 分钟内不再弹出';close.onclick=()=>dismissType(notice.code);card.appendChild(close);
-      const actions=document.createElement('div');actions.className='actions';card.appendChild(actions);
+      const actions=document.createElement('div');actions.className='actions';panel.appendChild(actions);
       const copy=document.createElement('button');copy.type='button';copy.textContent='复制日志';copy.onclick=async()=>{
         const text=snapshot(notice);
         try{if(!navigator.clipboard?.writeText)throw Error('Clipboard unavailable');await navigator.clipboard.writeText(text);copy.textContent='已复制';}
-        catch{copy.textContent='请手动复制';let area=card.querySelector('textarea');if(!area){area=document.createElement('textarea');area.readOnly=true;area.setAttribute('aria-label','可复制的错误日志');card.appendChild(area);}area.value=text;area.focus();area.select();}
+        catch{copy.textContent='请手动复制';let area=card.querySelector('textarea');if(!area){area=document.createElement('textarea');area.readOnly=true;area.setAttribute('aria-label','可复制的错误日志');panel.appendChild(area);}area.value=text;area.focus();area.select();}
       };actions.appendChild(copy);
       const docs=document.createElement('a');docs.href='/docs/errors.html#'+notice.code;docs.target='_blank';docs.rel='noopener';docs.textContent='错误码说明';actions.appendChild(docs);stack.appendChild(card);
     }

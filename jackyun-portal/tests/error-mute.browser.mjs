@@ -13,12 +13,12 @@ try{for(const width of [1440,390]){
  const start=Date.now(),context=await browser.newContext({viewport:{width,height:900}}),page=await context.newPage();await page.clock.install({time:new Date(start)});await page.clock.pauseAt(start+1000);await page.goto(base);
  const logs=[];page.on('console',msg=>{if(msg.type()==='error')logs.push(msg.text());});
  await page.evaluate(()=>{window.JackyunErrors.report({code:'SYNC_WRITE_FAILED',url:location.origin+'/api/a'});window.JackyunErrors.report({code:'JY-2102',url:location.origin+'/api/b'});});
- assert.equal(await page.locator('[data-code="JY-2102"]').count(),2);
+ assert.equal(await page.locator('[data-code="JY-2102"]').count(),1);
  await page.locator('[data-code="JY-2102"]').first().getByRole('button',{name:'关闭错误提示'}).click();assert.equal(await page.locator('[role=alert]').count(),0);
  await page.evaluate(()=>{console.error('muted-console-marker',{code:'SYNC_WRITE_FAILED'});window.JackyunErrors.report({code:'JY-2102',url:location.origin+'/other'});window.JackyunErrors.report({code:'STORAGE_FAILED'});});
  assert.equal(await page.locator('[data-code="JY-2102"]').count(),0);assert.equal(await page.locator('[data-code="JY-3101"]').count(),1);assert.ok(logs.some(x=>x.includes('muted-console-marker')));
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('blocked');}}}));
- await page.getByRole('button',{name:'复制日志',exact:true}).click();assert.match(await page.getByRole('textbox',{name:'可复制的错误日志'}).inputValue(),/muted-console-marker/);
+ await page.locator('summary').click();await page.getByRole('button',{name:'复制日志',exact:true}).click();assert.match(await page.getByRole('textbox',{name:'可复制的错误日志'}).inputValue(),/muted-console-marker/);
  const other=await context.newPage();await other.clock.install({time:new Date(start)});await other.clock.pauseAt(start+1000);await other.goto(base);
  await other.evaluate(()=>window.JackyunErrors.report({code:'SYNC_WRITE_FAILED'}));assert.equal(await other.locator('[role=alert]').count(),0);
  await page.reload();await page.evaluate(()=>window.JackyunErrors.report({code:'SYNC_WRITE_FAILED'}));assert.equal(await page.locator('[role=alert]').count(),0);
