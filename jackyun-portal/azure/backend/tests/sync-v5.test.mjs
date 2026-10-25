@@ -9,12 +9,13 @@ import {readFile} from 'node:fs/promises';
 
 const identity={sub:randomUUID()},url=(path,query='')=>new URL(`https://sync.test/api/sync/v5${path}${query}`);
 function database(){
-  const records=new Map(),receipts=new Map(),heads=new Map(),projectionHeads=new Set(),changes=[];let writes=0,projectionWrites=0;
-  return {records,receipts,heads,projectionHeads,changes,get writes(){return writes;},get projectionWrites(){return projectionWrites;},async query(sql,params=[]){
+  const records=new Map(),receipts=new Map(),heads=new Map(),projectionHeads=new Set(),changes=[],queries=[];let writes=0,projectionWrites=0;
+  return {records,receipts,heads,projectionHeads,changes,queries,legacySchedule:null,get writes(){return writes;},get projectionWrites(){return projectionWrites;},async query(sql,params=[]){
+    queries.push(sql.replace(/\s+/g,' ').trim());
     if(sql.includes("to_regclass('public.sync_v5_records')"))return {rows:[{ready:true}]};
     if(sql.startsWith('SELECT pg_advisory_xact_lock'))return {rows:[]};
     if(sql.includes('count(*)::integer AS count FROM public.sync_v5_receipts'))return {rows:[{count:0}]};
-    if(sql.startsWith('SELECT storage_value,revision,content_hash,deleted_at,updated_at FROM public.legacy_sync_data'))return {rows:[]};
+    if(sql.startsWith('SELECT storage_value,revision,content_hash,deleted_at,updated_at FROM public.legacy_sync_data'))return {rows:this.legacySchedule?[this.legacySchedule]:[]};
     if(sql.startsWith('SELECT revision,content_hash,updated_at FROM public.sync_v5_projection_heads'))return {rows:[]};
     if(sql.startsWith('SELECT 1 FROM public.sync_v5_projection_heads'))return {rows:projectionHeads.has(params[0])?[{}]:[]};
     if(sql.startsWith('SELECT scope FROM public.sync_v5_heads WHERE user_id=$1'))return {rows:[...heads.keys()].filter(key=>key.startsWith(`${params[0]}:`)).map(key=>({scope:key.slice(params[0].length+1)}))};
@@ -108,6 +109,19 @@ test('resource writes use CAS, idempotent receipts, and return actionable confli
   assert.deepEqual(conflict.conflicts[0].value,value);assert.equal(conflict.conflicts[0].revision,1);assert.equal(db.writes,1);
 });
 
+test('initialized scopes skip the legacy Schedule and full-record scan during bootstrap',async()=>{
+  const db=database(),deviceId=randomUUID(),largeLegacy={legacyHistory:'x'.repeat(200_000)};
+  db.legacySchedule={storage_value:largeLegacy,revision:5,content_hash:hash(largeLegacy),deleted_at:null,updated_at:new Date().toISOString()};
+  db.heads.set(`${identity.sub}:cue`,1);
+  const operation={id:randomUUID(),scope:'cue',recordId:'cues:cue-1',baseRevision:0,baseHash:null,
+    value:{id:'cue-1',prompt:'Recall'},deleted:false,clientUpdatedAt:new Date().toISOString()};
+  const result=await handleSyncV5(db,identity,'POST',url('/operations'),{scope:'cue',deviceId,operations:[operation]},['cue']);
+  assert.equal(result.applied.length,1);
+  assert.equal(db.queries.filter(sql=>sql.startsWith('SELECT storage_value,revision,content_hash,deleted_at,updated_at FROM public.legacy_sync_data')).length,1);
+  assert.equal(db.queries.filter(sql=>sql.startsWith('SELECT scope,record_id,value,deleted_at FROM public.sync_v5_records')).length,1);
+  assert.ok(Buffer.byteLength(JSON.stringify(largeLegacy))>200_000);
+});
+
 test('v5 rejects resource IDs that belong to another scope',async()=>{
   const operation={id:randomUUID(),scope:'cue',recordId:'timetable:%24value',baseRevision:0,baseHash:null,value:{},deleted:false,clientUpdatedAt:new Date().toISOString()};
   await assert.rejects(handleSyncV5(database(),identity,'POST',url('/operations'),{scope:'cue',deviceId:randomUUID(),operations:[operation]},['cue']),{status:400,code:'V5_RESOURCE_SCOPE_MISMATCH'});
@@ -172,3 +186,4 @@ test('v4 projection applies v5 updates and tombstones to unknown root fields',as
   assert.deepEqual(deleted.value,{schemaVersion:1});
   assert.equal(deleted.projectionRecordCount,1);
 });
+
