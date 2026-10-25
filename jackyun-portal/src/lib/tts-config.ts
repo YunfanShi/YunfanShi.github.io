@@ -1,3 +1,4 @@
+import { workspaceStorage } from '@/lib/sync/repository';
 /**
  * 统一 TTS 配置管理 —— 纯本地存储
  *
@@ -65,7 +66,7 @@ export function getTtsConfig(): TtsConfig {
     return { ...DEFAULT_CONFIG };
   }
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = workspaceStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_CONFIG };
     const parsed = JSON.parse(raw) as Partial<TtsConfig>;
     return {
@@ -84,13 +85,13 @@ export function getTtsConfig(): TtsConfig {
 /** 保存 TTS 配置到 localStorage */
 export function saveTtsConfig(config: TtsConfig): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  workspaceStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
 /** 删除 TTS 配置 */
 export function clearTtsConfig(): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem(STORAGE_KEY);
+  workspaceStorage.removeItem(STORAGE_KEY);
 }
 
 /**

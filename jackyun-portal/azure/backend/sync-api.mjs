@@ -6,6 +6,7 @@ import { MAX_LARGE_SYNC_BYTES, MAX_SYNC_PARTS, MAX_SYNC_UPLOAD_PART_BYTES } from
 import { ApiError } from './errors.mjs';
 import { applyRecordDelta } from '../../src/lib/sync/delta.ts';
 import { decodeSyncUpload, compressSyncPart } from '../../src/lib/sync/compression.ts';
+import { handleSyncV4 } from './sync-v4.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH = /^[a-f0-9]{64}$/i;
@@ -137,6 +138,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
       await verifyBackupCapture(identity,token,body);
     }
     return database.withUser(identity, async client => {
+      if (route === '/api/sync/v4') return handleSyncV4(client,identity,method,url,body,applyBody);
       if (route === '/api/sync/backup-markers') {
         if (method === 'GET') {
           const markers = (await client.query('SELECT public.sync_backup_markers() AS markers')).rows[0]?.markers;

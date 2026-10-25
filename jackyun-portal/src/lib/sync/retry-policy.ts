@@ -8,3 +8,6 @@ export class SyncRequestError extends Error {
 export function shouldPauseSync(error: unknown): boolean {
   return error instanceof Error && 'status' in error && (error.status === 401 || error.status === 403);
 }
+export function retryAfterMilliseconds(value:string|null,now=Date.now()):number {
+  if(!value)return 0;const seconds=Number(value);return Math.max(0,Number.isFinite(seconds)?seconds*1000:Date.parse(value)-now)||0;
+}

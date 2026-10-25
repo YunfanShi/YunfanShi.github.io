@@ -100,9 +100,12 @@ test('visible idle scans fall to 240 per hour; hidden scans pause and exits stil
   const backups: string[] = [];
   const win = Object.assign(new EventTarget(), { setInterval(task: () => void, interval: number) { callbacks.push({ task, interval }); return callbacks.length; }, clearInterval: () => {} });
   const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+  const localStorage = {get length(){return storage.size;},key:(i:number)=>[...storage.keys()][i]??null,getItem:(key:string)=>{reads++;return storage.get(key)??null;}};
   const exports: Record<string, any> = {};
-  runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
+  runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX } }).outputText, {
     exports, require: (name: string) => {
+      if(name==='react/jsx-runtime')return {jsx:()=>null};
+      if(name.endsWith('/sync/repository'))return {workspaceStorage:localStorage};
       if (name === 'react') return { useEffect: (effect: () => () => void) => effects.push(effect) };
       if (name.endsWith('/local-workspace')) return { isSyncableStorageKey: (key: string) => key === 'study' };
       if (name.endsWith('/backup/pages')) return { isBackupableLegacyKey: (key: string) => key === 'study', legacyBackupPage: () => 'study' };

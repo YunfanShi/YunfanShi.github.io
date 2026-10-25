@@ -12,7 +12,9 @@ test('real protocol errors defer transient failures, but keep auth and validatio
     assert.equal(syncFailureStatus(new SyncProtocolError('unavailable',status),true,1),'offline_pending');
     assert.equal(syncFailureStatus(new SyncProtocolError('unavailable',status),true,3),'server_unavailable');
   }
-  for(const status of [400,401,403,409,426])assert.equal(syncFailureStatus(new SyncProtocolError('blocked',status),true,1),'error');
+  assert.equal(syncFailureStatus(new SyncProtocolError('login',401),true,1),'auth_required');
+  assert.equal(syncFailureStatus(new SyncProtocolError('disabled',403),true,1),'access_denied');
+  for(const status of [400,409,426])assert.equal(syncFailureStatus(new SyncProtocolError('blocked',status),true,1),'error');
 });
 
 test('one failed read retries with jitter and recovers without a conflict',async()=>{

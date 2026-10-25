@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { AnalyzedQuestion, QuestionType } from '@/types/quiz';
 import { callAiApi } from '@/lib/ai-config';
@@ -7,14 +9,14 @@ import { parseQuizQuestions } from './question-import';
 
 function getLangPreference(): string {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('quizwise_answer_lang') || 'zh_kw_en';
+    return workspaceStorage.getItem('quizwise_answer_lang') || 'zh_kw_en';
   }
   return 'zh_kw_en';
 }
 
 function getFeedbackLevel(): string {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('quizwise_feedback_level') || 'normal';
+    return workspaceStorage.getItem('quizwise_feedback_level') || 'normal';
   }
   return 'normal';
 }

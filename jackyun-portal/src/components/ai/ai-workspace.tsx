@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -129,12 +131,12 @@ function ChatWorkspace({ model, initialPrompt }: { model: ModelOption; initialPr
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as Conversation[];
+      const saved = JSON.parse(workspaceStorage.getItem(STORAGE_KEY) || '[]') as Conversation[];
       if (Array.isArray(saved) && saved.length) queueMicrotask(() => { setConversations(saved.slice(0, 30)); setActiveId(saved[0].id); });
     } catch { /* Keep the blank local conversation. */ }
   }, []);
   useEffect(() => {
-    const timer = window.setTimeout(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(0, 30))); } catch {} }, 300);
+    const timer = window.setTimeout(() => { try { workspaceStorage.setItem(STORAGE_KEY, JSON.stringify(conversations.slice(0, 30))); } catch {} }, 300);
     return () => window.clearTimeout(timer);
   }, [conversations]);
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [active?.messages, status]);

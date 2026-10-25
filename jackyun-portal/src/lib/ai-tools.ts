@@ -1,3 +1,4 @@
+import { workspaceStorage } from '@/lib/sync/repository';
 import { siteAlert } from '@/lib/site-dialog';
 /**
  * AI 助手工具注册表 —— 定义每个 AI 助手可用的工具 + 完整使用手册
@@ -176,7 +177,7 @@ export const AI_TOOLS: AiTool[] = [
       }
       
       // 清除上次命令
-      localStorage.removeItem('jackyun_ai_music_command');
+      workspaceStorage.removeItem('jackyun_ai_music_command');
       
       const detail: any = { action: 'play', timestamp: Date.now() };
       let label = '';
@@ -197,7 +198,7 @@ export const AI_TOOLS: AiTool[] = [
       window.dispatchEvent(new CustomEvent('jackyun-ai-music', { detail }));
       
       // 写入 localStorage
-      localStorage.setItem('jackyun_ai_music_command', JSON.stringify(detail));
+      workspaceStorage.setItem('jackyun_ai_music_command', JSON.stringify(detail));
       
       return `🎵 正在播放${label}，右下角可见播放器图标`;
     },
@@ -215,7 +216,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\``,
     scope: ['global', 'dashboard', 'control', 'music', 'relax'],
     handler: async () => {
-      localStorage.removeItem('jackyun_ai_music_command');
+      workspaceStorage.removeItem('jackyun_ai_music_command');
       window.dispatchEvent(new CustomEvent('jackyun-ai-music', {
         detail: { action: 'stop', timestamp: Date.now() },
       }));
@@ -239,7 +240,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'dashboard', 'control'],
     handler: async (params) => {
       const duration = parseInt(params.duration || '30');
-      localStorage.setItem(
+      workspaceStorage.setItem(
         'warden_ai_command',
         JSON.stringify({ action: 'start_timer', duration })
       );
@@ -263,7 +264,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\``,
     scope: ['global', 'dashboard', 'control'],
     handler: async () => {
-      localStorage.setItem(
+      workspaceStorage.setItem(
         'warden_ai_command',
         JSON.stringify({ action: 'stop_timer' })
       );
@@ -286,7 +287,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'dashboard', 'control', 'tools'],
     handler: async () => {
       try {
-        const scheduleData = localStorage.getItem('w3_schedule');
+        const scheduleData = workspaceStorage.getItem('w3_schedule');
         if (scheduleData) {
           const tasks = JSON.parse(scheduleData);
           if (tasks.length > 0) {
@@ -320,7 +321,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'dashboard', 'control'],
     handler: async () => {
       try {
-        const scheduleData = localStorage.getItem('w3_schedule');
+        const scheduleData = workspaceStorage.getItem('w3_schedule');
         if (!scheduleData) return '无法获取日程数据';
         const tasks = JSON.parse(scheduleData);
         const now = new Date();
@@ -362,12 +363,12 @@ export const AI_TOOLS: AiTool[] = [
     handler: async (params) => {
       const idx = parseInt(params.task_index || '0') - 1;
       try {
-        const scheduleData = localStorage.getItem('w3_schedule');
+        const scheduleData = workspaceStorage.getItem('w3_schedule');
         if (!scheduleData) return '无法获取日程数据';
         const tasks = JSON.parse(scheduleData);
         if (idx < 0 || idx >= tasks.length) return `无效的任务序号，共有 ${tasks.length} 个任务`;
         tasks[idx].done = !tasks[idx].done;
-        localStorage.setItem('w3_schedule', JSON.stringify(tasks));
+        workspaceStorage.setItem('w3_schedule', JSON.stringify(tasks));
         return `已${tasks[idx].done ? '标记为完成 ✅' : '取消完成 🔄'}：${tasks[idx].detail}`;
       } catch {
         return '操作失败';
@@ -389,7 +390,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'control'],
     handler: async () => {
       try {
-        const scheduleData = localStorage.getItem('w3_schedule');
+        const scheduleData = workspaceStorage.getItem('w3_schedule');
         if (!scheduleData) return '无法获取日程数据';
         const tasks = JSON.parse(scheduleData);
         const now = new Date();
@@ -400,7 +401,7 @@ export const AI_TOOLS: AiTool[] = [
         );
         if (idx === -1) return '当前没有进行中的任务可以跳过';
         tasks[idx].skipped = true;
-        localStorage.setItem('w3_schedule', JSON.stringify(tasks));
+        workspaceStorage.setItem('w3_schedule', JSON.stringify(tasks));
         return `已跳过任务：${tasks[idx].detail}`;
       } catch {
         return '跳过任务失败';
@@ -421,7 +422,7 @@ export const AI_TOOLS: AiTool[] = [
 \`\`\``,
     scope: ['global', 'control'],
     handler: async () => {
-      localStorage.setItem(
+      workspaceStorage.setItem(
         'warden_ai_command',
         JSON.stringify({ action: 'finish_early' })
       );
@@ -466,7 +467,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'plan', 'dashboard', 'study', 'study_guide'],
     handler: async () => {
       try {
-        const studyplanData = localStorage.getItem('caie_schedule_current');
+        const studyplanData = workspaceStorage.getItem('caie_schedule_current');
         if (studyplanData) {
           const tasks = JSON.parse(studyplanData);
           if (tasks.length > 0) {
@@ -498,8 +499,8 @@ export const AI_TOOLS: AiTool[] = [
     handler: async (params) => {
       const subject = params.subject || '';
       try {
-        const progress = JSON.parse(localStorage.getItem('caie_progress_v2_1') || '{}');
-        const syllabus = JSON.parse(localStorage.getItem('caie_syllabus_v3') || '{}');
+        const progress = JSON.parse(workspaceStorage.getItem('caie_progress_v2_1') || '{}');
+        const syllabus = JSON.parse(workspaceStorage.getItem('caie_syllabus_v3') || '{}');
         const subjectData = syllabus[subject];
         if (!subjectData) return `未找到学科 "${subject}" 的进度数据`;
         const totalUnits = subjectData.units.length;
@@ -527,7 +528,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'plan', 'dashboard', 'study', 'study_guide', 'countdown'],
     handler: async (params) => {
       try {
-        const settings = JSON.parse(localStorage.getItem('caie_settings_v2_1') || '{}');
+        const settings = JSON.parse(workspaceStorage.getItem('caie_settings_v2_1') || '{}');
         const type = params.type || 'exam';
         if (type === 'exam' && settings.exam) {
           const days = Math.ceil((new Date(settings.exam).getTime() - Date.now()) / 86400000);
@@ -563,7 +564,7 @@ export const AI_TOOLS: AiTool[] = [
     handler: async (params) => {
       const questionText = params.question_text || '';
       if (!questionText.trim()) return '请提供完整题目文本';
-      localStorage.setItem('quizwise_ai_command', JSON.stringify({ action: 'analyze', text: questionText }));
+      workspaceStorage.setItem('quizwise_ai_command', JSON.stringify({ action: 'analyze', text: questionText }));
       window.dispatchEvent(new CustomEvent('quizwise-ai-command'));
       return '已将题目发送到 QuizWise 进行分析，请打开 QuizWise 页面查看结果';
     },
@@ -589,7 +590,7 @@ export const AI_TOOLS: AiTool[] = [
     handler: async (params) => {
       const text = params.questions_text || params.question_text || '';
       if (text.trim().length < 10) return '生成内容太短，请提供完整题目后重试';
-      localStorage.setItem('quizwise_ai_command', JSON.stringify({ action: 'analyze', text, subject: params.subject || '' }));
+      workspaceStorage.setItem('quizwise_ai_command', JSON.stringify({ action: 'analyze', text, subject: params.subject || '' }));
       window.dispatchEvent(new CustomEvent('quizwise-ai-command'));
       if (!window.location.pathname.startsWith('/quiz')) window.open('/quiz', '_self');
       return `已生成测验并发送到 QuizWise${params.subject ? `（${params.subject}）` : ''}`;
@@ -1069,7 +1070,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'control'],
     handler: async () => {
       try {
-        const raw = localStorage.getItem('jackyun_control_events');
+        const raw = workspaceStorage.getItem('jackyun_control_events');
         if (!raw) return '尚无日程数据';
         const events: any[] = JSON.parse(raw);
         if (!Array.isArray(events) || events.length === 0) return '尚无日程事件';
@@ -1098,16 +1099,16 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'control'],
     handler: async () => {
       try {
-        const raw = localStorage.getItem('th2_plans');
+        const raw = workspaceStorage.getItem('th2_plans');
         if (!raw) return '暂无时间表方案，请先到时间表编辑器创建。';
         const plans = JSON.parse(raw);
         if (!Array.isArray(plans) || !plans.length) return '暂无时间表方案，请先到时间表编辑器创建。';
-        const activeId = localStorage.getItem('th2_active_plan_id');
+        const activeId = workspaceStorage.getItem('th2_active_plan_id');
         const lines = plans.map((p: any) => {
           const mark = p.id === activeId ? ' [当前]' : '';
           let detail = p.name + mark;
           try {
-            const planData = JSON.parse(localStorage.getItem('th2_plans' + p.id) || 'null');
+            const planData = JSON.parse(workspaceStorage.getItem('th2_plans' + p.id) || 'null');
             if (planData) {
               const tasks = planData.tasks || [];
               const schedCount = tasks.filter((t: any) => t.sched).length;
@@ -1137,16 +1138,16 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'control'],
     handler: async (params) => {
       try {
-        let planId = localStorage.getItem('th2_active_plan_id');
+        let planId = workspaceStorage.getItem('th2_active_plan_id');
         if (params.plan_name) {
-          const raw = localStorage.getItem('th2_plans');
+          const raw = workspaceStorage.getItem('th2_plans');
           const plans = raw ? JSON.parse(raw) : [];
           const found = plans.find((p: any) => (p.name || '').includes(params.plan_name));
           if (!found) return '未找到名为「' + params.plan_name + '」的方案。已有哪些方案？请先调用 th_read_plans。';
           planId = found.id;
         }
         if (!planId) return '尚未创建时间表方案。';
-        const planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null');
+        const planData = JSON.parse(workspaceStorage.getItem('th2_plans' + planId) || 'null');
         if (!planData) return '未找到该方案的数据。';
         const lines = ['📅 方案：' + (planData.name || '未命名')];
         const tasks: any[] = planData.tasks || [];
@@ -1195,9 +1196,9 @@ export const AI_TOOLS: AiTool[] = [
       try {
         const name = (params.name || '').trim();
         if (!name) return '请提供任务名称。';
-        const planId = localStorage.getItem('th2_active_plan_id') || '';
+        const planId = workspaceStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(workspaceStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData) return '尚未创建时间表方案，请先到时间表编辑器创建。';
         if (!planData.tasks) planData.tasks = [];
         let parentId: string | null = null;
@@ -1220,7 +1221,7 @@ export const AI_TOOLS: AiTool[] = [
         };
         planData.tasks.push(task);
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        workspaceStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
         window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已添加任务「' + name + '」（' + task.duration + 'min' + (parentId ? '，子任务' : '，主任务') + '）。';
@@ -1247,9 +1248,9 @@ export const AI_TOOLS: AiTool[] = [
       try {
         const name = (params.name || '').trim();
         if (!name) return '请提供任务名称。';
-        const planId = localStorage.getItem('th2_active_plan_id') || '';
+        const planId = workspaceStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(workspaceStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         const matches = planData.tasks.filter((t: any) => (t.name || '').includes(name));
         if (!matches.length) return '未找到名为「' + name + '」的任务。';
@@ -1258,7 +1259,7 @@ export const AI_TOOLS: AiTool[] = [
         planData.tasks = planData.tasks.filter((t: any) => t.id !== delId && t.parentId !== delId);
         for (const fb of planData.fixedBlocks || []) fb.tasks = (fb.tasks || []).filter((x: any) => x.taskId !== delId);
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        workspaceStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
         window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已删除任务「' + matches[0].name + '」（含其子任务）。';
@@ -1301,9 +1302,9 @@ export const AI_TOOLS: AiTool[] = [
       try {
         const name = (params.name || '').trim();
         if (!name) return '请提供任务名称。';
-        const planId = localStorage.getItem('th2_active_plan_id') || '';
+        const planId = workspaceStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(workspaceStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         const t = planData.tasks.find((x: any) => (x.name || '').includes(name));
         if (!t) return '未找到名为「' + name + '」的任务。';
@@ -1330,7 +1331,7 @@ export const AI_TOOLS: AiTool[] = [
         }
         t.sched.durMin = t.duration;
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        workspaceStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
         window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         const pos = '周' + (t.sched.dayIdx || 0) + ' ' + (t.sched.startMin / 60) + ':' + String((t.sched.startMin % 60) || 0).padStart(2, '0');
@@ -1358,9 +1359,9 @@ export const AI_TOOLS: AiTool[] = [
       try {
         const off = parseInt(params.minutes) || 0;
         if (!off) return '请提供偏移分钟数（正数=后移，负数=前移）。';
-        const planId = localStorage.getItem('th2_active_plan_id') || '';
+        const planId = workspaceStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(workspaceStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         let n = 0;
         for (const t of planData.tasks) {
@@ -1370,7 +1371,7 @@ export const AI_TOOLS: AiTool[] = [
           }
         }
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        workspaceStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
         window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已将 ' + n + ' 个任务' + (off > 0 ? '整体后移' : '整体前移') + ' ' + Math.abs(off) + ' 分钟。';
@@ -1398,9 +1399,9 @@ export const AI_TOOLS: AiTool[] = [
       try {
         const n1 = (params.name1 || '').trim(), n2 = (params.name2 || '').trim();
         if (!n1 || !n2) return '请提供两个任务名称。';
-        const planId = localStorage.getItem('th2_active_plan_id') || '';
+        const planId = workspaceStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(workspaceStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         const a = planData.tasks.find((t: any) => (t.name || '').includes(n1));
         const b = planData.tasks.find((t: any) => (t.name || '').includes(n2));
@@ -1411,7 +1412,7 @@ export const AI_TOOLS: AiTool[] = [
         a.sched = { ...b.sched };
         b.sched = tmp;
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        workspaceStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
         window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已互换「' + a.name + '」和「' + b.name + '」的时间位置。';
@@ -1443,9 +1444,9 @@ export const AI_TOOLS: AiTool[] = [
       try {
         const name = (params.name || '').trim();
         if (!name) return '请提供任务名称。';
-        const planId = localStorage.getItem('th2_active_plan_id') || '';
+        const planId = workspaceStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(workspaceStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData || !planData.tasks) return '尚未创建时间表方案。';
         const t = planData.tasks.find((x: any) => (x.name || '').includes(name));
         if (!t) return '未找到名为「' + name + '」的任务。';
@@ -1462,7 +1463,7 @@ export const AI_TOOLS: AiTool[] = [
         }
         if (t.parentId) t.collapsed = true;
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        workspaceStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
         window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已将「' + t.name + '」设为' + (t.parentId ? '子任务' : '主任务') + '。';
@@ -1499,9 +1500,9 @@ export const AI_TOOLS: AiTool[] = [
         const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
         const sMin = toMin(start), eMin = toMin(end);
         if (eMin <= sMin) return '结束时间必须晚于开始时间。';
-        const planId = localStorage.getItem('th2_active_plan_id') || '';
+        const planId = workspaceStorage.getItem('th2_active_plan_id') || '';
         let planData: any = null;
-        try { planData = JSON.parse(localStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
+        try { planData = JSON.parse(workspaceStorage.getItem('th2_plans' + planId) || 'null'); } catch {}
         if (!planData) return '尚未创建时间表方案。';
         if (!planData.fixedBlocks) planData.fixedBlocks = [];
         const daysStr = params.days || '0,1,2,3,4';
@@ -1512,7 +1513,7 @@ export const AI_TOOLS: AiTool[] = [
           days, startMin: sMin, endMin: eMin, tasks: [],
         });
         planData.updatedAt = new Date().toISOString();
-        localStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
+        workspaceStorage.setItem('th2_plans' + planId, JSON.stringify(planData));
         window.dispatchEvent(new StorageEvent('storage', { key: 'th2_plans' + planId }));
         window.dispatchEvent(new CustomEvent('timetablehub-updated', { detail: { planId } }));
         return '✅ 已添加固定时间块「' + name + '」（' + start + '~' + end + '）。AI 排程将自动避开。';
@@ -1536,7 +1537,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'dashboard', 'countdown'],
     handler: async () => {
       try {
-        const raw = localStorage.getItem('jackyun_igcountdown');
+        const raw = workspaceStorage.getItem('jackyun_igcountdown');
         if (!raw) return '尚无倒计时数据';
         const data: any = JSON.parse(raw);
         const examDate: string = data.examDate || data.sExamDate || '';
@@ -1581,11 +1582,11 @@ export const AI_TOOLS: AiTool[] = [
     }),
     handler: async (params: Record<string, string>) => {
       try {
-        const raw = localStorage.getItem('jackyun_igcountdown');
+        const raw = workspaceStorage.getItem('jackyun_igcountdown');
         const data: any = raw ? JSON.parse(raw) : {};
         if (params.examDate) {
           data.examDate = params.examDate;
-          localStorage.setItem('jackyun_igcountdown', JSON.stringify(data));
+          workspaceStorage.setItem('jackyun_igcountdown', JSON.stringify(data));
           window.dispatchEvent(new Event('storage'));
           return '✅ 考试日期已更新为 ' + params.examDate;
         }
@@ -1610,7 +1611,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'dashboard', 'study_guide', 'study'],
     handler: async () => {
       try {
-        const raw = localStorage.getItem('studyguide_progress');
+        const raw = workspaceStorage.getItem('studyguide_progress');
         if (!raw) return '尚无学习进度数据';
         const data: any = JSON.parse(raw);
         const progress = data.checklists || {};
@@ -1647,11 +1648,11 @@ export const AI_TOOLS: AiTool[] = [
         const prefix = 'jackyun_traffic_';
         const results: string[] = [];
         // ⚠️ 性能优化：不遍历全部 localStorage，直接按前缀读取（红绿灯 key 结构与前缀一致）
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
+        for (let i = 0; i < workspaceStorage.length; i++) {
+          const key = workspaceStorage.key(i);
           if (key && key.startsWith(prefix)) {
             try {
-              const data = JSON.parse(localStorage.getItem(key) || '');
+              const data = JSON.parse(workspaceStorage.getItem(key) || '');
               const colorMap: Record<string, string> = { '#34a853': '🟢 绿灯', '#fbbc04': '🟡 黄灯', '#ea4335': '🔴 红灯' };
               results.push(`- ${data.subject} | ${data.unit}: ${colorMap[data.color] || data.color} (${data.date || ''})`);
             } catch {}
@@ -1692,7 +1693,7 @@ export const AI_TOOLS: AiTool[] = [
         const hexColor = colorMap[color] || '';
         if (!hexColor) return 'color 必须是 green/yellow/red';
         const key = `jackyun_traffic_${subject}|${unit}`;
-        localStorage.setItem(key, JSON.stringify({
+        workspaceStorage.setItem(key, JSON.stringify({
           color: hexColor,
           date: new Date().toISOString().slice(0, 10),
           subject,
@@ -1700,9 +1701,9 @@ export const AI_TOOLS: AiTool[] = [
         }));
         // 同步到 caie_progress_v2_1
         try {
-          const progress = JSON.parse(localStorage.getItem('caie_progress_v2_1') || '{}');
+          const progress = JSON.parse(workspaceStorage.getItem('caie_progress_v2_1') || '{}');
           progress[`${subject}|${unit}|traffic`] = true;
-          localStorage.setItem('caie_progress_v2_1', JSON.stringify(progress));
+          workspaceStorage.setItem('caie_progress_v2_1', JSON.stringify(progress));
         } catch {}
         return '✅ 已更新「' + subject + ' | ' + unit + '」红绿灯状态为 ' + color;
       } catch (e: any) {
@@ -1730,16 +1731,16 @@ export const AI_TOOLS: AiTool[] = [
     handler: async (params) => {
       try {
         // 读取 Goal 数据
-        const goalRaw = localStorage.getItem('jackyun_goal_data');
+        const goalRaw = workspaceStorage.getItem('jackyun_goal_data');
         const goals = goalRaw ? JSON.parse(goalRaw) : [];
         // 读取学习进度
         // 读取红绿灯审计
         const trafficData: any[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
+        for (let i = 0; i < workspaceStorage.length; i++) {
+          const key = workspaceStorage.key(i);
           if (key && key.startsWith('jackyun_traffic_')) {
             try {
-              trafficData.push(JSON.parse(localStorage.getItem(key) || ''));
+              trafficData.push(JSON.parse(workspaceStorage.getItem(key) || ''));
             } catch {}
           }
         }
@@ -1761,7 +1762,7 @@ export const AI_TOOLS: AiTool[] = [
         });
         if (schedule.length <= 1) schedule.push({ time: '14:00-15:00', task: '📚 自由学习', detail: '安排当前最需要提升的科目', done: false });
 
-        localStorage.setItem('jackyun_schedule_output', JSON.stringify({
+        workspaceStorage.setItem('jackyun_schedule_output', JSON.stringify({
           date: targetDate,
           schedule,
           generatedAt: new Date().toISOString(),
@@ -1775,7 +1776,7 @@ export const AI_TOOLS: AiTool[] = [
           detail: `${s.task} (${s.detail || ''})`,
           done: false,
         }));
-        localStorage.setItem('w3_schedule', JSON.stringify(w3Schedule));
+        workspaceStorage.setItem('w3_schedule', JSON.stringify(w3Schedule));
         window.dispatchEvent(new Event('storage'));
         return '✅ 已生成今日日程（' + schedule.length + ' 个时间段）并同步到日程中心。\n' +
           schedule.map((s: any, i: number) => `${i + 1}. ${s.time} ${s.task}`).join('\n');
@@ -1798,7 +1799,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'dashboard', 'control'],
     handler: async () => {
       try {
-        const raw = localStorage.getItem('w3_schedule');
+        const raw = workspaceStorage.getItem('w3_schedule');
         if (!raw) return '尚无日程数据';
         const tasks = JSON.parse(raw);
         if (!Array.isArray(tasks) || tasks.length === 0) return '日程表为空';
@@ -1829,7 +1830,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'dashboard', 'control'],
     handler: async () => {
       try {
-        const raw = localStorage.getItem('w3_schedule');
+        const raw = workspaceStorage.getItem('w3_schedule');
         if (!raw) return '需要先有日程数据才能分析';
         const tasks = JSON.parse(raw);
         const doneCount = tasks.filter((t: any) => t.done).length;
@@ -1868,7 +1869,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'quiz', 'dashboard'],
     handler: async () => {
       try {
-        const raw = localStorage.getItem('quizwise_current_questions');
+        const raw = workspaceStorage.getItem('quizwise_current_questions');
         if (!raw) return '尚无刷题数据';
         const data: any = JSON.parse(raw);
         const questions = data.questions || data;
@@ -1895,7 +1896,7 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['goal', 'global', 'dashboard'],
     handler: async () => {
       try {
-        const raw = localStorage.getItem('jackyun_daily_plan');
+        const raw = workspaceStorage.getItem('jackyun_daily_plan');
         if (!raw) return '今日计划为空';
         const plan = JSON.parse(raw);
         if (!plan || !Array.isArray(plan.items) || !plan.items.length) return '今日计划为空';
@@ -1943,7 +1944,7 @@ export const AI_TOOLS: AiTool[] = [
           estMin: Math.max(5, parseInt(i.estMin) || 30),
         }));
         const plan = { date: today, items: normalized, aiSuggestion: null, updatedAt: new Date().toISOString() };
-        localStorage.setItem('jackyun_daily_plan', JSON.stringify(plan));
+        workspaceStorage.setItem('jackyun_daily_plan', JSON.stringify(plan));
         window.dispatchEvent(new CustomEvent('jackyun-daily-plan-updated', { detail: plan }));
         window.dispatchEvent(new StorageEvent('storage', { key: 'jackyun_daily_plan', newValue: JSON.stringify(plan) }));
         const total = normalized.reduce((s: number, i: any) => s + (i.count * i.estMin), 0);
@@ -1971,15 +1972,15 @@ export const AI_TOOLS: AiTool[] = [
     handler: async () => {
       try {
         let blocks: any[] = [];
-        const raw = localStorage.getItem('jackyun_fixed_blocks');
+        const raw = workspaceStorage.getItem('jackyun_fixed_blocks');
         if (raw) {
           const d = JSON.parse(raw);
           if (Array.isArray(d.blocks)) blocks = d.blocks;
         }
         if (!blocks.length) {
-          const active = localStorage.getItem('th2_active_plan_id');
+          const active = workspaceStorage.getItem('th2_active_plan_id');
           if (active) {
-            const p = JSON.parse(localStorage.getItem('th2_plans' + active) || 'null');
+            const p = JSON.parse(workspaceStorage.getItem('th2_plans' + active) || 'null');
             if (p && Array.isArray(p.fixedBlocks)) {
               blocks = p.fixedBlocks.map((fb: any) => ({
                 name: fb.name,
@@ -2017,9 +2018,9 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['control', 'global', 'dashboard'],
     handler: async () => {
       try {
-        const active = localStorage.getItem('th2_active_plan_id');
+        const active = workspaceStorage.getItem('th2_active_plan_id');
         if (!active) return '未找到活动方案';
-        const p = JSON.parse(localStorage.getItem('th2_plans' + active) || 'null');
+        const p = JSON.parse(workspaceStorage.getItem('th2_plans' + active) || 'null');
         if (!p || !Array.isArray(p.tasks)) return '任务池为空';
         if (!p.tasks.length) return '任务池为空';
         const parents = p.tasks.filter((t: any) => !t.parentId);
@@ -2046,14 +2047,14 @@ export const AI_TOOLS: AiTool[] = [
 参数：无。该工具只读取本地偏好，不会修改界面。`,
     scope: ['global', 'dashboard', 'settings'],
     handler: async () => {
-      if (localStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
+      if (workspaceStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
       try {
-        const appearance = JSON.parse(localStorage.getItem('jackyun_settings_appearance_preferences') || '{}');
+        const appearance = JSON.parse(workspaceStorage.getItem('jackyun_settings_appearance_preferences') || '{}');
         return JSON.stringify({
-          theme: appearance.theme || localStorage.getItem('jackyun_theme') || 'light',
+          theme: appearance.theme || workspaceStorage.getItem('jackyun_theme') || 'light',
           density: appearance.density || 'comfortable',
           reducedMotion: appearance.reducedMotion === true,
-          ...JSON.parse(localStorage.getItem('jackyun_interface_customization') || '{}'),
+          ...JSON.parse(workspaceStorage.getItem('jackyun_interface_customization') || '{}'),
         });
       } catch {
         return '读取界面偏好失败。';
@@ -2085,19 +2086,19 @@ export const AI_TOOLS: AiTool[] = [
       consequence: `将持久保存这些偏好：${JSON.stringify(params)}`,
     }),
     handler: async (params) => {
-      if (localStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
+      if (workspaceStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
       const allowedThemes = ['light', 'gray', 'dark'];
       const allowedDensities = ['comfortable', 'compact'];
       const appearanceKey = 'jackyun_settings_appearance_preferences';
       let current: Record<string, unknown> = {};
-      try { current = JSON.parse(localStorage.getItem(appearanceKey) || '{}'); } catch {}
+      try { current = JSON.parse(workspaceStorage.getItem(appearanceKey) || '{}'); } catch {}
       let interfaceState: Record<string, unknown> = {};
-      try { interfaceState = JSON.parse(localStorage.getItem('jackyun_interface_customization') || '{}'); } catch {}
+      try { interfaceState = JSON.parse(workspaceStorage.getItem('jackyun_interface_customization') || '{}'); } catch {}
       const changed: string[] = [];
 
       if (params.theme && allowedThemes.includes(params.theme)) {
         current.theme = params.theme;
-        localStorage.setItem('jackyun_theme', params.theme);
+        workspaceStorage.setItem('jackyun_theme', params.theme);
         document.documentElement.dataset.theme = params.theme;
         document.documentElement.style.colorScheme = params.theme === 'light' ? 'light' : 'dark';
         changed.push(`主题=${params.theme}`);
@@ -2116,10 +2117,10 @@ export const AI_TOOLS: AiTool[] = [
       if (['blue', 'green', 'purple', 'orange'].includes(params.accent)) { interfaceState.accent = params.accent; document.documentElement.dataset.accent = params.accent; changed.push(`强调色=${params.accent}`); }
       if (params.corner_style === 'rounded' || params.corner_style === 'soft') { interfaceState.cornerStyle = params.corner_style; document.documentElement.dataset.cornerStyle = params.corner_style; changed.push(`圆角=${params.corner_style}`); }
       if (!changed.length) return '没有可应用的有效界面选项。';
-      localStorage.setItem(appearanceKey, JSON.stringify(current));
-      localStorage.setItem(`${appearanceKey}__updated_at`, new Date().toISOString());
-      localStorage.setItem('jackyun_interface_customization', JSON.stringify(interfaceState));
-      localStorage.removeItem('jackyun_hide_homepage_ai');
+      workspaceStorage.setItem(appearanceKey, JSON.stringify(current));
+      workspaceStorage.setItem(`${appearanceKey}__updated_at`, new Date().toISOString());
+      workspaceStorage.setItem('jackyun_interface_customization', JSON.stringify(interfaceState));
+      workspaceStorage.removeItem('jackyun_hide_homepage_ai');
       return `已应用并保存在本地：${changed.join('，')}。可在设置中恢复。`;
     },
   },
@@ -2132,12 +2133,12 @@ export const AI_TOOLS: AiTool[] = [
     scope: ['global', 'dashboard', 'settings'],
     consentInfo: () => ({ action: '恢复默认界面', purpose: '撤销 AI 所做的界面微调', consequence: '本地保存的界面微调将被清除。' }),
     handler: async () => {
-      if (localStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
-      localStorage.removeItem('jackyun_settings_appearance_preferences');
-      localStorage.removeItem('jackyun_settings_appearance_preferences__updated_at');
-      localStorage.removeItem('jackyun_hide_homepage_ai');
-      localStorage.removeItem('jackyun_interface_customization');
-      localStorage.setItem('jackyun_theme', 'light');
+      if (workspaceStorage.getItem('jackyun_beta_active') !== 'true') return '此工具仅向已同意加入 BETA 的测试用户开放。';
+      workspaceStorage.removeItem('jackyun_settings_appearance_preferences');
+      workspaceStorage.removeItem('jackyun_settings_appearance_preferences__updated_at');
+      workspaceStorage.removeItem('jackyun_hide_homepage_ai');
+      workspaceStorage.removeItem('jackyun_interface_customization');
+      workspaceStorage.setItem('jackyun_theme', 'light');
       document.documentElement.dataset.theme = 'light';
       document.documentElement.dataset.density = 'comfortable';
       document.documentElement.dataset.reducedMotion = 'false';
@@ -2232,7 +2233,7 @@ function timeToMin(timeStr: string): number {
  */
 function readGoalData(): any[] {
   // 优先读取 jackyun_goal_data（云端同步的 key）
-  const cloudRaw = localStorage.getItem('jackyun_goal_data');
+  const cloudRaw = workspaceStorage.getItem('jackyun_goal_data');
   if (cloudRaw) {
     try {
       const data = JSON.parse(cloudRaw);
@@ -2240,7 +2241,7 @@ function readGoalData(): any[] {
     } catch {}
   }
   // 回退读取 gt_v6（Goal.html 实际使用的 key）
-  const v6Raw = localStorage.getItem('gt_v6');
+  const v6Raw = workspaceStorage.getItem('gt_v6');
   if (v6Raw) {
     try {
       const data = JSON.parse(v6Raw);
@@ -2254,8 +2255,8 @@ function readGoalData(): any[] {
  * 写入目标数据的辅助：同时写入 gt_v6 和 jackyun_goal_data
  */
 function writeGoalData(goals: any[]): void {
-  localStorage.setItem('gt_v6', JSON.stringify(goals));
-  localStorage.setItem('jackyun_goal_data', JSON.stringify(goals));
+  workspaceStorage.setItem('gt_v6', JSON.stringify(goals));
+  workspaceStorage.setItem('jackyun_goal_data', JSON.stringify(goals));
   
   // 触发自定义事件，让同页面的 Goal.html 也能感知（即使不在 iframe 中）
   try {

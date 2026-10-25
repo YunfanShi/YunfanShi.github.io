@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 import { useEffect, useRef, useState } from 'react';
 import { readScheduleState, SCHEDULE_STORAGE_KEY } from '@/lib/learning/workspace-reader';
 import { applyPracticeSession, mergePracticeSession, validateSession, validateConfig, type PracticeSession, type PracticeConfig } from '@/lib/learning/practice-timer';
@@ -19,14 +21,14 @@ export default function PracticeTimerFrame() {
     return () => { document.body.style.overflow = previous; window.removeEventListener('keydown', escape); };
   }, [focused]);
   useEffect(() => {
-    const writer = createLocalEditWriter(localStorage, SCHEDULE_STORAGE_KEY, navigator.locks ? async (name, work) => navigator.locks.request(name, work) : undefined);
+    const writer = createLocalEditWriter(workspaceStorage, SCHEDULE_STORAGE_KEY, navigator.locks ? async (name, work) => navigator.locks.request(name, work) : undefined);
     const readRecoveredState = () => {
-      let state = readScheduleState(localStorage);
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+      let state = readScheduleState(workspaceStorage);
+      for (let i = 0; i < workspaceStorage.length; i++) {
+        const key = workspaceStorage.key(i);
         if (!key?.startsWith('jackyun_debug_unsaved_edit:practice-timer:')) continue;
         try {
-          const saved = JSON.parse(localStorage.getItem(key) || 'null');
+          const saved = JSON.parse(workspaceStorage.getItem(key) || 'null');
           const session = validateSession(saved?.session);
           const current = state.practiceSessions?.find(item => item.id === session.id);
           if (!current || session.updatedAt >= current.updatedAt) {
@@ -60,8 +62,8 @@ export default function PracticeTimerFrame() {
       if (message?.type !== 'practice-save' && message?.type !== 'practice-retest') return;
       queue = queue.catch(()=>{}).then(async () => {
         try {
-          const base = parseLocalValue(localStorage.getItem(SCHEDULE_STORAGE_KEY));
-          const state = readScheduleState(localStorage);
+          const base = parseLocalValue(workspaceStorage.getItem(SCHEDULE_STORAGE_KEY));
+          const state = readScheduleState(workspaceStorage);
           let next: ScheduleControlState = state;
           if (message.type === 'practice-retest') {
             const session = state.practiceSessions?.find(s=>s.id===message.sessionId && s.finished);
@@ -82,7 +84,7 @@ export default function PracticeTimerFrame() {
                 } catch {
                   if (Date.now() >= liveRetryAt) liveRetryAt = Date.now() + 10000;
                   const recovery = validateSession(message.session);
-                  localStorage.setItem('jackyun_debug_unsaved_edit:practice-timer:' + recovery.id, JSON.stringify({session:recovery,config:message.config}));
+                  workspaceStorage.setItem('jackyun_debug_unsaved_edit:practice-timer:' + recovery.id, JSON.stringify({session:recovery,config:message.config}));
                   send({type:'practice-saved', requestId:message.requestId, localOnly:true});
                   return;
                 }
@@ -99,7 +101,7 @@ export default function PracticeTimerFrame() {
           }
           writer.reset(base);
           await writer.write(base, next);
-          if (message.session) localStorage.removeItem('jackyun_debug_unsaved_edit:practice-timer:' + message.session.id);
+          if (message.session) workspaceStorage.removeItem('jackyun_debug_unsaved_edit:practice-timer:' + message.session.id);
           if (message.session) sessionBases.set(message.session.id,structuredClone(message.session));
           if (message.config) configBase=structuredClone(message.config);
           window.dispatchEvent(new Event('jackyun-sync-edit'));

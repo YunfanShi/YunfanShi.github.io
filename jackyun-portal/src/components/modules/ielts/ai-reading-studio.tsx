@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { siteConfirm } from '@/lib/site-dialog';
 import Link from 'next/link';
@@ -70,10 +72,10 @@ export default function AiReadingStudio() {
   useEffect(() => { libraryRef.current = library; }, [library]);
   useEffect(() => {
     let stored: ReadingArticle[] = [];
-    try { const parsed = JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]') as unknown; if (Array.isArray(parsed)) stored = parsed.filter(isArticle).map((article) => ({ ...article, quiz: article.quiz ?? null, vocabulary: article.vocabulary ?? {}, quizAttempts: article.quizAttempts ?? 0, quizCorrect: article.quizCorrect ?? 0, quizAnswered: article.quizAnswered ?? 0, lastReadAt: article.lastReadAt ?? null, sourceMode: article.sourceMode ?? 'creative', sources: Array.isArray(article.sources) ? article.sources : [], progressRatio: Number.isFinite(article.progressRatio) ? Math.min(1, Math.max(0, Number(article.progressRatio))) : 0, progressScrollY: Number.isFinite(article.progressScrollY) ? Math.max(0, Number(article.progressScrollY)) : 0, progressUpdatedAt: article.progressUpdatedAt ?? null })); } catch { /* Start with an empty local shelf. */ }
+    try { const parsed = JSON.parse(workspaceStorage.getItem(LIBRARY_KEY) || '[]') as unknown; if (Array.isArray(parsed)) stored = parsed.filter(isArticle).map((article) => ({ ...article, quiz: article.quiz ?? null, vocabulary: article.vocabulary ?? {}, quizAttempts: article.quizAttempts ?? 0, quizCorrect: article.quizCorrect ?? 0, quizAnswered: article.quizAnswered ?? 0, lastReadAt: article.lastReadAt ?? null, sourceMode: article.sourceMode ?? 'creative', sources: Array.isArray(article.sources) ? article.sources : [], progressRatio: Number.isFinite(article.progressRatio) ? Math.min(1, Math.max(0, Number(article.progressRatio))) : 0, progressScrollY: Number.isFinite(article.progressScrollY) ? Math.max(0, Number(article.progressScrollY)) : 0, progressUpdatedAt: article.progressUpdatedAt ?? null })); } catch { /* Start with an empty local shelf. */ }
     queueMicrotask(() => { setLibrary(stored); setHydrated(true); });
   }, []);
-  useEffect(() => { if (!hydrated) return; try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(library)); } catch { /* Storage failures do not interrupt the active reading session. */ } }, [hydrated, library]);
+  useEffect(() => { if (!hydrated) return; try { workspaceStorage.setItem(LIBRARY_KEY, JSON.stringify(library)); } catch { /* Storage failures do not interrupt the active reading session. */ } }, [hydrated, library]);
   useEffect(() => {
     if (view !== 'reader' || !currentId) return;
     const interval = window.setInterval(() => setLibrary((items) => items.map((article) => article.id === currentId ? { ...article, totalSeconds: article.totalSeconds + 5, lastReadAt: new Date().toISOString() } : article)), 5000);

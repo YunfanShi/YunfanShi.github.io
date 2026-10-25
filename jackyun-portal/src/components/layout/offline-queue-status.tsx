@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect, useState } from 'react';
 import { listOfflineMutations } from '@/lib/offline/workspace';
@@ -12,7 +14,7 @@ export default function OfflineQueueStatus({ userId }: { userId: string | null }
       setOnline(navigator.onLine);
       let focusSessions = 0;
       try {
-        const value = JSON.parse(localStorage.getItem('jackyun_pomodoro_pending_sessions') || '[]');
+        const value = JSON.parse(workspaceStorage.getItem('jackyun_pomodoro_pending_sessions') || '[]');
         if (Array.isArray(value)) focusSessions = value.length;
       } catch {}
       try {

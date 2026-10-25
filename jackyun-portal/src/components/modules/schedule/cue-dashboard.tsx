@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -16,9 +18,9 @@ export default function CueDashboard() {
   useEffect(() => {
     function refresh() {
       try {
-        const state = readScheduleState(localStorage);
+        const state = readScheduleState(workspaceStorage);
         const next = cueDashboard(state, dateKey(new Date()));
-        const raw = localStorage.getItem(QUESTION_BANK_KEY);
+        const raw = workspaceStorage.getItem(QUESTION_BANK_KEY);
         if (raw) {
           const bank = readQuestionBank(JSON.parse(raw));
           const drafts = Object.values(bank.drafts).map(draft => reconcileStudyDraft(draft, state.cues, bank.questions)).filter(draft => draft.items.length);

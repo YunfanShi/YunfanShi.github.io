@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 export const BROWSER_AI_REQUEST_EVENT = 'jackyun-browser-ai-request';
 export const BROWSER_AI_CANCELLED = 'BROWSER_AI_CANCELLED';
@@ -41,14 +43,14 @@ export interface BrowserAiRequest {
 export function getBrowserAiConversationTarget(): BrowserAiConversationTarget {
   if (typeof window === 'undefined') return { mode: 'new', url: '' };
   try {
-    const parsed = JSON.parse(localStorage.getItem(CONVERSATION_TARGET_KEY) || '{}') as Partial<BrowserAiConversationTarget>;
+    const parsed = JSON.parse(workspaceStorage.getItem(CONVERSATION_TARGET_KEY) || '{}') as Partial<BrowserAiConversationTarget>;
     return { mode: parsed.mode === 'recent' || parsed.mode === 'selected' || parsed.mode === 'jackyun' ? parsed.mode : 'new', url: typeof parsed.url === 'string' ? parsed.url : '' };
   } catch { return { mode: 'new', url: '' }; }
 }
 
 export function saveBrowserAiConversationTarget(target: BrowserAiConversationTarget): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(CONVERSATION_TARGET_KEY, JSON.stringify({ mode: target.mode, url: target.mode === 'selected' ? target.url : '' }));
+  workspaceStorage.setItem(CONVERSATION_TARGET_KEY, JSON.stringify({ mode: target.mode, url: target.mode === 'selected' ? target.url : '' }));
 }
 
 export function formatBrowserAiPrompt(messages: Array<{ role: string; content: string }>): string {

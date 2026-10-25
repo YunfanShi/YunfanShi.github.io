@@ -2,8 +2,10 @@
 
 import { BEFORE_SLEEP_EVENT, WAKE_EVENT, isWorkspaceSleeping, type SleepRequest } from '@/lib/workspace-idle';
 import { fetchSyncWithTimeout } from '@/lib/request-timeout';
+import {runScheduledSync} from '@/lib/sync/scheduler';
+import {initializeRepository} from '@/lib/sync/repository';
 import { useEffect, useState } from 'react';
-import { bindOfflineWorkspaceUser, deferOfflineMutation, listOfflineMutations, removeOfflineMutation, saveOfflineSnapshot } from '@/lib/offline/workspace';
+import { bindOfflineWorkspaceUser, deferOfflineMutation, listOfflineMutations, submitOfflineOperation, blockOfflineMutation, offlineEntity, saveOfflineSnapshot } from '@/lib/offline/workspace';
 
 export default function OfflineWorkspaceSync({ userId }: { userId: string | null }) {
   const [notice, setNotice] = useState<string | null>(null);
@@ -15,34 +17,27 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
     let bound = false;
     let signingOut = false;
 
-    async function refresh(includeSnapshot = true) {
+    async function refresh(includeSnapshot=true,manual=false){if(userId)await runScheduledSync('business',userId,()=>refreshNow(includeSnapshot),manual);}
+    async function refreshNow(includeSnapshot = true) {
       if (!userId || !bound || signingOut || cancelled || !navigator.onLine || running || isWorkspaceSleeping()) return;
       running = true;
       try {
         const queued = await listOfflineMutations(userId);
         if (!includeSnapshot && !queued.some(operation => !operation.nextAttemptAt || Date.parse(operation.nextAttemptAt) <= Date.now())) return;
         let deferred = false;
+        const blocked=new Set(queued.filter(op=>op.blocked).map(offlineEntity));
         for (const operation of queued) {
-          if (operation.nextAttemptAt && Date.parse(operation.nextAttemptAt) > Date.now()) continue;
+          if(operation.blocked||blocked.has(offlineEntity(operation)))continue;
+          if (operation.nextAttemptAt && Date.parse(operation.nextAttemptAt) > Date.now()){blocked.add(offlineEntity(operation));continue;}
           try {
-            const response = await fetchSyncWithTimeout('/api/offline/workspace', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ operationId: operation.id, kind: operation.kind, payload: operation.payload }),
-            });
-            if (!response.ok) {
-              if (response.status < 500 && response.status !== 408 && response.status !== 429) {
-                await deferOfflineMutation(operation.id, `HTTP ${response.status}`);
-                setNotice('有一项离线更改需要重新登录或处理；其他更改仍会继续同步');
-                continue;
-              }
-              throw new Error(`HTTP ${response.status}`);
-            }
-            await removeOfflineMutation(operation.id);
+            await submitOfflineOperation(operation);
           } catch (error) {
-            await deferOfflineMutation(operation.id, error instanceof Error ? error.message : 'Network request failed');
+            const status=Number((error as {status?:number}).status??0);
+            if(status>=400&&status<500&&![401,403,408,429].includes(status)){await blockOfflineMutation(operation);blocked.add(offlineEntity(operation));setNotice('一项操作需要检查，原内容保留；其他数据继续同步');continue;}
+            await deferOfflineMutation(operation.id, '暂时未获云端确认');
             if (navigator.onLine) console.warn('[offline-workspace] retry deferred', error);
             deferred = true;
-            break;
+            throw error;
           }
         }
         if (deferred) return;
@@ -60,35 +55,46 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
           if (!remaining.length) setNotice(`已联网，${queued.length} 项离线操作已同步`);
         }
       } catch (error) {
-        if (navigator.onLine) console.error('[offline-workspace] sync failed', error);
+        if (navigator.onLine) console.warn('[offline-workspace] sync deferred');
+        throw error;
       } finally {
         running = false;
       }
     }
 
-    void bindOfflineWorkspaceUser(userId).then(() => { bound = true; activeWork = refresh(); return activeWork; }).catch((error) => {
+    void initializeRepository(userId).then(()=>bindOfflineWorkspaceUser(userId)).then(() => { bound = true; activeWork = refresh().catch(()=>{}); return activeWork; }).catch((error) => {
       console.error('[offline-workspace] account binding failed', error);
     });
     const onSignOut = () => { signingOut = true; };
     const onCancel = () => { signingOut = false; };
     window.addEventListener('jackyun-signout-start', onSignOut);
     window.addEventListener('jackyun-signout-cancel', onCancel);
-    const onOnline = () => { if (!running) activeWork = refresh(); };
-    const retryTimer = window.setInterval(() => { if (navigator.onLine && !running) activeWork = refresh(false); }, 30_000);
+    let recoveryTimer:ReturnType<typeof setTimeout>|undefined;
+    const onLane=(event:Event)=>{const lane=(event as CustomEvent<{userId:string;lane:string;state:string;nextAttemptAt:number;openUntil:number}>).detail;
+      if(lane.userId!==userId||lane.lane!=='business')return;if(recoveryTimer)clearTimeout(recoveryTimer);
+      if(lane.state==='waiting')recoveryTimer=setTimeout(()=>{if(!cancelled&&document.visibilityState==='visible')activeWork=refresh(false).catch(()=>{});},Math.max(100,Math.max(lane.nextAttemptAt,lane.openUntil)-Date.now()));
+    };
+    window.addEventListener('jackyun-sync-lane',onLane);
+    const onRetry=()=>{if(!running)activeWork=refresh(true,true).catch(()=>{});};
+    window.addEventListener('jackyun-auth-recovered',onRetry);window.addEventListener('jackyun-sync-retry',onRetry);
+    const onOnline = () => { if (!running) activeWork = refresh().catch(()=>{}); };
+    const retryTimer = window.setInterval(() => { if (navigator.onLine && !running && document.visibilityState==='visible') activeWork = refresh(false).catch(()=>{}); }, 30_000);
     const onSleep = (event: Event) => {
       (event as CustomEvent<SleepRequest>).detail.waitUntil(activeWork.then(() => refresh()));
     };
     window.addEventListener(BEFORE_SLEEP_EVENT, onSleep);
     window.addEventListener(WAKE_EVENT, onOnline);
-    const onQueued = () => setNotice('已记录，联网后同步');
+    const onQueued = () => {setNotice('已记录，联网后同步');if(bound&&!running)activeWork=refresh(false).catch(()=>{});};
     window.addEventListener('online', onOnline);
     window.addEventListener('jackyun-offline-queued', onQueued);
     return () => {
+      window.removeEventListener('jackyun-sync-lane',onLane);if(recoveryTimer)clearTimeout(recoveryTimer);
       window.removeEventListener(BEFORE_SLEEP_EVENT, onSleep);
       window.removeEventListener(WAKE_EVENT, onOnline);
       cancelled = true;
       window.removeEventListener('jackyun-signout-start', onSignOut);
       window.removeEventListener('jackyun-signout-cancel', onCancel);
+      window.removeEventListener('jackyun-auth-recovered',onRetry);window.removeEventListener('jackyun-sync-retry',onRetry);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('jackyun-offline-queued', onQueued);
       window.clearInterval(retryTimer);

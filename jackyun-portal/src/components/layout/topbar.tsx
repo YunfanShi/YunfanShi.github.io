@@ -1,5 +1,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- These navigation controls deliberately reload the auth or embedded-document context. */
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import Link from 'next/link';
 import FullscreenButton, { type FullscreenAction } from './fullscreen-button';
@@ -67,13 +69,13 @@ export default function Topbar({ user, betaActive = false, isAdmin = false }: To
         (user.email?.split('@')[0] as string | undefined) ??
         'User';
       try {
-        localStorage.setItem('jackyun_user_display_name', displayName);
+        workspaceStorage.setItem('jackyun_user_display_name', displayName);
       } catch {}
     }
   }, [user]);
 
   useEffect(() => {
-    try { queueMicrotask(() => setShowFullscreen(localStorage.getItem('show_fullscreen_btn') !== 'false')); } catch {}
+    try { queueMicrotask(() => setShowFullscreen(workspaceStorage.getItem('show_fullscreen_btn') !== 'false')); } catch {}
 
     // Listen for setting changes from other tabs
     const storageHandler = (e: StorageEvent) => {
@@ -104,11 +106,11 @@ export default function Topbar({ user, betaActive = false, isAdmin = false }: To
     const next = THEME_META[current === 'gray' || current === 'dark' ? current : 'light'].next;
     setTheme(next);
     try {
-      localStorage.setItem('jackyun_theme', next);
+      workspaceStorage.setItem('jackyun_theme', next);
       const key = 'jackyun_settings_appearance_preferences';
-      const saved = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, unknown>;
-      localStorage.setItem(key, JSON.stringify({ ...saved, theme: next }));
-      localStorage.setItem(`${key}__updated_at`, new Date().toISOString());
+      const saved = JSON.parse(workspaceStorage.getItem(key) || '{}') as Record<string, unknown>;
+      workspaceStorage.setItem(key, JSON.stringify({ ...saved, theme: next }));
+      workspaceStorage.setItem(`${key}__updated_at`, new Date().toISOString());
     } catch {}
     if (user) void saveSettingsField('appearance_preferences', 'theme', next);
     document.documentElement.dataset.theme = next;

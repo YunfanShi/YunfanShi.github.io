@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { createQuickTask } from '@/actions/study';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
-import { readOfflineSnapshot, runOfflineMutation, saveOfflineSnapshot } from '@/lib/offline/workspace';
+import { readOfflineSnapshot, runOfflineMutation } from '@/lib/offline/workspace';
 import type { OfflineTaskSnapshot } from './offline-task-workspace';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,8 +26,9 @@ export default function QuickTaskForm() {
       try {
         if (userId) {
           const cached = await readOfflineSnapshot<OfflineTaskSnapshot>(userId, 'tasks');
-          if (cached) await saveOfflineSnapshot(userId, 'tasks', { ...cached, inboxTasks: [{ id: `offline-${crypto.randomUUID()}`, title: nextTitle, completed: false, due_date: dueDate || null, estimated_minutes: minutes }, ...cached.inboxTasks] });
-          const result = await runOfflineMutation(userId, 'task.create', { title: nextTitle, dueDate: dueDate || null, estimatedMinutes: minutes });
+          const operationId=crypto.randomUUID();
+          const snapshot=cached?{scope:'tasks' as const,value:{...cached,inboxTasks:[{id:operationId,title:nextTitle,completed:false,due_date:dueDate||null,estimated_minutes:minutes},...cached.inboxTasks]}}:undefined;
+          const result = await runOfflineMutation(userId, 'task.create', { title: nextTitle, dueDate: dueDate || null, estimatedMinutes: minutes },{operationId,snapshot});
           setMessage(result === 'queued' ? '已记录，联网后同步' : '任务已加入今日中心');
         } else {
           await createQuickTask({ title: nextTitle, dueDate: dueDate || null, estimatedMinutes: minutes });

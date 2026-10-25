@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -37,7 +39,7 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
   const prepare = (item: NavigationItem) => {
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
     let enabled = true;
-    try { enabled = JSON.parse(localStorage.getItem(PAGE_PREFERENCE_KEY) || '{}').intentPrefetch !== false; } catch {}
+    try { enabled = JSON.parse(workspaceStorage.getItem(PAGE_PREFERENCE_KEY) || '{}').intentPrefetch !== false; } catch {}
     if (canPrefetchNavigation(item, { signedIn, online: navigator.onLine, saveData: connection?.saveData, effectiveType: connection?.effectiveType, enabled })) router.prefetch(item.href);
   };
   useEffect(() => {
@@ -59,14 +61,14 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
   useEffect(() => {
     let stored = initialPrefs;
     try {
-      const local = localStorage.getItem(LOCAL_PREFS_KEY);
+      const local = workspaceStorage.getItem(LOCAL_PREFS_KEY);
       if (local) stored = coerceNavigationPreferences(JSON.parse(local));
     } catch { /* Keep server defaults if the local value cannot be read. */ }
     queueMicrotask(() => { setPrefs(stored); setPreferencesReady(true); });
   }, [initialPrefs]);
   useEffect(() => {
     if (!preferencesReady) return;
-    try { localStorage.setItem(LOCAL_PREFS_KEY, JSON.stringify(prefs)); } catch {}
+    try { workspaceStorage.setItem(LOCAL_PREFS_KEY, JSON.stringify(prefs)); } catch {}
   }, [prefs, preferencesReady]);
   useEffect(() => {
     const media = window.matchMedia(TOUCH_WORKSPACE_QUERY);
@@ -116,11 +118,11 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
     if (!itemId) return;
     let pending: string[] = [];
     try {
-      const stored: unknown = JSON.parse(localStorage.getItem(PENDING_USAGE_KEY) || '[]');
+      const stored: unknown = JSON.parse(workspaceStorage.getItem(PENDING_USAGE_KEY) || '[]');
       if (Array.isArray(stored)) pending = stored.filter((item): item is string => typeof item === 'string');
     } catch { /* Navigation also works when browser storage is unavailable. */ }
     const queue = [...pending, itemId].slice(-100);
-    try { localStorage.setItem(PENDING_USAGE_KEY, JSON.stringify(queue)); } catch { /* Usage analytics must not interrupt navigation. */ }
+    try { workspaceStorage.setItem(PENDING_USAGE_KEY, JSON.stringify(queue)); } catch { /* Usage analytics must not interrupt navigation. */ }
     if (!signedIn) return;
     void (async () => {
       const remaining = [...queue];
@@ -128,7 +130,7 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
         try {
           const response = await fetch('/api/navigation-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: remaining[0] }) });
           if (!response.ok) break;
-          remaining.shift(); localStorage.setItem(PENDING_USAGE_KEY, JSON.stringify(remaining));
+          remaining.shift(); workspaceStorage.setItem(PENDING_USAGE_KEY, JSON.stringify(remaining));
         } catch { break; }
       }
     })();
@@ -137,9 +139,9 @@ export default function Sidebar({ initialPrefs, adaptiveScores = {}, initialIsAd
     if (!prefs.adaptiveEnabled) return;
     const today = new Date().toLocaleDateString('en-CA');
     try {
-      const cached = JSON.parse(localStorage.getItem(ADAPTIVE_SNAPSHOT_KEY) || 'null') as { day?: string; scores?: Record<string, number> } | null;
+      const cached = JSON.parse(workspaceStorage.getItem(ADAPTIVE_SNAPSHOT_KEY) || 'null') as { day?: string; scores?: Record<string, number> } | null;
       if (cached?.day === today && cached.scores) queueMicrotask(() => setStableAdaptiveScores(cached.scores!));
-      else localStorage.setItem(ADAPTIVE_SNAPSHOT_KEY, JSON.stringify({ day: today, scores: adaptiveScores }));
+      else workspaceStorage.setItem(ADAPTIVE_SNAPSHOT_KEY, JSON.stringify({ day: today, scores: adaptiveScores }));
     } catch { /* A blocked localStorage must never affect navigation. */ }
   }, [adaptiveScores, prefs.adaptiveEnabled]);
 

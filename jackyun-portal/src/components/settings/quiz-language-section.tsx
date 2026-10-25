@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect, useState } from 'react';
 import { getSettingsSection, saveSettingsField } from '@/actions/settings';
@@ -17,7 +19,7 @@ function SectionHeader({ icon, title }: { icon: string; title: string }) {
 export default function QuizLanguageSection() {
   const [values, setValues] = useState({ quizUiLanguage: 'zh', quizAnswerLanguage: 'zh_kw_en', quizFeedbackLevel: 'normal' });
   useEffect(() => { void getSettingsSection('learning_preferences').then((cloud) => setValues((current) => ({ ...current, ...cloud }))); }, []);
-  function update(key: keyof typeof values, value: string, localKey: string) { setValues((current) => ({ ...current, [key]: value })); localStorage.setItem(localKey, value); void saveSettingsField('learning_preferences', key, value); }
+  function update(key: keyof typeof values, value: string, localKey: string) { setValues((current) => ({ ...current, [key]: value })); workspaceStorage.setItem(localKey, value); void saveSettingsField('learning_preferences', key, value); }
   return (
     <section className="rounded-[12px] border border-[var(--card-border)] bg-[var(--card)] p-5">
       <SectionHeader icon="translate" title="QuizWise 语言与回答偏好" />

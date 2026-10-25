@@ -39,9 +39,10 @@ async function readBody(request, limit) {
 }
 
 export function createApiHandler({ authenticate, handle, allowedOrigins = ['https://jackyun.top'], logger = console }) {
-  const paths = new Set(['/api/sync/v3', '/api/sync/v2', '/api/sync/v2/large', '/api/sync/devices', '/api/sync/conflicts', '/api/legacy-sync', '/api/sync/export', '/api/sync/backup-markers']);
+  const paths = new Set(['/api/sync/v3', '/api/sync/v4', '/api/sync/v2', '/api/sync/v2/large', '/api/sync/devices', '/api/sync/conflicts', '/api/legacy-sync', '/api/sync/export', '/api/sync/backup-markers']);
   return async (request, response) => {
-    const requestId = randomUUID(),started=performance.now(),metrics={};
+    const supplied=request.headers['x-request-id'];
+    const requestId = typeof supplied==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(supplied)?supplied:randomUUID(),started=performance.now(),metrics={};
     let route='unknown',httpStatus=200;
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');
@@ -50,7 +51,7 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
     const send = (status, value) => { httpStatus=status;response.writeHead(status); response.end(JSON.stringify({ ...value, requestId })); };
     try {
       const url = new URL(request.url, 'http://localhost');route=url.pathname;
-      if (url.pathname === '/health/live' && request.method === 'GET') { send(200, { ok: true,version:'3.6.1',syncProtocol:3,transferEncoding:'gzip',legacyEncoding:'identity' }); return; }
+      if (url.pathname === '/health/live' && request.method === 'GET') { send(200, { ok: true,version:'3.7.0',syncProtocol:3,transferEncoding:'gzip',legacyEncoding:'identity' }); return; }
       if (!paths.has(url.pathname)) throw new ApiError(404, 'NOT_FOUND');
       const origin = request.headers.origin;
       if (origin && !allowedOrigins.includes(origin)) throw new ApiError(403, 'ORIGIN_DENIED');
@@ -61,6 +62,7 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
         httpStatus=204;response.writeHead(204); response.end(); return;
       }
       const identity = await authenticate(request.headers.authorization);
+      if(request.headers['x-sync-account']&&request.headers['x-sync-account']!==identity.sub)throw new ApiError(403,'ACCOUNT_CHANGED');
       let body = null;
       if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
         if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) throw new ApiError(415, 'JSON_REQUIRED');
@@ -75,7 +77,10 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
       // Database messages/details can contain payloads, IDs or credentials. Never log them.
       if (status >= 500) logger.error(JSON.stringify({ service: 'azure-sync-api', requestId, code }));
       request.resume();
-      if (!response.headersSent) send(status, { ok: false, error: code, code,siteCode:resolveErrorCode({code,status}) });
+      const failureClass=expected?'application':['42P01','42883','42703'].includes(error.code)?'database_schema'
+        :['28P01','28000'].includes(error.code)?'database_credentials'
+        :['ECONNRESET','ECONNREFUSED','ETIMEDOUT','ENOTFOUND','EAI_AGAIN'].includes(error.code)?'database_connection':'database_unavailable';
+      if (!response.headersSent) send(status, { ok: false, error: code, code,failureClass,siteCode:resolveErrorCode({code,status}) });
       else response.end();
     } finally {
       if(route.startsWith('/api/'))logger.info?.(JSON.stringify({service:'azure-sync-api',requestId,route,status:httpStatus,

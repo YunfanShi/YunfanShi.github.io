@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { searchCues, cueHighlightParts, type CueSearchHit } from '@/lib/learning/cue-search';
 import ScheduleTouchNav from './schedule-touch-nav';
@@ -1489,7 +1491,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const localWritersRef=useRef(new Map<string,ReturnType<typeof createLocalEditWriter>>());
   const localWriter=useCallback((key:string)=>{
     let writer=localWritersRef.current.get(key);
-    if(!writer){writer=createLocalEditWriter(localStorage,key,navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined);localWritersRef.current.set(key,writer);}
+    if(!writer){writer=createLocalEditWriter(workspaceStorage,key,navigator.locks ? async (name,work)=>await navigator.locks.request(name,work) : undefined);localWritersRef.current.set(key,writer);}
     return writer;
   },[]);
   const [persistenceError, setPersistenceError] = useState('');
@@ -1506,13 +1508,13 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       const current = new Date();
       setNow(current);
       setSelectedDate(dateKey(current));
-      skipInitialEmptySaveRef.current = localStorage.getItem(STORAGE_KEY) === null;
-      scheduleBaseRef.current = parseLocalValue(localStorage.getItem(STORAGE_KEY));
-      questionBaseRef.current = parseLocalValue(localStorage.getItem(QUESTION_BANK_KEY));
-      const loadedState = readScheduleState(localStorage, current);
+      skipInitialEmptySaveRef.current = workspaceStorage.getItem(STORAGE_KEY) === null;
+      scheduleBaseRef.current = parseLocalValue(workspaceStorage.getItem(STORAGE_KEY));
+      questionBaseRef.current = parseLocalValue(workspaceStorage.getItem(QUESTION_BANK_KEY));
+      const loadedState = readScheduleState(workspaceStorage, current);
       setState(loadedState);
       setGuideOpen((loadedState.settings.tutorialSeenVersion ?? 0) < 1);
-      const storedQuestions = localStorage.getItem(QUESTION_BANK_KEY);
+      const storedQuestions = workspaceStorage.getItem(QUESTION_BANK_KEY);
       if (storedQuestions) {
         try { setQuestionBank(readQuestionBank(JSON.parse(storedQuestions))); }
         catch (error) { setQuestionBankError(`题库读取失败，原数据已保留：${error instanceof Error ? error.message : '格式错误'}`); }
@@ -1541,13 +1543,13 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   useEffect(() => {
     const reload = (keys?: string[]) => {
       if(!keys || keys.includes(STORAGE_KEY)) {
-        const incoming=parseLocalValue(localStorage.getItem(STORAGE_KEY));
+        const incoming=parseLocalValue(workspaceStorage.getItem(STORAGE_KEY));
         const base=scheduleBaseRef.current;
-        setState(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length){scheduleBaseRef.current=incoming;localWriter(STORAGE_KEY).reset(incoming);}return (result.merged ?? readScheduleState(localStorage)) as ScheduleControlState;});
+        setState(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length){scheduleBaseRef.current=incoming;localWriter(STORAGE_KEY).reset(incoming);}return (result.merged ?? readScheduleState(workspaceStorage)) as ScheduleControlState;});
       }
       if(!keys || keys.includes(QUESTION_BANK_KEY)) {
         try {
-          const incoming=parseLocalValue(localStorage.getItem(QUESTION_BANK_KEY));
+          const incoming=parseLocalValue(workspaceStorage.getItem(QUESTION_BANK_KEY));
           const base=questionBaseRef.current;
           setQuestionBank(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length){questionBaseRef.current=incoming;localWriter(QUESTION_BANK_KEY).reset(incoming);}return readQuestionBank(result.merged ?? emptyQuestionBank());});setQuestionBankError('');
         } catch(error){setQuestionBankError(error instanceof Error?error.message:'题库读取失败，原始内容已保留。');}
@@ -1904,7 +1906,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
 
   return (
     <div className={`${styles.root} mx-auto min-w-0 max-w-[1500px] break-words pb-10`}>
-      {persistenceError && <div role="alert" className="mb-4 rounded-xl border border-amber-500 p-4"><p>{persistenceError}</p><button type="button" className="mt-2 underline" onClick={()=>downloadStudyJson({schedule:parseLocalValue(localStorage.getItem(LOCAL_CONFLICT_PREFIX+STORAGE_KEY))??state,questions:parseLocalValue(localStorage.getItem(LOCAL_CONFLICT_PREFIX+QUESTION_BANK_KEY))??questionBank},'jackyun-unsaved-edits.json')}>下载两份内容与未保存修改</button></div>}
+      {persistenceError && <div role="alert" className="mb-4 rounded-xl border border-amber-500 p-4"><p>{persistenceError}</p><button type="button" className="mt-2 underline" onClick={()=>downloadStudyJson({schedule:parseLocalValue(workspaceStorage.getItem(LOCAL_CONFLICT_PREFIX+STORAGE_KEY))??state,questions:parseLocalValue(workspaceStorage.getItem(LOCAL_CONFLICT_PREFIX+QUESTION_BANK_KEY))??questionBank},'jackyun-unsaved-edits.json')}>下载两份内容与未保存修改</button></div>}
       <header className={`${styles.header} overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--surface-shadow)]`}>
         <div className="relative px-4 py-4 sm:px-7 sm:py-6">
           <div className="pointer-events-none absolute -right-12 -top-20 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />

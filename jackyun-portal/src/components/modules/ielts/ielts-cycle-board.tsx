@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import Link from 'next/link';
 import {parseLocalValue,persistLocalEditNow} from '@/lib/sync/local-edit';
@@ -75,10 +77,10 @@ export default function IeltsCycleBoard() {
   useEffect(() => {
     queueMicrotask(()=>{
     let saved: CycleState | null = null;
-    try {cycleBase.current=parseLocalValue(localStorage.getItem(STORAGE_KEY));historyBase.current=parseLocalValue(localStorage.getItem(HISTORY_KEY));} catch { /* Preserve corrupt storage for manual recovery. */ }
-    try { saved = parseCycle(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')); } catch { saved = null; }
+    try {cycleBase.current=parseLocalValue(workspaceStorage.getItem(STORAGE_KEY));historyBase.current=parseLocalValue(workspaceStorage.getItem(HISTORY_KEY));} catch { /* Preserve corrupt storage for manual recovery. */ }
+    try { saved = parseCycle(JSON.parse(workspaceStorage.getItem(STORAGE_KEY) || 'null')); } catch { saved = null; }
     try {
-      const rawHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as unknown;
+      const rawHistory = JSON.parse(workspaceStorage.getItem(HISTORY_KEY) || '[]') as unknown;
       setHistory(Array.isArray(rawHistory) ? rawHistory.map(parseCycle).filter((item): item is CycleState => Boolean(item)).slice(-12) : []);
     } catch { setHistory([]); }
     setHistoryReady(true);

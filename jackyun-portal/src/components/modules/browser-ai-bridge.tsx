@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect, useRef, useState } from 'react';
 import { BROWSER_AI_CANCELLED, BROWSER_AI_REQUEST_EVENT, browserAiResponse, getBrowserAiConversationTarget, type BrowserAiConversation, type BrowserAiRequest } from '@/lib/browser-ai';
@@ -40,7 +42,7 @@ export default function BrowserAiBridge() {
       }, 20_000);
     };
     const activateRequest = (next: BrowserAiRequest) => {
-      if (next.automation && localStorage.getItem('jackyun_beta_active') !== 'true') { next.reject(new Error('插件自动填写需要 BETA 资格')); return; }
+      if (next.automation && workspaceStorage.getItem('jackyun_beta_active') !== 'true') { next.reject(new Error('插件自动填写需要 BETA 资格')); return; }
       setReply('');
       setNotice('');
       setRequest(next);
@@ -50,7 +52,7 @@ export default function BrowserAiBridge() {
       setConversationChoice(null);
       companionReadyRef.current = false;
       const recentChoiceKey = `jackyun-browser-ai-recent-choice:${next.provider}:${next.model || 'default'}`;
-      awaitingConversationChoiceRef.current = next.automation && next.conversationMode === 'recent' && localStorage.getItem(recentChoiceKey) !== 'done';
+      awaitingConversationChoiceRef.current = next.automation && next.conversationMode === 'recent' && workspaceStorage.getItem(recentChoiceKey) !== 'done';
       console.info('[BETA/BrowserAI] Request created', { requestId: next.id, provider: next.provider, automation: next.automation, promptLength: next.prompt.length });
       if (next.automation) {
         if (!awaitingConversationChoiceRef.current) resetAutomationWatchdog(next.id);
@@ -139,7 +141,7 @@ export default function BrowserAiBridge() {
       const active = requestRef.current;
       if (!active) return;
       const next = { ...active, conversationMode: mode, conversationUrl: mode === 'selected' ? url : '' } as BrowserAiRequest;
-      localStorage.setItem(`jackyun-browser-ai-recent-choice:${active.provider}:${active.model || 'default'}`, 'done');
+      workspaceStorage.setItem(`jackyun-browser-ai-recent-choice:${active.provider}:${active.model || 'default'}`, 'done');
       requestRef.current = next;
       setRequest(next);
       setConversationChoice(null);

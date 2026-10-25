@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useState, useEffect } from 'react';
 import { saveSettingsField } from '@/actions/settings';
@@ -7,15 +9,15 @@ export default function FullscreenToggle({ initialEnabled = false }: { initialEn
   const [enabled, setEnabled] = useState(initialEnabled);
 
   useEffect(() => {
-    const local = localStorage.getItem('show_fullscreen_btn');
+    const local = workspaceStorage.getItem('show_fullscreen_btn');
     queueMicrotask(() => setEnabled(local === null ? initialEnabled : local === 'true'));
-    if (local === null) localStorage.setItem('show_fullscreen_btn', initialEnabled ? 'true' : 'false');
+    if (local === null) workspaceStorage.setItem('show_fullscreen_btn', initialEnabled ? 'true' : 'false');
   }, [initialEnabled]);
 
   const handleToggle = () => {
     const newVal = !enabled;
     setEnabled(newVal);
-    localStorage.setItem('show_fullscreen_btn', newVal ? 'true' : 'false');
+    workspaceStorage.setItem('show_fullscreen_btn', newVal ? 'true' : 'false');
     // Broadcast to other tabs
     window.dispatchEvent(new StorageEvent('storage', {
       key: 'show_fullscreen_btn',

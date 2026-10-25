@@ -4,6 +4,7 @@ import { mergeWorkspaceValues } from './merge-policy.ts';
 import { storageValueToString, isSyncableStorageKey } from '../local-workspace.ts';
 import { operationMatchesStorage } from './acknowledgment.ts';
 import { isServerUnavailable } from './service-error.ts';
+import { retryAfterMilliseconds } from './retry-policy.ts';
 import { joinSyncParts, splitSyncBody, splitCompressedSyncBody, decodeSyncPart, MAX_SYNC_PARTS } from './transfer.ts';
 import type { SyncOperation, SyncRecord, SyncConflict, SyncResolutionChoice, SyncResolutionReview,SyncSubmission,SyncDownloadPart } from '../../types/sync.ts';
 
@@ -22,12 +23,15 @@ export interface SyncStore {
   getDownloadParts(key:string,revision:number,hash:string|null):Promise<SyncDownloadPart[]>;
   saveDownloadPart(part:SyncDownloadPart):Promise<void>;
   clearDownload(key:string):Promise<void>;
+  getSetting?<T>(key:string):Promise<T|null>;
+  setSetting?(key:string,value:unknown):Promise<void>;
+  commitPullPage?(checkpoint:unknown):Promise<void>;
 }
 export interface SyncEnvironment {
   store: SyncStore;
   snapshot(): Record<string, string>;
   read(key: string): string | null;
-  write(key: string, value: string | null): void;
+  write(key: string, value: string | null, expected?:string|null): void | Promise<void>;
   backup(key: string): Promise<void>;
   changed(keys: string[]): void;
   request(url: string, init?: RequestInit): Promise<Response>;
@@ -90,6 +94,12 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   let observed = e.snapshot();
   let captured=false;
   let compressedUploads=false;
+  let v4:boolean|undefined;
+  async function negotiate() {
+    if(v4!==undefined||!store.getSetting)return;
+    try{const response=await json('/api/sync/v4');v4=response.syncProtocol===4&&Boolean((response.capabilities as {v4?:boolean})?.v4);}
+    catch(error){if((error as {status?:number}).status===404||(error as {status?:number}).status===501)v4=false;else throw error;}
+  }
   const reassessedConflicts=new Set<string>();
   // Revision-bound parts survive a failed cycle in this tab. Never combine
   // fragments from different revisions; bound retained transfer memory.
@@ -115,8 +125,8 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       }) as Record<string, unknown> | null;
       if (!response.ok) {
         const error = typeof payload?.error === 'object' ? payload.error as {code?: string;message?:string} : {code:String(payload?.code ?? payload?.error ?? '')};
-        throw new SyncProtocolError(error?.code === 'SYNC_UPGRADE_REQUIRED' ? '请刷新所有设备的旧页面后再同步；本机修改已保留。'
-          : `同步请求未完成 (${response.status}${error?.code ? ` · ${error.code}` : ''})`,response.status);
+        throw Object.assign(new SyncProtocolError(error?.code === 'SYNC_UPGRADE_REQUIRED' ? '请刷新所有设备的旧页面后再同步；本机修改已保留。'
+          : `同步请求未完成 (${response.status}${error?.code ? ` · ${error.code}` : ''})`,response.status),{code:error?.code,retryAfterMs:retryAfterMilliseconds(response.headers.get('retry-after'))});
       }
       if (!payload || payload.ok !== true) throw Error('同步响应未确认，修改已保留。');
       return payload;
@@ -131,7 +141,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       catch (error) {
         // Mutations retain their durable operation IDs and retry next cycle.
         // Only safe reads get one short, jittered retry here.
-        if (e.cancelled() || attempt >= 1 || (init?.method && init.method !== 'GET') || !isServerUnavailable(error,true)) throw error;
+        if (store.getSetting || e.cancelled() || attempt >= 1 || (init?.method && init.method !== 'GET') || !isServerUnavailable(error,true)) throw error;
         await (e.wait ?? (ms=>new Promise(resolve=>setTimeout(resolve,ms))))(500+Math.floor(Math.random()*500));
       }
     }
@@ -217,6 +227,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     }
   }
   async function capture() {
+    if(e.cancelled())return;
     const snapshot = e.snapshot();
     const changed=[...new Set([...Object.keys(observed),...Object.keys(snapshot)])].filter(key=>!captured || observed[key]!==snapshot[key]);
     if (!captured) for (const legacy of await store.getOutbox()) if (legacy.sequence === undefined) await store.replaceOperation(legacy,{...legacy,id:e.uuid(),sequence:0});
@@ -242,7 +253,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     if (expected === next) return true;
     if (!backedUp) await e.backup(key); // A failed backup prevents replacement.
     if (e.cancelled() || e.read(key) !== expected) return false;
-    e.write(key,next);
+    await e.write(key,next,expected);
     if (next === null) delete observed[key]; else observed[key] = next;
     e.changed([key]);
     return true;
@@ -291,6 +302,8 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     if (blocked && blocked.operationId !== pending.id) await store.removeConflict(blocked.operationId);
   }
   async function pull() {
+    await negotiate();
+    if(v4)return pullIncremental();
     await recoverSubmission();
     let after = ''; let scanned = 0;
     let deferred: unknown;
@@ -342,17 +355,75 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     }
     if (deferred) throw deferred;
   }
+  async function pullIncremental(resets=0) {
+    await recoverSubmission();
+    type Checkpoint={mode:'baseline'|'changes';cursor:number;after?:string;until?:number};
+    let checkpoint=await store.getSetting!<Checkpoint>('v4Checkpoint');
+    if(!checkpoint){const capabilities=await json('/api/sync/v4');checkpoint={mode:'baseline',cursor:Number(capabilities.head??0),after:''};await store.setSetting!('v4Checkpoint',checkpoint);}
+    let deferred:unknown,tailPolled=false;
+    for(let pages=0;pages<300;pages++){
+      let page=pages===0?await store.getSetting!<Record<string,unknown>>('v4StagedPage'):null;
+      if(!page){
+        const query=checkpoint.mode==='baseline'?`mode=baseline&after=${encodeURIComponent(checkpoint.after??'')}`
+          :`mode=changes&cursor=${checkpoint.cursor}${checkpoint.until===undefined?'':`&until=${checkpoint.until}`}`;
+        try{page=await json('/api/sync/v4?'+query);}
+        catch(error){if((error as {code?:string}).code==='SYNC_BASELINE_REQUIRED'&&resets<1){
+          await store.setSetting!('v4Checkpoint',null);await store.setSetting!('v4StagedPage',null);return pullIncremental(resets+1);
+        }throw error;}
+        if(page.syncProtocol!==4||!Array.isArray(page.records)||page.records.length>100)throw Error('增量同步页面无效。');
+        if(!deferred)await store.setSetting!('v4StagedPage',page);
+      }
+      const descriptors=page.records as SyncRecord[];
+      for(const descriptor of descriptors)validate(descriptor);
+      const metadata=new Map((await store.getMetadata()).map(row=>[row.key,row]));
+      const toRead=descriptors.filter(descriptor=>{
+        const base=metadata.get(descriptor.key);
+        return !(base&&base.revision===descriptor.revision&&base.contentHash===descriptor.contentHash&&base.deleted===descriptor.deleted&&(base.deleted||e.read(descriptor.key)!==null));
+      });
+      const results=await mapWithConcurrency(toRead,SYNC_READ_CONCURRENCY,async descriptor=>{
+        try{return {record:await readRecord(descriptor.key)};}catch(error){return {error};}
+      });
+      for(const result of results){
+        if('error'in result){if([401,403].includes(Number((result.error as {status?:number}).status)))throw result.error;deferred??=result.error;continue;}
+        try{if(result.record)await reconcile(result.record);else throw Error('变化记录暂时无法读取。');}catch(error){deferred??=error;}
+      }
+      // Keep the staged page until every key is reconciled; successful other keys
+      // may proceed while a damaged/slow record remains resumable on this page.
+      if(checkpoint.mode==='baseline'){
+        if(page.next!==null){if(typeof page.next!=='string'||byteOrder(page.next,checkpoint.after??'')<=0)throw Error('基线游标没有前进。');checkpoint={...checkpoint,after:page.next};}
+        else checkpoint={mode:'changes',cursor:checkpoint.cursor};
+      }else{
+        const cursor=Number(page.cursor),until=Number(page.until);
+        if(!Number.isSafeInteger(cursor)||cursor<checkpoint.cursor||!Number.isSafeInteger(until)||until<cursor)throw Error('增量检查点无效。');
+        checkpoint={mode:'changes',cursor, ...(page.hasMore?{until}:{})};
+      }
+      if(!deferred){
+        if(store.commitPullPage)await store.commitPullPage(checkpoint);
+        else{await store.setSetting!('v4Checkpoint',checkpoint);await store.setSetting!('v4StagedPage',null);}
+      }
+      if(page.hasMore===false){
+        if(!deferred)return;
+        if(!tailPolled){tailPolled=true;checkpoint={mode:'changes',cursor:checkpoint.cursor};continue;}
+        throw deferred;
+      }
+    }
+    throw Error('增量同步尚有积压，将从检查点继续。');
+  }
   async function recoverSubmission() {
     if(await store.getSubmission()){e.progress('正在核对上次上传结果，保留期间的新修改…');await flush(true);}
   }
   async function flush(recoveryOnly=false) {
+    await negotiate();
     const attempts = new Map<string,number>();
     for (let batch = 0; batch < 4; batch++) {
       await capture();
       const submission=await store.getSubmission();
       if(recoveryOnly&&!submission)break;
       const blocked = new Set((await store.getConflicts()).map(c=>c.key));
-      const operations = submission?.operations ?? (await store.getOutbox()).filter(op=>!blocked.has(op.key) && (attempts.get(op.key) ?? 0) < 2).slice(0,10);
+      const rejected=await store.getSetting?.<Array<{operationId:string;key:string;code:string}>>('rejectedOperations')??[];
+      const rejectedIds=new Set(rejected.map(row=>row.operationId));
+      const batchLimit=await store.getSetting?.<number>('syncBatchLimit')??10;
+      const operations = submission?.operations ?? (await store.getOutbox()).filter(op=>!blocked.has(op.key)&&!rejectedIds.has(op.id) && (attempts.get(op.key) ?? 0) < 2).slice(0,batchLimit);
       if (!operations.length || e.cancelled()) break;
       const wire: Array<Record<string,unknown>> = []; const sent: SyncOperation[] = [];
       for (const operation of operations) {
@@ -362,20 +433,46 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
         if (wire.length && bytes > 220_000) break;
         wire.push(next); sent.push(operation);
       }
-      const body = submission?.body ?? JSON.stringify({syncProtocol:3,requireCurrentVersion:true,deviceId:await e.deviceId(),device:e.device(),operations:wire});
+      const protocol=submission?.protocol??(submission?3:v4&&new TextEncoder().encode(JSON.stringify(wire)).length<220_000?4:3);
+      const body = submission?.body ?? JSON.stringify({syncProtocol:protocol,requireCurrentVersion:true,deviceId:await e.deviceId(),device:e.device(),operations:wire});
       const compressed=submission?.compressed??compressedUploads;
       // A later local edit must never change the identity/body of this request.
       // Persist BEFORE the first network write, including before large parts.
-      if(!submission)await store.saveSubmission({body,operations:sent,compressed});
-      let response: Record<string,unknown>;
-      if (new TextEncoder().encode(body).length > 250_000) {
+      if(!submission)await store.saveSubmission({body,operations:sent,compressed,protocol});
+      let response: Record<string,unknown>|undefined;
+      try{
+      if(submission&&(v4||protocol===4)){
+        const operations=JSON.parse(body).operations as Array<{id:string}>;
+        const hashes=await Promise.all(operations.map(async operation=>{
+          const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(operation)));
+          return {id:operation.id,requestHash:Array.from(new Uint8Array(digest),n=>n.toString(16).padStart(2,'0')).join('')};
+        }));
+        const recovered=await json('/api/sync/v4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'receipts',operations:hashes})});
+        const receipts=recovered.receipts as Array<{operationId:string;key:string;state:string;result:{status:string;revision:number;contentHash:string;updatedAt?:string}}>;
+        if(Array.isArray(receipts)&&receipts.length===sent.length&&receipts.every(row=>row.state==='confirmed'&&row.result?.status==='applied'))
+          response={ok:true,applied:receipts.map(row=>({operationId:row.operationId,key:row.key,...row.result})),remote:[],conflicts:[]};
+      }
+      if(response){e.progress('已找回云端回执，正在确认本机队列…');}
+      else if (new TextEncoder().encode(body).length > 250_000) {
         const parts = compressed ? await splitCompressedSyncBody(body) : splitSyncBody(body), uploadId = sent[0].id;
         for (let part = 0; part < parts.length; part++) {
           e.progress(`上传分片 ${part+1} / ${parts.length}`);
           await json('/api/sync/v2/large',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uploadId,index:part,count:parts.length,data:parts[part]})});
         }
         response = await json('/api/sync/v2/large',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uploadId,complete:true})});
-      } else response = await json('/api/sync/v2',{method:'POST',headers:{'Content-Type':'application/json'},body});
+      } else response = await json(protocol===4?'/api/sync/v4':'/api/sync/v2',{method:'POST',headers:{'Content-Type':'application/json'},body});
+      }catch(error){
+        const code=(error as {code?:string}).code;
+        // These replies are emitted inside a rolled-back backend transaction.
+        // Unknown outcomes, timeouts and 5xx must retain the frozen submission.
+        if(store.setSetting&&code&&['INVALID_OPERATIONS','INVALID_DELTA','PAYLOAD_TOO_LARGE','OPERATION_ID_REUSED','SCHEDULE_EMPTY_REPLACEMENT'].includes(code)){
+          if(sent.length>1)await store.setSetting('syncBatchLimit',1);
+          else await store.setSetting('rejectedOperations',[...rejected,{operationId:sent[0].id,key:sent[0].key,code}]);
+          await store.saveSubmission(null);continue;
+        }
+        throw error;
+      }
+      if(!response)throw Error('同步操作未获确认。');
       if (!Array.isArray(response.applied) || !Array.isArray(response.conflicts) || !Array.isArray(response.remote)) throw Error('云端没有确认本次修改。');
       let confirmed = 0;
       for (const operation of sent) {

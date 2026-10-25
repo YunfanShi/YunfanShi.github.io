@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -19,7 +21,7 @@ export default function SiteAnnouncements() {
   const dialogRef = useRef<HTMLDivElement>(null);
   const storageKey = `site_notification_dismissed:${userId}`;
   const localDismissed = useCallback((): Set<string> => {
-    try { const raw = JSON.parse(localStorage.getItem(storageKey) ?? '[]'); return new Set(Array.isArray(raw) ? raw.filter(value => typeof value === 'string') : []); } catch { return new Set(); }
+    try { const raw = JSON.parse(workspaceStorage.getItem(storageKey) ?? '[]'); return new Set(Array.isArray(raw) ? raw.filter(value => typeof value === 'string') : []); } catch { return new Set(); }
   }, [storageKey]);
   useEffect(() => {
     if (!signedIn) return;
@@ -37,7 +39,7 @@ export default function SiteAnnouncements() {
   const current = notices[0];
   const close = useCallback((item: SiteNotification) => {
     const hidden = localDismissed(); hidden.add(announcementDismissalKey(item));
-    try { localStorage.setItem(storageKey, JSON.stringify([...hidden].slice(-1000))); } catch { /* Session state still hides the notice. */ }
+    try { workspaceStorage.setItem(storageKey, JSON.stringify([...hidden].slice(-1000))); } catch { /* Session state still hides the notice. */ }
     setDismissalRevision(value => value + 1);
     window.dispatchEvent(new CustomEvent('jackyun:notification-dismissed', { detail: item.id }));
     void dismissNotification(item.id).catch(() => {});

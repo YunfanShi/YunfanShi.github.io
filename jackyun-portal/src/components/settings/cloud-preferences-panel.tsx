@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect, useRef, useState } from 'react';
 import { type SettingsKey } from '@/actions/settings';
@@ -22,12 +24,12 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
   useEffect(() => {
     const initialValue = initialRef.current;
     try {
-      const local = localStorage.getItem(localKey);
+      const local = workspaceStorage.getItem(localKey);
       if (local) {
         const saved = { ...initialValue, ...JSON.parse(local) };
         if (sectionKey === 'appearance_preferences') {
-          const currentTheme = localStorage.getItem('jackyun_theme');
-          const fullscreen = localStorage.getItem('show_fullscreen_btn');
+          const currentTheme = workspaceStorage.getItem('jackyun_theme');
+          const fullscreen = workspaceStorage.getItem('show_fullscreen_btn');
           if (currentTheme === 'light' || currentTheme === 'gray' || currentTheme === 'dark') saved.theme = currentTheme;
           if (fullscreen !== null) saved.showFullscreen = fullscreen !== 'false';
         }
@@ -42,8 +44,8 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
     if (sectionKey !== 'appearance_preferences') return;
     const theme = value.theme === 'gray' || value.theme === 'dark' ? value.theme : 'light';
     const showFullscreen = value.showFullscreen !== false;
-    localStorage.setItem('jackyun_theme', theme);
-    localStorage.setItem('show_fullscreen_btn', String(showFullscreen));
+    workspaceStorage.setItem('jackyun_theme', theme);
+    workspaceStorage.setItem('show_fullscreen_btn', String(showFullscreen));
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-density', value.density === 'compact' ? 'compact' : 'comfortable');
     document.documentElement.setAttribute('data-reduced-motion', value.reducedMotion === true ? 'true' : 'false');
@@ -54,7 +56,7 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
   }
   useEffect(() => {
     const acknowledged = () => {
-      try { if (savedRef.current && !JSON.parse(localStorage.getItem(SETTINGS_PENDING_KEY) || '{}')[owner]?.[sectionKey]) setStatus('已保存到云端'); } catch {}
+      try { if (savedRef.current && !JSON.parse(workspaceStorage.getItem(SETTINGS_PENDING_KEY) || '{}')[owner]?.[sectionKey]) setStatus('已保存到云端'); } catch {}
     };
     window.addEventListener('jackyun-settings-acknowledged', acknowledged);
     return () => window.removeEventListener('jackyun-settings-acknowledged', acknowledged);
@@ -62,7 +64,7 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
   function save() {
     if (!dirtyFields.current.size) { setStatus('设置没有修改'); return; }
     let stored: Record<string, unknown> = {};
-    try { stored = JSON.parse(localStorage.getItem(localKey) || '{}'); } catch {}
+    try { stored = JSON.parse(workspaceStorage.getItem(localKey) || '{}'); } catch {}
     const changes = Object.fromEntries([...dirtyFields.current].map(key => [key, value[key]]));
     const next = { ...value, ...stored, ...changes };
     for (const field of fields) if (field.type === 'number') {
@@ -70,12 +72,12 @@ export default function CloudPreferencesPanel({ sectionKey, initialValue, fields
       if (!Number.isFinite(number) || number < (field.min ?? -Infinity) || number > (field.max ?? Infinity)) { setStatus(`${field.label}请输入 ${field.min}～${field.max} 之间的数字`); return; }
     }
     try {
-      localStorage.setItem(localKey, JSON.stringify(next));
-      const pending = JSON.parse(localStorage.getItem(SETTINGS_PENDING_KEY) || '{}');
+      workspaceStorage.setItem(localKey, JSON.stringify(next));
+      const pending = JSON.parse(workspaceStorage.getItem(SETTINGS_PENDING_KEY) || '{}');
       const previous = pending[owner]?.[sectionKey] ? JSON.parse(pending[owner][sectionKey]) : null;
       const fieldKeys = [...new Set([...(previous?.fields || []), ...dirtyFields.current])];
       pending[owner] = { ...pending[owner], [sectionKey]: JSON.stringify({ value: next, fields: fieldKeys }) };
-      localStorage.setItem(SETTINGS_PENDING_KEY, JSON.stringify(pending));
+      workspaceStorage.setItem(SETTINGS_PENDING_KEY, JSON.stringify(pending));
     } catch { setStatus('本机存储不可用，设置未保存，请释放空间后重试'); return; }
     dirtyFields.current.clear();
     savedRef.current = true;

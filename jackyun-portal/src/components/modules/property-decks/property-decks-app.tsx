@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { siteConfirm } from '@/lib/site-dialog';
 import Link from 'next/link';
@@ -28,7 +30,7 @@ function shuffle<T>(items: T[]): T[] {
 
 function readDecks(): PropertyDeck[] {
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as unknown;
+    const stored = JSON.parse(workspaceStorage.getItem(STORAGE_KEY) || '[]') as unknown;
     if (!Array.isArray(stored)) return [EXAMPLE_PROPERTY_DECK];
     const decks = stored.flatMap((entry) => {
       const deck = normalizePropertyDeck(entry);
@@ -42,7 +44,7 @@ function readDecks(): PropertyDeck[] {
 
 function readLearningSession(): PropertyLearningSession | null {
   try {
-    const value = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null') as Partial<PropertyLearningSession> | null;
+    const value = JSON.parse(workspaceStorage.getItem(SESSION_KEY) || 'null') as Partial<PropertyLearningSession> | null;
     const stages: StudyStage[] = ['recall', 'checkpoint', 'choice', 'complete'];
     if (!value || typeof value.deckId !== 'string' || !stages.includes(value.stage as StudyStage) || !Array.isArray(value.queue) || !Array.isArray(value.source)) return null;
     const coordinates = (items: PromptCoordinate[]) => items.flatMap((item) => Number.isInteger(item?.rowIndex) && Number.isInteger(item?.itemIndex) ? [{ rowIndex: item.rowIndex, itemIndex: item.itemIndex }] : []);
@@ -107,7 +109,7 @@ export default function PropertyDecksApp() {
 
   useEffect(() => {
     if (!ready) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(decks)); } catch (error) { console.error('[property-decks] save failed', error); }
+    try { workspaceStorage.setItem(STORAGE_KEY, JSON.stringify(decks)); } catch (error) { console.error('[property-decks] save failed', error); }
   }, [decks, ready]);
 
   const deck = decks.find((entry) => entry.id === selectedId) ?? decks[0];
@@ -119,7 +121,7 @@ export default function PropertyDecksApp() {
     if (!ready || !studying || !deck || !studySource.length) return;
     const coordinate = ({ rowIndex, itemIndex }: PropertyPrompt): PromptCoordinate => ({ rowIndex, itemIndex });
     const session: PropertyLearningSession = { deckId: deck.id, stage: studyStage, queue: studyQueue.map(coordinate), source: studySource.map(coordinate), recallIndex, studyDone, cursor, revealed, choiceAnswer, choiceScore, choiceMistakes };
-    try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch (error) { console.error('[property-decks] session save failed', error); }
+    try { workspaceStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch (error) { console.error('[property-decks] session save failed', error); }
   }, [choiceAnswer, choiceMistakes, choiceScore, cursor, deck, ready, recallIndex, revealed, studyDone, studyQueue, studySource, studyStage, studying]);
 
   function updateDeck(change: (current: PropertyDeck) => PropertyDeck) {
@@ -146,7 +148,7 @@ export default function PropertyDecksApp() {
     setDecks(next);
     setSelectedId(next[0]?.id ?? '');
     setStudying(false);
-    try { localStorage.removeItem(SESSION_KEY); } catch { /* The next session will replace stale data. */ }
+    try { workspaceStorage.removeItem(SESSION_KEY); } catch { /* The next session will replace stale data. */ }
   }
 
   function addItem() {
@@ -223,7 +225,7 @@ export default function PropertyDecksApp() {
   }
 
   function finishLearning() {
-    try { localStorage.removeItem(SESSION_KEY); } catch { /* The next session will replace stale data. */ }
+    try { workspaceStorage.removeItem(SESSION_KEY); } catch { /* The next session will replace stale data. */ }
     setStudying(false);
   }
 

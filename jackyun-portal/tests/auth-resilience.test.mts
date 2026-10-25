@@ -44,7 +44,7 @@ test('temporary Auth and account lookup failures retain offline writes', () => {
   assert.match(syncBinder, /if \(!userId\) return/);
   assert.doesNotMatch(syncBinder, /store\.clear\(\)/);
   assert.match(offlineBinder, /if \(!userId\) return/);
-  assert.match(offlineBinder, /listOfflineMutations\(existing.value\)[\s\S]*throw new Error[\s\S]*clearStores\(\)/);
+  assert.doesNotMatch(offlineBinder, /clearStores\(\)/);
   assert.match(proxy, /if \(lookupFailed\)/);
   assert.match(proxy, /new NextResponse[\s\S]*status: 503/);
   assert.match(syncAuthError, /AuthSessionMissingError/);
@@ -74,11 +74,11 @@ test('offline account binding retains writes across auth failure and permits onl
   assert.equal(pending[0].value, 'learning evidence');
   await bind('original');
   assert.equal(cleared, 0);
-  await assert.rejects(bind('another'), /另一账户/);
-  assert.equal(owner, 'original');
+  await bind('another');
+  assert.equal(owner, 'another');
   assert.equal(pending[0].value, 'learning evidence');
   pending = [];
   await bind('another');
-  assert.equal(cleared, 1);
+  assert.equal(cleared, 0);
   assert.equal(owner, 'another');
 });

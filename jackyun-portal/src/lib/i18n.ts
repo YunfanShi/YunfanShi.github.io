@@ -1,3 +1,4 @@
+import { workspaceStorage } from '@/lib/sync/repository';
 export type Language = 'zh' | 'en';
 
 export const STORAGE_KEY = 'jackyun_language';
@@ -5,14 +6,14 @@ export const DEFAULT_LANGUAGE: Language = 'zh';
 
 export function getStoredLanguage(): Language {
   if (typeof window === 'undefined') return DEFAULT_LANGUAGE;
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = workspaceStorage.getItem(STORAGE_KEY);
   if (stored === 'en' || stored === 'zh') return stored;
   return DEFAULT_LANGUAGE;
 }
 
 export function storeLanguage(lang: Language): void {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, lang);
+    workspaceStorage.setItem(STORAGE_KEY, lang);
   }
 }
 

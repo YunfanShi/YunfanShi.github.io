@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { siteConfirm } from '@/lib/site-dialog';
 import { useEffect, useState } from 'react';
@@ -45,7 +47,7 @@ export default function ScheduleBackupsPanel() {
       for (const operation of await getOutbox()) {
         if (operation.key === SCHEDULE_STORAGE_KEY) await removeOperation(operation.id);
       }
-      localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(result.value));
+      workspaceStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(result.value));
       await saveMetadata({ key: SCHEDULE_STORAGE_KEY, value: result.value, revision: Number(result.revision), contentHash: result.contentHash, deleted: false, updatedAt: result.updatedAt });
       window.location.reload();
     } catch (cause) { setError(cause instanceof Error ? cause.message : '恢复失败。'); setBusy(false); }

@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
@@ -69,7 +71,7 @@ export default function MiniPlayer() {
   // 清除 localStorage 命令（防复活）
   const clearCommand = useCallback(() => {
     try {
-      localStorage.removeItem('jackyun_ai_music_command');
+      workspaceStorage.removeItem('jackyun_ai_music_command');
     } catch { /* ignore */ }
   }, []);
 

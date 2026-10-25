@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useSyncExternalStore } from 'react';
 import { cueStudyPreferences } from '@/lib/learning/cue-game';
@@ -13,7 +15,7 @@ function subscribe(callback: () => void) {
   };
 }
 function snapshot() {
-  try { return localStorage.getItem(CUE_PREFERENCES_KEY); } catch { return null; }
+  try { return workspaceStorage.getItem(CUE_PREFERENCES_KEY); } catch { return null; }
 }
 export function useCueStudyPreferences() {
   const raw = useSyncExternalStore(subscribe, snapshot, () => null);

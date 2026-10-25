@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
@@ -64,8 +66,8 @@ export default function EnforcerApp() {
 
   // Load persisted data
   useEffect(() => {
-    const pin = localStorage.getItem('enforcer_pin') ?? '';
-    const saved = localStorage.getItem('enforcer_sessions');
+    const pin = workspaceStorage.getItem('enforcer_pin') ?? '';
+    const saved = workspaceStorage.getItem('enforcer_sessions');
     queueMicrotask(() => {
       setSavedPin(pin);
       if (saved) setSessions(JSON.parse(saved));
@@ -74,7 +76,7 @@ export default function EnforcerApp() {
 
   const saveSessions = useCallback((records: SessionRecord[]) => {
     setSessions(records);
-    localStorage.setItem('enforcer_sessions', JSON.stringify(records));
+    workspaceStorage.setItem('enforcer_sessions', JSON.stringify(records));
   }, []);
 
   const pickQuote = useCallback(() => {
@@ -143,7 +145,7 @@ export default function EnforcerApp() {
 
   const savePin = () => {
     setSavedPin(bypassPin);
-    localStorage.setItem('enforcer_pin', bypassPin);
+    workspaceStorage.setItem('enforcer_pin', bypassPin);
     setBypassPin('');
   };
 

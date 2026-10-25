@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { siteConfirm } from '@/lib/site-dialog';
 import Link from 'next/link';
@@ -174,9 +176,9 @@ export default function WritingWorkbench() {
       saved=merged;draftBase.current=merged;
       writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, merged);
       if (keepSnapshot) {
-        const existing = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]') as DraftSnapshot[];
+        const existing = JSON.parse(workspaceStorage.getItem(SNAPSHOTS_KEY) || '[]') as DraftSnapshot[];
         const snapshots = [{ savedAt: new Date().toISOString(), draft: merged }, ...(Array.isArray(existing) ? existing : [])].slice(0, 5);
-        localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
+        workspaceStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
       }
       if (reportState) setSaveState('saved');
       return merged;
@@ -204,8 +206,8 @@ export default function WritingWorkbench() {
 
   useEffect(() => {
     let storedDraft: DraftState | null = null; let storedHistory: ErrorHistoryEntry[] = []; let storedArchive: WritingArchiveEntry[] = []; let storedWorkspaces: WritingWorkspace[] = []; let storedLanguage: UiLanguage = 'en'; let storedLayout: WorkspaceLayout = 'split'; let storedHighlights = true; let storedStage: WritingStage | null = null; let storedGuidance: WritingGuidanceMode = 'hint';
-    try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; const parsedArchive = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]') as unknown; if (Array.isArray(parsedArchive)) storedArchive = parsedArchive.filter(isWritingArchiveEntry); storedWorkspaces = readFirstValidJson(localStorage, [WORKSPACES_KEY, WORKSPACES_MIRROR_KEY], (value): value is WritingWorkspace[] => Array.isArray(value) && value.every(validWritingWorkspace)) ?? []; storedLanguage = localStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = localStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(localStorage.getItem(STAGE_KEY)); storedGuidance = localStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; setResponseFormat(localStorage.getItem(RESPONSE_FORMAT_KEY) === 'markdown' ? 'markdown' : 'json'); } catch { /* Start clean when all local copies are unavailable. */ }
-    try {draftBase.current=parseLocalValue(localStorage.getItem(DRAFT_KEY));historyBase.current=parseLocalValue(localStorage.getItem(HISTORY_KEY));archiveBase.current=parseLocalValue(localStorage.getItem(ARCHIVE_KEY));} catch { /* Corrupt originals remain untouched; guarded saves report conflicts. */ }
+    try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(workspaceStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; const parsedArchive = JSON.parse(workspaceStorage.getItem(ARCHIVE_KEY) || '[]') as unknown; if (Array.isArray(parsedArchive)) storedArchive = parsedArchive.filter(isWritingArchiveEntry); storedWorkspaces = readFirstValidJson(localStorage, [WORKSPACES_KEY, WORKSPACES_MIRROR_KEY], (value): value is WritingWorkspace[] => Array.isArray(value) && value.every(validWritingWorkspace)) ?? []; storedLanguage = workspaceStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = workspaceStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = workspaceStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(workspaceStorage.getItem(STAGE_KEY)); storedGuidance = workspaceStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; setResponseFormat(workspaceStorage.getItem(RESPONSE_FORMAT_KEY) === 'markdown' ? 'markdown' : 'json'); } catch { /* Start clean when all local copies are unavailable. */ }
+    try {draftBase.current=parseLocalValue(workspaceStorage.getItem(DRAFT_KEY));historyBase.current=parseLocalValue(workspaceStorage.getItem(HISTORY_KEY));archiveBase.current=parseLocalValue(workspaceStorage.getItem(ARCHIVE_KEY));} catch { /* Corrupt originals remain untouched; guarded saves report conflicts. */ }
     const activeWorkspace = storedWorkspaces.find((workspace) => workspace.id === (storedDraft?.essayId ?? storedWorkspaces[0]?.id));
     const activeDraft = storedDraft ?? activeWorkspace?.draft ?? defaultDraft;
     const restoredWorkspace: WritingWorkspace = activeWorkspace ? { ...activeWorkspace, draft: activeDraft } : { id: activeDraft.essayId, draft: activeDraft, feedback: null, feedbackSource: { essayId: '', essay: '' }, feedbackHistory: [], previousRuleKeys: [], resolved: [], stage: storedStage ?? (activeDraft.originalEssay ? 1 : 0), externalFallbackMode: null, externalReply: '', externalPanelOpen: true, savedAt: new Date().toISOString() };
@@ -259,7 +261,7 @@ export default function WritingWorkbench() {
     }, 900);
     return () => window.clearTimeout(timer);
   }, [archive, cloudSyncReady, guidanceMode, highlightIssues, history, hydrated, responseFormat, uiLanguage, workspaces, workspaceLayout]);
-  useEffect(() => { if (!hydrated) return; try { localStorage.setItem(RESPONSE_FORMAT_KEY, responseFormat); } catch { /* Cloud sync remains available when local storage is full. */ } }, [hydrated, responseFormat]);
+  useEffect(() => { if (!hydrated) return; try { workspaceStorage.setItem(RESPONSE_FORMAT_KEY, responseFormat); } catch { /* Cloud sync remains available when local storage is full. */ } }, [hydrated, responseFormat]);
   useEffect(() => {
     if (!hydrated) return;
     try {
@@ -361,11 +363,11 @@ export default function WritingWorkbench() {
   const archiveResults = archive.filter((entry) => `${entry.title} ${entry.question} ${entry.content}`.toLocaleLowerCase().includes(archiveQuery.toLocaleLowerCase()));
   const readerThemeClass = readerTheme === 'night' ? 'bg-[#111827] text-[#e5e7eb]' : readerTheme === 'mint' ? 'bg-[#effaf5] text-[#16372d]' : 'bg-[#fffdf7] text-[#29251f]';
   const externalPrompt = useMemo(() => repairPromptMode ? buildWritingFeedbackRepairPrompt(externalReply.slice(0, 40_000), guidanceMode, uiLanguage) : buildWritingReviewPrompt({ ...draft, mode: activeExternalMode, previousRuleKeys: [...new Set([...previousRuleKeys, ...recurringRuleKeys(history)])], recurringErrorKeys: recurringRuleKeys(history), previousIssues: promptIssueRecords, outputLanguage: uiLanguage, responseFormat, guidanceMode }), [activeExternalMode, draft, externalReply, guidanceMode, history, previousRuleKeys, promptIssueRecords, repairPromptMode, responseFormat, uiLanguage]);
-  function toggleLanguage() { const next = uiLanguage === 'en' ? 'zh' : 'en'; setUiLanguage(next); try { localStorage.setItem(LANGUAGE_KEY, next); } catch { setSaveState('error'); } }
-  function changeLayout(next: WorkspaceLayout) { setWorkspaceLayout(next); try { localStorage.setItem(LAYOUT_KEY, next); } catch { setSaveState('error'); } }
-  function toggleHighlights() { const next = !highlightIssues; setHighlightIssues(next); try { localStorage.setItem(HIGHLIGHT_KEY, next ? 'on' : 'off'); } catch { setSaveState('error'); } }
-  function changeStage(next: WritingStage) { setStageState(next); try { localStorage.setItem(STAGE_KEY, String(next)); } catch { setSaveState('error'); } }
-  function changeGuidanceMode(next: WritingGuidanceMode) { setGuidanceMode(next); try { localStorage.setItem(GUIDANCE_KEY, next); } catch { setSaveState('error'); } }
+  function toggleLanguage() { const next = uiLanguage === 'en' ? 'zh' : 'en'; setUiLanguage(next); try { workspaceStorage.setItem(LANGUAGE_KEY, next); } catch { setSaveState('error'); } }
+  function changeLayout(next: WorkspaceLayout) { setWorkspaceLayout(next); try { workspaceStorage.setItem(LAYOUT_KEY, next); } catch { setSaveState('error'); } }
+  function toggleHighlights() { const next = !highlightIssues; setHighlightIssues(next); try { workspaceStorage.setItem(HIGHLIGHT_KEY, next ? 'on' : 'off'); } catch { setSaveState('error'); } }
+  function changeStage(next: WritingStage) { setStageState(next); try { workspaceStorage.setItem(STAGE_KEY, String(next)); } catch { setSaveState('error'); } }
+  function changeGuidanceMode(next: WritingGuidanceMode) { setGuidanceMode(next); try { workspaceStorage.setItem(GUIDANCE_KEY, next); } catch { setSaveState('error'); } }
   function syncEditorScroll() {
     const editor = essayRef.current;
     const layer = highlightLayerRef.current;
@@ -449,7 +451,7 @@ export default function WritingWorkbench() {
     changeStage(0); setView('workbench'); setMessage(transfer ? c.transferStarted : c.newEssayStarted);
     requestAnimationFrame(() => { essayRef.current?.focus(); essayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); syncEditorScroll(); });
   }
-  function restoreSnapshot() { try { const snapshots = JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]') as DraftSnapshot[]; const latest = snapshots.find((item) => validDraft(item?.draft)); if (!latest) { setMessage(c.noSnapshot); return; } commitDraft(latest.draft); setMessage(c.restored); } catch { setMessage(c.noSnapshot); } }
+  function restoreSnapshot() { try { const snapshots = JSON.parse(workspaceStorage.getItem(SNAPSHOTS_KEY) || '[]') as DraftSnapshot[]; const latest = snapshots.find((item) => validDraft(item?.draft)); if (!latest) { setMessage(c.noSnapshot); return; } commitDraft(latest.draft); setMessage(c.restored); } catch { setMessage(c.noSnapshot); } }
   function exportBackup() { const payload = JSON.stringify({ exportedAt: new Date().toISOString(), draft, history }, null, 2); const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' })); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `ielts-writing-${draft.essayId}.json`; anchor.click(); URL.revokeObjectURL(url); }
   async function copyExternalPrompt() { try { await navigator.clipboard.writeText(externalPrompt); setPromptCopied(true); window.setTimeout(() => setPromptCopied(false), 1800); } catch { setMessage(uiLanguage === 'en' ? 'Clipboard access failed. Select the prompt preview and copy it manually.' : '无法访问剪贴板，请在提示词预览中手动复制。'); } }
   function importExternalReply() {

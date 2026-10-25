@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 import { useEffect, useState } from 'react';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
 import { IDLE_MINUTES_KEY, IDLE_SETTINGS_EVENT, readIdleMinutes } from '@/lib/workspace-idle';
@@ -13,7 +15,7 @@ export default function WorkspaceIdleSettings() {
   }, []);
   return <label className="flex flex-col gap-3 text-sm"><span>空闲多久后休眠</span><select className="rounded-xl border border-white/15 bg-transparent p-3" value={minutes} onChange={(event) => {
     const value = Number(event.target.value);
-    localStorage.setItem(IDLE_MINUTES_KEY, String(value));
+    workspaceStorage.setItem(IDLE_MINUTES_KEY, String(value));
     setMinutes(value);
     window.dispatchEvent(new Event(IDLE_SETTINGS_EVENT));
     window.dispatchEvent(new Event('jackyun-sync-edit'));

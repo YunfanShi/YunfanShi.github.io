@@ -1,3 +1,4 @@
+import { workspaceStorage } from '@/lib/sync/repository';
 import { getStoredLanguage } from '@/lib/i18n';
 import { requestBrowserAi, type BrowserAiProvider } from '@/lib/browser-ai';
 
@@ -34,7 +35,7 @@ const PRO_MODEL_KEY = 'jackyun-ai-pro-model';
 export function getSafetyMode(): SafetyMode {
   if (typeof window === 'undefined') return 'safe';
   try {
-    const val = localStorage.getItem(SAFETY_MODE_KEY);
+    const val = workspaceStorage.getItem(SAFETY_MODE_KEY);
     return val === 'yolo' ? 'yolo' : 'safe';
   } catch { return 'safe'; }
 }
@@ -42,29 +43,29 @@ export function getSafetyMode(): SafetyMode {
 /** 保存操作模式 */
 export function saveSafetyMode(mode: SafetyMode): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(SAFETY_MODE_KEY, mode);
+  workspaceStorage.setItem(SAFETY_MODE_KEY, mode);
 }
 
 /** 获取深度思考模型（Pro），未设置时回退到主模型 */
 export function getProModel(): string {
   if (typeof window === 'undefined') return '';
   try {
-    return localStorage.getItem(PRO_MODEL_KEY) || '';
+    return workspaceStorage.getItem(PRO_MODEL_KEY) || '';
   } catch { return ''; }
 }
 
 /** 保存深度思考模型（Pro） */
 export function saveProModel(model: string): void {
   if (typeof window === 'undefined') return;
-  if (model.trim()) localStorage.setItem(PRO_MODEL_KEY, model.trim());
-  else localStorage.removeItem(PRO_MODEL_KEY);
+  if (model.trim()) workspaceStorage.setItem(PRO_MODEL_KEY, model.trim());
+  else workspaceStorage.removeItem(PRO_MODEL_KEY);
 }
 
 /** 获取模型价格（元 / 1M tokens，默认 2 元） */
 export function getTokenPrice(): number {
   if (typeof window === 'undefined') return 2;
   try {
-    const val = localStorage.getItem(TOKEN_PRICE_KEY);
+    const val = workspaceStorage.getItem(TOKEN_PRICE_KEY);
     const num = Number(val);
     return isFinite(num) && num > 0 ? num : 2;
   } catch { return 2; }
@@ -73,14 +74,14 @@ export function getTokenPrice(): number {
 /** 保存模型价格 */
 export function saveTokenPrice(price: number): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(TOKEN_PRICE_KEY, String(price));
+  workspaceStorage.setItem(TOKEN_PRICE_KEY, String(price));
 }
 
 /** 获取用户设置的思考深度（默认 medium） */
 export function getThinkingLevel(): ThinkingLevel {
   if (typeof window === 'undefined') return 'medium';
   try {
-    const val = localStorage.getItem(THINKING_LEVEL_KEY);
+    const val = workspaceStorage.getItem(THINKING_LEVEL_KEY);
     if (val === 'low' || val === 'high') return val;
     return 'medium';
   } catch {
@@ -91,7 +92,7 @@ export function getThinkingLevel(): ThinkingLevel {
 /** 保存用户设置的思考深度 */
 export function saveThinkingLevel(level: ThinkingLevel): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(THINKING_LEVEL_KEY, level);
+  workspaceStorage.setItem(THINKING_LEVEL_KEY, level);
 }
 
 /** 根据思考深度获取对应的 temperature 值 */
@@ -111,7 +112,7 @@ export function getAiConfig(): AiConfig {
     return { baseUrl: '', apiKey: '', model: '', providerMode: 'cloud' };
   }
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = workspaceStorage.getItem(STORAGE_KEY);
     if (!raw) return { baseUrl: '', apiKey: '', model: '', providerMode: 'cloud' };
     const parsed = JSON.parse(raw) as Partial<AiConfig>;
     return {
@@ -131,13 +132,13 @@ export function getAiConfig(): AiConfig {
 /** 保存 AI 配置到 localStorage */
 export function saveAiConfig(config: AiConfig): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  workspaceStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
 /** 删除 AI 配置 */
 export function clearAiConfig(): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem(STORAGE_KEY);
+  workspaceStorage.removeItem(STORAGE_KEY);
 }
 
 /**
@@ -218,7 +219,7 @@ export async function callAiApi(
   const model = options.model || config.model;
 
   if (config.providerMode === 'browser') {
-    if (config.companionAutomation && localStorage.getItem('jackyun_beta_active') !== 'true') throw new Error('插件自动填写需要 BETA 资格，请关闭自动处理后使用手动模式');
+    if (config.companionAutomation && workspaceStorage.getItem('jackyun_beta_active') !== 'true') throw new Error('插件自动填写需要 BETA 资格，请关闭自动处理后使用手动模式');
     return requestBrowserAi(messages, config.browserProvider ?? 'chatgpt', config.companionAutomation === true, options.stream ?? false, options.model);
   }
 

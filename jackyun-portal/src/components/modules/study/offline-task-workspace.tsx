@@ -4,7 +4,7 @@ import { useState } from 'react';
 import PlanList from './plan-list';
 import TaskInbox from './task-inbox';
 import { useOfflineSnapshot } from '@/hooks/use-offline-snapshot';
-import { runOfflineMutation, saveOfflineSnapshot } from '@/lib/offline/workspace';
+import { runOfflineMutation } from '@/lib/offline/workspace';
 import type { StudyPlanWithTasks } from '@/types';
 
 export interface OfflineInboxTask {
@@ -21,14 +21,12 @@ export interface OfflineTaskSnapshot {
 }
 
 export default function OfflineTaskWorkspace({ userId, initial }: { userId: string; initial: OfflineTaskSnapshot }) {
-  const [snapshot, setSnapshot] = useOfflineSnapshot(userId, 'tasks', initial);
+  const [snapshot] = useOfflineSnapshot(userId, 'tasks', initial);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function commit(next: OfflineTaskSnapshot, kind: string, payload: Record<string, unknown>) {
-    setSnapshot(next);
-    await saveOfflineSnapshot(userId, 'tasks', next);
+  async function commit(next: OfflineTaskSnapshot, kind: string, payload: Record<string, unknown>,operationId?:string) {
     try {
-      const result = await runOfflineMutation(userId, kind, payload);
+      const result = await runOfflineMutation(userId, kind, payload,{operationId,snapshot:{scope:'tasks',value:next}});
       setMessage(result === 'queued' ? '已记录，联网后同步' : null);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '保存失败');
@@ -36,6 +34,7 @@ export default function OfflineTaskWorkspace({ userId, initial }: { userId: stri
   }
 
   function toggleTask(taskId: string, completed: boolean) {
+    if(taskId.startsWith('offline-')){setMessage('旧版离线任务仍在等待云端编号，请完成同步后再修改。');return;}
     const next = {
       inboxTasks: snapshot.inboxTasks.map((task) => task.id === taskId ? { ...task, completed } : task),
       plans: snapshot.plans.map((plan) => ({ ...plan, tasks: plan.tasks.map((task) => task.id === taskId ? { ...task, completed } : task) })),
@@ -44,6 +43,7 @@ export default function OfflineTaskWorkspace({ userId, initial }: { userId: stri
   }
 
   function deleteTask(taskId: string) {
+    if(taskId.startsWith('offline-')){setMessage('旧版离线任务仍在等待云端编号，请完成同步后再修改。');return;}
     const next = {
       inboxTasks: snapshot.inboxTasks.filter((task) => task.id !== taskId),
       plans: snapshot.plans.map((plan) => ({ ...plan, tasks: plan.tasks.filter((task) => task.id !== taskId) })),
@@ -53,9 +53,9 @@ export default function OfflineTaskWorkspace({ userId, initial }: { userId: stri
 
   function createTask(planId: string, title: string) {
     const now = new Date().toISOString();
-    const task = { id: `offline-${crypto.randomUUID()}`, user_id: userId, plan_id: planId, title, completed: false, due_date: null, subject: null, estimated_minutes: 25, priority: 2, scheduled_at: null, completed_at: null, created_at: now, updated_at: now };
+    const task = { id: crypto.randomUUID(), user_id: userId, plan_id: planId, title, completed: false, due_date: null, subject: null, estimated_minutes: 25, priority: 2, scheduled_at: null, completed_at: null, created_at: now, updated_at: now };
     const next = { ...snapshot, plans: snapshot.plans.map((plan) => plan.id === planId ? { ...plan, tasks: [...plan.tasks, task] } : plan) };
-    void commit(next, 'task.create', { planId, title, estimatedMinutes: 25 });
+    void commit(next, 'task.create', { planId, title, estimatedMinutes: 25 },task.id);
   }
 
   function deletePlan(planId: string) {

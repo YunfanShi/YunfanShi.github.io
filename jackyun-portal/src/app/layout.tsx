@@ -1,3 +1,4 @@
+import { workspaceStorage } from '@/lib/sync/repository';
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import './device-workspace.css';
@@ -29,7 +30,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: "try{var s=localStorage.getItem('jackyun_theme'),t=s==='gray'||s==='dark'?s:'light';document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t==='light'?'light':'dark'}catch(e){}",
+            __html: "try{var s=workspaceStorage.getItem('jackyun_theme'),t=s==='gray'||s==='dark'?s:'light';document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t==='light'?'light':'dark'}catch(e){}",
           }}
         />
         <script

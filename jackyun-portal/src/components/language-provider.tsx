@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { createContext, startTransition, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { type Language, getStoredLanguage, storeLanguage, STORAGE_KEY, DEFAULT_LANGUAGE } from '@/lib/i18n';
@@ -25,7 +27,7 @@ export default function LanguageProvider({ children, initialLanguage = DEFAULT_L
     // Keep the Provider mounted from SSR onward. Replacing a Fragment after
     // hydration would remount every page and discard in-flight UI state.
     let stored = initialLanguage;
-    try { if (localStorage.getItem(STORAGE_KEY)) stored = getStoredLanguage(); } catch { /* Keep the server language when storage is blocked. */ }
+    try { if (workspaceStorage.getItem(STORAGE_KEY)) stored = getStoredLanguage(); } catch { /* Keep the server language when storage is blocked. */ }
     queueMicrotask(() => {
       startTransition(() => setLang(stored));
     });

@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -32,7 +34,7 @@ export default function StartStudyButton({ taskId, durationMinutes, taskTitle }:
           if (!userId) throw new Error('请登录后开始并同步此学习任务');
           launch = { focusTaskId: crypto.randomUUID(), studyTaskId: taskId, title: taskTitle, durationMinutes };
         }
-        localStorage.setItem('jackyun_pomodoro_launch', JSON.stringify({
+        workspaceStorage.setItem('jackyun_pomodoro_launch', JSON.stringify({
           ...launch,
           autoStart: true,
           createdAt: new Date().toISOString(),

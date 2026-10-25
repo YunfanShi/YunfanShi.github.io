@@ -9,6 +9,9 @@ import {compactSyncOperations} from '../src/lib/sync/batch.ts';
 import {reconcileAcknowledgment} from '../src/lib/sync/acknowledgment.ts';
 import {splitSyncBody} from '../src/lib/sync/transfer.ts';
 import {mergeWorkspaceValues} from '../src/lib/sync/merge-policy.ts';
+import {canonicalJson} from '../src/lib/sync/hash.ts';
+import {threeWayMerge} from '../src/lib/sync/merge.ts';
+import {isSyncableStorageKey} from '../src/lib/local-workspace.ts';
 import {compareSyncValues} from '../src/lib/sync/comparison.ts';
 import type * as Outbox from '../src/lib/sync/outbox.ts';
 
@@ -16,9 +19,9 @@ function persistentStores() {
   const indexedDB=new IDBFactory();
   function open() {
     const exports={} as typeof Outbox;
-    const require=(name:string)=>name.endsWith('/batch')?{compactSyncOperations}:{reconcileAcknowledgment};
+    const require=(name:string)=>name.includes('/batch')?{compactSyncOperations}:name.includes('/hash')?{canonicalJson}:name.includes('/merge')?{threeWayMerge}:name.includes('local-workspace')?{isSyncableStorageKey}:{reconcileAcknowledgment};
     const compiled=ts.transpileModule(readFileSync(new URL('../src/lib/sync/outbox.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-    runInNewContext(compiled,{exports,require,indexedDB,IDBKeyRange,crypto});return exports;
+    runInNewContext(compiled,{exports,require,indexedDB,IDBKeyRange,crypto,TextEncoder,setInterval,clearInterval});return exports;
   }
   return {open};
 }
@@ -31,7 +34,7 @@ test('an actual IndexedDB journal survives a new module and rebases newer edits 
   assert.ok(await store.getSubmission());d.set({text:'second',other:0});
   // Another device changes an independent field after our first write committed.
   cloud.cloud=remote({text:'first',other:7},3);
-  store=stores.open();d.environment.store=store;
+  store=stores.open();await store.bindSyncUser('alice');d.environment.store=store;
   await d.restart().synchronize();assert.equal(bodies[0],bodies[1]);
   assert.deepEqual(d.value,{text:'second',other:7});assert.deepEqual(cloud.cloud!.value,d.value);
   assert.equal((await store.getConflicts()).length,0);assert.equal(await store.getSubmission(),null);assert.equal((await store.getOutbox()).length,0);
@@ -75,7 +78,7 @@ test('a timed-out download resumes saved IndexedDB fragments after a fresh engin
   };
   await assert.rejects(d.restart().pull(),/timeout/);assert.equal(d.value,undefined);failing=false;
   d.environment.store=stores.open();await d.restart().pull();
-  assert.deepEqual(d.value,value);assert.equal(reads.get(0),1);assert.equal(reads.get(1),1);assert.equal(reads.get(2),3);
+  assert.deepEqual(d.value,value);assert.equal(reads.get(0),1);assert.equal(reads.get(1),1);assert.equal(reads.get(2),2);
   assert.equal((await d.environment.store.getDownloadParts(key,3,record.contentHash)).length,0);
 });
 

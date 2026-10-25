@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect, useState } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -26,10 +28,10 @@ export default function SidebarPrefsPanel({ initialPrefs }: { initialPrefs: Side
   const { signedIn } = useAuthMode();
   const [prefs, setPrefs] = useState(initialPrefs);
   const [status, setStatus] = useState('');
-  useEffect(() => { try { const local = localStorage.getItem('jackyun_sidebar_preferences'); if (local) queueMicrotask(() => setPrefs(JSON.parse(local) as SidebarPreferences)); } catch {} }, []);
+  useEffect(() => { try { const local = workspaceStorage.getItem('jackyun_sidebar_preferences'); if (local) queueMicrotask(() => setPrefs(JSON.parse(local) as SidebarPreferences)); } catch {} }, []);
   async function save(next = prefs) {
     setStatus('保存中…');
-    try { localStorage.setItem('jackyun_sidebar_preferences', JSON.stringify(next)); } catch {}
+    try { workspaceStorage.setItem('jackyun_sidebar_preferences', JSON.stringify(next)); } catch {}
     if (!signedIn) { setStatus('已保存到本机；登录后自动同步'); return; }
     const result = await saveSidebarPreferences(next);
     setStatus(result.error ? '已保存到本机；云同步暂时不可用' : '已保存到本机并同步到云端');

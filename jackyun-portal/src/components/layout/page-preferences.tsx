@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect } from 'react';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
@@ -22,9 +24,9 @@ export default function PagePreferences({ initialValue, signedIn }: { initialVal
       if (!main) return;
       let value = initialValue;
       try {
-        const raw = localStorage.getItem(PAGE_PREFERENCE_KEY);
+        const raw = workspaceStorage.getItem(PAGE_PREFERENCE_KEY);
         if (raw) value = JSON.parse(raw);
-        else if (signedIn && Object.keys(initialValue).length) localStorage.setItem(PAGE_PREFERENCE_KEY, JSON.stringify(initialValue));
+        else if (signedIn && Object.keys(initialValue).length) workspaceStorage.setItem(PAGE_PREFERENCE_KEY, JSON.stringify(initialValue));
       } catch {}
       const page = PAGE_PROFILES.toSorted((a, b) => b.href.length - a.href.length).find(item => pathname === item.href || pathname.startsWith(`${item.href}/`));
       const id = page?.id;
@@ -47,18 +49,18 @@ export default function PagePreferences({ initialValue, signedIn }: { initialVal
       if (busy || !navigator.onLine || disposed) return;
       busy = true;
       const processQueue = async () => {
-        const queues: Record<string, Record<string, string>> = JSON.parse(localStorage.getItem(SETTINGS_PENDING_KEY) || '{}');
+        const queues: Record<string, Record<string, string>> = JSON.parse(workspaceStorage.getItem(SETTINGS_PENDING_KEY) || '{}');
         const owner = userId ?? 'guest';
         for (const [key, raw] of Object.entries({ ...queues.guest, ...queues[owner] })) {
           if (disposed || !navigator.onLine) break;
           const request = JSON.parse(raw);
           const result = await saveSettingsSection(key as SettingsKey, request.value, request.fields);
           if (result.error) break;
-          const latest = JSON.parse(localStorage.getItem(SETTINGS_PENDING_KEY) || '{}');
+          const latest = JSON.parse(workspaceStorage.getItem(SETTINGS_PENDING_KEY) || '{}');
           // Acknowledging an older request must never remove a newer edit.
           if (latest[owner]?.[key] === raw) delete latest[owner][key];
           if (latest.guest?.[key] === raw) delete latest.guest[key];
-          localStorage.setItem(SETTINGS_PENDING_KEY, JSON.stringify(latest));
+          workspaceStorage.setItem(SETTINGS_PENDING_KEY, JSON.stringify(latest));
           window.dispatchEvent(new Event('jackyun-settings-acknowledged'));
         }
       };

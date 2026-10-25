@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -25,7 +27,7 @@ type GoalDraft = { overall: string; examDate: string; weeklyHours: string; targe
 const EMPTY_GOAL: GoalDraft = { overall: '7', examDate: '', weeklyHours: '5', targets: { listening: '7', reading: '7', writing: '7', speaking: '7' } };
 
 function readJson(key: string): unknown {
-  try { return JSON.parse(localStorage.getItem(key) || 'null') as unknown; } catch { return null; }
+  try { return JSON.parse(workspaceStorage.getItem(key) || 'null') as unknown; } catch { return null; }
 }
 
 function asRows(value: unknown): Record<string, unknown>[] {
@@ -94,7 +96,7 @@ export default function IeltsDashboard() {
     event.preventDefault();
     const candidate = parseIeltsGoal({ overall: Number(draft.overall), examDate: draft.examDate, weeklyHours: Number(draft.weeklyHours), targets: Object.fromEntries(IELTS_SKILLS.map((skill) => [skill, Number(draft.targets[skill])])) });
     if (!candidate || !validDate(candidate.examDate) || candidate.examDate < today) { setNotice('请填写有效的目标分数、未来考试日期和每周 1–40 小时。'); return; }
-    try { localStorage.setItem(GOAL_KEY, JSON.stringify(candidate)); setGoal(candidate); setEditingGoal(false); setNotice('目标已保存。'); }
+    try { workspaceStorage.setItem(GOAL_KEY, JSON.stringify(candidate)); setGoal(candidate); setEditingGoal(false); setNotice('目标已保存。'); }
     catch { setNotice('保存失败，请检查浏览器存储空间。'); }
   }
 
@@ -107,7 +109,7 @@ export default function IeltsDashboard() {
     }
     const entry: IeltsPractice = { id: crypto.randomUUID(), skill: form.skill, practicedAt: new Date().toISOString(), minutes, band, outcome: form.outcome, material: form.material.trim().slice(0, 200), issue: form.issue.trim().slice(0, 500), nextStep: form.nextStep.trim().slice(0, 500) };
     const updated = [...practices, entry].slice(-500);
-    try { localStorage.setItem(PRACTICE_KEY, JSON.stringify(updated)); setPractices(updated); setForm({ ...form, band: '', material: '', issue: '', nextStep: '' }); setNotice('练习和复盘已记录。'); }
+    try { workspaceStorage.setItem(PRACTICE_KEY, JSON.stringify(updated)); setPractices(updated); setForm({ ...form, band: '', material: '', issue: '', nextStep: '' }); setNotice('练习和复盘已记录。'); }
     catch { setNotice('保存失败，请检查浏览器存储空间。'); }
   }
 

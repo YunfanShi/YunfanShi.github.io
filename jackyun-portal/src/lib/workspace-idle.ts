@@ -1,3 +1,4 @@
+import { workspaceStorage } from './sync/repository.ts';
 export const IDLE_MINUTES_KEY = 'jackyun_workspace_idle_minutes';
 export const IDLE_SETTINGS_EVENT = 'jackyun-workspace-idle-settings';
 export const BEFORE_SLEEP_EVENT = 'jackyun-workspace-before-sleep';
@@ -8,7 +9,7 @@ let sleeping = false;
 export function isWorkspaceSleeping() { return sleeping; }
 export function setWorkspaceSleeping(value: boolean) { sleeping = value; }
 export function readIdleMinutes() {
-  const value = localStorage.getItem(IDLE_MINUTES_KEY);
+  const value = workspaceStorage.getItem(IDLE_MINUTES_KEY);
   const minutes = value === null ? 30 : Number(value);
   return [0, 5, 15, 30, 60].includes(minutes) ? minutes : 30;
 }

@@ -47,7 +47,7 @@ test('forced logout skips remote auth and UI preserves pending data', () => {
   assert.match(ui, /if \(!force\) \{[\s\S]*saveCurrentLocalBackups[\s\S]*listOfflineMutations/);
   const sync = readFileSync(new URL('../src/components/layout/local-workspace-sync.tsx', import.meta.url), 'utf8');
   assert.match(sync, /engine\.capture/);
-  assert.match(sync, /syncStore\.getOutbox/);
+  assert.match(sync, /accountStore\.getOutbox/);
   assert.doesNotMatch(sync, /\/api\/health/);
   assert.doesNotMatch(sync, /current === lastSnapshot\[key\] && base/);
   const engine=readFileSync(new URL('../src/lib/sync/engine.ts',import.meta.url),'utf8');

@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { siteConfirm } from '@/lib/site-dialog';
 import { useCallback, useEffect, useState } from 'react';
@@ -90,7 +92,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   }
 
   function inspectLocal(item: LocalBackup) {
-    const current = localStorage.getItem(SCHEDULE_STORAGE_KEY);
+    const current = workspaceStorage.getItem(SCHEDULE_STORAGE_KEY);
     const inspection = page === 'schedule'
       ? inspectScheduleVersion(item.values[SCHEDULE_STORAGE_KEY], current)
       : { facts: [`此设备保存了 ${Object.keys(item.values).length} 份页面数据`], comparison: [], warning: '此页面暂无逐条对比；可先下载文件检查。' };
@@ -101,7 +103,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
     if (!(await siteConfirm('将这个页面的备份数据合并回当前账户？系统会先保存当前页面版本，新增于备份之后的记录会保留。'))) return;
     await run(async () => {
       const values:Record<string,string>={};
-      for(let n=0;n<localStorage.length;n++){const key=localStorage.key(n);if(key)values[key]=localStorage.getItem(key)??'';}
+      for(let n=0;n<workspaceStorage.length;n++){const key=workspaceStorage.key(n);if(key)values[key]=workspaceStorage.getItem(key)??'';}
       await saveLocalBackup(localOwner,page,localPageValues(values,page));
       const originalPending=await getOutbox();
       const requestKey=`backup-restore:${userId}:${id}`;
@@ -115,11 +117,11 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
       const keys: string[] = [];
       for (const record of result.legacyRecords) {
         // Preserve edits made while the cloud restore was running.
-        if(localStorage.getItem(record.key)!==(values[record.key]??null)
+        if(workspaceStorage.getItem(record.key)!==(values[record.key]??null)
           ||pending.some(operation=>operation.key===record.key&&!originalPending.some(old=>old.id===operation.id))) continue;
         for (const operation of pending) if (operation.key === record.key) await removeOperation(operation.id);
-        if (record.deleted) localStorage.removeItem(record.key);
-        else localStorage.setItem(record.key, storageValueToString(record.value));
+        if (record.deleted) workspaceStorage.removeItem(record.key);
+        else workspaceStorage.setItem(record.key, storageValueToString(record.value));
         await saveMetadata(record);
         keys.push(record.key);
       }
@@ -133,18 +135,18 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
 
   async function applyLocal(item: LocalBackup) {
     const current: Record<string, string> = {};
-    for (let index = 0; index < localStorage.length; index += 1) {
-      const key = localStorage.key(index);
+    for (let index = 0; index < workspaceStorage.length; index += 1) {
+      const key = workspaceStorage.key(index);
       if (key && isBackupableLegacyKey(key) && legacyBackupPage(key) === item.page) {
-        const value = localStorage.getItem(key);
+        const value = workspaceStorage.getItem(key);
         if (value !== null) current[key] = value;
       }
     }
     await saveLocalBackup(localOwner, item.page, localPageValues(current, item.page));
-    for (const key of Object.keys(current)) if (!(key in item.values)) localStorage.removeItem(key);
+    for (const key of Object.keys(current)) if (!(key in item.values)) workspaceStorage.removeItem(key);
     for (const [key, value] of Object.entries(item.values)) {
       if (!isBackupableLegacyKey(key) || legacyBackupPage(key) !== item.page) throw new Error('本地备份包含不允许恢复的键。');
-      localStorage.setItem(key, value);
+      workspaceStorage.setItem(key, value);
     }
     window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys: Object.keys(item.values) } }));
     window.dispatchEvent(new Event('jackyun-sync-retry'));
@@ -197,10 +199,10 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
       {cloudEnabled && <button type="button" disabled={busy} onClick={() => void run(async () => { await createBackupVersion(page); await load(); setMessage('已保存当前页面版本。'); })} className="rounded-lg bg-[#4285F4] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">立即备份此页面</button>}
       <button type="button" disabled={busy} onClick={() => void run(async () => {
         const current: Record<string, string> = {};
-        for (let index = 0; index < localStorage.length; index += 1) {
-          const key = localStorage.key(index);
+        for (let index = 0; index < workspaceStorage.length; index += 1) {
+          const key = workspaceStorage.key(index);
           if (key && isBackupableLegacyKey(key)) {
-            const value = localStorage.getItem(key);
+            const value = workspaceStorage.getItem(key);
             if (value !== null) current[key] = value;
           }
         }

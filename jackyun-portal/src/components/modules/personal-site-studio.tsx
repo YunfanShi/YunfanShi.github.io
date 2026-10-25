@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
@@ -25,14 +27,14 @@ function TaskBlock({ siteId, block }: { siteId: string; block: Extract<PersonalS
   const [completed, setCompleted] = useState<boolean[]>([]);
   useEffect(() => {
     try {
-      const stored = JSON.parse(localStorage.getItem(storageKey) || '[]') as unknown;
+      const stored = JSON.parse(workspaceStorage.getItem(storageKey) || '[]') as unknown;
       queueMicrotask(() => setCompleted(Array.isArray(stored) ? stored.map(Boolean).slice(0, block.items.length) : []));
     } catch { queueMicrotask(() => setCompleted([])); }
   }, [block.items.length, storageKey]);
   const toggle = (index: number) => {
     const next = block.items.map((_, itemIndex) => itemIndex === index ? !completed[itemIndex] : Boolean(completed[itemIndex]));
     setCompleted(next);
-    try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+    try { workspaceStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
   };
   return <article className="rounded-2xl bg-white/15 p-5"><h3 className="font-semibold">{block.title}</h3><ul className="mt-3 space-y-2">{block.items.map((item, index) => <li key={`${item}-${index}`}><label className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/10"><input type="checkbox" checked={Boolean(completed[index])} onChange={() => toggle(index)} className="mt-1" /><span className={completed[index] ? 'line-through opacity-55' : ''}>{item}</span></label></li>)}</ul></article>;
 }
@@ -131,7 +133,7 @@ export default function PersonalSiteStudio() {
       await saveLocalSite(next);
       setSite(next);
       setSites((all) => [next, ...all.filter((item) => item.id !== next.id)]);
-      localStorage.setItem('jackyun_personal_site_active', next.id);
+      workspaceStorage.setItem('jackyun_personal_site_active', next.id);
       setStatus('生成完成；任务、进度和链接组件现在可以直接交互。');
     } catch (error) { setStatus(error instanceof Error ? error.message : '生成失败'); } finally { setLoading(false); }
   };

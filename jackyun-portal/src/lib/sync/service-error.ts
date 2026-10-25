@@ -19,6 +19,9 @@ export function isServerUnavailable(error: unknown, online: boolean): boolean {
 
 export function syncFailureStatus(error: unknown, online: boolean, failures: number): SyncStatus {
   if (!online) return 'offline_pending';
+  const status=(error as {status?:number}|null)?.status;
+  if(status===401)return 'auth_required';
+  if(status===403)return 'access_denied';
   if (isServerUnavailable(error, online)) return failures >= SERVICE_NOTICE_FAILURE_THRESHOLD ? 'server_unavailable' : 'offline_pending';
   return 'error';
 }

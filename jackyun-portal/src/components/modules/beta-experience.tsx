@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect, useState, useTransition } from 'react';
 import { respondToBetaInvitation } from '@/actions/beta';
@@ -10,14 +12,14 @@ export default function BetaExperience({ status }: { status: BetaEnrollmentStatu
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    localStorage.setItem('jackyun_beta_active', status === 'accepted' ? 'true' : 'false');
+    workspaceStorage.setItem('jackyun_beta_active', status === 'accepted' ? 'true' : 'false');
   }, [status]);
 
   const respond = (accept: boolean) => startTransition(async () => {
     setError('');
     const result = await respondToBetaInvitation(accept);
     if (!result.success) return setError(result.error ?? '保存选择失败。');
-    localStorage.setItem('jackyun_beta_active', accept ? 'true' : 'false');
+    workspaceStorage.setItem('jackyun_beta_active', accept ? 'true' : 'false');
     setVisible(false);
     window.location.reload();
   });

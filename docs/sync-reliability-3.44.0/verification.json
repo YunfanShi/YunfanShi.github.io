@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-25",
+  "baseline": "fd0a8d208f1c591cc136b4f71eef3e86e0757efe",
+  "portalVersion": "3.44.0",
+  "backendVersion": "3.7.0",
+  "syncRegression": {
+    "passed": 182,
+    "failed": 0
+  },
+  "authResilience": {
+    "passed": 52,
+    "failed": 0
+  },
+  "backendRegression": {
+    "passed": 25,
+    "failed": 0
+  },
+  "privateKeyScanner": {
+    "passed": 3,
+    "failed": 0
+  },
+  "browser": {
+    "passed": 7,
+    "engine": "Edge",
+    "storage": "real IndexedDB",
+    "identity": "synthetic",
+    "scope": "local repository, independent field merge, reload, legacy write recovery and account projection isolation"
+  },
+  "supabaseMigration": {
+    "version": "20261025023755",
+    "name": "reliable_offline_mutations",
+    "applied": true,
+    "taskIdempotency": "passed in rollback transaction",
+    "reviewIdempotency": "passed in rollback transaction with temporary fixture",
+    "clientReceiptInsert": false,
+    "anonymousReceiptRead": false
+  },
+  "backendDeployment": {
+    "id": "391bb633-6ee4-4c8e-b2a2-b56133e01cec",
+    "result": "Deployment was successful.",
+    "liveVersion": "3.7.0",
+    "archiveSha256": "8df30866ca3e1874ba3f1439c85a431da952425952b507e36cdadd1f626e760a"
+  },
+  "azureChangeLogMigration": "pending approved database network access",
+  "v4ProductionEnabled": false,
+  "realAccountCrossDeviceAcceptance": "pending",
+  "document": {
+    "pages": 4,
+    "renderer": "docx-preview browser fallback; packaged renderer failed because soffice.exe is unavailable"
+  },
+  "limits": [
+    "Automatic approval review rejected creating a temporary single-IP PostgreSQL firewall rule and proxy transport; no rule was created.",
+    "No authenticated physical two-device acceptance has been performed.",
+    "V4 code and unit coverage do not establish that the Azure database migration has run."
+  ],
+  "integratedRemoteBaseline": "c5d7ba8fb72ed161d386a375e7f1f4503ecd12f3"
+}

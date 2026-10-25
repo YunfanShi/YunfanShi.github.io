@@ -1,5 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- User-provided signed covers use their original URLs without an optimization proxy. */
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { siteConfirm } from '@/lib/site-dialog';
 import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
@@ -455,7 +457,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
 
   function readEmergencyPosition(book: NovelBook): ReadingPosition {
     try {
-      const value = JSON.parse(localStorage.getItem(`${POSITION_KEY_PREFIX}${book.id}`) || 'null') as Partial<ReadingPosition> | null;
+      const value = JSON.parse(workspaceStorage.getItem(`${POSITION_KEY_PREFIX}${book.id}`) || 'null') as Partial<ReadingPosition> | null;
       if (value && Number.isInteger(value.chapterIndex) && Number(value.chapterIndex) >= 0 && Number(value.chapterIndex) < book.chapterCount) {
         return {
           chapterIndex: Number(value.chapterIndex),
@@ -531,7 +533,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     const nextBook = { ...activeBook, currentChapter: index, chapterProgress: position.chapterProgress, chapterScrollTop: position.scrollTop, anchorParagraph: position.anchorParagraph, anchorOffsetRatio: position.anchorOffsetRatio, positionUpdatedAt: now, overallProgress: overallProgress(index, position.chapterProgress), lastReadAt: now };
     setBooks((items) => items.map((book) => book.id === nextBook.id ? nextBook : book));
     await persistBook(nextBook);
-    try { localStorage.setItem(`${POSITION_KEY_PREFIX}${nextBook.id}`, JSON.stringify(restorePositionRef.current)); } catch { /* IndexedDB remains the durable fallback. */ }
+    try { workspaceStorage.setItem(`${POSITION_KEY_PREFIX}${nextBook.id}`, JSON.stringify(restorePositionRef.current)); } catch { /* IndexedDB remains the durable fallback. */ }
     requestAnimationFrame(() => requestAnimationFrame(restoreReaderPosition));
   }
 
@@ -622,7 +624,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     const next = { ...activeBook, currentChapter: chapter.index, chapterProgress: position.chapterProgress, chapterScrollTop: position.scrollTop, anchorParagraph: position.anchorParagraph, anchorOffsetRatio: position.anchorOffsetRatio, positionUpdatedAt: position.updatedAt, overallProgress: overallProgress(chapter.index, position.chapterProgress), lastReadAt: position.updatedAt };
     setBooks((items) => items.map((book) => book.id === next.id ? next : book));
     void persistBook(next);
-    try { localStorage.setItem(`${POSITION_KEY_PREFIX}${next.id}`, JSON.stringify(position)); } catch { /* IndexedDB remains the durable fallback. */ }
+    try { workspaceStorage.setItem(`${POSITION_KEY_PREFIX}${next.id}`, JSON.stringify(position)); } catch { /* IndexedDB remains the durable fallback. */ }
   }
 
   function saveCurrentPosition() {
@@ -635,7 +637,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     updatePageStatus();
     if (activeBook) {
       const position = captureReadingPosition();
-      if (position) try { localStorage.setItem(`${POSITION_KEY_PREFIX}${activeBook.id}`, JSON.stringify(position)); } catch { /* Ignore emergency bookmark failures. */ }
+      if (position) try { workspaceStorage.setItem(`${POSITION_KEY_PREFIX}${activeBook.id}`, JSON.stringify(position)); } catch { /* Ignore emergency bookmark failures. */ }
     }
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => persistPosition(), 450);
@@ -804,7 +806,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     };
     await persistBook(nextBook);
     if (bootstrap.userId) await uploadCloudBook(bootstrap.userId, nextBook, normalized).catch(() => undefined);
-    if (resetPosition) try { localStorage.removeItem(`${POSITION_KEY_PREFIX}${book.id}`); } catch { /* IndexedDB has already been reset. */ }
+    if (resetPosition) try { workspaceStorage.removeItem(`${POSITION_KEY_PREFIX}${book.id}`); } catch { /* IndexedDB has already been reset. */ }
     setBooks((items) => items.map((item) => item.id === nextBook.id ? nextBook : item));
     setEditorChapters(normalized);
     setMessage(status);
@@ -876,7 +878,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
         ]);
       }
     }
-    try { localStorage.removeItem(`${POSITION_KEY_PREFIX}${book.id}`); } catch { /* The IndexedDB deletion already succeeded. */ }
+    try { workspaceStorage.removeItem(`${POSITION_KEY_PREFIX}${book.id}`); } catch { /* The IndexedDB deletion already succeeded. */ }
     setBooks((items) => items.filter((item) => item.id !== book.id));
     setMessage(storeBook ? `已将《${book.title}》移出书架，阅读进度仍保存在云端。` : `已删除《${book.title}》。`);
   }

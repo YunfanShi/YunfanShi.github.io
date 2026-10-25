@@ -14,7 +14,7 @@ export function parseLocalValue(raw:string|null):unknown {
 /** All Schedule writers share this lock, including resumable-study completion. */
 export async function persistLocalEdit(storage:LocalEditStorage,key:string,base:unknown,next:unknown,
   lock?: <T>(name:string,work:()=>Promise<T>)=>Promise<T>):Promise<unknown> {
-  const work=async()=>persistLocalEditNow(storage,key,base,next);
+  const work=async()=>{const result=persistLocalEditNow(storage,key,base,next);if('flush'in storage)await (storage as LocalEditStorage&{flush:()=>Promise<void>}).flush();return result;};
   return lock ? lock('jackyun:local-edit:'+key,work) : work();
 }
 

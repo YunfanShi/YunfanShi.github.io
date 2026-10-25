@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect, useState } from 'react';
 
@@ -9,7 +11,7 @@ const defaults: Customization = { accent: 'blue', cornerStyle: 'rounded' };
 
 function readCustomization(): Customization {
   try {
-    const saved = JSON.parse(localStorage.getItem('jackyun_interface_customization') || '{}') as Partial<Customization>;
+    const saved = JSON.parse(workspaceStorage.getItem('jackyun_interface_customization') || '{}') as Partial<Customization>;
     return { accent: ['green', 'purple', 'orange'].includes(saved.accent ?? '') ? saved.accent as Accent : 'blue', cornerStyle: saved.cornerStyle === 'soft' ? 'soft' : 'rounded' };
   } catch { return defaults; }
 }
@@ -17,8 +19,8 @@ function readCustomization(): Customization {
 function applyCustomization(value: Customization) {
   document.documentElement.dataset.accent = value.accent;
   document.documentElement.dataset.cornerStyle = value.cornerStyle;
-  localStorage.setItem('jackyun_interface_customization', JSON.stringify(value));
-  localStorage.removeItem('jackyun_hide_homepage_ai');
+  workspaceStorage.setItem('jackyun_interface_customization', JSON.stringify(value));
+  workspaceStorage.removeItem('jackyun_hide_homepage_ai');
 }
 
 export default function AiVisibilityControl() {

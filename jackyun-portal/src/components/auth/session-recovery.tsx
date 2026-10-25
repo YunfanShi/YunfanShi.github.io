@@ -49,7 +49,7 @@ export default function SessionRecovery({ loginPage = false }: { loginPage?: boo
     const trigger = () => void retry();
     const { data: subscription } = createClient().auth.onAuthStateChange((event, session) => {
       // SDK callbacks run inside its auth lock; defer verification until released.
-      if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) queueMicrotask(trigger);
+      if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) queueMicrotask(()=>{window.dispatchEvent(new Event('jackyun-auth-recovered'));trigger();});
     });
     void retry();
     window.addEventListener('online', trigger);

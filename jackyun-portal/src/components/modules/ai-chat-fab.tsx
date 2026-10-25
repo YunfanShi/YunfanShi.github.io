@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -183,7 +185,7 @@ function truncateConversation(conv: Conversation): Conversation {
 function loadConversations(): Conversation[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = workspaceStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const conversations = JSON.parse(raw) as Conversation[];
     const repaired = conversations.map((conversation) => ({
@@ -200,18 +202,18 @@ function loadConversations(): Conversation[] {
 function saveConversations(convs: Conversation[]): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(convs));
+    workspaceStorage.setItem(STORAGE_KEY, JSON.stringify(convs));
   } catch { /* localStorage full */ }
 }
 
 function loadActiveId(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(ACTIVE_ID_KEY);
+  return workspaceStorage.getItem(ACTIVE_ID_KEY);
 }
 
 function saveActiveId(id: string): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(ACTIVE_ID_KEY, id);
+  workspaceStorage.setItem(ACTIVE_ID_KEY, id);
 }
 
 // ── Page Quick Actions ─────────────────────────────────────────────────────
@@ -789,7 +791,7 @@ export default function AiChatFab({
     if (embedded) return;
     const fallback: FabPosition = { x: window.innerWidth - 64, y: window.innerHeight - 72, dock: 'right' };
     try {
-      const saved = JSON.parse(localStorage.getItem(FAB_POSITION_KEY) || 'null') as FabPosition | null;
+      const saved = JSON.parse(workspaceStorage.getItem(FAB_POSITION_KEY) || 'null') as FabPosition | null;
       const initial = clampFabPosition(saved ?? fallback);
       liveFabPositionRef.current = initial;
       queueMicrotask(() => setFabPosition(initial));
@@ -814,7 +816,7 @@ export default function AiChatFab({
 
   useEffect(() => {
     if (!fabPosition || embedded) return;
-    try { localStorage.setItem(FAB_POSITION_KEY, JSON.stringify(fabPosition)); } catch {}
+    try { workspaceStorage.setItem(FAB_POSITION_KEY, JSON.stringify(fabPosition)); } catch {}
   }, [fabPosition, embedded]);
 
   const moveFab = useCallback((event: Pick<PointerEvent, 'clientX' | 'clientY' | 'preventDefault'>) => {
@@ -1552,9 +1554,9 @@ export default function AiChatFab({
         let snapshotBefore: string | null = null;
         if (highRisk) {
           if (tc.tool === 'manage_goal') {
-            snapshotBefore = localStorage.getItem('jackyun_goal_data') || localStorage.getItem('gt_v6');
+            snapshotBefore = workspaceStorage.getItem('jackyun_goal_data') || workspaceStorage.getItem('gt_v6');
           } else if (tc.tool === 'manage_countdown') {
-            snapshotBefore = localStorage.getItem('jackyun_igcountdown');
+            snapshotBefore = workspaceStorage.getItem('jackyun_igcountdown');
           }
         }
 
@@ -1568,11 +1570,11 @@ export default function AiChatFab({
         // 高风险工具执行后：保存 before/after 快照到 localStorage
         if (highRisk && snapshotBefore !== null) {
           const snapshotKey = `jackyun-savepoint-${convId}`;
-          const existing = JSON.parse(localStorage.getItem(snapshotKey) || '{"records":[]}');
+          const existing = JSON.parse(workspaceStorage.getItem(snapshotKey) || '{"records":[]}');
           const after = tc.tool === 'manage_goal'
-            ? localStorage.getItem('jackyun_goal_data') || localStorage.getItem('gt_v6')
+            ? workspaceStorage.getItem('jackyun_goal_data') || workspaceStorage.getItem('gt_v6')
             : tc.tool === 'manage_countdown'
-              ? localStorage.getItem('jackyun_igcountdown')
+              ? workspaceStorage.getItem('jackyun_igcountdown')
               : null;
           existing.records = existing.records || [];
           existing.records.push({
@@ -1584,7 +1586,7 @@ export default function AiChatFab({
           });
           // 最多保留最近 20 条快照
           if (existing.records.length > 20) existing.records.splice(0, existing.records.length - 20);
-          localStorage.setItem(snapshotKey, JSON.stringify(existing));
+          workspaceStorage.setItem(snapshotKey, JSON.stringify(existing));
         }
       }
 
@@ -1594,7 +1596,7 @@ export default function AiChatFab({
 
     // 到达上限但仍有后续 → 显示"继续执行"按钮
     if (loopCount >= effectiveMaxLoops) {
-      localStorage.setItem(`jackyun-continue-${convId}`, JSON.stringify({ apiMessages }));
+      workspaceStorage.setItem(`jackyun-continue-${convId}`, JSON.stringify({ apiMessages }));
       addSystemMessage(`⚠️ 已完成 ${effectiveMaxLoops} 轮推理。`, convId);
     }
 

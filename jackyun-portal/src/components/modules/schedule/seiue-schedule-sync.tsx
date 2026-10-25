@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LearningTask } from '@/lib/learning/schedule-control';
@@ -10,7 +12,7 @@ const EMPTY: SeiueSnapshot = { lessons: [], todos: [], calendar: [], syncedAt: '
 const PREF = 'jackyun:seiue-course-review:v1';
 function courseKey(subject: string) { return subject.trim().toLocaleLowerCase().replace(/\s+/g, ' ').slice(0, 200); }
 function readPrefs(accountId: string): Record<string, boolean> {
-  try { const value = JSON.parse(localStorage.getItem(`${PREF}:${accountId}`) ?? '{}'); return value && typeof value === 'object' ? value : {}; } catch { return {}; }
+  try { const value = JSON.parse(workspaceStorage.getItem(`${PREF}:${accountId}`) ?? '{}'); return value && typeof value === 'object' ? value : {}; } catch { return {}; }
 }
 function todoDetails(todo: SeiueSnapshot['todos'][number]) {
   return [todo.kind === 'assignment' ? (todo.assignmentType ?? '作业/资料') : '选课截止', todo.courseName, todo.creatorName ? `布置人：${todo.creatorName}` : '', todo.createdAt ? `布置时间：${todo.createdAt.slice(0, 16)}` : ''].filter(Boolean).join(' · ');
@@ -62,7 +64,7 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
     const next = { ...prefs, [courseKey(subject)]: enabled };
     if (accountId) {
       setPrefsByAccount(current => ({ ...current, [accountId]: next }));
-      localStorage.setItem(`${PREF}:${accountId}`, JSON.stringify(next));
+      workspaceStorage.setItem(`${PREF}:${accountId}`, JSON.stringify(next));
     }
   }
   if (!accounts.length) return null;

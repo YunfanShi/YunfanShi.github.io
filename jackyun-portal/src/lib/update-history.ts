@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.44.0', date: '2026-10-25', dateLabel: '2026 年 10 月 25 日', title: '同步可靠性升级', summary: '本机事务保存、统一故障恢复与可恢复的增量同步协议。', categories: ['稳定性'], accent: 'blue', highlights: ['本机内容与待上传操作一起持久化，失败时保留恢复副本。', '云端操作回执防止重复处理，恢复过程遵守退避、熔断与账号权限。', '增量协议按服务端能力启用，兼容旧客户端；备份独立恢复。'] },
   { version: '3.43.0', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: 'SEIUE 未完成任务与手表日程', summary: '日程只显示明确未完成的 SEIUE 任务，并补充截止时间、课程组、任务类型和布置人；手表端可查看待办详情并接收截止提醒。', categories: ['学习体验', '平台体验'], accent: 'blue', featured: true, highlights: ['已完成、已忽略、已失效和未知状态不会被误标为待办。', '作业/资料卡显示截止时间、课程组、类型、布置人和任务说明；仍由用户跳转 SEIUE 查看或提交。', '手表通过 JackYun 服务端读取当前账户的加密 SEIUE 凭据，不向设备返回 Token；待办只进入只读日程，不进入可写任务操作队列。'] },
   { version: '3.42.10', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: '同步恢复边界测试补全', summary: '验证 Main 新增的 Supabase 只读恢复包装器不会重放写入或已取消请求。', categories: ['稳定性'], accent: 'blue', highlights: ['覆盖短暂网络错误、503 与有限重试、429 Retry-After、稳定错误和 Auth 路径。', '写入、非 PostgREST 请求、调用方取消及未知异常均验证为不重试。', '仅更新安全恢复测试覆盖，不改变本地待上传队列与数据。'] },
   { version: '3.42.9', date: '2026-10-24', dateLabel: '2026 年 10 月 24 日', title: '同步恢复与 SEIUE 连接', summary: '合入 Main 的安全只读恢复机制，并保持 SEIUE 课程、待办与校历同步。', categories: ['稳定性', '学习体验'], accent: 'blue', highlights: ['账号状态读取只在 GET/HEAD 只读场景有限重试；同步写入不自动重放，401/403 仍立即拒绝。', '同一已验证会话的并发账号状态查询合并，短暂上游异常不再立刻让本地同步初始化失败。', '失败诊断只记录允许字段，不上传学习内容、原始错误正文或凭据；失败不会清空本机待上传队列或 SEIUE 上次成功快照。'] },

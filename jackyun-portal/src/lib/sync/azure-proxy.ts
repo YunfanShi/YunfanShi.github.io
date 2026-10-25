@@ -43,6 +43,8 @@ export async function forwardAzureSync(request: NextRequest): Promise<NextRespon
   }
   const headers = new Headers({ Authorization: `Bearer ${session.access_token}`, 'X-Request-Id':requestId });
   const reason=request.headers.get('x-sync-reason');
+  const expectedAccount=request.headers.get('x-sync-account');
+  if(expectedAccount&&/^[0-9a-f-]{36}$/i.test(expectedAccount))headers.set('X-Sync-Account',expectedAccount);
   if(reason && ['manual','periodic','edit','online','resume'].includes(reason))headers.set('X-Sync-Reason',reason);
   const contentType = request.headers.get('content-type');
   const origin = request.headers.get('origin');
@@ -80,6 +82,7 @@ export async function forwardAzureSync(request: NextRequest): Promise<NextRespon
       'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'X-Request-Id': upstream.headers.get('x-request-id') ?? requestId,
+      ...(upstream.headers.get('retry-after') ? {'Retry-After':upstream.headers.get('retry-after')!.slice(0,128)}:{}),
     } });
   } catch (error) {
     trace('upstream_fetch',503,error);

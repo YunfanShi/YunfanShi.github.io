@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnalyzedQuestion, QuizQuestion, QuestionOption, QuestionType } from '@/types/quiz';
@@ -155,14 +157,14 @@ export default function QuizApp() {
   useEffect(() => {
     const consumeAiCommand = () => {
       try {
-        const raw = localStorage.getItem('quizwise_ai_command');
+        const raw = workspaceStorage.getItem('quizwise_ai_command');
         if (!raw) return;
         const command = JSON.parse(raw) as { action?: string; text?: string };
         if (command.action !== 'analyze' || !command.text?.trim()) return;
-        localStorage.removeItem('quizwise_ai_command');
+        workspaceStorage.removeItem('quizwise_ai_command');
         void handleAnalyze(command.text);
       } catch {
-        localStorage.removeItem('quizwise_ai_command');
+        workspaceStorage.removeItem('quizwise_ai_command');
       }
     };
     consumeAiCommand();

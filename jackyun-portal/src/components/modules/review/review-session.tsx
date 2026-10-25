@@ -69,7 +69,7 @@ export default function ReviewSession({ userId, initialSnapshot }: { userId: str
         const result = await runOfflineMutation(userId, 'review.attempt', {
           reviewItemId: current.id, quality, answer,
           durationSeconds: startedAtRef.current === null ? 0 : Math.floor((Date.now() - startedAtRef.current) / 1000),
-        });
+        },{snapshot:{scope:'review',value:advanceReviewSnapshot(snapshot,current,quality,true)}});
         await advance(quality, result === 'queued');
         if (result === 'queued') setError('本机已记录，待同步');
       } catch (cause) {
@@ -83,7 +83,7 @@ export default function ReviewSession({ userId, initialSnapshot }: { userId: str
     operationInFlight.current = true;
     startTransition(async () => {
       try {
-        const result = await runOfflineMutation(userId, 'review.archive', { reviewItemId: current.id });
+        const result = await runOfflineMutation(userId, 'review.archive', { reviewItemId: current.id },{snapshot:{scope:'review',value:advanceReviewSnapshot(snapshot,current,null,true)}});
         await advance(null, result === 'queued');
         if (result === 'queued') setError('本机已记录，待同步');
       } catch (cause) {

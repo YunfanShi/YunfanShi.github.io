@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
@@ -166,8 +168,8 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
     'ai_custom_endpoint',
   ];
 
-  var _origGetItem = localStorage.getItem.bind(localStorage);
-  localStorage.getItem = function(key) {
+  var _origGetItem = workspaceStorage.getItem.bind(localStorage);
+  workspaceStorage.getItem = function(key) {
     if (KNOWN_KEYS.indexOf(key) !== -1) {
       // Return placeholder so getKey()/aiKey() think it's configured
       return PLACEHOLDER;
@@ -178,7 +180,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
   // Also intercept direct property access via Storage prototype
   // Some scripts might use localStorage['ds_key'] instead of getItem
   var _origStorageGet = Object.getOwnPropertyDescriptor(Storage.prototype, 'getItem');
-  // Already handled above via localStorage.getItem override
+  // Already handled above via workspaceStorage.getItem override
 
   // ═══════════════════════════════════════════
   // 2. Request interception (fetch + XHR)
@@ -247,7 +249,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
     }
 
     try {
-      var savedConfig = JSON.parse(localStorage.getItem('jackyun-ai-config') || '{}');
+      var savedConfig = JSON.parse(workspaceStorage.getItem('jackyun-ai-config') || '{}');
       if (savedConfig.providerMode === 'browser') {
         var requestId = crypto.randomUUID();
         var requestBody = JSON.parse(proxyOptions.body || '{}');
@@ -470,7 +472,7 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
     const applied=(event:Event)=>{
       const keys=(event as CustomEvent<{keys?:string[]}>).detail?.keys??[];
       const child=iframeRef.current?.contentWindow;
-      if(child)for(const key of keys)child.dispatchEvent(new StorageEvent('storage',{key,storageArea:localStorage,newValue:localStorage.getItem(key)}));
+      if(child)for(const key of keys)child.dispatchEvent(new StorageEvent('storage',{key,storageArea:localStorage,newValue:workspaceStorage.getItem(key)}));
     };
     window.addEventListener('message',edit);window.addEventListener(CLOUD_STATE_APPLIED_EVENT,applied);
     return()=>{window.removeEventListener('message',edit);window.removeEventListener(CLOUD_STATE_APPLIED_EVENT,applied);};

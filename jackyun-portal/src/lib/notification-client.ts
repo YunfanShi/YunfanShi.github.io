@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useCallback, useSyncExternalStore } from 'react';
 import { EMPTY_NOTIFICATION_SNAPSHOT, notificationRefreshDue, type NotificationSnapshot } from './notification-snapshot';
@@ -25,7 +27,7 @@ class NotificationStore {
   // The existing sync exclusion for "broadcast" also applies on the deployed Azure backend.
   private metadataKey = () => `jackyun:notification-broadcast:v1:${this.userId}`;
   private sharedAttempt = () => {
-    try { return Number(localStorage.getItem(this.metadataKey())) || -Infinity; } catch { return this.lastAttempt; }
+    try { return Number(workspaceStorage.getItem(this.metadataKey())) || -Infinity; } catch { return this.lastAttempt; }
   };
   private receive = (event: MessageEvent<Message>) => {
     const message = event.data;
@@ -68,7 +70,7 @@ class NotificationStore {
       clearInterval(this.timer);
       this.controller?.abort();
       if (this.controller) {
-        try { if (Number(localStorage.getItem(this.metadataKey())) === this.lastAttempt) localStorage.removeItem(this.metadataKey()); } catch { /* Storage may be disabled. */ }
+        try { if (Number(workspaceStorage.getItem(this.metadataKey())) === this.lastAttempt) workspaceStorage.removeItem(this.metadataKey()); } catch { /* Storage may be disabled. */ }
       }
       this.channel?.close(); this.channel = null;
       window.removeEventListener('online', this.resume);
@@ -88,7 +90,7 @@ class NotificationStore {
     const request = async () => {
       if (!eligible() || this.stopped) return;
       this.lastAttempt = Date.now();
-      try { localStorage.setItem(this.metadataKey(), String(this.lastAttempt)); } catch { /* Single-tab gate still works. */ }
+      try { workspaceStorage.setItem(this.metadataKey(), String(this.lastAttempt)); } catch { /* Single-tab gate still works. */ }
       const controller = new AbortController(); this.controller = controller;
       const timeout = setTimeout(() => controller.abort(), 30_000);
       const started = performance.now();
@@ -114,21 +116,21 @@ class NotificationStore {
         const key = `${this.metadataKey()}:lease`, token = crypto.randomUUID();
         let acquired = false;
         try {
-          const previous = JSON.parse(localStorage.getItem(key) ?? 'null');
+          const previous = JSON.parse(workspaceStorage.getItem(key) ?? 'null');
           if (previous?.expires > Date.now()) return;
-          localStorage.setItem(key, JSON.stringify({ token, expires: Date.now() + 20_000 }));
+          workspaceStorage.setItem(key, JSON.stringify({ token, expires: Date.now() + 20_000 }));
           await new Promise(resolve => setTimeout(resolve, 50));
-          acquired = JSON.parse(localStorage.getItem(key) ?? 'null')?.token === token;
+          acquired = JSON.parse(workspaceStorage.getItem(key) ?? 'null')?.token === token;
           if (acquired) await request();
         } catch { await request(); } finally {
-          try { if (acquired && JSON.parse(localStorage.getItem(key) ?? 'null')?.token === token) localStorage.removeItem(key); } catch { /* Private browsing can disable storage. */ }
+          try { if (acquired && JSON.parse(workspaceStorage.getItem(key) ?? 'null')?.token === token) workspaceStorage.removeItem(key); } catch { /* Private browsing can disable storage. */ }
         }
       }
     } finally { this.pending = false; }
   };
 }
 
-// Client-side store only; no user payload is persisted in localStorage.
+// Client-side store only; no user payload is persisted in workspaceStorage.
 const stores = new Map<string, NotificationStore>();
 const emptySubscribe = () => () => {};
 export function useNotificationSnapshot(userId: string | null) {

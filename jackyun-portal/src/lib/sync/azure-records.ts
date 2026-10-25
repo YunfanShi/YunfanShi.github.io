@@ -36,7 +36,15 @@ export function createAzureRecordClient({ endpoint, token, fetchImpl = fetch }: 
         body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store', redirect: 'error',
         signal: AbortSignal.timeout(45_000) });
     } catch { throw Error('Azure 同步服务不可用，原始导入文件与本地数据应保留。'); }
-    if (!response.ok) throw Object.assign(Error(`Azure 同步请求失败（${response.status}），请稍后重试。`), { status: response.status });
+    if (!response.ok) {
+      let diagnostic:Record<string,unknown>={};
+      const reader=response.body?.getReader();
+      if(reader){try{let size=0;const chunks:Uint8Array[]=[];for(;;){const item=await reader.read();if(item.done)break;size+=item.value.length;if(size>4096)break;chunks.push(item.value);}if(size<=4096)diagnostic=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{}finally{await reader.cancel();reader.releaseLock();}}
+      console.warn('[sync-backup]',{requestId,upstreamRequestId:response.headers.get('x-request-id'),route:new URL(path,base).pathname,status:response.status,
+        code:typeof diagnostic.code==='string'&&/^[A-Z0-9_]{1,64}$/.test(diagnostic.code)?diagnostic.code:'UNAVAILABLE',
+        failureClass:['application','database_schema','database_credentials','database_connection','database_unavailable'].includes(String(diagnostic.failureClass))?diagnostic.failureClass:'unknown'});
+      throw Object.assign(Error(`Azure 同步请求失败（${response.status}），请稍后重试。`), { status: response.status });
+    }
     const reader = response.body?.getReader();
     if (!reader) throw Error('Azure 同步响应为空。');
     const chunks: Uint8Array[] = []; let size = 0;

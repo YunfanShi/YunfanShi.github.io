@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '../sync/repository.ts';
+
 
 import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './pages.ts';
 
@@ -105,10 +107,10 @@ export async function saveLocalBackup(userId: string, page: BackupPage, values: 
 /** Await this before an intentional sign-out; pagehide cannot await IndexedDB. */
 export async function saveCurrentLocalBackups(userId: string): Promise<void> {
   const snapshot: Record<string, string> = {};
-  for (let index = 0; index < localStorage.length; index += 1) {
-    const key = localStorage.key(index);
+  for (let index = 0; index < workspaceStorage.length; index += 1) {
+    const key = workspaceStorage.key(index);
     if (!key || !isBackupableLegacyKey(key)) continue;
-    const value = localStorage.getItem(key);
+    const value = workspaceStorage.getItem(key);
     if (value !== null) snapshot[key] = value;
   }
   const pages = new Set(Object.keys(snapshot).map(legacyBackupPage));

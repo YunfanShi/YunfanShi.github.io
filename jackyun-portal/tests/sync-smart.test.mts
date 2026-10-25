@@ -139,7 +139,7 @@ test('backend accepts compressed uploads and advertises capability with negotiat
 
 test('persistent operation numbers survive empty queues and serialize concurrent tabs',async()=>{
   const exports={} as typeof Outbox;
-  const require=(name:string)=>name.endsWith('/batch')?{compactSyncOperations}:{reconcileAcknowledgment};
+  const require=(name:string)=>name.includes('/batch')?{compactSyncOperations}:{reconcileAcknowledgment};
   runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/sync/outbox.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require,indexedDB:new IDBFactory(),crypto});
   const op={id:crypto.randomUUID(),key,value:1,baseRevision:0,baseHash:null,baseValue:null,deleted:false,clientUpdatedAt:'2026-10-14T00:00:00Z'};
   await exports.queueOperation(op);const first=(await exports.getOutbox())[0].sequence;await exports.removeOperation(op.id);

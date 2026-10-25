@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useState, useEffect, useRef } from 'react';
 import QuizApp from '@/components/modules/quiz/quiz-app';
@@ -13,7 +15,7 @@ export default function QuizPage() {
   const selectedFromDialog = useRef(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem(LS_VERSION_KEY);
+    const saved = workspaceStorage.getItem(LS_VERSION_KEY);
     queueMicrotask(() => {
       if (saved === 'react' || saved === 'html') setVersion(saved);
       else {
@@ -25,7 +27,7 @@ export default function QuizPage() {
 
   const selectVersion = (v: 'react' | 'html') => {
     selectedFromDialog.current = true;
-    localStorage.setItem(LS_VERSION_KEY, v);
+    workspaceStorage.setItem(LS_VERSION_KEY, v);
     setVersion(v);
     setShowDialog(false);
     selectedFromDialog.current = false;
@@ -33,7 +35,7 @@ export default function QuizPage() {
 
   const handleDialogOpenChange = (open: boolean) => {
     if (!open && !selectedFromDialog.current) {
-      localStorage.setItem(LS_VERSION_KEY, 'react');
+      workspaceStorage.setItem(LS_VERSION_KEY, 'react');
       setVersion(current => current ?? 'react');
     }
     setShowDialog(open);
@@ -42,12 +44,12 @@ export default function QuizPage() {
   // Also save preference to quiz_settings if available
   const syncToSettings = (v: 'react' | 'html') => {
     try {
-      const parsed = JSON.parse(localStorage.getItem('quizwise_current_questions') || '{}');
+      const parsed = JSON.parse(workspaceStorage.getItem('quizwise_current_questions') || '{}');
       const current = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
       current.versionPreference = v;
-      localStorage.setItem('quizwise_current_questions', JSON.stringify(current));
+      workspaceStorage.setItem('quizwise_current_questions', JSON.stringify(current));
     } catch {
-      localStorage.setItem('quizwise_current_questions', JSON.stringify({ versionPreference: v }));
+      workspaceStorage.setItem('quizwise_current_questions', JSON.stringify({ versionPreference: v }));
     }
   };
 

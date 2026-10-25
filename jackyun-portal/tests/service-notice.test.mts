@@ -28,5 +28,5 @@ test('transient connection errors stay pending until actual sync attempts repeat
   assert.equal(syncFailureStatus(new SyncHttpError('down', 503), true, 2), 'offline_pending');
   assert.equal(syncFailureStatus(new SyncHttpError('down', 503), true, 3), 'server_unavailable');
   assert.equal(syncFailureStatus(new TypeError('offline'), false, 9), 'offline_pending');
-  assert.equal(syncFailureStatus(new SyncHttpError('auth', 401), true, 3), 'error');
+  assert.equal(syncFailureStatus(new SyncHttpError('auth', 401), true, 3), 'auth_required');
 });

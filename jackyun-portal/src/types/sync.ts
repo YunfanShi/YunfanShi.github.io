@@ -1,4 +1,4 @@
-export type SyncStatus = 'guest' | 'synced' | 'syncing' | 'offline_pending' | 'server_unavailable' | 'conflict' | 'error';
+export type SyncStatus = 'guest' | 'synced' | 'syncing' | 'offline_pending' | 'server_unavailable' | 'conflict' | 'error' | 'auth_required' | 'access_denied';
 
 export interface SyncDevice {
   id: string;
@@ -37,6 +37,7 @@ export interface SyncSubmission {
   body: string;
   operations: SyncOperation[];
   compressed: boolean;
+  protocol?: 3 | 4;
 }
 export interface SyncDownloadPart {
   key: string;
@@ -89,6 +90,8 @@ export interface SyncStatusDetail {
   error?: string;
   progress?: string;
   consecutiveFailures?: number;
+  localDurability?: 'saving' | 'saved' | 'storage_error' | 'projection_degraded';
+  lanes?: Partial<Record<'workspace'|'business'|'backup',{pending?:number;lastSuccessAt?:string;error?:string}>>;
 }
 
 export interface DataArchiveV2<TTable extends string = string> {

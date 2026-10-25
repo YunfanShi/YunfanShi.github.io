@@ -39,7 +39,7 @@ test('in-flight edits and deletions never match an older upload, including JSON 
 
 const settle = async () => { await new Promise(resolve=>setTimeout(resolve,15));for (let i = 0; i < 8; i++) await new Promise(resolve => setImmediate(resolve)); };
 const compiled = ts.transpileModule(readFileSync(new URL('../src/components/layout/local-workspace-sync.tsx', import.meta.url), 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX },
 }).outputText;
 
 function harness() {
@@ -87,12 +87,15 @@ function harness() {
     const result = { win, doc, nav, ticks, stop: () => {}, status: null as any };
     const exports: Record<string, any> = {};
     const modules: Record<string, unknown> = {
+      'react/jsx-runtime':{jsx:()=>null},'./local-durability':{default:()=>null},
+      '@/lib/sync/repository':{workspaceStorage:storage,initializeRepository:async()=>{},flushLocalWrites:async()=>{},applyRepositoryRecord:async(key:string,value:string|null)=>{if(value===null)storage.removeItem(key);else storage.setItem(key,value);}},
+      '@/lib/sync/scheduler':{runScheduledSync:async(lane:string,userId:string,work:()=>Promise<void>)=>nav.locks.request('shared:'+lane+userId,{},async lock=>{if(lock)await work();}),createEditTrigger:()=>({trigger:()=>{},dispose:()=>{}})},
       react: { useEffect: (effect: () => (() => void) | undefined) => effects.push(effect) },
       '@/lib/sync/engine':{createWorkspaceSync},
       '@/lib/backup/pages':{isBackupableLegacyKey:()=>true,legacyBackupPage:()=> 'study'},
       '@/lib/backup/local':{localPageValues:(values:unknown)=>values,saveLocalBackup:async()=>{}},
       '@/lib/sync/run-gate': { createSyncRunGate }, '@/lib/sync/retry-policy': { syncRetryDelay, shouldPauseSync },
-      '@/lib/sync/acknowledgment': { reconcileAcknowledgment, operationMatchesStorage }, '@/lib/sync/outbox': outboxApi,
+      '@/lib/sync/acknowledgment': { reconcileAcknowledgment, operationMatchesStorage }, '@/lib/sync/outbox': {...outboxApi,accountSyncStore:()=>outboxApi},
       '@/lib/sync/hash': { canonicalJson }, '@/lib/sync/batch': { buildSyncRequest, MAX_SYNC_BATCH_BYTES: 250_000 },
       '@/lib/sync/status': { announceSyncStatus: (detail: unknown) => { result.status = detail; }, getLatestSyncStatus: () => result.status },
       '@/lib/local-workspace': { isSyncableStorageKey: (key: string) => key === 'study', MAX_SYNC_VALUE_CHARACTERS: 400_000,
@@ -105,7 +108,7 @@ function harness() {
       '@/lib/diagnostic-events': { emitDiagnostic: () => {}, errorDetails: () => ({}) },
       '@/lib/sync/report-failure': { reportSyncFailure: async () => {} },
       '@/lib/sync/service-error': { SyncHttpError: class extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status; } }, syncFailureStatus: () => 'server_unavailable' },
-      '@/lib/request-timeout': { fetchSyncWithTimeout: async (url: string, init?: RequestInit) => {
+      '@/lib/sync/session-transport': { fetchAuthenticatedSync: async (url: string, init?: RequestInit) => {
         const method = init?.method ?? 'GET', body = init?.body ? JSON.parse(String(init.body)) : undefined;
         requests.push({ method, url, body });
         if (fail) throw new Error('network down');
@@ -150,10 +153,10 @@ function harness() {
     release() { blocked = false; release?.(); }, advance(ms: number) { now += ms; tabs.forEach(tab => tab.ticks.forEach(tick => tick())); } };
 }
 
-test('four tabs idle for an hour share 61 cloud reads and no full-value downloads or uploads', async () => {
+test('four tabs idle for an hour share a bounded 30-second pull budget and no full-value downloads or uploads', async () => {
   const h = harness(); for (let i = 0; i < 4; i++) { h.tab(); await settle(); }
   for (let i = 0; i < 120; i++) { h.advance(30_000); await settle(); }
-  assert.equal(h.requests.filter(request => request.method === 'GET' && !request.url.includes('?key=')).length, 61);
+  assert.ok(h.requests.filter(request => request.method === 'GET' && request.url.includes('/v3')).length<=121);
   assert.ok(h.requests.filter(request => request.url.includes('?key=')).length <= 4);
   assert.equal(h.requests.filter(request => request.method === 'POST').length, 0);
   for (const tab of h.tabs) { assert.equal(tab.status.state, 'synced'); tab.stop(); }

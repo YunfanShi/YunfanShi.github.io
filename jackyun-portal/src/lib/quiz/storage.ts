@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { AnalyzedQuestion, QuizSession, QuizSettings } from '@/types/quiz';
 
@@ -73,7 +75,7 @@ async function setItem(key: string, value: unknown): Promise<void> {
 // Fallback to localStorage
 function lsGet<T>(key: string): T | null {
   try {
-    const raw = localStorage.getItem(`quizwise_${key}`);
+    const raw = workspaceStorage.getItem(`quizwise_${key}`);
     return raw ? (JSON.parse(raw) as T) : null;
   } catch {
     return null;
@@ -82,7 +84,7 @@ function lsGet<T>(key: string): T | null {
 
 function lsSet(key: string, value: unknown): void {
   try {
-    localStorage.setItem(`quizwise_${key}`, JSON.stringify(value));
+    workspaceStorage.setItem(`quizwise_${key}`, JSON.stringify(value));
   } catch {
     // ignore
   }

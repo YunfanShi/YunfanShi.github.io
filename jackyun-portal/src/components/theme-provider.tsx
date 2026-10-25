@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import { useEffect } from 'react';
 
@@ -8,7 +10,7 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     let theme: 'light' | 'gray' | 'dark' = 'light';
     try {
-      const saved = localStorage.getItem(THEME_KEY);
+      const saved = workspaceStorage.getItem(THEME_KEY);
       theme = saved === 'gray' || saved === 'dark' ? saved : 'light';
     } catch {}
     document.documentElement.dataset.theme = theme;

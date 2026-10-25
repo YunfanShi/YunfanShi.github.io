@@ -1,10 +1,12 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 import { useMemo, useState } from 'react';
 import { memoryCueCandidates, newMemoryCueOperations } from '@/lib/learning/memory-cue-import';
 import type { CueCreateOperation, LearningCatalogSubject, StudyCue } from '@/lib/learning/schedule-control';
 
 function readSource(key: string): unknown {
-  try { return JSON.parse(localStorage.getItem(key) ?? '[]'); }
+  try { return JSON.parse(workspaceStorage.getItem(key) ?? '[]'); }
   catch (error) { console.error('[Memory CUE import] Cannot read source', key, error); return []; }
 }
 export function MemoryCueImportDialog({ catalog, cues, onApply, onClose }: { catalog: LearningCatalogSubject[]; cues: StudyCue[]; onApply: (operations: CueCreateOperation[]) => unknown; onClose: () => void }) {

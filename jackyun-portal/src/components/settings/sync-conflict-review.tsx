@@ -1,4 +1,6 @@
 'use client';
+import { workspaceStorage } from '@/lib/sync/repository';
+
 
 import {useMemo,useState} from 'react';
 import {siteConfirm} from '@/lib/site-dialog';
@@ -49,7 +51,7 @@ export default function SyncConflictReview({conflict,localRaw,disabled,onSubmit}
   }
   async function submit(choice:SyncResolutionChoice,value?:unknown) {
     setError('');
-    if(window.localStorage.getItem(conflict.key)!==localRaw){setError('本机内容刚有修改，请先点击“刷新对比”，再提交最新结果。');return;}
+    if(workspaceStorage.getItem(conflict.key)!==localRaw){setError('本机内容刚有修改，请先点击“刷新对比”，再提交最新结果。');return;}
     const message=choice==='remote'?'将采用对比中的云端内容，本机当前内容会先备份。确认继续？'
       :'将把预览中的合并结果作为新版本上传。本机当前内容会先备份，上传前再次核对云端版本。确认继续？';
     if(!await siteConfirm(message).catch(cause=>{setError(cause instanceof Error?cause.message:'确认窗口无法打开，请重试。');return false;}))return;
