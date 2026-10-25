@@ -186,6 +186,10 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const onLane=(event:Event)=>{
       const lane=(event as CustomEvent<{userId:string;lane:string;state:string;nextAttemptAt:number;openUntil:number}>).detail;
       if(lane.userId!==userId||!['workspace','backup'].includes(lane.lane))return;
+      if(lane.lane==='workspace'&&lane.state==='auth_required'){
+        void publish('auth_required','同步等待登录或权限恢复，可点击立即同步重新核对；本机队列保留。');
+        return;
+      }
       const previous=recoveryTimers.get(lane.lane);if(previous)clearTimeout(previous);
       if(lane.state!=='waiting')return;
       recoveryTimers.set(lane.lane,setTimeout(()=>{

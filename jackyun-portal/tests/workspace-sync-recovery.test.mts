@@ -213,3 +213,10 @@ test('a stationary foreground page receives another device edit without focus or
   assert.equal(h.requests.filter(request => request.method === 'POST').length, 0);
   assert.equal(tab.status.state, 'synced'); tab.stop();
 });
+
+test('persisted auth pause publishes a retryable status instead of leaving initialization syncing',async()=>{
+ const h=harness(),tab=h.tab();await settle();
+ tab.win.dispatchEvent(Object.assign(new Event('jackyun-sync-lane'),{detail:{userId:'alice',lane:'workspace',state:'auth_required',nextAttemptAt:0,openUntil:0}}));
+ await settle();assert.equal(tab.status.state,'auth_required');
+ tab.win.dispatchEvent(new Event('jackyun-sync-retry'));await settle();assert.equal(tab.status.state,'synced');tab.stop();
+});

@@ -115,6 +115,13 @@ export const workspaceStorage={
   key(index:number):string|null {return [...new Set([...Array.from({length:projection().length},(_,i)=>projection().key(i)).filter((key):key is string=>key!==null),...memory.keys()])].filter(key=>workspaceStorage.getItem(key)!==null)[index]??null;},
   get length():number {return new Set([...Array.from({length:projection().length},(_,i)=>projection().key(i)).filter((key):key is string=>key!==null&&workspaceStorage.getItem(key)!==null),...[...memory].filter(([,value])=>value!==null).map(([key])=>key)]).size;},
 };
+/** Same-origin iframe Storage events are not consistently delivered to parents. */
+export function captureLegacyStorageEdit(key:string):void {
+  if(!isSyncableStorageKey(key))return;
+  const value=projection().getItem(key);
+  if(memory.has(key)&&memory.get(key)===value)return;
+  if(value===null)workspaceStorage.removeItem(key);else workspaceStorage.setItem(key,value);
+}
 /** Remote application persists first, then updates the compatibility projection. */
 export async function applyRepositoryRecord(key:string,value:string|null,expected?:string|null):Promise<void>{
   await flushLocalWrites();if(!await persistDocument(key,value,false,expected))throw Error('本机内容已变化，云端应用推迟到下一轮。');memory.set(key,value);await project(key,value);

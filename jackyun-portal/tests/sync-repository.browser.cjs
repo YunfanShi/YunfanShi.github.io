@@ -62,7 +62,10 @@ const loader=`const sources=${JSON.stringify(modules)},cache={};function load(na
   assert.ok(!frameScript.includes('workspaceStorage'),'iframe scripts cannot reference parent module variables');
   const iframeErrors=[];a.on('pageerror',error=>iframeErrors.push(error.message));
   await a.addScriptTag({content:frameScript});assert.deepEqual(iframeErrors,[]);
-  const output={passed:9,cases:['two-tab independent merge','browser reload retains local data and intent','legacy-write crash recovery','account projection isolation','original account restoration','business snapshot and operation atomic commit','business quota abort retains prior snapshot','account switch drains pending writes without circular initialization','legacy iframe injection executes without parent module references'],realAccount:false};
+  await a.evaluate(async()=>{localStorage.setItem('countdown_fixture','{"verified":true}');window.repository.captureLegacyStorageEdit('countdown_fixture');await window.repository.flushLocalWrites();});
+  assert.equal((await a.evaluate(()=>window.store.getDocuments())).find(r=>r.key==='countdown_fixture').value,'{"verified":true}');
+  assert.ok((await a.evaluate(()=>window.store.getOutbox())).some(r=>r.key==='countdown_fixture'));
+  const output={passed:10,cases:['two-tab independent merge','browser reload retains local data and intent','legacy-write crash recovery','account projection isolation','original account restoration','business snapshot and operation atomic commit','business quota abort retains prior snapshot','account switch drains pending writes without circular initialization','legacy iframe injection executes without parent module references','legacy edit message atomically captures a new key and intent'],realAccount:false};
   fs.mkdirSync('.migration-private',{recursive:true});fs.writeFileSync('.migration-private/sync-repository-browser.json',JSON.stringify(output,null,2));console.log(JSON.stringify(output));
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

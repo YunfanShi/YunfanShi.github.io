@@ -1,5 +1,5 @@
 'use client';
-import { workspaceStorage } from '@/lib/sync/repository';
+import { workspaceStorage,captureLegacyStorageEdit } from '@/lib/sync/repository';
 
 
 import { useEffect, useRef, useState } from 'react';
@@ -467,7 +467,10 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
   useEffect(()=>{
     const edit=(event:MessageEvent)=>{
       if(event.source!==iframeRef.current?.contentWindow || event.origin!==location.origin)return;
-      if(event.data?.type==='jackyun-storage-edit' && typeof event.data.key==='string' && isSyncableStorageKey(event.data.key))window.dispatchEvent(new Event('jackyun-sync-edit'));
+      if(event.data?.type==='jackyun-storage-edit' && typeof event.data.key==='string' && isSyncableStorageKey(event.data.key)){
+        captureLegacyStorageEdit(event.data.key);
+        window.dispatchEvent(new Event('jackyun-sync-edit'));
+      }
     };
     const applied=(event:Event)=>{
       const keys=(event as CustomEvent<{keys?:string[]}>).detail?.keys??[];

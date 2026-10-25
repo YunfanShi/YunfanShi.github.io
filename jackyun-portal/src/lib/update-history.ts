@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.44.3', date: '2026-10-25', dateLabel: '2026 年 10 月 25 日', title: '旧页面写入与暂停恢复', summary: '旧页面修改直接送入本机事务队列，权限暂停后保持可操作的重试状态。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['兼容 iframe 的修改通知会捕获实际新值，将内容与上传意图一起保存。', '恢复持久化暂停状态时显示等待核对，不再留下不可点击的“同步中”。'] },
   { version: '3.44.2', date: '2026-10-25', dateLabel: '2026 年 10 月 25 日', title: '轻量错误提示与旧页面修复', summary: '普通报错缩为一条紧凑提示，详情按需展开；修复旧页面存储桥接运行错误。', categories: ['稳定性', '平台体验'], accent: 'blue', featured: true, highlights: ['同时只显示一条小提示，8秒自动收起，重复错误合并；关闭后同类错误静默30分钟。', '错误码、复制日志和说明放进详情，不抢焦点；本机保存失败仍保留恢复入口。', '修复旧 iframe 页面误引用主页面仓库变量的问题。'] },
   { version: '3.44.1', date: '2026-10-25', dateLabel: '2026 年 10 月 25 日', title: '登录切换保存恢复', summary: '登录切换先完成原账号的本机事务，避免初始化互相等待。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['排队写入固定绑定创建时的仓库初始化，切换账号前完成原账号写入。', '恢复副本补充失败草稿；新增真实 IndexedDB 账号切换回归。'] },
   { version: '3.44.0', date: '2026-10-25', dateLabel: '2026 年 10 月 25 日', title: '同步可靠性升级', summary: '本机事务保存、统一故障恢复与可恢复的增量同步协议。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['本机内容与待上传操作一起持久化，失败时保留恢复副本。', '云端操作回执防止重复处理，恢复过程遵守退避、熔断与账号权限。', '增量协议按服务端能力启用，兼容旧客户端；备份独立恢复。'] },
