@@ -4,6 +4,31 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { isSeiueCalendarEventInWeek, normalizeSeiueCalendar, normalizeSeiueLessons, normalizeSeiueTodos, parseSeiueDateTime, parseSeiueHelperBundle, safeSeiueSite, seiueCourseReviewKey, type SeiueSnapshot } from '../src/lib/integrations/seiue.ts';
 import { getSeiueSnapshot, withSeiueSnapshot } from '../src/lib/integrations/seiue-snapshot-cache.ts';
+import { mergeSeiueTimelineSessions, type TimelineSession } from '../src/lib/learning/class-timeline.ts';
+
+test('a successful SEIUE week snapshot replaces stale local lesson placements without time-overlap guesses', () => {
+  const local: TimelineSession[] = [
+    { day: 1, start: '09:00', end: '09:45', course: { id: 'math', name: '数学', shortName: '数学', color: '#123456', review: false, sessions: [] } },
+    { day: 1, start: '09:00', end: '09:45', course: { id: 'english', name: '英语', shortName: '英语', color: '#654321', review: false, sessions: [] } },
+  ];
+  const moved: TimelineSession = { day: 5, start: '11:00', end: '11:45', source: 'seiue', adjustment: '调课', course: { id: 'seiue:occ-5', name: '数学', shortName: '数学', color: '#1677ff', review: false, sessions: [] } };
+  const authoritative = mergeSeiueTimelineSessions(local, [moved], true);
+  assert.deepEqual(authoritative.map(session => [session.day, session.course.name, session.source]), [[5, '数学', 'seiue']]);
+  assert.deepEqual(mergeSeiueTimelineSessions(local, [moved]).map(session => session.course.name), ['数学', '英语', '数学']);
+});
+
+test('exact lesson matches merge source labels; unrelated overlapping local lessons remain intact', () => {
+  const local: TimelineSession[] = [
+    { day: 2, start: '10:00', end: '10:45', location: 'A101', course: { id: 'math', name: '数学', color: '#123456', review: false, sessions: [] } },
+    { day: 2, start: '10:00', end: '10:45', course: { id: 'english', name: '英语', color: '#654321', review: false, sessions: [] } },
+  ];
+  const external: TimelineSession = { day: 2, start: '10:00', end: '10:45', source: 'seiue', course: { id: 'seiue:occ-2', name: '数学', color: '#1677ff', review: false, sessions: [] } };
+  const merged = mergeSeiueTimelineSessions(local, [external]);
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].source, 'merged');
+  assert.equal(merged[0].location, 'A101');
+  assert.equal(merged[1].course.name, '英语');
+});
 
 test('snapshot cache is scoped by account and selected week and preserves the last success on failure', () => {
   const monday: SeiueSnapshot = { lessons: [{ id: 'week-1', title: 'Algebra', subject: 'Math', date: '2026-10-20', start: '09:00', end: '09:45' }], todos: [], calendar: [], syncedAt: '2026-10-24T00:00:00.000Z' };
@@ -25,19 +50,22 @@ test('one-time browser-helper bundle accepts only bounded student credentials fo
   assert.equal(parseSeiueHelperBundle('x'.repeat(6001)), null);
 });
 
-test('SEIUE helper auto-detects only a bounded course request, keeps memory-only, and waits for a click to copy', () => {
+test('SEIUE helper is restricted to chalk-c3 and auto-copies only after JackYun starts the one-time flow', () => {
   const helper = readFileSync(new URL('../public/userscripts/seiue-connector.user.js', import.meta.url), 'utf8');
-  assert.match(helper, /@grant\s+none/);
-  assert.match(helper, /@version\s+1\.1\.1/);
+  assert.match(helper, /@grant\s+GM_setClipboard/);
+  assert.match(helper, /@version\s+1\.2\.0/);
   assert.match(helper, /@downloadURL\s+https:\/\/jackyun\.top\/userscripts\/seiue-connector\.user\.js/);
   assert.match(helper, /@updateURL\s+https:\/\/jackyun\.top\/userscripts\/seiue-connector\.user\.js/);
-  assert.match(helper, /@include\s+\/\^https:/);
-  assert.match(helper, /chalk-\[a-z0-9-\]/);
+  assert.match(helper, /@match\s+https:\/\/chalk-c3\.seiue\.com\/\*/);
+  assert.match(helper, /hostname\.toLowerCase\(\) !== 'chalk-c3\.seiue\.com'/);
   assert.match(helper, /https:\/\/api\.seiue\.com/);
   assert.match(helper, /let armed = true/);
+  assert.match(helper, /autoCopyRequested/);
+  assert.match(helper, /copyBundle\(true\)/);
+  assert.match(helper, /GM_setClipboard\(JSON\.stringify\(captured\), 'text'\)/);
   assert.match(helper, /installHooks\(\);\s*timeoutId = window\.setTimeout/);
   assert.match(helper, /copyButton\.addEventListener\('click', copyBundle\)/);
-  assert.match(helper, /navigator\.clipboard\.writeText/);
+  assert.match(helper, /navigator\.clipboard\.writeText/); // fallback for a user-triggered manual copy
   assert.match(helper, /60_000/);
   assert.ok(helper.includes('const EVENT_PATH = /^\\/chalk\\/calendar\\/personals'));
   assert.doesNotMatch(helper, /localStorage|sessionStorage|document\.cookie|GM_xmlhttpRequest|@connect|console\.(log|info|warn|error)/i);
@@ -88,11 +116,18 @@ test('SEIUE connection instructions warn users not to share authorization screen
   const panel = readFileSync(new URL('../src/components/settings/account-connections-panel.tsx', import.meta.url), 'utf8');
   assert.match(panel, /不要分享包含 Authorization 请求头或连接包的截图/);
   assert.match(panel, /不要把 Token、连接包或请求详情截图发给任何人/);
-  const schedule = readFileSync(new URL('../src/components/modules/schedule/seiue-schedule-sync.tsx', import.meta.url), 'utf8');
-  assert.match(schedule, /if \(todo\.status !== 'pending'\) return false/);
-  assert.match(schedule, /截止：\{todo\.deadline/);
+  assert.match(panel, /每天打开 SCHEDULE 时提醒续期/);
+  assert.match(panel, /获取连接信息/);
+  assert.match(panel, /onPaste=\{pasteSeiueHelperBundle\}/);
+  const schedule = readFileSync(new URL('../src/components/modules/schedule/schedule-control.tsx', import.meta.url), 'utf8');
+  assert.match(schedule, /todo\.status === 'pending'/);
+  assert.match(schedule, /截止：\{todo\.deadline \? formatSeiueDateTime/);
   assert.match(schedule, /todo\.courseName/);
-  assert.match(schedule, /前往 SEIUE 查看 \/ 提交/);
+  assert.match(schedule, /SEIUE · \{todo\.kind/);
+  assert.match(schedule, /JackYun 与 SEIUE 课程、待办和校历按来源标记并列显示/);
+  const source = readFileSync(new URL('../src/components/modules/schedule/seiue-schedule-sync.tsx', import.meta.url), 'utf8');
+  assert.match(source, /jackyun:seiue-daily-renewal:v1/);
+  assert.match(source, /PATCH/);
 });
 
 test('SEIUE naive times are strict Asia/Shanghai wall clock values', () => {

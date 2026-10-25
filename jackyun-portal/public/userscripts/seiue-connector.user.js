@@ -1,26 +1,24 @@
 // ==UserScript==
 // @name         JackYun SEIUE 连接助手
 // @namespace    https://jackyun.top/userscripts
-// @version      1.1.1
-// @description  打开 SEIUE 个人课表后自动检测一次只读请求；确认后由你点击复制到 JackYun。
-// @include      /^https:\/\/chalk-[a-z0-9-]+\.seiue\.com\//i
-// @exclude      https://api.seiue.com/*
-// @exclude      https://passport.seiue.com/*
+// @version      1.2.0
+// @description  仅在 chalk-c3 学校页面一次性读取课程请求；从 JackYun 启动时自动复制短期连接包。
+// @match        https://chalk-c3.seiue.com/*
 // @downloadURL  https://jackyun.top/userscripts/seiue-connector.user.js
 // @updateURL    https://jackyun.top/userscripts/seiue-connector.user.js
-// @grant        none
+// @grant        GM_setClipboard
 // @run-at       document-start
 // ==/UserScript==
 
 (() => {
   'use strict';
 
-  // The script is intentionally limited to school frontends such as chalk-c3.seiue.com.
-  if (location.protocol !== 'https:' || !/^chalk-[a-z0-9-]+\.seiue\.com$/i.test(location.hostname)) return;
+  if (location.protocol !== 'https:' || location.hostname.toLowerCase() !== 'chalk-c3.seiue.com') return;
 
   const API_ORIGIN = 'https://api.seiue.com';
   const EVENT_PATH = /^\/chalk\/calendar\/personals\/([A-Za-z0-9_-]{1,200})\/events(?:\?|$)/;
   const requestHeaders = ['authorization', 'x-reflection-id', 'x-school-id', 'x-role'];
+  const autoCopyRequested = new URL(location.href).searchParams.get('jackyun_connect') === '1';
   let armed = true;
   let captured = null;
   let timeoutId = 0;
@@ -47,7 +45,7 @@
     shadow.innerHTML = `<style>
       :host{all:initial} .launcher{position:fixed;z-index:2147483646;right:14px;bottom:14px;box-shadow:0 4px 16px #0003}.box{position:fixed;z-index:2147483646;right:14px;bottom:14px;width:min(330px,calc(100vw - 28px));box-sizing:border-box;padding:14px;border:1px solid #d1d5db;border-radius:14px;background:#fff;color:#111827;font:13px/1.5 system-ui,sans-serif;box-shadow:0 8px 28px #0003}.box[hidden],.launcher[hidden]{display:none}
       .title{font-size:14px;font-weight:700;margin:0 0 5px}.text{margin:0 0 10px;color:#4b5563}.status{min-height:20px;margin:0 0 8px;color:#1f2937}.buttons{display:flex;gap:8px;flex-wrap:wrap}button{border:0;border-radius:999px;padding:8px 12px;font:600 12px system-ui,sans-serif;cursor:pointer;background:#155eef;color:#fff}button.secondary{background:#f3f4f6;color:#111827}button:disabled{opacity:.45;cursor:not-allowed}.close{position:absolute;right:9px;top:8px;background:transparent;color:#4b5563;padding:2px 7px;font-size:16px}
-    </style><button class="launcher" type="button">SEIUE 连接助手</button><section class="box" role="status" aria-label="JackYun SEIUE 连接助手" hidden><button class="close" type="button" aria-label="关闭">×</button><p class="title">JackYun SEIUE 连接助手</p><p class="text">打开本页后会自动检测一次个人课表 GET 请求，只在本页内存暂存学生 Token 和身份编号。不会读取密码或 Cookie，也不会联网、显示 Token 或写入存储。检测成功后，由你点击“复制连接包”。</p><p class="status" aria-live="polite">正在检测本页的个人课表请求（60 秒）。</p><div class="buttons"><button class="capture" type="button">停止自动检测</button><button class="copy secondary" type="button" disabled>复制连接包</button></div></section>`;
+    </style><button class="launcher" type="button">SEIUE 连接助手</button><section class="box" role="status" aria-label="JackYun SEIUE 连接助手" hidden><button class="close" type="button" aria-label="关闭">×</button><p class="title">JackYun SEIUE 连接助手</p><p class="text">仅在 chalk-c3.seiue.com 工作。只观察一次个人课表 GET 请求，只暂存在本页内存；不读取密码或 Cookie、不发网络请求、不显示或保存 Token。从 JackYun 点“获取 / 续期”启动时，会自动复制一次并返回剪贴板供你粘贴。</p><p class="status" aria-live="polite">正在检测本页的个人课表请求（60 秒）。</p><div class="buttons"><button class="capture" type="button">停止自动检测</button><button class="copy secondary" type="button" disabled>复制连接包</button></div></section>`;
     document.documentElement.appendChild(host);
     root = shadow;
     statusNode = shadow.querySelector('.status');
@@ -92,7 +90,8 @@
     captured = { version: 1, token, reflectionId, schoolId: values['x-school-id'], role: 'student', schoolSite: `${location.origin}/` };
     disarm();
     if (copyButton) copyButton.disabled = false;
-    setStatus('已在内存中捕获一次。令牌未显示、未保存；点击“复制连接包”后再粘贴到 JackYun。');
+    setStatus(autoCopyRequested ? '已捕获连接包，正在复制到剪贴板…' : '已在内存中捕获一次。令牌未显示、未保存；点击“复制连接包”后再粘贴到 JackYun。');
+    if (autoCopyRequested) void copyBundle(true);
   }
 
   function arm() {
@@ -157,13 +156,16 @@
     if (captureButton) captureButton.textContent = '重新检测一次';
   }
 
-  async function copyBundle() {
+  async function copyBundle(automatic = false) {
     if (!captured) return;
     try {
-      await navigator.clipboard.writeText(JSON.stringify(captured));
+      if (typeof GM_setClipboard === 'function') GM_setClipboard(JSON.stringify(captured), 'text');
+      else if (!automatic) await navigator.clipboard.writeText(JSON.stringify(captured));
+      else throw new Error('clipboard permission unavailable');
       captured = null;
       if (copyButton) copyButton.disabled = true;
-      setStatus('已复制一次性连接包。请立刻粘贴到 JackYun 账户关联页；粘贴后清除剪贴板。');
+      setStatus('已复制一次性连接包。请返回 JackYun 并粘贴；粘贴后系统会立即验证并更新连接。');
+      if (autoCopyRequested) history.replaceState(history.state, '', location.pathname + location.hash);
     } catch {
       setStatus('浏览器未允许写入剪贴板。请检查当前网页权限后重试；令牌仍只在本页内存中。');
     }
