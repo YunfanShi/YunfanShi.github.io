@@ -5,6 +5,12 @@ import {threeWayMerge,type MergePolicy} from './merge.ts';
  * Wall clocks may combine metadata; they never decide whose content wins.
  */
 export function workspaceMergePolicy(key:string):MergePolicy|undefined {
+  // Only registered settings stamps use the server value; preference content
+  // and arbitrary timestamp-looking text retain the ordinary conflict rules.
+  if(/^jackyun_settings_[a-z0-9_]+__updated_at$/.test(key))return (_base,local,remote,path)=>{
+    if(path!=='$'||![local,remote].every(value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(value)&&Number.isFinite(Date.parse(value))))return;
+    return {value:remote};
+  };
   if(key!=='jackyun_schedule_control_v1')return undefined;
   return (base,local,remote,path)=>{
     if(!/^\$\.(?:cues|cueMemos|manualTasks|learningRecords)\[[^\]]+\]\.updatedAt$/.test(path))return;

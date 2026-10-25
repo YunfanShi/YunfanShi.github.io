@@ -146,3 +146,11 @@ test('two-device deterministic fault sequence converges despite lost replies, ne
     assert.deepEqual(cloud.cloud!.value,{a:expectedA,b:expectedB});assert.equal(cloud.cloud!.contentHash,checksum(cloud.cloud!.value));
   }
 });
+
+test('settings stamp conflicts use server metadata while content and unknown timestamps stay protected',()=>{
+ const base='2026-10-22T14:25:50.000Z',local='2099-01-01T00:00:00.000Z',remote='2026-10-22T14:25:51.862Z';
+ assert.deepEqual(mergeWorkspaceValues('jackyun_settings_appearance_preferences__updated_at',base,local,remote),{merged:remote,conflicts:[]});
+ assert.ok(mergeWorkspaceValues('jackyun_settings_appearance_preferences',base,local,remote).conflicts.length);
+ assert.ok(mergeWorkspaceValues('study__updated_at',base,local,remote).conflicts.length);
+ assert.ok(mergeWorkspaceValues('jackyun_settings_appearance_preferences__updated_at',base,'not a timestamp',remote).conflicts.length);
+});

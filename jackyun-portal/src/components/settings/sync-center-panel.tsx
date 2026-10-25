@@ -132,7 +132,7 @@ export default function SyncCenterPanel() {
     <div className="rounded-xl border border-[var(--card-border)] p-4 text-sm leading-6">
       <h3 className="font-semibold">同步范围</h3>
       <p className="mt-1 text-[var(--muted-foreground)]">Cue、复习状态、学习记录、课表、计划、答题卡草稿、写作与阅读进度、刷题数据和界面偏好会随账号同步。</p>
-      <p className="mt-2 text-xs text-[var(--muted-foreground)]">前台每分钟检查其他设备的新修改；隐藏页面暂停自动同步。修改会先保存在本机，联网后继续上传，也可以点击“立即同步”。</p>
+      <p className="mt-2 text-xs text-[var(--muted-foreground)]">可见页面每30秒检查其他设备的新修改；隐藏页面暂停普通轮询。修改会先保存在本机，联网后继续上传，也可以点击“立即同步”。</p>
       <p className="mt-2 text-xs text-[var(--muted-foreground)]">安全例外：密码、登录令牌、个人 API Key、诊断日志不会上传；本地导入的小说正文和音频文件属于设备文件，需在目标设备重新导入。</p>
     </div>
     <div><h3 className="font-semibold">网页与 PWA 设备</h3><div className="mt-2 divide-y divide-[var(--card-border)] rounded-xl border border-[var(--card-border)]">{openDevices.map((device) => <div key={device.id} className="flex items-center gap-3 p-3"><span className="material-icons-round text-[var(--muted-foreground)]">{device.platform === 'pwa' ? 'install_mobile' : 'devices'}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{device.name}{device.id === currentDeviceId ? '（当前）' : ''}</p><p className="text-xs text-[var(--muted-foreground)]">最后活动 {new Date(device.lastSeenAt).toLocaleString()}</p></div><button onClick={() => rename(device)} className="text-xs text-[#1a73e8]">改名</button>{device.id !== currentDeviceId ? <button onClick={() => revoke(device)} className="text-xs text-[#d93025]">撤销</button> : null}</div>)}</div></div>

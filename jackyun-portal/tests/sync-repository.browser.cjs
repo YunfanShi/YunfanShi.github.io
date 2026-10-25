@@ -65,7 +65,15 @@ const loader=`const sources=${JSON.stringify(modules)},cache={};function load(na
   await a.evaluate(async()=>{localStorage.setItem('countdown_fixture','{"verified":true}');window.repository.captureLegacyStorageEdit('countdown_fixture');await window.repository.flushLocalWrites();});
   assert.equal((await a.evaluate(()=>window.store.getDocuments())).find(r=>r.key==='countdown_fixture').value,'{"verified":true}');
   assert.ok((await a.evaluate(()=>window.store.getOutbox())).some(r=>r.key==='countdown_fixture'));
-  const output={passed:10,cases:['two-tab independent merge','browser reload retains local data and intent','legacy-write crash recovery','account projection isolation','original account restoration','business snapshot and operation atomic commit','business quota abort retains prior snapshot','account switch drains pending writes without circular initialization','legacy iframe injection executes without parent module references','legacy edit message atomically captures a new key and intent'],realAccount:false};
+  const countdown=await context.newPage();await countdown.goto(url);
+  await countdown.setContent(fs.readFileSync('public/Countdown.html','utf8').replace(/<script[^>]*src=[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<link[^>]*>/gi,''),{waitUntil:'domcontentloaded'});
+  await countdown.getByRole('button',{name:'⚙️',exact:true}).click();
+  await countdown.getByRole('textbox',{name:'Event Name (e.g. My Birthday)',exact:true}).fill('unfinished draft');
+  await countdown.evaluate(()=>{localStorage.setItem('jack_countdown_events',JSON.stringify([{id:'cloud-test',title:'Cloud item',date:'2026-12-31T12:00',color:'#4285f4'}]));window.dispatchEvent(new StorageEvent('storage',{key:'jack_countdown_events',storageArea:localStorage}));});
+  assert.equal(await countdown.getByRole('button',{name:'Cloud item',exact:true}).count(),1);
+  assert.equal(await countdown.getByRole('textbox',{name:'Event Name (e.g. My Birthday)',exact:true}).inputValue(),'unfinished draft');
+  await countdown.close();
+  const output={passed:11,cases:['two-tab independent merge','browser reload retains local data and intent','legacy-write crash recovery','account projection isolation','original account restoration','business snapshot and operation atomic commit','business quota abort retains prior snapshot','account switch drains pending writes without circular initialization','legacy iframe injection executes without parent module references','legacy edit message atomically captures a new key and intent','countdown cloud redraw preserves unfinished form'],realAccount:false};
   fs.mkdirSync('.migration-private',{recursive:true});fs.writeFileSync('.migration-private/sync-repository-browser.json',JSON.stringify(output,null,2));console.log(JSON.stringify(output));
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

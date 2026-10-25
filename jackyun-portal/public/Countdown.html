@@ -908,6 +908,28 @@
         }
 
         // --- Initialization ---
+        // Refresh projected cloud values without discarding an unfinished form.
+        window.addEventListener('storage', (event) => {
+            if (!['jack_countdown_events', 'jack_countdown_sort_mode'].includes(event.key)) return;
+            try {
+                const incoming = JSON.parse(localStorage.getItem('jack_countdown_events') || '[]');
+                if (!Array.isArray(incoming) || !incoming.every(item => item && typeof item.id === 'string' && typeof item.title === 'string' && typeof item.date === 'string')) return;
+                events = incoming;
+                sortMode = localStorage.getItem('jack_countdown_sort_mode') === 'custom' ? 'custom' : 'date';
+                if (sortMode === 'date') events.sort((a,b) => new Date(a.date) - new Date(b.date));
+                if (!events.some(item => item.id === currentId)) currentId = '';
+                renderTabs(); renderEventList(); updateRadioUI();
+                if (currentId) switchTheme(currentId);
+                else {
+                    document.getElementById('main-title').innerText = '暂无倒计时';
+                    document.getElementById('target-date-display').innerText = '添加事件即可开始';
+                    document.getElementById('info-subject').innerText = '';
+                    document.querySelectorAll('.number').forEach(node => { node.innerText = '0'; });
+                    document.getElementById('main-card').classList.remove('expired-card');
+                    document.getElementById('expired-banner').classList.remove('a');
+                }
+            } catch { /* Malformed legacy data does not replace the current view. */ }
+        });
         loadEvents();
         renderTabs(); 
         updateInfo();
