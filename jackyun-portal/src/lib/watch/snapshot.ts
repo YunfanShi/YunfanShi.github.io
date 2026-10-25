@@ -4,7 +4,7 @@ import { sessionsForDate, tasksForDate } from '../learning/schedule-control.ts';
 import { createAzureRecordClient } from '../sync/azure-records.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decryptSecret } from '../secret-crypto.ts';
-import { safeSeiueSite, type SeiueTodo } from '../integrations/seiue.ts';
+import { safeSeiueSite, type SeiueCalendarEvent, type SeiueLesson, type SeiueTodo } from '../integrations/seiue.ts';
 
 export function calendarDate(at: Date, timezone='Asia/Shanghai') {
   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(at);
@@ -57,6 +57,7 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
   await Promise.all([
     load('seiue',async()=>{
       result.seiueAgenda=[];
+      result.seiueLessons=[];result.seiueCalendar=[];result.seiueConnected=false;
       const {data:accounts,error:accountError}=await supabase.from('external_accounts').select('id,settings,status').eq('user_id',userId).eq('provider','seiue').order('created_at',{ascending:false}).limit(10);
       if(accountError)throw accountError;
       const account=(accounts??[]).find(item=>item.status==='active')??accounts?.[0]??null;
@@ -75,7 +76,7 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
       if(secretError||!secret?.encrypted_access_token)throw Error('SEIUE authorization unavailable');
       const credentials=JSON.parse(decryptSecret(secret.encrypted_access_token)) as import('../integrations/seiue-server.ts').SeiueCredentials;
       if(credentials.role!=='student'||credentials.expiresAt!==expiresAt||credentials.token.length<16||credentials.token.length>4000||!/^[-A-Za-z0-9_]{1,200}$/.test(credentials.reflectionId)||!/^[-A-Za-z0-9_]{1,200}$/.test(credentials.schoolId)||!safeSeiueSite(credentials.schoolSite))throw Error('SEIUE authorization invalid');
-      const {fetchSeiueSnapshot}=await import('../integrations/seiue-server.ts');
+      const {fetchSeiueSnapshot,weekRange}=await import('../integrations/seiue-server.ts');
       let external;
       try { external=await fetchSeiueSnapshot(credentials,calendarDate(now)); }
       catch(error) {
@@ -87,6 +88,11 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
         }
         throw error;
       }
+      const range=weekRange(calendarDate(now));
+      result.seiueConnected=true;result.seiueSchoolSite=credentials.schoolSite;
+      result.seiueCoverageStart=range.start.slice(0,10);result.seiueCoverageEnd=range.end.slice(0,10);
+      result.seiueLessons=normalizeWatchSeiueLessons(external.lessons);
+      result.seiueCalendar=normalizeWatchSeiueCalendar(external.calendar,now);
       const agenda=normalizeWatchSeiueTodos(external.todos.filter(todo=>todo.status==='pending'),now);
       result.seiueAgenda=agenda.items;result.seiueAgendaHasMore=agenda.hasMore;
     }),
@@ -149,6 +155,18 @@ export function normalizeWatchSeiueTodos(todos:SeiueTodo[],now:Date) {
     return {id:`seiue:${todo.id}`,title:todo.title,date:dueDate<today?today:dueDate,sourceDate:dueDate,start:parsed?.time??'',minutes:0,subject:todo.courseName??'SEIUE',detail,source:'seiue',status:'pending',deadlineLabel:todo.deadline??'未提供截止时间',dueAt:parsed?zonedEpoch(parsed.date,parsed.time):0};
   }).filter(todo=>!todo.dueAt||todo.sourceDate<=end).sort((a,b)=>(a.dueAt||Number.MAX_SAFE_INTEGER)-(b.dueAt||Number.MAX_SAFE_INTEGER)||a.id.localeCompare(b.id));
   return {items:candidates.slice(0,200),hasMore:candidates.length>200};
+}
+export function normalizeWatchSeiueLessons(lessons:SeiueLesson[]) {
+  return lessons.map(lesson=>({id:`seiue:${lesson.id}`,title:lesson.title,subject:lesson.subject,date:lesson.date,start:lesson.start,end:lesson.end,
+    startsAt:zonedEpoch(lesson.date,lesson.start),endsAt:zonedEpoch(lesson.date,lesson.end),location:lesson.location??'',teacher:lesson.teacher??'',adjustment:lesson.adjustment??'',description:lesson.description??'',source:'seiue'}))
+    .filter(lesson=>Number.isFinite(lesson.startsAt)&&Number.isFinite(lesson.endsAt)&&lesson.endsAt>lesson.startsAt).slice(0,1000);
+}
+export function normalizeWatchSeiueCalendar(events:SeiueCalendarEvent[],now=new Date()) {
+  const today=calendarDate(now),throughDate=new Date(`${today}T12:00:00+08:00`);throughDate.setUTCDate(throughDate.getUTCDate()+14);
+  const through=calendarDate(throughDate);
+  return events.filter(event=>event.date<=through&&(event.endDate??event.date)>=today)
+    .sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id))
+    .slice(0,300).map(event=>({id:`seiue:${event.id}`,title:event.title.slice(0,200),date:event.date,endDate:event.endDate??event.date,description:(event.description??'').slice(0,800),source:'seiue'}));
 }
 function parseSeiueDeadline(value:string):{date:string;time:string}|null {
   const match=/^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/.exec(value);

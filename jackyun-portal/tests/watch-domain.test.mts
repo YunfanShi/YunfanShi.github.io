@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { digest, sameHash, seal, unseal, validateOperation } from '../src/lib/watch/policy.ts';
-import { calendarDate, normalizeWatchSeiueTodos, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
+import { calendarDate, normalizeWatchSeiueCalendar, normalizeWatchSeiueLessons, normalizeWatchSeiueTodos, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
+import type { SeiueCalendarEvent, SeiueLesson } from '../src/lib/integrations/seiue.ts';
 import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.ts';
 
 test('pair payload encryption authenticates its key and ciphertext',()=>{
@@ -44,6 +45,17 @@ test('Watch SEIUE agenda includes only pending tasks and preserves deadline and 
   assert.match(items.items[0].detail,/物理实验/);assert.match(items.items[0].detail,/老师甲/);assert.match(items.items[0].detail,/上传 PDF/);
   assert.equal(items.items[1].deadlineLabel,'未提供截止时间');assert.equal(items.items[1].dueAt,0);
 });
+test('Watch SEIUE schedule maps adjustments, China time, and calendar source without credentials',()=>{
+  const lesson:SeiueLesson={id:'class-1',title:'数学',subject:'数学',date:'2026-10-20',start:'09:00',end:'09:45',location:'A栋',teacher:'老师甲',adjustment:'调课',description:'备注'};
+  const mapped=normalizeWatchSeiueLessons([lesson]);
+  assert.deepEqual(mapped[0],{id:'seiue:class-1',title:'数学',subject:'数学',date:'2026-10-20',start:'09:00',end:'09:45',startsAt:Date.parse('2026-10-20T01:00:00Z'),endsAt:Date.parse('2026-10-20T01:45:00Z'),location:'A栋',teacher:'老师甲',adjustment:'调课',description:'备注',source:'seiue'});
+  const calendar=normalizeWatchSeiueCalendar([
+    {id:'holiday',title:'校庆',date:'2026-10-20',description:'放假'} as SeiueCalendarEvent,
+    {id:'old',title:'过期事件',date:'2026-10-01'} as SeiueCalendarEvent,
+  ],new Date('2026-10-19T04:00:00Z'));
+  assert.deepEqual(calendar,[{id:'seiue:holiday',title:'校庆',date:'2026-10-20',endDate:'2026-10-20',description:'放假',source:'seiue'}]);
+  assert.equal(JSON.stringify([...mapped,...calendar]).includes('token'),false);
+});
 test('Watch SEIUE server integration is user-scoped, read-only and cache-safe',()=>{
   const snapshotSource=readFileSync(new URL('../src/lib/watch/snapshot.ts',import.meta.url),'utf8');
   const routeSource=readFileSync(new URL('../src/app/api/watch/v1/[...action]/route.ts',import.meta.url),'utf8');
@@ -54,6 +66,9 @@ test('Watch SEIUE server integration is user-scoped, read-only and cache-safe',(
   assert.match(routeSource,/Cache-Control':'private, no-store/);
   assert.match(snapshotSource,/const agenda=normalizeWatchSeiueTodos/);
   assert.match(snapshotSource,/result\.seiueAgenda=agenda\.items/);
+  assert.match(snapshotSource,/result\.seiueLessons=normalizeWatchSeiueLessons/);
+  assert.match(snapshotSource,/result\.seiueCalendar=normalizeWatchSeiueCalendar/);
+  assert.match(snapshotSource,/result\.seiueConnected=true/);
   assert.doesNotMatch(snapshotSource,/result\.seiueAgenda\s*=\s*credentials/);
 });
 test('empty synchronized schedule is a valid empty result',()=>{
