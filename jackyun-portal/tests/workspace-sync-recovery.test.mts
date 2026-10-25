@@ -93,7 +93,7 @@ function harness() {
       '@/lib/sync/scheduler':{runScheduledSync:async(lane:string,userId:string,work:()=>Promise<void>)=>nav.locks.request('shared:'+lane+userId,{},async lock=>{if(lock)await work();}),createEditTrigger:()=>({trigger:()=>{},dispose:()=>{}})},
       react: { useEffect: (effect: () => (() => void) | undefined) => effects.push(effect) },
       '@/lib/sync/engine':{createWorkspaceSync},
-      '@/lib/sync/resource-engine':{createV5ResourceSync:()=>({synchronize:async()=>({enabled:false,conflicts:[]}),resolveConflict:async()=>{}}),resourceScopesForPath:()=>[]},
+      '@/lib/sync/resource-engine':{createV5ResourceSync:()=>({synchronize:async()=>({enabled:false,conflicts:[]}),resolveConflict:async()=>{}}),resourceFieldsForPath:()=>[]},
       '@/lib/sync/resource-model':{SYNC_V5_SCOPES:['timetable','learning','cue','practice','timer','settings']},
       '@/lib/backup/pages':{isBackupableLegacyKey:()=>true,legacyBackupPage:()=> 'study'},
       '@/lib/backup/local':{localPageValues:(values:unknown)=>values,saveLocalBackup:async()=>{}},

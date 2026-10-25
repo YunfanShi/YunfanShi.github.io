@@ -1,5 +1,5 @@
 import {canonicalJson} from './hash.ts';
-import {scheduleToResources,SYNC_V5_SCOPES,type SyncV5Scope} from './resource-model.ts';
+import {resourceFieldsForScope,scheduleToResources,SYNC_V5_SCOPES,type SyncV5ResourceTarget,type SyncV5Scope} from './resource-model.ts';
 import {acknowledgeV5Operations,commitV5ResourcePage,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,queueV5ResourceOperation,resolveV5ConflictLocally,resolveV5ConflictRemotely,saveV5Conflicts,setV5Cursor,type V5ResourceConflict,type V5ResourceCursor,type V5ResourceOperation,type V5ResourceRecord} from './outbox.ts';
 
 type Descriptor={scope:SyncV5Scope;recordId:string;revision:number;contentHash:string;deleted:boolean;updatedAt:string;sequence?:number};
@@ -9,12 +9,29 @@ const parse=(raw:string|null)=>{if(!raw)return {};const value=JSON.parse(raw);if
 const equal=(a:unknown,b:unknown)=>canonicalJson(a)===canonicalJson(b);
 const digest=async(value:unknown)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(value)))),n=>n.toString(16).padStart(2,'0')).join('');
 
-export function resourceScopesForPath(pathname:string):SyncV5Scope[]{
-  if(pathname==='/schedule'||pathname==='/study'||pathname.startsWith('/study/'))return [...SYNC_V5_SCOPES];
-  if(pathname==='/review'||pathname==='/cue')return ['cue','learning'];
-  if(pathname==='/timetable-hub'||pathname==='/activity')return ['timetable','learning'];
-  if(pathname==='/practice-timer'||pathname==='/ielts')return ['practice','timer','learning'];
-  if(pathname==='/settings'||pathname==='/settings/watch')return ['settings'];
+const targets=(scope:SyncV5Scope,...fields:string[]):SyncV5ResourceTarget[]=>fields.map(field=>({scope,field}));
+export function resourceFieldsForPath(pathname:string):SyncV5ResourceTarget[]{
+  const path=pathname.length>1?pathname.replace(/\/+$/,''):pathname;
+  if(path==='/schedule'||path==='/dashboard')return [
+    ...targets('timetable','timetable'),...targets('learning','manualTasks','completions','cancellations','reviewProgress'),
+    ...targets('cue','cues','cueStudyDraft','cueStudyDrafts'),...targets('settings','settings','cueScheduleRevision','dailyLearningAdvice','schemaVersion'),
+  ];
+  if(path==='/study'||path.startsWith('/study/'))return [
+    ...targets('learning','manualTasks','completions','cancellations','reviewProgress','learningCatalog','learningReminders'),
+    ...targets('cue','cues','cueReviews','cueAnswerCards','cueMemos'),...targets('practice','practiceSessions'),
+  ];
+  if(path==='/review'||path.startsWith('/review/')||path==='/cue'||path.startsWith('/cue/'))return [
+    ...targets('cue','cues','cueReviews','cueGameAccount','cueMemos','cueAnswerCards','cueStudyDraft','cueStudyDrafts'),...targets('learning','reviewProgress'),
+  ];
+  if(path==='/timetable-hub'||path.startsWith('/timetable-hub/'))return [...targets('timetable','timetable'),...targets('learning','manualTasks','completions','cancellations','learningReminders')];
+  if(path==='/activity'||path.startsWith('/activity/'))return [...targets('learning','learningRecords','practiceFrequencies'),...targets('practice','timedPracticeRecords','examDiagnoses')];
+  if(path==='/practice-timer'||path.startsWith('/practice-timer/'))return [...targets('timer','practiceSessions','practiceTimerConfig'),...targets('practice','timedPracticeRecords','practiceFrequencies')];
+  if(path==='/ielts'||path.startsWith('/ielts/'))return targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies');
+  if(path==='/study-guide')return [...targets('learning','learningCatalog','manualTasks','learningRecords'),...targets('cue','cues','cueMemos')];
+  if(path==='/quiz')return [...targets('cue','cues','cueReviews','cueAnswerCards'),...targets('learning','reviewProgress')];
+  if(path==='/pomodoro')return [...targets('timer','practiceSessions','practiceTimerConfig'),...targets('learning','manualTasks','completions')];
+  if(path==='/answer-sheet')return [...targets('practice','timedPracticeRecords','examDiagnoses'),...targets('learning','learningRecords','manualTasks')];
+  if(path==='/settings'||path.startsWith('/settings/'))return targets('settings','settings','schemaVersion','importedAt','dailyLearningAdvice','__root');
   return [];
 }
 
@@ -33,10 +50,10 @@ function validDescriptor(row:Result,scope:SyncV5Scope):Descriptor{
 export function createV5ResourceSync(environment:ResourceSyncEnvironment){
   const e=environment;
   const assertCurrent=()=>{if(e.isCurrent&&!e.isCurrent())throw new DOMException('Sync cancelled','AbortError');};
-  async function fetchPageRecords(scope:SyncV5Scope,descriptors:Descriptor[]):Promise<V5ResourceRecord[]>{
+  async function fetchPageRecords(target:SyncV5ResourceTarget,descriptors:Descriptor[]):Promise<V5ResourceRecord[]>{
     const active=descriptors.filter(row=>!row.deleted),values:Result[]=[];
     for(let offset=0;offset<active.length;offset+=100){
-      const query=new URLSearchParams({scope});for(const row of active.slice(offset,offset+100))query.append('id',row.recordId);
+      const query=new URLSearchParams({scope:target.scope});for(const row of active.slice(offset,offset+100))query.append('id',row.recordId);
       const response=await readJson(e.request,`/api/sync/v5/records?${query}`);
       if(response.syncProtocol!==5||!Array.isArray(response.records))throw Error('v5 资源正文无效。');
       values.push(...response.records as Result[]);
@@ -44,6 +61,7 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     const byId=new Map(values.map(row=>[row.recordId,row]));
     const records:V5ResourceRecord[]=[];
     for(const descriptor of descriptors){
+      if(descriptor.recordId.slice(0,descriptor.recordId.indexOf(':'))!==target.field)throw Error('v5 资源字段与页面订阅不匹配。');
       if(descriptor.deleted){records.push({...descriptor,value:null});continue;}
       const row=byId.get(descriptor.recordId);if(!row||row.revision!==descriptor.revision||row.contentHash!==descriptor.contentHash||row.deleted!==false)throw Error('v5 资源版本在读取期间变化。');
       if(await digest(row.value)!==descriptor.contentHash)throw Error('v5 资源 SHA-256 校验失败。');
@@ -51,54 +69,55 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     }
     return records;
   }
-  async function commit(scope:SyncV5Scope,descriptors:Descriptor[],cursor:V5ResourceCursor){
-    const records=await fetchPageRecords(scope,descriptors);assertCurrent();
+  async function commit(target:SyncV5ResourceTarget,descriptors:Descriptor[],cursor:V5ResourceCursor){
+    const records=await fetchPageRecords(target,descriptors);assertCurrent();
     // A local edit may land while the page request is in flight. Queue it before
     // the page transaction so commitV5ResourcePage overlays it instead of clobbering it.
-    await captureLocalChanges(scope);assertCurrent();
-    const projected=await commitV5ResourcePage(scope,records,cursor,e.databaseScope);
+    await captureLocalChanges(target.scope,target.field);assertCurrent();
+    const projected=await commitV5ResourcePage(target.scope,records,{...cursor,field:target.field},e.databaseScope);
     assertCurrent();if(projected!==null)await e.projectSchedule(projected);
   }
-  async function baseline(scope:SyncV5Scope){
+  async function baseline(target:SyncV5ResourceTarget){
     let after='',head:number|undefined;
     for(let pages=0;pages<1000;pages++){
-      const response=await readJson(e.request,`/api/sync/v5/manifest?scope=${encodeURIComponent(scope)}&after=${encodeURIComponent(after)}`);
+      const response=await readJson(e.request,`/api/sync/v5/manifest?scope=${encodeURIComponent(target.scope)}&field=${encodeURIComponent(target.field)}&after=${encodeURIComponent(after)}`);
       if(response.syncProtocol!==5||!Array.isArray(response.records)||response.records.length>100||!Number.isSafeInteger(response.head))throw Error('v5 基线无效。');
       head??=Number(response.head);
       if(Number(response.head)!==head)throw Error('v5 基线头发生变化，请重试。');
-      const descriptors=response.records.map(row=>validDescriptor(row as Result,scope));
+      const descriptors=response.records.map(row=>validDescriptor(row as Result,target.scope));
       const next=response.next;
       if(next!==null&&(typeof next!=='string'||!descriptors.length||next!==descriptors.at(-1)?.recordId||next<=after))throw Error('v5 基线游标没有前进。');
-      const cursor:V5ResourceCursor=next===null?{scope,mode:'changes',after:'',cursor:head,head}:{scope,mode:'baseline',after:next,cursor:0,head};
-      await commit(scope,descriptors,cursor);
+      const cursor:V5ResourceCursor=next===null?{scope:target.scope,field:target.field,mode:'changes',after:'',cursor:head,head}:{scope:target.scope,field:target.field,mode:'baseline',after:next,cursor:0,head};
+      await commit(target,descriptors,cursor);
       if(next===null)return;
       after=next;
     }
     throw Error('v5 基线超过分页上限。');
   }
-  async function pull(scope:SyncV5Scope,retry=true){
-    let checkpoint=await getV5Cursor(scope,e.databaseScope);
-    if(!checkpoint){await baseline(scope);checkpoint=await getV5Cursor(scope,e.databaseScope);}
+  async function pull(target:SyncV5ResourceTarget,retry=true){
+    let checkpoint=await getV5Cursor(target.scope,e.databaseScope,target.field);
+    if(!checkpoint){await baseline(target);checkpoint=await getV5Cursor(target.scope,e.databaseScope,target.field);}
     if(!checkpoint)throw Error('v5 基线没有提交本地游标。');
-    if(checkpoint.mode==='baseline'){await baseline(scope);checkpoint=await getV5Cursor(scope,e.databaseScope);if(!checkpoint)throw Error('v5 基线恢复失败。');}
+    if(checkpoint.mode==='baseline'){await baseline(target);checkpoint=await getV5Cursor(target.scope,e.databaseScope,target.field);if(!checkpoint)throw Error('v5 基线恢复失败。');}
     for(let pages=0;pages<300;pages++){
       let response:Result|null;
-      try{response=await readJson(e.request,`/api/sync/v5/changes?scope=${encodeURIComponent(scope)}&cursor=${checkpoint.cursor}`);}
-      catch(error){if(retry&&(error as {status?:number;code?:string}).status===409){await setV5Cursor(scope,null,e.databaseScope);await baseline(scope);response=null;}else throw error;}
-      if(!response){checkpoint=await getV5Cursor(scope,e.databaseScope);if(!checkpoint)throw Error('v5 游标已重置。');continue;}
+      try{response=await readJson(e.request,`/api/sync/v5/changes?scope=${encodeURIComponent(target.scope)}&field=${encodeURIComponent(target.field)}&cursor=${checkpoint.cursor}`);}
+      catch(error){if(retry&&(error as {status?:number;code?:string}).status===409){await setV5Cursor(target.scope,null,e.databaseScope,target.field);await baseline(target);response=null;}else throw error;}
+      if(!response){checkpoint=await getV5Cursor(target.scope,e.databaseScope,target.field);if(!checkpoint)throw Error('v5 游标已重置。');continue;}
       if(response.syncProtocol!==5||!Array.isArray(response.records)||response.records.length>100||!Number.isSafeInteger(response.cursor))throw Error('v5 增量页面无效。');
-      const descriptors=(response.records as Result[]).map((row:Result)=>validDescriptor(row,scope));
+      const descriptors=(response.records as Result[]).map((row:Result)=>validDescriptor(row,target.scope));
+      if(descriptors.some(row=>row.recordId.slice(0,row.recordId.indexOf(':'))!==target.field))throw Error('v5 增量包含页面未订阅的资源。');
       const next:number=Number(response.cursor);if(next<checkpoint.cursor||next>Number(response.head))throw Error('v5 增量游标无效。');
-      await commit(scope,descriptors,{scope,mode:'changes',after:'',cursor:next,head:Number(response.head)});
-      checkpoint={scope,mode:'changes',after:'',cursor:next,head:Number(response.head)};
+      await commit(target,descriptors,{scope:target.scope,field:target.field,mode:'changes',after:'',cursor:next,head:Number(response.head)});
+      checkpoint={scope:target.scope,field:target.field,mode:'changes',after:'',cursor:next,head:Number(response.head)};
       if(!response.hasMore)return;
     }
     throw Error('v5 增量积压超过单轮上限。');
   }
-  async function captureLocalChanges(scope:SyncV5Scope){
-    const cursor=await getV5Cursor(scope,e.databaseScope);if(!cursor||cursor.mode!=='changes')return;
-    const schedule=parse(e.readSchedule()),wanted=scheduleToResources(schedule).filter(row=>row.scope===scope),remote=await getV5Resources(scope,e.databaseScope),byId=new Map(remote.map(row=>[row.recordId,row])),pending=await getV5Outbox(scope,e.databaseScope),conflicts=await getV5Conflicts(e.databaseScope);
-    const blocked=new Set(conflicts.filter(row=>row.scope===scope).map(row=>row.recordId)),pendingIds=new Set(pending.filter(row=>row.scope===scope).map(row=>row.recordId));
+  async function captureLocalChanges(scope:SyncV5Scope,field:string){
+    const cursor=await getV5Cursor(scope,e.databaseScope,field);if(!cursor||cursor.mode!=='changes')return;
+    const schedule=parse(e.readSchedule()),wanted=scheduleToResources(schedule).filter(row=>row.scope===scope&&row.field===field),remote=(await getV5Resources(scope,e.databaseScope)).filter(row=>row.recordId.slice(0,row.recordId.indexOf(':'))===field),byId=new Map(remote.map(row=>[row.recordId,row])),pending=await getV5Outbox(scope,e.databaseScope),conflicts=await getV5Conflicts(e.databaseScope);
+    const blocked=new Set(conflicts.filter(row=>row.scope===scope&&row.recordId.slice(0,row.recordId.indexOf(':'))===field).map(row=>row.recordId)),pendingIds=new Set(pending.filter(row=>row.scope===scope&&row.recordId.slice(0,row.recordId.indexOf(':'))===field).map(row=>row.recordId));
     const wantedById=new Map(wanted.map(row=>[row.recordId,row]));
     const changes:Array<{recordId:string;value:unknown;deleted:boolean}>=[...wanted.map(row=>({recordId:row.recordId,value:row.value,deleted:false})),
       ...remote.filter(row=>!row.deleted&&!wantedById.has(row.recordId)).map(row=>({recordId:row.recordId,value:null,deleted:true}))];
@@ -144,21 +163,24 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
   async function refreshAuthority(){
     const capabilities=await readJson(e.request,'/api/sync/v5');
     assertCurrent();
-    const scopes=Array.isArray(capabilities.scopes)?capabilities.scopes.filter((scope):scope is SyncV5Scope=>SYNC_V5_SCOPES.includes(scope as SyncV5Scope)):[];
     const flags=capabilities.capabilities as Record<string,unknown>|undefined;
+    const scopes=flags?.v5===true&&Array.isArray(capabilities.scopes)?capabilities.scopes.filter((scope):scope is SyncV5Scope=>SYNC_V5_SCOPES.includes(scope as SyncV5Scope)):[];
     await e.setAuthority(scopes);
-    return {enabled:flags?.v5===true&&SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)),scopes};
+    const enabled=flags?.v5===true&&scopes.length>0;
+    return {enabled,authoritativeSchedule:enabled&&SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)),scopes};
   }
-  async function synchronize(requestedScopes:readonly SyncV5Scope[]){
-    const authority=await refreshAuthority();if(!authority.enabled)return {enabled:false,conflicts:await getV5Conflicts(e.databaseScope)};
+  async function synchronize(requestedScopes:readonly (SyncV5Scope|SyncV5ResourceTarget)[]){
+    const authority=await refreshAuthority();if(!authority.enabled)return {enabled:false,authoritativeSchedule:false,conflicts:await getV5Conflicts(e.databaseScope)};
     const {scopes}=authority;
     // Snapshot current local edits before remote pages can replace their resource rows.
-    for(const scope of scopes)await captureLocalChanges(scope);
-    for(const scope of requestedScopes)if(scopes.includes(scope))await pull(scope);
-    for(const scope of scopes)await captureLocalChanges(scope);
-    for(const scope of SYNC_V5_SCOPES)await push(scope);
-    for(const scope of requestedScopes)if(scopes.includes(scope))await pull(scope);
-    return {enabled:true,conflicts:await getV5Conflicts(e.databaseScope)};
+    const requestedTargets= requestedScopes.flatMap((item):SyncV5ResourceTarget[]=>typeof item==='string'?resourceFieldsForScope(item as SyncV5Scope).map(field=>({scope:item as SyncV5Scope,field})):[item]);
+    const uniqueTargets=[...new Map(requestedTargets.filter(item=>scopes.includes(item.scope)&&resourceFieldsForScope(item.scope).includes(item.field)).map(item=>[`${item.scope}\0${item.field}`,item])).values()];
+    for(const target of uniqueTargets)await captureLocalChanges(target.scope,target.field);
+    for(const target of uniqueTargets)await pull(target);
+    for(const target of uniqueTargets)await captureLocalChanges(target.scope,target.field);
+    for(const scope of scopes)await push(scope);
+    for(const target of uniqueTargets)await pull(target);
+    return {enabled:true,authoritativeSchedule:authority.authoritativeSchedule,conflicts:await getV5Conflicts(e.databaseScope)};
   }
   async function resolveConflict(operationId:string,choice:'local'|'remote'){
     if(choice==='local')await resolveV5ConflictLocally(operationId,e.uuid(),e.databaseScope);

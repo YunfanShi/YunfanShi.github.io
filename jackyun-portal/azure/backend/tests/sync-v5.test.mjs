@@ -18,7 +18,25 @@ function database(){
     if(sql.startsWith('SELECT revision,content_hash,updated_at FROM public.sync_v5_projection_heads'))return {rows:[]};
     if(sql.startsWith('SELECT 1 FROM public.sync_v5_projection_heads'))return {rows:projectionHeads.has(params[0])?[{}]:[]};
     if(sql.startsWith('SELECT scope FROM public.sync_v5_heads WHERE user_id=$1'))return {rows:[...heads.keys()].filter(key=>key.startsWith(`${params[0]}:`)).map(key=>({scope:key.slice(params[0].length+1)}))};
-    if(sql.startsWith('SELECT scope,record_id,value,deleted_at FROM public.sync_v5_records'))return {rows:[...records.values()]};
+    if(sql.startsWith('SELECT sequence,retained_after FROM public.sync_v5_heads'))return {rows:heads.has(`${params[0]}:${params[1]}`)?[{sequence:heads.get(`${params[0]}:${params[1]}`),retained_after:0}]:[]};
+    if(sql.startsWith('SELECT scope,record_id,value,deleted_at FROM public.sync_v5_records'))return {rows:[...records.values()].filter(row=>row.user_id===params[0])};
+    if(sql.startsWith('SELECT scope,record_id,revision,content_hash,deleted_at,updated_at')&&sql.includes('FROM public.sync_v5_records')){
+      const [user,scope,after,start,end]=params;return {rows:[...records.values()].filter(row=>row.user_id===user&&row.scope===scope&&row.record_id>after&&(!start||(row.record_id>=start&&row.record_id<end))).sort((a,b)=>a.record_id.localeCompare(b.record_id)).slice(0,101)};
+    }
+    if(sql.startsWith('WITH state AS (')&&sql.includes('FROM public.sync_v5_records r')){
+      const [user,scope,after,start,end]=params,head=heads.get(`${user}:${scope}`)??0;
+      const rows=[...records.values()].filter(row=>row.user_id===user&&row.scope===scope&&row.record_id>after&&(!start||(row.record_id>=start&&row.record_id<end))).sort((a,b)=>a.record_id.localeCompare(b.record_id)).slice(0,101);
+      return {rows:rows.length?rows.map(row=>({...row,head,retained_after:0})):[{record_id:null,head,retained_after:0}]};
+    }
+    if(sql.startsWith('WITH state AS (')&&sql.includes('FROM public.sync_v5_changes c')){
+      const [user,scope,cursor,start,end]=params,head=heads.get(`${user}:${scope}`)??0;
+      const rows=changes.filter(row=>row.user_id===user&&row.scope===scope&&row.sequence>cursor&&(!start||(row.record_id>=start&&row.record_id<end)))
+        .map(change=>({sequence:change.sequence,...records.get(change.record_id),head,retained_after:0})).slice(0,101);
+      return {rows:rows.length?rows:[{sequence:null,head,retained_after:0}]};
+    }
+    if(sql.startsWith('SELECT c.sequence,r.scope,r.record_id,r.revision,r.content_hash,r.deleted_at,r.updated_at')){
+      const [user,scope,cursor,start,end]=params;return {rows:changes.filter(change=>change.user_id===user&&change.scope===scope&&change.sequence>cursor&&(!start||(change.record_id>=start&&change.record_id<end))).map(change=>({sequence:change.sequence,...records.get(change.record_id)})).slice(0,101)};
+    }
     if(sql.startsWith('INSERT INTO public.legacy_sync_data'))return {rows:[]};
     if(sql.startsWith('INSERT INTO public.sync_v5_projection_heads')){projectionHeads.add(params[0]);projectionWrites++;return {rows:[]};}
     if(sql.startsWith('INSERT INTO public.sync_change_heads'))return {rows:[{sequence:1}]};
@@ -112,6 +130,22 @@ test('Azure container allowlist includes the shared v5 resource model dependency
 test('scope rollout is account-wide and rejects unenabled resource scopes',async()=>{
   const db=database();
   await assert.rejects(handleSyncV5(db,identity,'GET',url('/manifest','?scope=cue'),null,['learning']),{status:404,code:'SYNC_V5_SCOPE_UNAVAILABLE'});
+});
+
+test('manifest and changes can page a single resource field without consuming another field',async()=>{
+  const db=database(),user=identity.sub,now=new Date().toISOString();
+  for(const [scope,record_id,value,sequence] of [
+    ['cue','cues:cue-1',{id:'cue-1'},1],['cue','cueReviews:cue-1:1',{cueId:'cue-1'},2],
+  ]){
+    db.records.set(record_id,{user_id:user,scope,record_id,revision:1,content_hash:hash(value),value,deleted_at:null,updated_at:now});
+    db.changes.push({user_id:user,scope,sequence,record_id});
+  }
+  db.heads.set(`${user}:cue`,2);
+  const manifest=await handleSyncV5(db,identity,'GET',url('/manifest','?scope=cue&field=cues'),null,['cue']);
+  assert.deepEqual(manifest.records.map(row=>row.recordId),['cues:cue-1']);
+  const changes=await handleSyncV5(db,identity,'GET',url('/changes','?scope=cue&field=cues&cursor=0'),null,['cue']);
+  assert.deepEqual(changes.records.map(row=>row.recordId),['cues:cue-1']);assert.equal(changes.cursor,2);
+  await assert.rejects(handleSyncV5(db,identity,'GET',url('/manifest','?scope=cue&field=timetable'),null,['cue']),{status:400,code:'INVALID_RESOURCE_FIELD'});
 });
 
 test('disabling the v5 write allowlist preserves the v4 projection bridge',async()=>{
