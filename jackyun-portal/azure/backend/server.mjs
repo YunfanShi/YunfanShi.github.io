@@ -39,7 +39,7 @@ async function readBody(request, limit) {
 }
 
 export function createApiHandler({ authenticate, handle, allowedOrigins = ['https://jackyun.top'], logger = console }) {
-  const paths = new Set(['/api/sync/v3', '/api/sync/v4', '/api/sync/v2', '/api/sync/v2/large', '/api/sync/devices', '/api/sync/conflicts', '/api/legacy-sync', '/api/sync/export', '/api/sync/backup-markers']);
+  const paths = new Set(['/api/sync/v3', '/api/sync/v4', '/api/sync/v5', '/api/sync/v5/manifest', '/api/sync/v5/changes', '/api/sync/v5/records', '/api/sync/v5/operations', '/api/sync/v5/receipts', '/api/sync/v2', '/api/sync/v2/large', '/api/sync/devices', '/api/sync/conflicts', '/api/legacy-sync', '/api/sync/export', '/api/sync/backup-markers']);
   return async (request, response) => {
     const supplied=request.headers['x-request-id'];
     const requestId = typeof supplied==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(supplied)?supplied:randomUUID(),started=performance.now(),metrics={};
