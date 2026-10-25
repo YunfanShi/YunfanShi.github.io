@@ -12,7 +12,7 @@ await mkdir(out,{recursive:true});
 const loader=path.join(out,'loader.cjs'),stub=path.join(out,'stubs.js'),cssInput=path.join(out,'input.css'),cssOutput=path.join(out,'style.css');
 await writeFile(loader,`const ts=require(${JSON.stringify(require.resolve('typescript'))});module.exports=function(s){return ts.transpileModule(s,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;};`);
 await writeFile(stub,"import React from 'react'; export const useLocalSaveState=()=> 'saved'; export default function Link({href,children,...props}) { return React.createElement('a',{href,...props},children); }");
-await writeFile(cssInput,':root{--background:#f8f9fa;--foreground:#202124;--muted-foreground:#5f6368;--card:#fff;--card-border:#dadce0;--brand:#1a73e8}body{margin:0;padding:16px;font:14px Arial,sans-serif;color:var(--foreground)}#root{display:flex;justify-content:flex-end}.material-icons-round{display:inline-grid;width:20px;height:20px;overflow:hidden;place-items:center;font-size:0!important}.material-icons-round::after{content:"•";font:16px Arial,sans-serif}summary::-webkit-details-marker{display:none}@tailwind base;@tailwind components;@tailwind utilities;');
+await writeFile(cssInput,':root{--background:#f8f9fa;--foreground:#202124;--muted-foreground:#5f6368;--card:#fff;--card-border:#dadce0;--brand:#1a73e8}body{margin:0;padding:16px;font:14px Arial,sans-serif;color:var(--foreground)}#topbar{display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%;overflow:hidden}#root{display:flex;flex:0 0 auto}#trailing-controls{width:108px;height:40px;flex:0 0 108px;background:#e8eaed;border-radius:8px}.material-icons-round{display:inline-grid;width:20px;height:20px;overflow:hidden;place-items:center;font-size:0!important}.material-icons-round::after{content:"•";font:16px Arial,sans-serif}summary::-webkit-details-marker{display:none}@tailwind base;@tailwind components;@tailwind utilities;');
 const webpack=require('next/dist/compiled/webpack/webpack').webpack;
 await new Promise((resolve,reject)=>webpack({mode:'production',optimization:{minimize:false},entry:path.join(root,'tests/fixtures/sync-status-app.tsx'),output:{path:out,filename:'app.js'},resolve:{extensions:['.tsx','.ts','.js','.mjs'],alias:{'./local-durability$':stub,'next/link$':stub,'@':path.join(root,'src')}},module:{rules:[{test:/\.tsx?$/,exclude:/node_modules/,use:[loader]}]}},(error,stats)=>error||stats.hasErrors()?reject(error||Error(stats.toString({all:false,errors:true}))):resolve()));
 const tailwind=spawnSync(process.execPath,[require.resolve('tailwindcss/lib/cli.js'),'-i',cssInput,'-o',cssOutput,'--content','src/components/layout/sync-status-indicator.tsx','--minify'],{encoding:'utf8'});
@@ -22,7 +22,7 @@ const server=createServer(async(request,response)=>{
   if(request.url==='/app.js'){response.writeHead(200,{'Content-Type':'text/javascript'});response.end(await readFile(path.join(out,'app.js')));return;}
   if(request.url==='/style.css'){response.writeHead(200,{'Content-Type':'text/css'});response.end(await readFile(cssOutput));return;}
   response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});
-  response.end(`<!doctype html><html lang="zh-CN"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><body><main id="root"></main><output id="retry-count" hidden>0</output><script src="/app.js"></script></body></html>`);
+  response.end(`<!doctype html><html lang="zh-CN"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><body><header id="topbar"><main id="root"></main><div id="trailing-controls" aria-hidden="true"></div></header><output id="retry-count" hidden>0</output><script src="/app.js"></script></body></html>`);
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const browser=await chromium.launch({headless:true,channel:process.env.JACKYUN_BROWSER_CHANNEL||'msedge'});
@@ -44,6 +44,8 @@ try{
     assert.equal(await panel.getByRole('link',{name:'打开同步中心'}).getAttribute('href'),'/settings?section=companion');
     assert.equal(await panel.getByRole('link',{name:'完整客户端日志'}).getAttribute('href'),'/settings?section=advanced');
     const bounds=await panel.boundingBox();assert.ok(bounds&&bounds.x>=0&&bounds.x+bounds.width<=width,`diagnostics panel fits ${width}px viewport`);
+    assert.equal(await panel.evaluate(element=>getComputedStyle(element).position),'fixed','panel escapes clipped topbar and follows the viewport');
+    assert.equal(await panel.evaluate(element=>element.parentElement===document.body),true,'panel is portaled outside the topbar overflow container');
     await page.screenshot({path:path.join(out,`sync-status-${width}.png`)});
     await panel.getByRole('button',{name:'立即重试同步'}).click();await page.waitForFunction(()=>document.getElementById('retry-count')?.textContent==='1');
     await trigger.click();await panel.waitFor({state:'hidden'});assert.deepEqual(errors,[]);

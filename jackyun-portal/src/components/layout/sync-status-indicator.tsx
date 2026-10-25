@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {useLocalSaveState} from './local-durability';
 import { LOCAL_SYNC_STATUS_EVENT } from '@/lib/local-workspace';
 import { getLatestSyncStatus } from '@/lib/sync/status';
@@ -15,12 +16,35 @@ const LABELS = {
 
 export default function SyncStatusIndicator({ signedIn }: { signedIn: boolean }) {
   const [detail, setDetail] = useState<SyncStatusDetail>({ state: signedIn ? 'syncing' : 'guest', pending: 0, conflicts: 0, lastSyncedAt: null });
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [panelPosition, setPanelPosition] = useState<{ left: number; top: number } | null>(null);
+  const summaryRef = useRef<HTMLElement>(null);
   useEffect(() => {
     queueMicrotask(() => { const current = getLatestSyncStatus(); if (current) setDetail(current); });
     const listener = (event: Event) => setDetail((event as CustomEvent<SyncStatusDetail>).detail);
     window.addEventListener(LOCAL_SYNC_STATUS_EVENT, listener);
     return () => window.removeEventListener(LOCAL_SYNC_STATUS_EVENT, listener);
   }, []);
+  useEffect(() => {
+    if (!detailsOpen) return;
+    const positionPanel = () => {
+      const anchor = summaryRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const width = Math.min(320, window.innerWidth - 24);
+      setPanelPosition({
+        left: Math.max(12, Math.min(anchor.right - width, window.innerWidth - width - 12)),
+        top: anchor.bottom + 4,
+      });
+    };
+    const frame = requestAnimationFrame(positionPanel);
+    window.addEventListener('resize', positionPanel);
+    window.addEventListener('scroll', positionPanel, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', positionPanel);
+      window.removeEventListener('scroll', positionPanel, true);
+    };
+  }, [detailsOpen]);
   const local=useLocalSaveState();
   const [icon,label]=local==='saving'?['save','正在保存到本机']:local==='storage_error'?['warning','本机保存未完成']:LABELS[detail.state];
   const showDetails=detail.state!=='synced'&&detail.state!=='guest'||detail.pending>0||detail.conflicts>0||Boolean(detail.error||detail.progress)||local==='storage_error'||local==='projection_degraded';
@@ -35,9 +59,9 @@ export default function SyncStatusIndicator({ signedIn }: { signedIn: boolean })
       <span className={`material-icons-round text-lg ${detail.state === 'syncing' ? 'animate-spin' : ''}`}>{icon}</span>
       <span className="hidden sm:inline">{label}{detail.pending ? ` ${detail.pending}` : ''}</span>
     </button>
-    {showDetails&&<details className="group relative">
-      <summary aria-label="更多同步详情" title="同步诊断详情" className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg text-[var(--muted-foreground)] hover:bg-black/[.05] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 dark:hover:bg-white/[.08] [&::-webkit-details-marker]:hidden"><span aria-hidden="true" className="material-icons-round">more_horiz</span></summary>
-      <div data-sync-details className="absolute right-0 top-full z-50 mt-1 w-[min(20rem,calc(100vw-1.5rem))] rounded-lg border border-[var(--card-border)] bg-[var(--card)] p-3 text-sm shadow-lg">
+    {showDetails&&<details className="group" onToggle={(event) => { const open = event.currentTarget.open; setDetailsOpen(open); if (!open) setPanelPosition(null); }}>
+      <summary ref={summaryRef} aria-label="更多同步详情" title="同步诊断详情" className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg text-[var(--muted-foreground)] hover:bg-black/[.05] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 dark:hover:bg-white/[.08] [&::-webkit-details-marker]:hidden"><span aria-hidden="true" className="material-icons-round">more_horiz</span></summary>
+      {detailsOpen&&panelPosition&&createPortal(<div data-sync-details className="fixed z-[100] w-[min(20rem,calc(100vw-1.5rem))] rounded-lg border border-[var(--card-border)] bg-[var(--card)] p-3 text-sm shadow-lg" style={panelPosition}>
         <div className="px-2 py-1.5">
           <p className="font-semibold">同步诊断</p>
           <p role="status" className="mt-1 text-xs text-[var(--muted-foreground)]">{detailStatus}</p>
@@ -54,7 +78,7 @@ export default function SyncStatusIndicator({ signedIn }: { signedIn: boolean })
           <Link className="text-[var(--brand)]" href="/settings?section=companion">打开同步中心</Link>
           <Link className="text-[var(--brand)]" href="/settings?section=advanced">完整客户端日志</Link>
         </div>
-      </div>
+      </div>, document.body)}
     </details>}
   </div>;
 }
