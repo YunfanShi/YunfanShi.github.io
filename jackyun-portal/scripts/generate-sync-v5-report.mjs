@@ -31,7 +31,7 @@ const doc=new Document({
     heading('4. 分阶段交付状态'),
     table([
       ['里程碑','范围','状态与启用策略'],
-      ['M1','进度、Gzip、可恢复下载验证','已实现；通过本地聚焦测试，待 CI 和部署后复核。'],
+      ['M1','进度、Gzip、可恢复下载验证','已实现并通过本地专项测试；GitHub Actions 的 build/type/lint 通过，Existing data safety regressions 步骤目前失败，需先清理未改动模块的既有回归。'],
       ['M2','v5 数据模型、接口、数据库迁移','已实现候选代码；默认关闭，迁移 SQL 未应用。'],
       ['M3','Schedule/CUE 资源拆分及 v4 双向投影','客户端资源存储、页内原子提交、离线操作及冲突决策已接入；真实 PostgreSQL 双向一致性与回滚仍待验证。'],
       ['M4','按页面加载及其他领域资源拆分','按路由选择同步范围已实现；生产侧分资源灰度保持关闭，需先完成数据库迁移及测试账号验收。'],
@@ -42,7 +42,8 @@ const doc=new Document({
     p('仍需执行：v4/v5 真实 PostgreSQL 事务集成测试，覆盖旧写冲突、兼容投影哈希、资源删除墓碑及并发操作；生产数据库迁移与认证读写验收；手机和电脑跨设备验证。接口返回 projectionBuildMs、projectionRecordCount 与 projectionBytes；数据库层记录 sqlCount、databaseMs 和 poolWaitMs。单条资源仍会扫描并组装兼容投影，服务端负载是否改善须用相同基线实测，不能由客户端流量减少推断。'),
     heading('6. 性能与安全验收'),
     p('预期指标包括：无变化再次打开 Schedule 不下载完整正文；单条 CUE 修改不重新传输整份 Schedule；有效缓存分片不再请求；任务内接收计数单调递增；仅整体 SHA-256 校验通过后提交本地数据；手机和电脑遵循相同账号级协议。基线 3.44.4 与 3.45.0 的流量和延迟尚未实测，不预先承诺百分比。'),
-    p('生产验收必须记录 Vercel READY 对应 commit SHA、Azure Function 版本及运行健康信息，并使用专用测试账号完成认证读写、操作回执查询、再次读取及哈希比对。未提供的 Azure 日志、测试账号和第二设备不能由客户端日志或部署 READY 替代。'),
+    p('当前 PR head 0bf180073656d4324e243a2dcd2553805eb1d47c 的 Vercel Preview 已 READY；预览 /api/health 返回 200，未认证 /api/sync/v5 返回 v5=false。此结果只验证 Preview 路由与默认关闭，不代表生产部署或认证读写。生产验收必须记录 Vercel READY 对应 commit SHA、Azure Function 版本及运行健康信息，并使用专用测试账号完成认证读写、操作回执查询、再次读取及哈希比对。未提供的 Azure 日志、测试账号和第二设备不能由客户端日志或部署 READY 替代。'),
+    p('GitHub Actions run 40202627082 在 build 和 Type/lint checks 通过后，于 Existing data safety regressions 失败。失败测试涉及 cue-game、learning-domain、legacy-ui、music-sync、notification-polling、practice-cloud-frame、pwa 和 update-history 等未由本次改动触及的模块；需单独确认其基线状态并修复或正式豁免后，PR 才能满足 CI 合并门槛。'),
     heading('7. 发布与运维检查表'),
     p('合并前：运行完整 CI；确认 portal 3.45.0、Functions 3.8.0 和迁移脚本一致；检查 SQL 在指定迁移库可重复演练、RLS 角色与权限正确；核对根工作树原有未提交内容没有进入提交。'),
     p('部署后：确认 Vercel 部署状态 READY 且 SHA 与合并提交一致；检查生产健康端点及 Azure 同步路由的认证/未认证行为；v5 未启用时 capabilities 应保持关闭。生产数据库迁移和 v5 白名单仅在客户端事务闭环、测试账号验收以及回滚演练通过后单独审批。'),
