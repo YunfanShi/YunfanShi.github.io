@@ -3,6 +3,7 @@ import test from 'node:test';
 import {IDBFactory} from 'fake-indexeddb';
 import {accountSyncStore,acknowledgeV5Operations,commitV5ResourcePage,getV5Conflicts,getV5Cursor,getV5Resources,openDatabase,resolveV5ConflictRemotely,setV5Cursor,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
 import {createV5ResourceSync,resourceFieldsForPath} from '../src/lib/sync/resource-engine.ts';
+import {resourceFieldsForScope} from '../src/lib/sync/resource-model.ts';
 import {canonicalJson} from '../src/lib/sync/hash.ts';
 import {SYNC_V5_SCOPES} from '../src/lib/sync/resource-model.ts';
 import {createHash} from 'node:crypto';
@@ -195,4 +196,18 @@ test('page resource selection avoids unrelated CUE history and schedule scopes',
   assert.ok(resourceFieldsForPath('/cue/study').some(row=>row.field==='cueGameAccount'));
   assert.ok(resourceFieldsForPath('/settings/watch').some(row=>row.field==='settings'));
   assert.deepEqual(resourceFieldsForPath('/reading'),[],'independent reader state is not misrepresented as Schedule data');
+});
+
+test('every writable v5 field has a valid page target without loading all fields on each page',()=>{
+  const paths=['/schedule','/dashboard','/study','/review','/cue','/timetable-hub','/activity','/practice-timer','/ielts','/study-guide','/quiz','/pomodoro','/answer-sheet','/settings'];
+  const targets=new Set(paths.flatMap(path=>resourceFieldsForPath(path).map(target=>`${target.scope}\0${target.field}`)));
+  for(const scope of SYNC_V5_SCOPES)for(const field of resourceFieldsForScope(scope))assert.ok(targets.has(`${scope}\0${field}`),`${scope}/${field} must be writable through a page subscription`);
+  const schedule=new Set(resourceFieldsForPath('/schedule').map(target=>target.field));
+  assert.ok(schedule.has('cueCollectionUpdates'));
+  assert.ok(schedule.has('cueChangeHistory'));
+  assert.ok(schedule.has('cueSimilarityDecisions'));
+  assert.ok(schedule.has('studyReports'));
+  assert.ok(resourceFieldsForPath('/study').some(target=>target.scope==='timer'&&target.field==='practiceSessions'));
+  assert.ok(resourceFieldsForPath('/activity').some(target=>target.scope==='practice'&&target.field==='practiceFrequencies'));
+  assert.ok(!schedule.has('examDiagnoses'),'schedule should not fetch unrelated practice history');
 });
