@@ -150,4 +150,3 @@ export const UPDATE_HISTORY: UpdateEntry[] = [
     ],
   }
 ];
-
