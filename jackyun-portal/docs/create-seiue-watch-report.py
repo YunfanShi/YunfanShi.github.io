@@ -6,7 +6,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-OUT = Path(__file__).with_name('SEIUE-Schedule-Watch-3.43.1-20261025.docx')
+OUT = Path(__file__).with_name('SEIUE-Schedule-Watch-3.43.2-20261025.docx')
 doc = Document()
 section = doc.sections[0]
 section.top_margin = Inches(.72)
@@ -38,7 +38,7 @@ header.text = 'JACKYUN PORTAL AND WATCH  |  SEIUE READ-ONLY SYNC'
 header.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 footer = section.footer.paragraphs[0]
 footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-footer.add_run('实现与安全验收说明 · v3.43.1 · 2026-10-25  |  ')
+footer.add_run('实现与安全验收说明 · v3.43.2 · 2026-10-25  |  ')
 page = OxmlElement('w:fldSimple')
 page.set(qn('w:instr'), 'PAGE')
 footer._p.append(page)
@@ -87,7 +87,7 @@ def bullet(value):
 title = doc.add_paragraph(style='Title')
 title.add_run('SEIUE 日程同步与手表端接入说明')
 subtitle = doc.add_paragraph(style='Subtitle')
-subtitle.add_run('Portal 3.43.1 · Watch 3.1.0-beta.1 · 2026 年 10 月 25 日')
+subtitle.add_run('Portal 3.43.2 · Watch 3.1.0-beta.1 · 2026 年 10 月 25 日')
 doc.add_paragraph('这份说明记录 SEIUE 与 JackYun SCHEDULE 的只读同步改进，以及 Watch 日程里的待办呈现。待办只在源状态明确为未完成时显示，并附带截止时间和可用的课程上下文。SEIUE Token 留在 Portal 服务端加密区，不发送给 Watch；任务仍由用户回到 SEIUE 查看或提交。')
 
 doc.add_heading('1. 本次变更', level=1)
@@ -104,6 +104,10 @@ bullet('连接助手在捕获到首个匹配请求时会立刻恢复浏览器原
 bullet('SEIUE 课后复习任务现在会在课程结束边界自动重算，无需切换日期或刷新页面；在日视图和周视图均尊重本地完成与取消记录。')
 bullet('单日校历事件不再因为缺少 endDate 而渗入后续周；仅关联 SEIUE 且没有本地课表的用户仍可看到复习任务列表。')
 bullet('版本 3.43.1 是合并后边界修复版本。没有修改既有 Watch APK/Android 源码；Watch 端在 3.43.0 配套的只读待办/截止提醒实现继续沿用。')
+
+doc.add_heading('1.2 助手脚本更新机制', level=2)
+bullet('SEIUE 连接助手脚本版本更新至 1.1.1，明确声明 JackYun 正式域名上的 downloadURL 和 updateURL。兼容的脚本管理器可据此检查已安装脚本版本并拉取更新。')
+bullet('Tampermonkey/Violentmonkey 是否自动检查更新仍由用户的脚本管理器偏好控制。请保持助手启用并允许管理器检查更新；也可从账户关联页重新打开最新脚本地址手动更新。')
 
 doc.add_heading('2. SEIUE 字段映射', level=1)
 table(['界面字段', '源字段和规则'], [
@@ -137,7 +141,7 @@ table(['检查', '结果与边界'], [
 ], [2.25, 4.85])
 
 doc.add_heading('6. 版本与发布边界', level=1)
-doc.add_paragraph('Portal 功能版本 3.43.0 合并后按缺陷修复规则升为 3.43.1；配套 Watch 版本为 3.1.0-beta.1，versionCode 22。两个项目位于不同 Git 仓库，Portal PR 与 Watch 源码/CI 独立验证。PR 合并或预览可用不等于生产部署成功；生产发布后仍须核对 Vercel 部署状态、线上版本和日程路由。')
+doc.add_paragraph('Portal 功能版本 3.43.0 合并后按缺陷修复规则依次升为 3.43.1、3.43.2；配套 Watch 版本为 3.1.0-beta.1，versionCode 22。两个项目位于不同 Git 仓库，Portal PR 与 Watch 源码/CI 独立验证。PR 合并或预览可用不等于生产部署成功；生产发布后仍须核对 Vercel 部署状态、线上版本和日程路由。')
 doc.add_paragraph('由于 SEIUE 连接令牌为短期凭据，真实账户端到端验证必须在预览网页内由账户持有人完成。不要把 Token、Cookie、完整 HAR 或包含 Authorization 请求头的截图发到聊天或提交仓库。')
 
 doc.save(OUT)

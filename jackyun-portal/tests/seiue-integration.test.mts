@@ -28,6 +28,9 @@ test('one-time browser-helper bundle accepts only bounded student credentials fo
 test('SEIUE helper auto-detects only a bounded course request, keeps memory-only, and waits for a click to copy', () => {
   const helper = readFileSync(new URL('../public/userscripts/seiue-connector.user.js', import.meta.url), 'utf8');
   assert.match(helper, /@grant\s+none/);
+  assert.match(helper, /@version\s+1\.1\.1/);
+  assert.match(helper, /@downloadURL\s+https:\/\/jackyun\.top\/userscripts\/seiue-connector\.user\.js/);
+  assert.match(helper, /@updateURL\s+https:\/\/jackyun\.top\/userscripts\/seiue-connector\.user\.js/);
   assert.match(helper, /@include\s+\/\^https:/);
   assert.match(helper, /chalk-\[a-z0-9-\]/);
   assert.match(helper, /https:\/\/api\.seiue\.com/);
