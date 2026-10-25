@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         JackYun SEIUE 连接助手
 // @namespace    https://jackyun.top/userscripts
-// @version      1.1.0
+// @version      1.1.1
 // @description  打开 SEIUE 个人课表后自动检测一次只读请求；确认后由你点击复制到 JackYun。
 // @include      /^https:\/\/chalk-[a-z0-9-]+\.seiue\.com\//i
 // @exclude      https://api.seiue.com/*
 // @exclude      https://passport.seiue.com/*
+// @downloadURL  https://jackyun.top/userscripts/seiue-connector.user.js
+// @updateURL    https://jackyun.top/userscripts/seiue-connector.user.js
 // @grant        none
 // @run-at       document-start
 // ==/UserScript==
@@ -106,6 +108,9 @@
   function installHooks() {
     originalFetch = window.fetch;
     wrappedFetch = function(input, init) {
+      // tryCapture() disarms and restores the hooks synchronously. Retain the
+      // transport for this in-flight page request before attempting capture.
+      const transport = originalFetch;
       if (armed) {
         const rawUrl = typeof input === 'string' || input instanceof URL ? String(input) : input?.url;
         const method = init?.method || (input instanceof Request ? input.method : 'GET');
@@ -113,7 +118,7 @@
         if (init?.headers) isHeaderBag(init.headers).forEach((value, name) => headers.set(name, value));
         tryCapture(method, rawUrl, headers);
       }
-      return originalFetch.apply(this, arguments);
+      return transport.apply(this, arguments);
     };
     window.fetch = wrappedFetch;
 
@@ -133,10 +138,11 @@
       return originalSetHeader.apply(this, arguments);
     };
     proto.send = function() {
+      const transport = originalSend;
       const detail = xhrDetails.get(this);
       if (armed && detail) tryCapture(detail.method, detail.url, detail.headers);
       xhrDetails.delete(this);
-      return originalSend.apply(this, arguments);
+      return transport.apply(this, arguments);
     };
   }
 

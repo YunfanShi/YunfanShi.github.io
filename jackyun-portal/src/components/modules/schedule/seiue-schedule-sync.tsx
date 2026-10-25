@@ -5,7 +5,7 @@ import { workspaceStorage } from '@/lib/sync/repository';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LearningTask } from '@/lib/learning/schedule-control';
 import type { SeiueAccountView, SeiueSnapshot } from '@/lib/integrations/seiue';
-import { seiueCourseReviewKey } from '@/lib/integrations/seiue';
+import { isSeiueCalendarEventInWeek, seiueCourseReviewKey } from '@/lib/integrations/seiue';
 import { getSeiueSnapshot, withSeiueSnapshot, type SeiueSnapshotCache } from '@/lib/integrations/seiue-snapshot-cache';
 
 const EMPTY: SeiueSnapshot = { lessons: [], todos: [], calendar: [], syncedAt: '' };
@@ -25,11 +25,17 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
   const [prefsByAccount, setPrefsByAccount] = useState<Record<string, Record<string, boolean>>>({});
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [clock, setClock] = useState(() => Date.now());
   const ownerRef = useRef('');
   const week = useMemo(() => { const date = new Date(`${selectedDate}T12:00:00`); date.setDate(date.getDate() - ((date.getDay() + 6) % 7)); return date.toLocaleDateString('en-CA'); }, [selectedDate]);
   const weekEnd = useMemo(() => { const date = new Date(`${week}T12:00:00`); date.setDate(date.getDate() + 6); return date.toLocaleDateString('en-CA'); }, [week]);
   const prefs = useMemo(() => accountId ? prefsByAccount[accountId] ?? readPrefs(accountId) : {}, [accountId, prefsByAccount]);
   const activeSnapshot = getSeiueSnapshot(snapshots, accountId, week) ?? EMPTY;
+  const enabledLessons = useMemo(() => activeSnapshot.lessons.filter(lesson => prefs[courseKey(lesson.subject)]), [activeSnapshot.lessons, prefs]);
+  const nextReviewBoundary = enabledLessons.reduce((next, lesson) => {
+    const end = Date.parse(`${lesson.date}T${lesson.end}:00+08:00`);
+    return Number.isFinite(end) && end > clock ? Math.min(next, end) : next;
+  }, Number.POSITIVE_INFINITY);
   const loadAccounts = useCallback(async () => {
     const response = await fetch('/api/integrations/seiue/accounts', { cache: 'no-store' });
     const data = await response.json(); if (!response.ok) throw new Error(data.error || '无法读取 SEIUE 关联。');
@@ -53,13 +59,17 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
     if (accountId) queueMicrotask(() => { void refresh(); });
   }, [accountId, refresh, onReviewTasks]);
   useEffect(() => {
-    const now = Date.now();
-    const tasks: LearningTask[] = activeSnapshot.lessons.filter(lesson => prefs[courseKey(lesson.subject)] && Date.parse(`${lesson.date}T${lesson.end}:00+08:00`) <= now).map(lesson => ({
+    const tasks: LearningTask[] = enabledLessons.filter(lesson => Date.parse(`${lesson.date}T${lesson.end}:00+08:00`) <= clock).map(lesson => ({
       key: seiueCourseReviewKey(lesson), title: `复习 SEIUE 课程 · ${lesson.subject}`, detail: `回忆本节课程要点，补全笔记并整理需要复习的内容。${lesson.description ? `\n\n课堂备注：${lesson.description}` : ''}`,
       type: 'course-review', date: lesson.date, start: lesson.end, durationMinutes: 20, subjectName: lesson.subject, manual: false,
     }));
     onReviewTasks(tasks);
-  }, [activeSnapshot.lessons, onReviewTasks, prefs]);
+  }, [enabledLessons, onReviewTasks, clock]);
+  useEffect(() => {
+    if (!Number.isFinite(nextReviewBoundary)) return;
+    const timer = window.setTimeout(() => setClock(Date.now()), Math.max(0, nextReviewBoundary - clock));
+    return () => window.clearTimeout(timer);
+  }, [clock, nextReviewBoundary]);
   function toggleReview(subject: string, enabled: boolean) {
     const next = { ...prefs, [courseKey(subject)]: enabled };
     if (accountId) {
@@ -75,7 +85,7 @@ export default function SeiueScheduleSync({ selectedDate, onReviewTasks }: { sel
     if (!deadline) return true;
     return deadline <= weekEnd;
   });
-  const calendar = activeSnapshot.calendar.filter(event => event.date <= weekEnd && (!event.endDate || event.endDate >= week));
+  const calendar = activeSnapshot.calendar.filter(event => isSeiueCalendarEventInWeek(event, week, weekEnd));
   const subjects = [...new Set(activeSnapshot.lessons.map(item => item.subject))];
   return <section aria-label="SEIUE 同步" className="mb-4 rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-[var(--muted-foreground)]">SEIUE · 只读同步</p><h2 className="mt-1 text-lg font-semibold">课程、待办与校历</h2></div><div className="flex items-center gap-2"><select aria-label="SEIUE 账户" value={accountId} onChange={event => setAccountId(event.target.value)} className="min-h-10 rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-2 text-xs">{accounts.map(account => <option key={account.id} value={account.id}>{account.displayName}</option>)}</select><button type="button" disabled={busy} onClick={() => void refresh()} className="min-h-10 rounded-full border border-[var(--card-border)] px-3 text-xs disabled:opacity-40">{busy ? '同步中…' : '刷新'}</button></div></div>
