@@ -35,4 +35,3 @@ export function estimateAiCost(
   return (inputTokens / 1_000_000) * prices.inputPerMTokens
        + (outputTokens / 1_000_000) * prices.outputPerMTokens;
 }
-
