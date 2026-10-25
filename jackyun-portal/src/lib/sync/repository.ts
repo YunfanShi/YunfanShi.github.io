@@ -20,12 +20,15 @@ async function project(key:string,value:string|null) {
 }
 export function initializeRepository(userId:string|null):Promise<void> {
   if(ready&&currentOwner===userId)return ready;
-  const previous=ready;currentOwner=userId;
+  const previous=ready,previousWrites=tail;currentOwner=userId;
   ready=(async()=>{
     if(previous)await previous;
+    // Drain writes against their captured repository before changing the active DB.
+    // A write cannot await this initialization while initialization waits for it.
+    await previousWrites;
+    if(failures.size)throw failures.values().next().value!.error;
     const projectedOwner=await projectionOwner();
     if(projectedOwner&&projectedOwner!==(userId??'guest')){
-      if(pending)throw Error('账户切换前仍有本机保存操作，请保留页面并导出恢复副本。');
       await bindSyncUser(projectedOwner);
       const originals=new Map((await getDocuments()).map(row=>[row.key,row]));
       const keys=Array.from({length:projection().length},(_,i)=>projection().key(i));
@@ -78,10 +81,11 @@ export function initializeRepository(userId:string|null):Promise<void> {
   return ready;
 }
 function enqueue(key:string,value:string|null,expected?:string|null) {
+  const repositoryReady=ready??initializeRepository(currentOwner??null),owner=currentOwner;
   pending++;status('saving');
   tail=tail.catch(()=>{}).then(async()=>{
-    if(ready)await ready;
-    if(await projectionOwner()!==(currentOwner??'guest'))throw Error('当前账号已在另一标签页切换，本机草稿保留。');
+    if(repositoryReady)await repositoryReady;
+    if(await projectionOwner()!==(owner??'guest'))throw Error('当前账号已在另一标签页切换，本机草稿保留。');
     try{await persistDocument(key,value,true,expected);}catch(error){
       if((error as {name?:string}).name!=='QuotaExceededError')throw error;
       await evictDownloadCache();await persistDocument(key,value,true,expected);
@@ -118,5 +122,5 @@ export async function applyRepositoryRecord(key:string,value:string|null,expecte
 export function exportLocalRecovery():string {
   const native:Record<string,string>={};
   try{for(let i=0;i<projection().length;i++){const key=projection().key(i);if(key&&isSyncableStorageKey(key)){const value=projection().getItem(key);if(value!==null)native[key]=value;}}}catch{}
-  return JSON.stringify({version:1,exportedAt:new Date().toISOString(),values:Object.fromEntries(memory),compatibilityProjection:native},null,2);
+  return JSON.stringify({version:1,exportedAt:new Date().toISOString(),values:Object.fromEntries(memory),failedDrafts:Object.fromEntries([...failures].map(([key,draft])=>[key,{value:draft.value,expected:draft.expected}])),compatibilityProjection:native},null,2);
 }

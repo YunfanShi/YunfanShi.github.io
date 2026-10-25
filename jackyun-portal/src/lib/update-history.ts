@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.44.1', date: '2026-10-25', dateLabel: '2026 年 10 月 25 日', title: '登录切换保存恢复', summary: '登录切换先完成原账号的本机事务，避免初始化互相等待。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['排队写入固定绑定创建时的仓库初始化，切换账号前完成原账号写入。', '恢复副本补充失败草稿；新增真实 IndexedDB 账号切换回归。'] },
   { version: '3.44.0', date: '2026-10-25', dateLabel: '2026 年 10 月 25 日', title: '同步可靠性升级', summary: '本机事务保存、统一故障恢复与可恢复的增量同步协议。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['本机内容与待上传操作一起持久化，失败时保留恢复副本。', '云端操作回执防止重复处理，恢复过程遵守退避、熔断与账号权限。', '增量协议按服务端能力启用，兼容旧客户端；备份独立恢复。'] },
   { version: '3.43.2', date: '2026-10-25', dateLabel: '2026 年 10 月 25 日', title: 'SEIUE 助手自动更新', summary: '提升连接助手脚本版本并固定更新地址，让脚本管理器可以检测并安装后续修复。', categories: ['稳定性', '平台体验'], accent: 'blue', featured: false, highlights: ['助手版本更新至 1.1.1，安装来源、下载地址和更新地址都指向 JackYun 官方 userscripts 页面。', '已安装的脚本可由 Tampermonkey 或 Violentmonkey 根据元数据发现更新，不需要每次手动重装。', '助手仍只捕获一次学生课表 GET 请求；学校密码、Cookie、refresh token 和响应内容不读取。'] },
   { version: '3.43.1', date: '2026-10-25', dateLabel: '2026 年 10 月 25 日', title: 'SEIUE 同步边界修复', summary: '修复连接助手触发请求转发、复习任务取消/定时出现、校历周过滤和仅 SEIUE 账户空态显示。', categories: ['稳定性', '学习体验'], accent: 'blue', featured: false, highlights: ['一次性捕获学生连接信息时，触发捕获的 fetch/XHR 课表请求仍正常发出。', '课程结束时自动刷新课后复习任务；已完成或取消的 SEIUE 复习任务不会再次出现在日视图或周视图。', '单日校历只在所属周显示；只使用 SEIUE 的账户也能正常看到同步任务。'] },

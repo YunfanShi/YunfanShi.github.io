@@ -48,7 +48,15 @@ const loader=`const sources=${JSON.stringify(modules)},cache={};function load(na
     return {rejected,snapshot:await offline.readOfflineSnapshot('browser-alice','tasks'),operations:await offline.listOfflineMutations('browser-alice')};
   });
   assert.equal(aborted.rejected,true);assert.equal(aborted.snapshot.inboxTasks.length,1);assert.equal(aborted.operations.length,1);
-  const output={passed:7,cases:['two-tab independent merge','browser reload retains local data and intent','legacy-write crash recovery','account projection isolation','original account restoration','business snapshot and operation atomic commit','business quota abort retains prior snapshot'],realAccount:false};
+  await a.evaluate(async()=>{
+    window.repository.workspaceStorage.setItem('study','{"a":4,"b":3}');
+    await window.repository.initializeRepository('browser-bob');
+    await window.repository.flushLocalWrites();
+  });
+  assert.equal(await a.evaluate(()=>window.repository.workspaceStorage.getItem('study')),null);
+  await a.evaluate(()=>window.repository.initializeRepository('browser-alice'));
+  assert.deepEqual(JSON.parse(await a.evaluate(()=>window.repository.workspaceStorage.getItem('study'))),{a:4,b:3});
+  const output={passed:8,cases:['two-tab independent merge','browser reload retains local data and intent','legacy-write crash recovery','account projection isolation','original account restoration','business snapshot and operation atomic commit','business quota abort retains prior snapshot','account switch drains pending writes without circular initialization'],realAccount:false};
   fs.mkdirSync('.migration-private',{recursive:true});fs.writeFileSync('.migration-private/sync-repository-browser.json',JSON.stringify(output,null,2));console.log(JSON.stringify(output));
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});
