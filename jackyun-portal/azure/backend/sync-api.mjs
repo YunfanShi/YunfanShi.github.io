@@ -8,7 +8,7 @@ import { applyRecordDelta } from '../../src/lib/sync/delta.ts';
 import { decodeSyncUpload, compressSyncPart } from '../../src/lib/sync/compression.ts';
 import { handleSyncV4 } from './sync-v4.mjs';
 import { handleSyncV5,syncV5Rollout } from './sync-v5.mjs';
-import {readScheduleProjection,replaceScheduleResources,writeProjectionHead} from './sync-v5.mjs';
+import {readScheduleProjection,scheduleProjectionState,replaceScheduleResources,writeProjectionHead} from './sync-v5.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH = /^[a-f0-9]{64}$/i;
@@ -143,16 +143,22 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
     return database.withUser(identity, async client => {
       if (route.startsWith('/api/sync/v5')) return handleSyncV5(client,identity,method,url,body,syncV5Rollout(identity));
       const v5Scopes=syncV5Rollout(identity);
-      const scheduleProjection=async()=>v5Scopes.length?readScheduleProjection(client,identity.sub):null;
+      let projectionScopesPromise;
+      const projectionScopes=()=>projectionScopesPromise??=scheduleProjectionState(client,identity.sub,v5Scopes);
+      const scheduleProjection=async()=>{
+        if(await projectionScopes()===null)return null;
+        return readScheduleProjection(client,identity.sub);
+      };
       const shapeScheduleRecord=async(record)=>{
+        if(!record||record.key!==SCHEDULE_STORAGE_KEY)return record;
         const projection=await scheduleProjection();
-        if(!projection||!record||record.key!==SCHEDULE_STORAGE_KEY)return record;
+        if(!projection)return record;
         const large=!projection.legacy?.deleted_at&&!syncValueFits(projection.value);
         return {...record,value:large?null:projection.value,revision:projection.revision,contentHash:projection.contentHash,
           deleted:false,large,updatedAt:projection.legacy?.updated_at?iso(projection.legacy.updated_at):record.updatedAt};
       };
       const applyCompatibleBody=async(requestBody,large=false)=>{
-        if(!v5Scopes.length||!Array.isArray(requestBody?.operations))return applyBody(client,identity,requestBody,large);
+        if(!Array.isArray(requestBody?.operations))return applyBody(client,identity,requestBody,large);
         const operation=requestBody.operations.find(row=>row.key===SCHEDULE_STORAGE_KEY);
         if(!operation)return applyBody(client,identity,requestBody,large);
         const projection=await scheduleProjection();
@@ -175,7 +181,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
         }
         const applied=response.applied?.find(row=>row.operationId===operation.id);
         if(applied&&baseMatches&&!operation.deleted){
-          await replaceScheduleResources(client,identity.sub,nextValue,v5Scopes);
+          await replaceScheduleResources(client,identity.sub,nextValue,await projectionScopes()??[]);
           const head=await writeProjectionHead(client,identity.sub,Number(applied.revision),nextValue);
           if(head.contentHash!==applied.contentHash)fail(503,'SYNC_V5_PROJECTION_HASH_MISMATCH');
         }

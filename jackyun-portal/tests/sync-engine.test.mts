@@ -106,6 +106,9 @@ test('large record parts download concurrently and retain their integrity check'
  assert.deepEqual(d.value,value);
  const received=progress.filter(message=>message.startsWith('已接收分片 ')).map(message=>Number(message.match(/已接收分片 (\d+) \/ /)?.[1]));
  assert.deepEqual(received,[...received].sort((a,b)=>a-b));
+ assert.equal(progress.some(message=>/正在接收分片\s+\d/.test(message)),false);
+ const visibleCounts=progress.flatMap(message=>[...message.matchAll(/(?:已接收分片\s+)(\d+)\s+\/\s+(\d+)/g)].map(match=>Number(match[1])));
+ assert.deepEqual(visibleCounts,[...visibleCounts].sort((a,b)=>a-b));
  assert.equal(received.at(-1),chunks.length);
  assert.equal(progress.at(-1),'正在校验完整数据');
 });

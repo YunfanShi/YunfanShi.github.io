@@ -42,6 +42,7 @@ export interface SyncEnvironment {
   now(): number;
   uuid(): string;
   wait?(milliseconds: number): Promise<void>;
+  usesV5Schedule?:()=>boolean;
 }
 
 const parse = (value: string | null | undefined): unknown => {
@@ -183,7 +184,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
         showReceived();
         return cached;
       }
-      e.progress(`正在接收分片 ${part+1}${expectedCount ? ` / ${expectedCount}` : ''}`);
+      e.progress(partCount===undefined?'正在接收分片':`已接收分片 ${receivedParts.size} / ${partCount} · 正在下载`);
       const chunk = await json(`/api/sync/v2/large?key=${encodeURIComponent(record.key)}&revision=${record.revision}&part=${part}${typeof DecompressionStream === 'function' ? '&encoding=gzip' : ''}`);
       if (chunk.revision !== record.revision || chunk.part !== part || !Number.isInteger(chunk.count) || Number(chunk.count) < 1 || Number(chunk.count) > MAX_SYNC_PARTS
         || typeof chunk.data !== 'string' || (expectedCount !== undefined && chunk.count !== expectedCount)) throw new SyncTransferShapeError('同步分片布局发生变化，原始数据已保留，下一轮重新核对。');
@@ -249,7 +250,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   async function capture() {
     if(e.cancelled())return;
     const snapshot = e.snapshot();
-    const changed=[...new Set([...Object.keys(observed),...Object.keys(snapshot)])].filter(key=>!captured || observed[key]!==snapshot[key]);
+    const changed=[...new Set([...Object.keys(observed),...Object.keys(snapshot)])].filter(key=>(!e.usesV5Schedule?.()||key!=='jackyun_schedule_control_v1')&&(!captured || observed[key]!==snapshot[key]));
     if (!captured) for (const legacy of await store.getOutbox()) if (legacy.sequence === undefined) await store.replaceOperation(legacy,{...legacy,id:e.uuid(),sequence:0});
     if(!changed.length){captured=true;return;}
     const metadata = new Map((await store.getMetadata()).map(r=>[r.key,r]));
@@ -393,7 +394,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
         if(page.syncProtocol!==4||!Array.isArray(page.records)||page.records.length>100)throw Error('增量同步页面无效。');
         if(!deferred)await store.setSetting!('v4StagedPage',page);
       }
-      const descriptors=page.records as SyncRecord[];
+      const descriptors=(page.records as SyncRecord[]).filter(descriptor=>!e.usesV5Schedule?.()||descriptor.key!=='jackyun_schedule_control_v1');
       for(const descriptor of descriptors)validate(descriptor);
       const metadata=new Map((await store.getMetadata()).map(row=>[row.key,row]));
       const toRead=descriptors.filter(descriptor=>{

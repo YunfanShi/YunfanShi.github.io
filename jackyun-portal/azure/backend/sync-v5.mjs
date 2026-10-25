@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {canonicalJson} from '../../src/lib/sync/hash.ts';
-import {resourcesToSchedule,scheduleToResources} from '../../src/lib/sync/resource-model.ts';
+import {mergeScheduleResources,scheduleToResources} from '../../src/lib/sync/resource-model.ts';
 import {ApiError} from './errors.mjs';
 
 export const SYNC_V5_SCOPES=new Set(['timetable','learning','cue','practice','timer','settings']);
@@ -26,14 +26,22 @@ export async function readScheduleProjection(client,userId){
   const legacy=await readLegacySchedule(client,userId),head=(await client.query('SELECT revision,content_hash,updated_at FROM public.sync_v5_projection_heads WHERE user_id=$1',[userId])).rows[0];
   const rows=(await client.query(`SELECT scope,record_id,value,deleted_at FROM public.sync_v5_records WHERE user_id=$1`,[userId])).rows;
   const base=legacy&&!legacy.deleted_at&&legacy.storage_value&&typeof legacy.storage_value==='object'?legacy.storage_value:{};
-  if(!rows.length)return {value:base,revision:integer(head?.revision??legacy?.revision??0),contentHash:head?.content_hash??legacy?.content_hash??null,legacy};
+  const projectionRecordCount=rows.length,projectionBytes=rows.reduce((total,row)=>total+Buffer.byteLength(json(row.value)),0);
+  if(!rows.length)return {value:base,revision:integer(head?.revision??legacy?.revision??0),contentHash:head?.content_hash??legacy?.content_hash??null,legacy,projectionRecordCount,projectionBytes};
   const resources=[],touched=new Set();
   for(const row of rows){const {field,itemId}=parseRecordId(row.record_id);touched.add(field);
     if(!row.deleted_at)resources.push({scope:row.scope,recordId:row.record_id,field,itemId,value:row.value});}
-  const normalized=resourcesToSchedule(resources),value={...base};
-  for(const field of touched){if(Object.hasOwn(normalized,field))value[field]=normalized[field];else delete value[field];}
-  const root=normalized.__root;if(root&&typeof root==='object'&&!Array.isArray(root))Object.assign(value,root);
-  return {value,revision:integer(head?.revision??legacy?.revision??0),contentHash:head?.content_hash??legacy?.content_hash??hashValue(value),legacy};
+  const value=mergeScheduleResources(base,resources,[...touched]);
+  return {value,revision:integer(head?.revision??legacy?.revision??0),contentHash:head?.content_hash??legacy?.content_hash??hashValue(value),legacy,projectionRecordCount,projectionBytes};
+}
+export async function scheduleProjectionState(client,userId,rolloutScopes=[]){
+  const ready=(await client.query(`SELECT to_regclass('public.sync_v5_records') IS NOT NULL
+    AND to_regclass('public.sync_v5_heads') IS NOT NULL AND to_regclass('public.sync_v5_projection_heads') IS NOT NULL AS ready`)).rows[0]?.ready===true;
+  if(!ready)return null;
+  if(rolloutScopes.length)return [...new Set(rolloutScopes)];
+  const exists=(await client.query('SELECT 1 FROM public.sync_v5_projection_heads WHERE user_id=$1',[userId])).rows.length>0;
+  if(!exists)return null;
+  return (await client.query('SELECT scope FROM public.sync_v5_heads WHERE user_id=$1 ORDER BY scope',[userId])).rows.map(row=>row.scope);
 }
 export async function writeProjectionHead(client,userId,revision,value,{recordV4Change=false}={}){
   const contentHash=hashValue(value);
@@ -120,15 +128,14 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
     AND to_regclass('public.sync_v5_heads') IS NOT NULL AND to_regclass('public.sync_v5_changes') IS NOT NULL
     AND to_regclass('public.sync_v5_receipts') IS NOT NULL AND to_regclass('public.sync_v5_projection_heads') IS NOT NULL AS ready`)).rows[0]?.ready===true;
   if(route==='/api/sync/v5'&&method==='GET'){
-    if(schema&&available.length)await bootstrapScopes(client,identity.sub,available);
     return {ok:true,syncProtocol:5,capabilities:{v5:schema&&available.length>0},scopes:schema?available:[],transferEncoding:'gzip'};
   }
   if(!schema)fail(503,'SYNC_V5_NOT_READY');
   const scope=url.searchParams.get('scope')??body?.scope;
   if(!validScope(scope)||!available.includes(scope))fail(404,'SYNC_V5_SCOPE_UNAVAILABLE');
+  await bootstrapScopes(client,identity.sub,[scope]);
   if(route==='/api/sync/v5/manifest'){
     if(method!=='GET')fail(405,'METHOD_NOT_ALLOWED');
-    await bootstrapScopes(client,identity.sub,available);
     const after=url.searchParams.get('after')??'';
     if(after.length>240)fail(400,'INVALID_CURSOR');
     const rows=(await client.query(`SELECT scope,record_id,revision,content_hash,deleted_at,updated_at
@@ -140,7 +147,6 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
   }
   if(route==='/api/sync/v5/changes'){
     if(method!=='GET')fail(405,'METHOD_NOT_ALLOWED');
-    await bootstrapScopes(client,identity.sub,available);
     const cursor=integer(url.searchParams.get('cursor')??0);
     const head=(await client.query('SELECT sequence,retained_after FROM public.sync_v5_heads WHERE user_id=$1 AND scope=$2',[identity.sub,scope])).rows[0];
     const high=integer(head?.sequence??0),floor=integer(head?.retained_after??0);
@@ -154,7 +160,6 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
   }
   if(route==='/api/sync/v5/records'){
     if(method!=='GET')fail(405,'METHOD_NOT_ALLOWED');
-    await bootstrapScopes(client,identity.sub,available);
     const ids=url.searchParams.getAll('id');
     if(!ids.length||ids.length>100||ids.some(id=>!id||id.length>240))fail(400,'INVALID_RECORD_IDS');
     const rows=(await client.query(`SELECT scope,record_id,revision,content_hash,value,deleted_at,updated_at
@@ -219,11 +224,12 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
       await client.query(`INSERT INTO public.sync_v5_receipts(user_id,scope,operation_id,request_hash,result)
         VALUES($1,$2,$3,$4,$5::jsonb)`,[identity.sub,scope,operation.id,requestHash,json(result)]);
     }
-    let projectionBuildMs=0;
+    let projectionBuildMs=0,projectionRecordCount=0,projectionBytes=0;
     if(applied.length){
       const started=performance.now(),projection=await readScheduleProjection(client,identity.sub);
       await writeProjectionHead(client,identity.sub,projection.revision+1,projection.value,{recordV4Change:true});
       projectionBuildMs=Math.round(performance.now()-started);
+      projectionRecordCount=projection.projectionRecordCount;projectionBytes=projection.projectionBytes;
     }
     await client.query(`WITH removed AS (
       DELETE FROM public.sync_v5_changes WHERE user_id=$1 AND scope=$2 AND created_at<now()-interval '90 days' RETURNING sequence
@@ -231,7 +237,7 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
     UPDATE public.sync_v5_heads SET retained_after=GREATEST(retained_after,COALESCE((SELECT sequence FROM floor),retained_after))
     WHERE user_id=$1 AND scope=$2`,[identity.sub,scope]);
     const head=(await client.query('SELECT sequence FROM public.sync_v5_heads WHERE user_id=$1 AND scope=$2',[identity.sub,scope])).rows[0];
-    return {ok:true,syncProtocol:5,applied,remote,conflicts,head:integer(head?.sequence??0),projectionBuildMs};
+    return {ok:true,syncProtocol:5,applied,remote,conflicts,head:integer(head?.sequence??0),projectionBuildMs,projectionRecordCount,projectionBytes};
   }
   fail(404,'NOT_FOUND');
 }

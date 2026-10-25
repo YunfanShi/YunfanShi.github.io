@@ -5,14 +5,16 @@ import LocalDurabilityNotice from './local-durability';
 import {fetchAuthenticatedSync as fetchSyncWithTimeout} from '@/lib/sync/session-transport';
 import {shouldPauseSync} from '@/lib/sync/retry-policy';
 import {runScheduledSync,createEditTrigger} from '@/lib/sync/scheduler';
-import {workspaceStorage,initializeRepository,flushLocalWrites,applyRepositoryRecord} from '@/lib/sync/repository';
+import {workspaceStorage,initializeRepository,flushLocalWrites,applyRepositoryRecord,projectCommittedRepositoryRecord,setV5ScheduleAuthority} from '@/lib/sync/repository';
 import {BEFORE_SLEEP_EVENT,LOCAL_SLEEP_SAVE_EVENT,WAKE_EVENT,isWorkspaceSleeping,type SleepRequest} from '@/lib/workspace-idle';
 import {createSyncRunGate} from '@/lib/sync/run-gate';
 import {announceSyncStatus as announce,getLatestSyncStatus} from '@/lib/sync/status';
 import {CLOUD_STATE_APPLIED_EVENT,MAX_SYNC_VALUE_CHARACTERS,isSyncableStorageKey} from '@/lib/local-workspace';
 import * as syncStore from '@/lib/sync/outbox';
-import {getSetting} from '@/lib/sync/outbox';
+import {getSetting,getV5Conflicts,getV5Outbox} from '@/lib/sync/outbox';
 import {createWorkspaceSync} from '@/lib/sync/engine';
+import {createV5ResourceSync,resourceScopesForPath} from '@/lib/sync/resource-engine';
+import {SYNC_V5_SCOPES} from '@/lib/sync/resource-model';
 import {isBackupableLegacyKey,legacyBackupPage,type BackupPage} from '@/lib/backup/pages';
 import {localPageValues,saveLocalBackup} from '@/lib/backup/local';
 import {backupIsDue,recordBackupChange,type PendingBackup} from '@/lib/backup/cadence';
@@ -114,21 +116,29 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const controller=new AbortController(), gate=createSyncRunGate();
     const accountStore=syncStore.accountSyncStore(userId);
     const publish=async (state:SyncStatus,error?:string,progress?:string) => {
-      const [pending,conflicts,lastSyncedAt]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<string>('lastSyncedAt')]);
+      const [pending,conflicts,lastSyncedAt,v5Pending,v5Conflicts]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<string>('lastSyncedAt'),v5Authority?getV5Outbox(undefined,userId!):Promise.resolve([]),v5Authority?getV5Conflicts(userId!):Promise.resolve([])]);
       if(cancelled) return;
-      announce({state:conflicts.length && state!=='syncing' && state!=='error' && state!=='server_unavailable' && state!=='auth_required' && state!=='access_denied' ? 'conflict' : state==='synced' && pending.length ? 'offline_pending' : state,
-        pending:pending.length,conflicts:conflicts.length,lastSyncedAt,error,progress,consecutiveFailures:failures});
+      const totalPending=pending.length+v5Pending.length,totalConflicts=conflicts.length+v5Conflicts.length;
+      announce({state:totalConflicts && state!=='syncing' && state!=='error' && state!=='server_unavailable' && state!=='auth_required' && state!=='access_denied' ? 'conflict' : state==='synced' && totalPending ? 'offline_pending' : state,
+        pending:totalPending,conflicts:totalConflicts,lastSyncedAt,error,progress:progress??(v5Conflicts.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':undefined),consecutiveFailures:failures});
     };
     let requestReason='periodic';
+    const storedV5Authority=accountStore.getSetting<boolean>('v5ScheduleAuthority').then(enabled=>{if(enabled)setV5ScheduleAuthority(SYNC_V5_SCOPES);return Boolean(enabled);});
     const engine=createWorkspaceSync({store:accountStore,snapshot:()=>localSnapshot(true),read:key=>workspaceStorage.getItem(key),
       write:async(key,value,expected)=>{if(cancelled||signingOut)throw new DOMException('Sync cancelled','AbortError');await applyRepositoryRecord(key,value,expected);},
       backup:async key=>{if(isBackupableLegacyKey(key))await saveLocalBackup(userId,legacyBackupPage(key),localPageValues(localSnapshot(true),legacyBackupPage(key)));},
       changed:keys=>window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{keys,source:'cloud'}})),
       request:(url,init)=>fetchSyncWithTimeout(url,{...init,headers:{...init?.headers,'X-Sync-Reason':requestReason,'X-Sync-Account':userId},signal:controller.signal},false),
       progress:progress=>{if(!cancelled){const current=getLatestSyncStatus();announce({...current??{state:'syncing',pending:0,conflicts:0,lastSyncedAt:null},progress});}},
+      usesV5Schedule:()=>v5Authority,
       deviceId:accountStore.getOrCreateDeviceId,device:deviceDescription,cancelled:()=>cancelled||signingOut||syncStore.isSyncLeaseLost?.(`recovery:${userId}:workspace`)===true,now:Date.now,uuid:()=>crypto.randomUUID(),
     });
+    const v5Sync=createV5ResourceSync({request:(url,init)=>fetchSyncWithTimeout(url,{...init,headers:{...init?.headers,'X-Sync-Reason':requestReason,'X-Sync-Account':userId},signal:controller.signal},false),deviceId:accountStore.getOrCreateDeviceId,
+      readSchedule:()=>workspaceStorage.getItem('jackyun_schedule_control_v1'),projectSchedule:value=>projectCommittedRepositoryRecord('jackyun_schedule_control_v1',value),
+      setAuthority:async scopes=>{setV5ScheduleAuthority(scopes);if(SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)))await accountStore.setSetting('v5ScheduleAuthority',true);},uuid:()=>crypto.randomUUID()});
+    let v5Authority=false;
     let queuedResolution: SyncResolutionRequest | undefined;
+    let queuedV5Resolution:{operationId:string;choice:'local'|'remote'}|undefined;
     async function sync(manual=false,allowHidden=false,resolution?:SyncResolutionRequest,reason=manual?'manual':'periodic') {
       if(cancelled||signingOut||!bound||isWorkspaceSleeping())return;
       if(!manual&&!allowHidden&&document.visibilityState!=='visible'){await engine.capture();return;}
@@ -142,20 +152,23 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           await flushLocalWrites();await engine.capture();
           if(!navigator.onLine){await publish('offline_pending');return false;}
           if(authPaused)return false;
-          const [pending,conflicts,lastRead]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull')]);
+          const [pending,conflicts,lastRead,v5Pending]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull'),v5Authority?getV5Outbox(undefined,userId!):Promise.resolve([])]);
           const blocked=new Set(conflicts.map(c=>c.key));
-          if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
+          if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&!v5Pending.length&&requestReason!=='edit'&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
           if(queuedResolution){const choice=queuedResolution;await engine.resolve(choice.operationId,choice.choice,choice.review);if(queuedResolution===choice)queuedResolution=undefined;await engine.flush();}
+          if(queuedV5Resolution){const choice=queuedV5Resolution;await v5Sync.resolveConflict(choice.operationId,choice.choice);if(queuedV5Resolution===choice)queuedV5Resolution=undefined;}
           await engine.synchronize();
+          const v5Result=await v5Sync.synchronize(resourceScopesForPath(window.location.pathname));
+          if(v5Result.enabled)v5Authority=true;
           await flushLocalWrites();await engine.capture();
           await accountStore.setSetting('lastAutomaticPull',Date.now());
-          const remaining=await accountStore.getOutbox(), unresolved=await accountStore.getConflicts();
-          if(!remaining.length&&!unresolved.length)await accountStore.setSetting('lastSyncedAt',new Date().toISOString());
+          const [remaining,unresolved,v5Remaining,v5Unresolved]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),v5Authority?getV5Outbox(undefined,userId!):Promise.resolve([]),v5Authority?getV5Conflicts(userId!):Promise.resolve([])]);
+          if(!remaining.length&&!unresolved.length&&!v5Remaining.length&&!v5Unresolved.length)await accountStore.setSetting('lastSyncedAt',new Date().toISOString());
           failures=0;
           if(Date.now()-lastBackupCheck>=5*60_000){lastBackupCheck=Date.now();void runScheduledSync('backup',userId!,async()=>{await createDueBackupVersions();}).catch(()=>console.warn('[Backup] Cloud backup deferred'));}
-          await publish(unresolved.length?'conflict':remaining.length?'offline_pending':'synced',undefined,
-            unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':remaining.length?'本机修改仍在队列中，将分批继续上传。':undefined);
+          await publish(unresolved.length||v5Unresolved.length?'conflict':remaining.length||v5Remaining.length?'offline_pending':'synced',undefined,
+            unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':v5Unresolved.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':remaining.length||v5Remaining.length?'本机修改仍在队列中，将分批继续上传。':undefined);
           return true;
         };
         await runScheduledSync('workspace',userId!,work,manual);
@@ -174,7 +187,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     }
     workspaceStorage.removeItem('jackyun_guest_mode');
     void publish('syncing',undefined,'正在初始化版本同步…');
-    const initialize=()=>initializeRepository(userId).then(()=>{bound=true;return sync();}).catch(error=>{
+    const initialize=()=>initializeRepository(userId).then(async()=>{v5Authority=await storedV5Authority;bound=true;return sync();}).catch(error=>{
       void reportSyncFailure(error,'initialization');
       void publish('error',error instanceof Error?error.message:'无法绑定账号');
     });
@@ -204,6 +217,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const onOffline=()=>void publish('offline_pending');
     const onRetry=()=>void sync(true);
     const onResolve=(event:Event)=>{const detail=(event as CustomEvent<SyncResolutionRequest>).detail;if(detail?.operationId&&['local','remote','merged'].includes(detail.choice))void sync(true,false,detail);};
+    const onResolveV5=(event:Event)=>{const detail=(event as CustomEvent<{operationId:string;choice:'local'|'remote'}>).detail;if(detail?.operationId&&['local','remote'].includes(detail.choice)){queuedV5Resolution=detail;void sync(true);}};
     const onVisibility=()=>{if(document.visibilityState==='visible')void sync();else void engine.capture();};
     const onLeave=()=>void engine.capture();
     const onSignOut=()=>{signingOut=true;};
@@ -215,7 +229,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const onDurable=(event:Event)=>{if((event as CustomEvent).detail?.state==='saved')channel?.postMessage({wake:true});};
     window.addEventListener('jackyun-local-durability',onDurable);
     const listeners:[string,EventListener][]=[['online',onOnline],['offline',onOffline],['focus',onWake],['pagehide',onLeave],
-      ['jackyun-local-durability',onEdit],['storage',onEdit],['jackyun-auth-recovered',onRetry],['jackyun-sync-retry',onRetry],['jackyun-sync-resolve',onResolve],['jackyun-sync-edit',onEdit],['jackyun-signout-start',onSignOut],
+      ['jackyun-local-durability',onEdit],['storage',onEdit],['jackyun-auth-recovered',onRetry],['jackyun-sync-retry',onRetry],['jackyun-sync-resolve',onResolve],['jackyun-sync-v5-resolve',onResolveV5],['jackyun-sync-edit',onEdit],['jackyun-signout-start',onSignOut],
       ['jackyun-signout-cancel',onCancel],['jackyun-sync-before-signout',onBeforeSignOut],[BEFORE_SLEEP_EVENT,onSleep],[WAKE_EVENT,onWake]];
     for(const [name,listener]of listeners)window.addEventListener(name,listener);
     document.addEventListener('visibilitychange',onVisibility);

@@ -8,7 +8,7 @@ import { LOCAL_SYNC_STATUS_EVENT } from '@/lib/local-workspace';
 import { fetchSyncWithTimeout } from '@/lib/request-timeout';
 import { getLatestSyncStatus } from '@/lib/sync/status';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
-import { getConflicts, getOrCreateDeviceId, getOutbox,getSetting } from '@/lib/sync/outbox';
+import { getConflicts, getOrCreateDeviceId, getOutbox,getSetting,getV5Conflicts,type V5ResourceConflict } from '@/lib/sync/outbox';
 import {BACKUP_PAGES,legacyBackupPage} from '@/lib/backup/pages';
 import SyncConflictReview from './sync-conflict-review';
 import {listOfflineMutations} from '@/lib/offline/workspace';
@@ -27,9 +27,10 @@ export default function SyncCenterPanel() {
   const [blockedCount,setBlockedCount]=useState(0);
   const [reviews,setReviews]=useState<Array<{conflict:SyncConflict;raw:string|null;generation:number}>>([]);
   const [pending,setPending]=useState<SyncOperation[]>([]);
+  const [v5Conflicts,setV5Conflicts]=useState<V5ResourceConflict[]>([]);
   const refreshReview=useCallback(async()=>{
     try {
-      const [conflicts,operations]=await Promise.all([getConflicts(),getOutbox()]);
+      const [conflicts,operations,resourceConflicts]=await Promise.all([getConflicts(),getOutbox(),getV5Conflicts()]);
       const snapshots=conflicts.map(conflict=>({conflict,raw:workspaceStorage.getItem(conflict.key)}));
       setReviews(previous=>snapshots.map(snapshot=>{
         const old=previous.find(row=>row.conflict.operationId===snapshot.conflict.operationId);
@@ -37,6 +38,7 @@ export default function SyncCenterPanel() {
           ?old:{...snapshot,generation:(old?.generation??0)+1};
       }));
       setPending(operations);
+      setV5Conflicts(resourceConflicts);
       const owner=await getSetting<string>('activeUserId');
       const queued=owner?await listOfflineMutations(owner):[];
       const rejected=await getSetting<unknown[]>('rejectedOperations')??[];
@@ -128,6 +130,7 @@ export default function SyncCenterPanel() {
     {detail.error ? <p className="rounded-lg bg-[#fce8e6] px-3 py-2 text-sm text-[#c5221f]">{detail.error}</p> : null}
     {reviews.length>0&&<div className="flex items-center justify-between gap-3"><h2 className="font-semibold">检查差异并决定合并结果</h2><button type="button" disabled={detail.state==='syncing'} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50" onClick={()=>{void refreshReview();window.dispatchEvent(new Event('jackyun-sync-retry'));}}>刷新对比</button></div>}
     {reviews.map(({conflict,raw,generation})=><SyncConflictReview key={`${conflict.operationId}:${generation}`} conflict={conflict} localRaw={raw} disabled={!signedIn||detail.state==='syncing'} onSubmit={submitResolution}/>)}
+    {v5Conflicts.length>0&&<section aria-label="v5 资源冲突" className="space-y-3"><h2 className="font-semibold">资源修改需要确认</h2>{v5Conflicts.map(conflict=><article key={conflict.operationId} className="rounded-lg border border-amber-500/50 p-3"><p className="font-medium">{conflict.scope} · {conflict.recordId}</p><div className="mt-2 grid gap-2 sm:grid-cols-2"><pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words rounded bg-[var(--background)] p-2 text-xs">本机：{JSON.stringify(conflict.localDeleted?null:conflict.localValue,null,2)?.slice(0,1800)}</pre><pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words rounded bg-[var(--background)] p-2 text-xs">云端：{JSON.stringify(conflict.remoteDeleted?null:conflict.remoteValue,null,2)?.slice(0,1800)}</pre></div><div className="mt-3 flex gap-2"><button type="button" disabled={!signedIn||detail.state==='syncing'} className="rounded border px-3 py-1.5 text-sm" onClick={()=>window.dispatchEvent(new CustomEvent('jackyun-sync-v5-resolve',{detail:{operationId:conflict.operationId,choice:'local'}}))}>保留本机并重试</button><button type="button" disabled={!signedIn||detail.state==='syncing'} className="rounded border px-3 py-1.5 text-sm" onClick={()=>window.dispatchEvent(new CustomEvent('jackyun-sync-v5-resolve',{detail:{operationId:conflict.operationId,choice:'remote'}}))}>使用云端版本</button></div></article>)}</section>}
     {pending.length>0&&<details className="rounded-xl border border-[var(--card-border)] p-4 text-sm"><summary className="cursor-pointer font-semibold">查看待上传项目（{pending.length}）</summary><div className="mt-3 space-y-2">{pending.map(operation=><div key={operation.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-[var(--background)] p-3"><div className="min-w-0"><p>{BACKUP_PAGES.find(item=>item.id===legacyBackupPage(operation.key))?.label}</p><p className="break-all text-xs text-[var(--muted-foreground)]">{operation.key}</p></div><p className="text-xs text-[var(--muted-foreground)]">{reviews.some(row=>row.conflict.key===operation.key)?'等待选择合并结果':operation.resolvesOperationId?'合并结果待云端确认':operation.deleted?'删除待确认':'修改待上传'} · 基线版本 {operation.baseRevision}</p></div>)}</div></details>}
     <div className="rounded-xl border border-[var(--card-border)] p-4 text-sm leading-6">
       <h3 className="font-semibold">同步范围</h3>

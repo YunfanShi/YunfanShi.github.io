@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {resourcesToSchedule,resourceMap,scheduleToResources} from '../src/lib/sync/resource-model.ts';
+import {resourcesToSchedule,resourceMap,scheduleToResources,mergeScheduleResources} from '../src/lib/sync/resource-model.ts';
 
 test('Schedule fields round-trip as scoped records with stable entity identifiers',()=>{
   const input={schemaVersion:1,timetable:{version:1,courses:[]},manualTasks:[{id:'task-1',title:'Review'}],
@@ -24,4 +24,12 @@ test('editing one CUE changes one record while preserving the collection order r
 
 test('duplicate stable entity IDs refuse resource conversion',()=>{
   assert.throws(()=>scheduleToResources({cues:[{id:'duplicate'},{id:'duplicate'}]}),/重复 ID/);
+});
+
+test('unknown root fields update and delete in the v4 compatibility projection',()=>{
+  const base={schemaVersion:1,featureGate:{enabled:false},retiredField:'old'};
+  const updated=scheduleToResources({schemaVersion:1,featureGate:{enabled:true}});
+  assert.deepEqual(mergeScheduleResources(base,updated,['__root']),{schemaVersion:1,featureGate:{enabled:true}});
+  const deleted=updated.filter(resource=>resource.recordId!=='__root:value');
+  assert.deepEqual(mergeScheduleResources(base,deleted,['__root']),{schemaVersion:1});
 });

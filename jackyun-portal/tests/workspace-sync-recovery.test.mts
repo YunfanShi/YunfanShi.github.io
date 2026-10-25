@@ -56,6 +56,7 @@ function harness() {
     getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) };
   const outboxApi = {
     getSubmission:async()=>settings.get('syncSubmission')??null,saveSubmission:async(value:unknown)=>{settings.set('syncSubmission',value);},
+    getV5Outbox:async()=>[],getV5Conflicts:async()=>[],
     getDownloadParts:async()=>[],saveDownloadPart:async()=>{},clearDownload:async()=>{},
     bindSyncUser: async () => {}, clearConflicts: async () => {}, getOrCreateDeviceId: async () => 'device',
     getSetting: async (key: string) => settings.get(key) ?? null,
@@ -78,7 +79,7 @@ function harness() {
   function tab() {
     const ticks: (() => void)[] = [], effects: (() => (() => void) | undefined)[] = [];
     const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
-    const win = Object.assign(new EventTarget(), { setInterval: (task: () => void) => { ticks.push(task); return ticks.length; },
+    const win = Object.assign(new EventTarget(), { location: { pathname: '/schedule' }, setInterval: (task: () => void) => { ticks.push(task); return ticks.length; },
       clearInterval: () => {}, setTimeout: () => 1, clearTimeout: () => {}, matchMedia: () => ({ matches: false }) });
     const nav = { onLine: true, userAgent: 'test', locks: { request: async (name: string, _options: unknown, task: (lock: unknown) => Promise<void>) => {
       if (locks.has(name)) return task(null);
@@ -88,10 +89,12 @@ function harness() {
     const exports: Record<string, any> = {};
     const modules: Record<string, unknown> = {
       'react/jsx-runtime':{jsx:()=>null},'./local-durability':{default:()=>null},
-      '@/lib/sync/repository':{workspaceStorage:storage,initializeRepository:async()=>{},flushLocalWrites:async()=>{},applyRepositoryRecord:async(key:string,value:string|null)=>{if(value===null)storage.removeItem(key);else storage.setItem(key,value);}},
+      '@/lib/sync/repository':{workspaceStorage:storage,initializeRepository:async()=>{},flushLocalWrites:async()=>{},applyRepositoryRecord:async(key:string,value:string|null)=>{if(value===null)storage.removeItem(key);else storage.setItem(key,value);},projectCommittedRepositoryRecord:async()=>{},setV5ScheduleAuthority:()=>{}},
       '@/lib/sync/scheduler':{runScheduledSync:async(lane:string,userId:string,work:()=>Promise<void>)=>nav.locks.request('shared:'+lane+userId,{},async lock=>{if(lock)await work();}),createEditTrigger:()=>({trigger:()=>{},dispose:()=>{}})},
       react: { useEffect: (effect: () => (() => void) | undefined) => effects.push(effect) },
       '@/lib/sync/engine':{createWorkspaceSync},
+      '@/lib/sync/resource-engine':{createV5ResourceSync:()=>({synchronize:async()=>({enabled:false,conflicts:[]}),resolveConflict:async()=>{}}),resourceScopesForPath:()=>[]},
+      '@/lib/sync/resource-model':{SYNC_V5_SCOPES:['timetable','learning','cue','practice','timer','settings']},
       '@/lib/backup/pages':{isBackupableLegacyKey:()=>true,legacyBackupPage:()=> 'study'},
       '@/lib/backup/local':{localPageValues:(values:unknown)=>values,saveLocalBackup:async()=>{}},
       '@/lib/sync/run-gate': { createSyncRunGate }, '@/lib/sync/retry-policy': { syncRetryDelay, shouldPauseSync },
@@ -155,11 +158,12 @@ function harness() {
 
 test('four tabs idle for an hour share a bounded 30-second pull budget and no full-value downloads or uploads', async () => {
   const h = harness(); for (let i = 0; i < 4; i++) { h.tab(); await settle(); }
+  assert.equal(h.tabs[0].status.state,'synced',JSON.stringify(h.tabs[0].status));
   for (let i = 0; i < 120; i++) { h.advance(30_000); await settle(); }
-  assert.ok(h.requests.filter(request => request.method === 'GET' && request.url.includes('/v3')).length<=121);
+  assert.ok(h.requests.filter(request => request.method === 'GET' && request.url.includes('/v3')).length<=121,`v3 requests: ${h.requests.filter(request => request.method === 'GET' && request.url.includes('/v3')).length}; all: ${JSON.stringify(h.requests.slice(0,10))}`);
   assert.ok(h.requests.filter(request => request.url.includes('?key=')).length <= 4);
   assert.equal(h.requests.filter(request => request.method === 'POST').length, 0);
-  for (const tab of h.tabs) { assert.equal(tab.status.state, 'synced'); tab.stop(); }
+  for (const tab of h.tabs) { assert.equal(tab.status.state, 'synced',JSON.stringify(tab.status)); tab.stop(); }
 });
 
 test('hidden and offline pages pause automatic requests; network recovery uploads edits inside the cooldown', async () => {

@@ -1,13 +1,16 @@
 'use client';
 import { isSyncableStorageKey, CLOUD_STATE_APPLIED_EVENT } from '../local-workspace.ts';
 import { bindSyncUser, getDocuments, persistDocument, activateGuestRepository,evictDownloadCache,markDocumentProjected,projectionOwner } from './outbox.ts';
+import { SYNC_V5_SCOPES } from './resource-model.ts';
 
 const projection=()=>window.localStorage;
 const memory=new Map<string,string|null>();
 let tail:Promise<void>=Promise.resolve(),ready:Promise<void>|null=null,failed:unknown=null,pending=0;
 let currentOwner:string|null|undefined;
+let v5ScheduleAuthority=false;
 let saveState:'saving'|'saved'|'storage_error'|'projection_degraded'='saving';
 export const getLocalSaveState=()=>saveState;
+export function setV5ScheduleAuthority(scopes:readonly string[]):void{v5ScheduleAuthority=SYNC_V5_SCOPES.every(scope=>scopes.includes(scope));}
 const failures=new Map<string,{value:string|null;error:unknown;expected?:string|null}>();
 export const LOCAL_DURABILITY_EVENT='jackyun-local-durability';
 function status(state:'saving'|'saved'|'storage_error'|'projection_degraded') {
@@ -86,7 +89,7 @@ function enqueue(key:string,value:string|null,expected?:string|null) {
   tail=tail.catch(()=>{}).then(async()=>{
     if(repositoryReady)await repositoryReady;
     if(await projectionOwner()!==(owner??'guest'))throw Error('当前账号已在另一标签页切换，本机草稿保留。');
-    try{await persistDocument(key,value,true,expected);}catch(error){
+    try{await persistDocument(key,value,!(key==='jackyun_schedule_control_v1'&&v5ScheduleAuthority),expected);}catch(error){
       if((error as {name?:string}).name!=='QuotaExceededError')throw error;
       await evictDownloadCache();await persistDocument(key,value,true,expected);
     }
@@ -125,6 +128,10 @@ export function captureLegacyStorageEdit(key:string):void {
 /** Remote application persists first, then updates the compatibility projection. */
 export async function applyRepositoryRecord(key:string,value:string|null,expected?:string|null):Promise<void>{
   await flushLocalWrites();if(!await persistDocument(key,value,false,expected))throw Error('本机内容已变化，云端应用推迟到下一轮。');memory.set(key,value);await project(key,value);
+}
+/** Reflects a value already committed together with its v5 records and cursor. */
+export async function projectCommittedRepositoryRecord(key:string,value:string|null):Promise<void>{
+  memory.set(key,value);await project(key,value);window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source:'v5',keys:[key]}}));
 }
 export function exportLocalRecovery():string {
   const native:Record<string,string>={};

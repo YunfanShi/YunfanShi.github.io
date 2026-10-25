@@ -96,6 +96,19 @@ export function resourcesToSchedule(resources:readonly ScheduleResource[]):Recor
   return state;
 }
 
+export function mergeScheduleResources(base:Record<string,unknown>,resources:readonly ScheduleResource[],touchedFields:readonly string[]=resources.map(item=>item.field)):Record<string,unknown> {
+  const normalized=resourcesToSchedule(resources),touched=new Set(touchedFields),value={...base};
+  for(const field of touched){
+    if(field==='__root')continue;
+    if(Object.hasOwn(normalized,field))value[field]=normalized[field];else delete value[field];
+  }
+  if(touched.has('__root')){
+    for(const key of Object.keys(value))if(!configured.has(key))delete value[key];
+    for(const [key,item] of Object.entries(normalized))if(!configured.has(key))value[key]=item;
+  }
+  return value;
+}
+
 export function resourceMap(resources:readonly ScheduleResource[]):Map<string,ScheduleResource> {
   return new Map(resources.map(item=>[`${item.scope}\0${item.recordId}`,item]));
 }
