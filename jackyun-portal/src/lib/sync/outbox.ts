@@ -6,10 +6,10 @@ import { reconcileAcknowledgment } from './acknowledgment.ts';
 import { canonicalJson } from './hash.ts';
 import { threeWayMerge } from './merge.ts';
 import { isSyncableStorageKey } from '../local-workspace.ts';
-import { mergeScheduleResources, type ScheduleResource, type SyncV5Scope } from './resource-model.ts';
+import { mergeScheduleResources, scheduleToResources, type ScheduleResource, type SyncV5Scope } from './resource-model.ts';
 
 const DB_NAME = 'jackyun-sync-v2';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 let account: string | null = null;
 const activeLeases=new Map<string,{lost:boolean;until:number}>();
 export const isSyncLeaseLost=(key:string)=>{const lease=activeLeases.get(key);return Boolean(lease&&(lease.lost||lease.until<=Date.now()));};
@@ -17,7 +17,7 @@ export type SyncMetadata = SyncRecord;
 
 export interface V5ResourceRecord {scope:SyncV5Scope;recordId:string;revision:number;contentHash:string|null;deleted:boolean;updatedAt:string;value:unknown}
 export interface V5ResourceOperation {id:string;scope:SyncV5Scope;recordId:string;baseRevision:number;baseHash:string|null;value:unknown;deleted:boolean;clientUpdatedAt:string}
-export interface V5ResourceCursor {scope:SyncV5Scope;mode:'baseline'|'changes';after:string;cursor:number;head:number}
+export interface V5ResourceCursor {scope:SyncV5Scope;field?:string;mode:'baseline'|'changes';after:string;cursor:number;head:number}
 export interface V5ResourceConflict {operationId:string;scope:SyncV5Scope;recordId:string;baseRevision:number;baseHash:string|null;localValue:unknown;localDeleted:boolean;remoteValue:unknown;remoteDeleted:boolean;remoteRevision:number;remoteHash:string|null;createdAt:string}
 const SCHEDULE_DOCUMENT_KEY='jackyun_schedule_control_v1';
 const parseScheduleResources=(rows:V5ResourceRecord[]):ScheduleResource[]=>rows.filter(row=>!row.deleted).map(row=>{
@@ -38,6 +38,7 @@ export function openDatabase(name = account ? `${DB_NAME}:${account}` : DB_NAME)
       if (!db.objectStoreNames.contains('leases')) db.createObjectStore('leases', { keyPath: 'key' });
       if (!db.objectStoreNames.contains('v5Resources')) {const store=db.createObjectStore('v5Resources',{keyPath:['scope','recordId']});store.createIndex('scope','scope');}
       if (!db.objectStoreNames.contains('v5Cursors')) db.createObjectStore('v5Cursors',{keyPath:'scope'});
+      if (!db.objectStoreNames.contains('v5FieldCursors')) db.createObjectStore('v5FieldCursors',{keyPath:['scope','field']});
       if (!db.objectStoreNames.contains('v5Outbox')) db.createObjectStore('v5Outbox',{keyPath:'id'});
       if (!db.objectStoreNames.contains('v5Conflicts')) db.createObjectStore('v5Conflicts',{keyPath:'operationId'});
     };
@@ -62,9 +63,13 @@ async function storeRequest<T>(storeName: string, mode: IDBTransactionMode, acti
   } finally { db.close(); }
 }
 
-export async function getV5Cursor(scope:SyncV5Scope,dbScope?:string):Promise<V5ResourceCursor|null>{return (await storeRequest<V5ResourceCursor|undefined>('v5Cursors','readonly',store=>store.get(scope),dbScope))??null;}
-export async function setV5Cursor(scope:SyncV5Scope,value:V5ResourceCursor|null,dbScope?:string):Promise<void>{
-  const db=await openDatabase(dbScope);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction('v5Cursors','readwrite'),store=tx.objectStore('v5Cursors');if(value)store.put(value);else store.delete(scope);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}finally{db.close();}
+export async function getV5Cursor(scope:SyncV5Scope,dbScope?:string,field?:string):Promise<V5ResourceCursor|null>{
+  const storeName=field?'v5FieldCursors':'v5Cursors',key=field?[scope,field]:scope;
+  return (await storeRequest<V5ResourceCursor|undefined>(storeName,'readonly',store=>store.get(key),dbScope))??null;
+}
+export async function setV5Cursor(scope:SyncV5Scope,value:V5ResourceCursor|null,dbScope?:string,field?:string):Promise<void>{
+  const storeName=field?'v5FieldCursors':'v5Cursors',key=field?[scope,field]:scope,db=await openDatabase(dbScope);
+  try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction(storeName,'readwrite'),store=tx.objectStore(storeName);if(value)store.put(field?{...value,field}:value);else store.delete(key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}finally{db.close();}
 }
 export async function getV5Resources(scope:SyncV5Scope,dbScope?:string):Promise<V5ResourceRecord[]>{
   const db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{const tx=db.transaction('v5Resources','readonly'),req=tx.objectStore('v5Resources').index('scope').getAll(scope);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}finally{db.close();}
@@ -82,23 +87,43 @@ export async function queueV5ResourceOperation(operation:V5ResourceOperation,dbS
 }
 /** Resource rows, visible Schedule document, and the page cursor commit together. */
 export async function commitV5ResourcePage(scope:SyncV5Scope,records:V5ResourceRecord[],cursor:V5ResourceCursor,dbScope?:string):Promise<string|null>{
-  const db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{const tx=db.transaction(['v5Resources','v5Cursors','v5Outbox','v5Conflicts','documents'],'readwrite'),resources=tx.objectStore('v5Resources'),cursorStore=tx.objectStore('v5Cursors'),outbox=tx.objectStore('v5Outbox'),documents=tx.objectStore('documents');
-    const known=resources.index('scope').getAll(scope),pending=outbox.getAll(),conflictStore=tx.objectStore('v5Conflicts'),conflicts=conflictStore.getAll(),document=documents.get(SCHEDULE_DOCUMENT_KEY);let projected:string|null=null,failed=false,done=0;
-    const finish=()=>{if(++done!==4||failed)return;try{
+  const cursorStoreName=cursor.field?'v5FieldCursors':'v5Cursors',db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{const tx=db.transaction(['v5Resources',cursorStoreName,'v5Outbox','v5Conflicts','documents'],'readwrite'),resources=tx.objectStore('v5Resources'),cursorStore=tx.objectStore(cursorStoreName),outbox=tx.objectStore('v5Outbox'),documents=tx.objectStore('documents');
+    const known=resources.index('scope').getAll(scope),pending=outbox.getAll(),conflictStore=tx.objectStore('v5Conflicts'),conflicts=conflictStore.getAll(),document=documents.get(SCHEDULE_DOCUMENT_KEY),priorCursor=cursor.field?cursorStore.get([scope,cursor.field]):null;let projected:string|null=null,failed=false,done=0;
+    const finish=()=>{if(++done!==(priorCursor?5:4)||failed)return;try{
       const rows=new Map((known.result as V5ResourceRecord[]).map(row=>[row.recordId,row]));
       for(const row of records){if(row.scope!==scope)throw Error('v5 scope mismatch');rows.set(row.recordId,row);resources.put(row);}
       const pendingRows=(pending.result as V5ResourceOperation[]).filter(row=>row.scope===scope);
-      for(const op of pendingRows)rows.set(op.recordId,{scope,recordId:op.recordId,revision:op.baseRevision,contentHash:op.baseHash,deleted:op.deleted,updatedAt:op.clientUpdatedAt,value:op.value});
       const conflictRows=(conflicts.result as V5ResourceConflict[]).filter(row=>row.scope===scope);
-      for(const conflict of conflictRows)rows.set(conflict.recordId,{scope,recordId:conflict.recordId,revision:conflict.baseRevision,contentHash:conflict.baseHash,deleted:conflict.localDeleted,updatedAt:conflict.createdAt,value:conflict.localValue});
+      const finishingBaseline=Boolean(cursor.field&&cursor.mode==='changes'&&(!priorCursor?.result||priorCursor.result.mode==='baseline'));
+      if(cursor.mode==='baseline'){cursorStore.put(cursor);return;}
       const raw=document.result?.value as string|null|undefined;
       const base=raw?JSON.parse(raw):{};if(!base||typeof base!=='object'||Array.isArray(base))throw Error('Schedule local document invalid');
+      if(finishingBaseline&&cursor.field){
+        const pendingIds=new Set(pendingRows.map(row=>row.recordId)),blockedIds=new Set(conflictRows.map(row=>row.recordId));
+        for(const local of scheduleToResources(base).filter(item=>item.scope===scope&&item.field===cursor.field)){
+          if(pendingIds.has(local.recordId)||blockedIds.has(local.recordId))continue;
+          const remote=rows.get(local.recordId);
+          if(remote&&!remote.deleted&&canonicalJson(remote.value)===canonicalJson(local.value))continue;
+          if(remote){
+            const conflict:V5ResourceConflict={operationId:crypto.randomUUID(),scope,recordId:local.recordId,baseRevision:remote.revision,baseHash:remote.contentHash,
+              localValue:local.value,localDeleted:false,remoteValue:remote.deleted?null:remote.value,remoteDeleted:remote.deleted,remoteRevision:remote.revision,
+              remoteHash:remote.contentHash,createdAt:new Date().toISOString()};
+            conflictStore.put(conflict);conflictRows.push(conflict);blockedIds.add(local.recordId);
+          }else{
+            const operation:V5ResourceOperation={id:crypto.randomUUID(),scope,recordId:local.recordId,baseRevision:0,baseHash:null,value:local.value,deleted:false,clientUpdatedAt:new Date().toISOString()};
+            outbox.put(operation);pendingRows.push(operation);pendingIds.add(local.recordId);
+          }
+        }
+      }
+      for(const op of pendingRows)rows.set(op.recordId,{scope,recordId:op.recordId,revision:op.baseRevision,contentHash:op.baseHash,deleted:op.deleted,updatedAt:op.clientUpdatedAt,value:op.value});
+      for(const conflict of conflictRows)rows.set(conflict.recordId,{scope,recordId:conflict.recordId,revision:conflict.baseRevision,contentHash:conflict.baseHash,deleted:conflict.localDeleted,updatedAt:conflict.createdAt,value:conflict.localValue});
       const touched=new Set(records.map(row=>row.recordId.slice(0,row.recordId.indexOf(':'))));
+      if(finishingBaseline&&cursor.field)touched.add(cursor.field);
       const merged=mergeScheduleResources(base,parseScheduleResources([...rows.values()]),[...touched]);
       projected=JSON.stringify(merged);if(projected!==raw)documents.put({...document.result,key:SCHEDULE_DOCUMENT_KEY,value:projected,updatedAt:Date.now()});
       cursorStore.put(cursor);
     }catch(error){failed=true;tx.abort();reject(error);}};
-    for(const request of [known,pending,conflicts,document]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
+    for(const request of [known,pending,conflicts,document,...(priorCursor?[priorCursor]:[])]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
     tx.oncomplete=()=>resolve(projected);tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error??new Error('v5 page commit aborted'));};});}finally{db.close();}
 }
 export async function acknowledgeV5Operations(applied:Array<{operation:V5ResourceOperation;revision:number;contentHash:string|null;updatedAt:string}>,dbScope?:string):Promise<string|null>{

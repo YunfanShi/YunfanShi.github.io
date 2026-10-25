@@ -13,6 +13,7 @@ const json=value=>JSON.stringify(value??null);
 const digest=(value,deleted=false)=>createHash('sha256').update(deleted?'__deleted__':canonicalJson(value)).digest('hex');
 const integer=value=>{const n=Number(value);if(!Number.isSafeInteger(n)||n<0)fail(400,'INVALID_CURSOR');return n;};
 const validScope=value=>typeof value==='string'&&SYNC_V5_SCOPES.has(value);
+const validField=(field,scope)=>typeof field==='string'&&field.length<=64&&resourceScopeForRecordId(field==='__root'?'__root:value':`${field}:$value`)===scope;
 const descriptor=row=>({scope:row.scope,recordId:row.record_id,revision:Number(row.revision),contentHash:row.content_hash,
   deleted:Boolean(row.deleted_at),updatedAt:row.updated_at instanceof Date?row.updated_at.toISOString():row.updated_at,
   ...(row.sequence===undefined?{}:{sequence:Number(row.sequence)})});
@@ -139,26 +140,46 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
   if(route==='/api/sync/v5/manifest'){
     if(method!=='GET')fail(405,'METHOD_NOT_ALLOWED');
     const after=url.searchParams.get('after')??'';
+    const field=url.searchParams.get('field');
     if(after.length>240)fail(400,'INVALID_CURSOR');
-    const rows=(await client.query(`SELECT scope,record_id,revision,content_hash,deleted_at,updated_at
-      FROM public.sync_v5_records WHERE user_id=$1 AND scope=$2 AND record_id COLLATE "C">$3 COLLATE "C"
-      ORDER BY record_id COLLATE "C" LIMIT 101`,[identity.sub,scope,after])).rows;
-    const head=(await client.query('SELECT sequence,retained_after FROM public.sync_v5_heads WHERE user_id=$1 AND scope=$2',[identity.sub,scope])).rows[0];
-    return {ok:true,syncProtocol:5,records:rows.slice(0,100).map(descriptor),next:rows.length>100?rows[99].record_id:null,
-      head:integer(head?.sequence??0),retainedAfter:integer(head?.retained_after??0)};
+    if(field!==null&&!validField(field,scope))fail(400,'INVALID_RESOURCE_FIELD');
+    const filter=field===null?'':' AND r.record_id COLLATE "C">=$4 COLLATE "C" AND r.record_id COLLATE "C"<$5 COLLATE "C"';
+    const params=field===null?[identity.sub,scope,after]:[identity.sub,scope,after,`${field}:`,`${field};`];
+    const rows=(await client.query(`WITH state AS (
+        SELECT sequence,retained_after FROM public.sync_v5_heads WHERE user_id=$1 AND scope=$2
+      ), page AS (
+        SELECT r.scope,r.record_id,r.revision,r.content_hash,r.deleted_at,r.updated_at
+        FROM public.sync_v5_records r WHERE r.user_id=$1 AND r.scope=$2 AND r.record_id COLLATE "C">$3 COLLATE "C"${filter}
+        ORDER BY r.record_id COLLATE "C" LIMIT 101
+      ) SELECT page.*,state.sequence AS head,state.retained_after
+        FROM state LEFT JOIN page ON true ORDER BY page.record_id COLLATE "C"`,params)).rows;
+    const page=rows.filter(row=>row.record_id!==null),head=rows[0];
+    return {ok:true,syncProtocol:5,records:page.slice(0,100).map(descriptor),next:page.length>100?page[99].record_id:null,
+      head:integer(head?.head??0),retainedAfter:integer(head?.retained_after??0)};
   }
   if(route==='/api/sync/v5/changes'){
     if(method!=='GET')fail(405,'METHOD_NOT_ALLOWED');
     const cursor=integer(url.searchParams.get('cursor')??0);
+    const field=url.searchParams.get('field');
+    if(field!==null&&!validField(field,scope))fail(400,'INVALID_RESOURCE_FIELD');
     const head=(await client.query('SELECT sequence,retained_after FROM public.sync_v5_heads WHERE user_id=$1 AND scope=$2',[identity.sub,scope])).rows[0];
-    const high=integer(head?.sequence??0),floor=integer(head?.retained_after??0);
+    const filter=field===null?'':' AND r.record_id COLLATE "C">=$4 COLLATE "C" AND r.record_id COLLATE "C"<$5 COLLATE "C"';
+    const params=field===null?[identity.sub,scope,cursor]:[identity.sub,scope,cursor,`${field}:`,`${field};`];
+    const rows=(await client.query(`WITH state AS (
+        SELECT sequence,retained_after FROM public.sync_v5_heads WHERE user_id=$1 AND scope=$2
+      ), page AS (
+        SELECT c.sequence,r.scope,r.record_id,r.revision,r.content_hash,r.deleted_at,r.updated_at
+        FROM public.sync_v5_changes c JOIN public.sync_v5_records r
+          ON r.user_id=c.user_id AND r.scope=c.scope AND r.record_id=c.record_id
+        CROSS JOIN state WHERE c.user_id=$1 AND c.scope=$2 AND c.sequence>$3 AND c.sequence<=state.sequence${filter}
+        ORDER BY c.sequence LIMIT 101
+      ) SELECT page.*,state.sequence AS head,state.retained_after
+        FROM state LEFT JOIN page ON true ORDER BY page.sequence`,params)).rows;
+    const state=rows[0],high=integer(state?.head??0),floor=integer(state?.retained_after??0);
     if(cursor<floor||cursor>high)fail(409,'SYNC_V5_BASELINE_REQUIRED');
-    const rows=(await client.query(`SELECT c.sequence,r.scope,r.record_id,r.revision,r.content_hash,r.deleted_at,r.updated_at
-      FROM public.sync_v5_changes c JOIN public.sync_v5_records r
-      ON r.user_id=c.user_id AND r.scope=c.scope AND r.record_id=c.record_id
-      WHERE c.user_id=$1 AND c.scope=$2 AND c.sequence>$3 ORDER BY c.sequence LIMIT 101`,[identity.sub,scope,cursor])).rows;
-    const page=rows.slice(0,100),next=page.length?integer(page.at(-1).sequence):high;
-    return {ok:true,syncProtocol:5,records:page.map(descriptor),cursor:next,head:high,hasMore:rows.length>100};
+    const page=rows.filter(row=>row.sequence!==null).slice(0,100),hasMore=rows.filter(row=>row.sequence!==null).length>100;
+    const next=hasMore?integer(page.at(-1).sequence):high;
+    return {ok:true,syncProtocol:5,records:page.map(descriptor),cursor:next,head:high,hasMore};
   }
   if(route==='/api/sync/v5/records'){
     if(method!=='GET')fail(405,'METHOD_NOT_ALLOWED');

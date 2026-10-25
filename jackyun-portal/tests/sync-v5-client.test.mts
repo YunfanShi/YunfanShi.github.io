@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {IDBFactory} from 'fake-indexeddb';
-import {accountSyncStore,acknowledgeV5Operations,commitV5ResourcePage,getV5Cursor,getV5Resources,openDatabase,resolveV5ConflictRemotely,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
-import {createV5ResourceSync} from '../src/lib/sync/resource-engine.ts';
+import {accountSyncStore,acknowledgeV5Operations,commitV5ResourcePage,getV5Conflicts,getV5Cursor,getV5Resources,openDatabase,resolveV5ConflictRemotely,setV5Cursor,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
+import {createV5ResourceSync,resourceFieldsForPath} from '../src/lib/sync/resource-engine.ts';
 import {canonicalJson} from '../src/lib/sync/hash.ts';
 import {SYNC_V5_SCOPES} from '../src/lib/sync/resource-model.ts';
 import {createHash} from 'node:crypto';
@@ -29,6 +29,58 @@ test('v5 cursor does not advance when the Schedule document cannot be safely mer
     {scope:'cue',mode:'changes',after:'',cursor:1,head:1},dbName));
   assert.equal(await getV5Cursor('cue',dbName),null);
   assert.deepEqual(await getV5Resources('cue',dbName),[]);
+});
+
+test('resource-field cursors remain independent across page navigation',async()=>{
+  const dbName=id();
+  await setV5Cursor('cue',{scope:'cue',field:'cues',mode:'changes',after:'',cursor:8,head:10},dbName,'cues');
+  await setV5Cursor('cue',{scope:'cue',field:'cueReviews',mode:'changes',after:'',cursor:3,head:10},dbName,'cueReviews');
+  assert.equal((await getV5Cursor('cue',dbName,'cues'))?.cursor,8);
+  assert.equal((await getV5Cursor('cue',dbName,'cueReviews'))?.cursor,3);
+});
+
+test('first resource baseline stages pages and preserves a local value as a conflict',async()=>{
+  const dbName=id(),local={id:'cue-1',prompt:'local unsynced'},remote={id:'cue-1',prompt:'new cloud value'},hash=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex');
+  let scheduleRaw=JSON.stringify({schemaVersion:1,cues:[local]});await seed(dbName,scheduleRaw);
+  const descriptors=[
+    {scope:'cue',recordId:'cues:%24order',revision:1,contentHash:hash(['cue-1']),deleted:false,updatedAt:'now',value:['cue-1']},
+    {scope:'cue',recordId:'cues:cue-1',revision:2,contentHash:hash(remote),deleted:false,updatedAt:'now',value:remote},
+  ];
+  const engine=createV5ResourceSync({databaseScope:dbName,request:async(url)=>{
+    const parsed=new URL(url,'https://sync.test');
+    if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:SYNC_V5_SCOPES});
+    if(parsed.pathname==='/api/sync/v5/manifest')return Response.json({syncProtocol:5,records:descriptors.map(row=>Object.fromEntries(Object.entries(row).filter(([key])=>key!=='value'))),next:null,head:2});
+    if(parsed.pathname==='/api/sync/v5/records')return Response.json({syncProtocol:5,records:parsed.searchParams.getAll('id').map(id=>descriptors.find(row=>row.recordId===id))});
+    if(parsed.pathname==='/api/sync/v5/changes')return Response.json({syncProtocol:5,records:[],cursor:2,head:2,hasMore:false});
+    throw Error(`Unexpected request ${parsed.pathname}`);
+  },deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>scheduleRaw,projectSchedule:async value=>{if(value!==null)scheduleRaw=value;},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
+  const result=await engine.synchronize([{scope:'cue',field:'cues'}]);
+  assert.equal(result.conflicts.length,1);
+  assert.deepEqual(JSON.parse(scheduleRaw).cues,[local]);
+  assert.deepEqual((await getV5Conflicts(dbName))[0].remoteValue,remote);
+  assert.equal((await getV5Cursor('cue',dbName,'cues'))?.cursor,2);
+});
+
+test('paged baseline does not expose a partial collection before its final page',async()=>{
+  const dbName=id(),cues=Array.from({length:101},(_,index)=>({id:`cue-${String(index).padStart(3,'0')}`,prompt:`item ${index}`})),hash=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex');
+  const values=[{scope:'cue' as const,recordId:'cues:%24order',revision:1,contentHash:hash(cues.map(cue=>cue.id)),deleted:false,updatedAt:'now',value:cues.map(cue=>cue.id)},
+    ...cues.map(value=>({scope:'cue' as const,recordId:`cues:${value.id}`,revision:1,contentHash:hash(value),deleted:false,updatedAt:'now',value}))];
+  const descriptors=values.map(row=>Object.fromEntries(Object.entries(row).filter(([key])=>key!=='value')) as Omit<typeof row,'value'>);let scheduleRaw=JSON.stringify({schemaVersion:1});await seed(dbName,scheduleRaw);let manifestPage=0;
+  const readDocument=async()=>{const db=await openDatabase(dbName);try{return await new Promise<Record<string,unknown>>((resolve,reject)=>{const tx=db.transaction('documents','readonly'),request=tx.objectStore('documents').get('jackyun_schedule_control_v1');request.onsuccess=()=>resolve(JSON.parse(request.result.value));request.onerror=()=>reject(request.error);});}finally{db.close();}};
+  const engine=createV5ResourceSync({databaseScope:dbName,request:async(url)=>{
+    const parsed=new URL(url,'https://sync.test');
+    if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:SYNC_V5_SCOPES});
+    if(parsed.pathname==='/api/sync/v5/manifest'){
+      manifestPage++;if(manifestPage===2)assert.deepEqual(await readDocument(),{schemaVersion:1},'intermediate pages stay invisible');
+      const after=parsed.searchParams.get('after')??'',all=descriptors.filter(row=>row.recordId>after).sort((a,b)=>a.recordId.localeCompare(b.recordId)),records=all.slice(0,100);
+      return Response.json({syncProtocol:5,records,next:all.length>100?records.at(-1)?.recordId:null,head:101});
+    }
+    if(parsed.pathname==='/api/sync/v5/records')return Response.json({syncProtocol:5,records:parsed.searchParams.getAll('id').map(recordId=>values.find(row=>row.recordId===recordId))});
+    if(parsed.pathname==='/api/sync/v5/changes')return Response.json({syncProtocol:5,records:[],cursor:101,head:101,hasMore:false});
+    throw Error(`Unexpected request ${parsed.pathname}`);
+  },deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>scheduleRaw,projectSchedule:async value=>{if(value!==null)scheduleRaw=value;},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
+  await engine.synchronize([{scope:'cue',field:'cues'}]);
+  assert.equal(manifestPage,2);const projection=await readDocument();assert.equal(Array.isArray(projection.cues),true);assert.equal((projection.cues as unknown[]).length,101);
 });
 
 test('a late old receipt cannot downgrade a newer pulled resource or its Schedule projection',async()=>{
@@ -61,8 +113,22 @@ test('resolving one remote conflict preserves other local conflicted resources',
 test('v5 capability withdrawal clears resource authority for the caller',async()=>{
   const dbName=id(),authorities:string[][]=[];
   const engine=createV5ResourceSync({databaseScope:dbName,request:async()=>Response.json({syncProtocol:5,capabilities:{v5:false},scopes:[]}),deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>null,projectSchedule:async()=>{},setAuthority:scopes=>{authorities.push([...scopes]);},uuid:()=>crypto.randomUUID()});
-  assert.equal((await engine.synchronize(['cue'])).enabled,false);
+  assert.equal((await engine.synchronize([{scope:'cue',field:'cues'}])).enabled,false);
   assert.deepEqual(authorities,[[]]);
+});
+
+test('partial account rollout syncs only granted domains and retains v4 Schedule authority',async()=>{
+  const dbName=id(),authorities:string[][]=[],manifestFields:string[]=[];let scheduleRaw=JSON.stringify({schemaVersion:1});await seed(dbName,scheduleRaw);
+  const engine=createV5ResourceSync({databaseScope:dbName,request:async url=>{
+    const parsed=new URL(url,'https://sync.test');
+    if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:['cue']});
+    if(parsed.pathname==='/api/sync/v5/manifest'){manifestFields.push(parsed.searchParams.get('field')??'');return Response.json({syncProtocol:5,records:[],next:null,head:0});}
+    if(parsed.pathname==='/api/sync/v5/changes')return Response.json({syncProtocol:5,records:[],cursor:0,head:0,hasMore:false});
+    throw Error(`Unexpected request ${parsed.pathname}`);
+  },deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>scheduleRaw,projectSchedule:async value=>{if(value!==null)scheduleRaw=value;},setAuthority:scopes=>{authorities.push([...scopes]);},uuid:()=>crypto.randomUUID()});
+  const result=await engine.synchronize([{scope:'cue',field:'cues'},{scope:'timetable',field:'timetable'}]);
+  assert.equal(result.enabled,true);assert.equal(result.authoritativeSchedule,false);
+  assert.deepEqual(authorities,[['cue']]);assert.deepEqual(manifestFields,['cues']);
 });
 
 test('v5 worker keeps its account database scope and discards responses after account change',async()=>{
@@ -76,7 +142,7 @@ test('v5 worker keeps its account database scope and discards responses after ac
     if(parsed.pathname==='/api/sync/v5/records'){current=false;return Response.json({syncProtocol:5,records:[{scope:'cue',recordId:'cues:$order',revision:1,contentHash,deleted:false,updatedAt:'now',value}]});}
     throw new Error(`Unexpected request ${parsed.pathname}`);
   },deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>null,projectSchedule:async()=>{},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
-  await assert.rejects(engine.synchronize(['cue']),{name:'AbortError'});
+  await assert.rejects(engine.synchronize([{scope:'cue',field:'cues'}]),{name:'AbortError'});
   assert.equal(await getV5Cursor('cue',dbScope),null);
   assert.deepEqual(await getV5Resources('cue',dbScope),[]);
 });
@@ -87,11 +153,11 @@ test('v5 client downloads only changed records, queues a stable resource operati
     ['cues:%24order',{scope:'cue',recordId:'cues:%24order',revision:1,contentHash:hash(['cue-1']),deleted:false,updatedAt:'now',value:['cue-1']}],
     ['cues:cue-1',{scope:'cue',recordId:'cues:cue-1',revision:1,contentHash:hash(schedule.cues[0]),deleted:false,updatedAt:'now',value:schedule.cues[0]}],
   ]);
-  await seed(dbName,JSON.stringify({schemaVersion:1,cues:[]}));let head=1,recordReads=0,manifestReads=0;const operationIds:string[]=[];
+  await seed(dbName,JSON.stringify(schedule));let head=1,recordReads=0,manifestReads=0;const operationIds:string[]=[];
   const request=async(url:string,init?:RequestInit)=>{
     const parsed=new URL(url,'https://sync.test'),scope=parsed.searchParams.get('scope');
     if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:SYNC_V5_SCOPES});
-    if(parsed.pathname==='/api/sync/v5/manifest'){manifestReads++;const records=[...rows.values()].map(row=>({scope:row.scope,recordId:row.recordId,revision:row.revision,contentHash:row.contentHash,deleted:row.deleted,updatedAt:row.updatedAt}));return Response.json({syncProtocol:5,records,next:null,head});}
+    if(parsed.pathname==='/api/sync/v5/manifest'){manifestReads++;const field=parsed.searchParams.get('field');const records=[...rows.values()].filter(row=>row.recordId.startsWith(`${field}:`)).map(row=>({scope:row.scope,recordId:row.recordId,revision:row.revision,contentHash:row.contentHash,deleted:row.deleted,updatedAt:row.updatedAt}));return Response.json({syncProtocol:5,records,next:null,head});}
     if(parsed.pathname==='/api/sync/v5/records'){recordReads++;const records=parsed.searchParams.getAll('id').map(id=>rows.get(id)).filter(Boolean);return Response.json({syncProtocol:5,records});}
     if(parsed.pathname==='/api/sync/v5/changes')return Response.json({syncProtocol:5,records:[],cursor:head,head,hasMore:false});
     if(parsed.pathname==='/api/sync/v5/receipts')return Response.json({receipts:JSON.parse(String(init?.body)).operations.map((row:{id:string})=>({operationId:row.id,state:'unknown'}))});
@@ -103,16 +169,30 @@ test('v5 client downloads only changed records, queues a stable resource operati
     }
     throw new Error(`Unexpected v5 request ${parsed.pathname} scope=${scope}`);
   };
-  let scheduleRaw=JSON.stringify({schemaVersion:1,cues:[]});
+  let scheduleRaw=JSON.stringify(schedule);
   const engine=createV5ResourceSync({databaseScope:dbName,request,deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>scheduleRaw,projectSchedule:async value=>{if(value!==null)scheduleRaw=value;},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
   const readDocument=async()=>{const db=await openDatabase(dbName);try{return await new Promise<string>((resolve,reject)=>{const tx=db.transaction('documents','readonly'),r=tx.objectStore('documents').get('jackyun_schedule_control_v1');r.onsuccess=()=>resolve(r.result.value);r.onerror=()=>reject(r.error);});}finally{db.close();}};
-  await engine.synchronize(['cue']);
+  await engine.synchronize([{scope:'cue',field:'cues'}]);
   assert.deepEqual(JSON.parse(await readDocument()),schedule);
   const changed={...schedule,cues:[{id:'cue-1',prompt:'edited locally'}]};scheduleRaw=JSON.stringify(changed);
   const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction('documents','readwrite');tx.objectStore('documents').put({key:'jackyun_schedule_control_v1',value:JSON.stringify(changed),updatedAt:Date.now()});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{db.close();}
-  await engine.synchronize(['cue']);
+  await engine.synchronize([{scope:'cue',field:'cues'}]);
   assert.deepEqual(operationIds,['cues:cue-1']);
   assert.equal((await getV5Resources('cue',dbName)).find(row=>row.recordId==='cues:cue-1')?.revision,2);
-  const readsAfterMutation=recordReads;await engine.synchronize(['cue']);
+  const readsAfterMutation=recordReads;await engine.synchronize([{scope:'cue',field:'cues'}]);
   assert.equal(manifestReads,1);assert.equal(recordReads,readsAfterMutation);
+});
+
+test('page resource selection avoids unrelated CUE history and schedule scopes',()=>{
+  const review=resourceFieldsForPath('/review');
+  assert.ok(review.some(row=>row.scope==='cue'&&row.field==='cues'));
+  assert.ok(review.some(row=>row.scope==='cue'&&row.field==='cueReviews'));
+  assert.ok(!review.some(row=>row.field==='cueChangeHistory'||row.field==='cueCollectionUpdates'));
+  const timetable=resourceFieldsForPath('/timetable-hub');
+  assert.deepEqual(timetable.map(row=>row.field),['timetable','manualTasks','completions','cancellations','learningReminders']);
+  assert.ok(resourceFieldsForPath('/dashboard').some(row=>row.field==='timetable'));
+  assert.ok(resourceFieldsForPath('/study/tasks').some(row=>row.field==='manualTasks'));
+  assert.ok(resourceFieldsForPath('/cue/study').some(row=>row.field==='cueGameAccount'));
+  assert.ok(resourceFieldsForPath('/settings/watch').some(row=>row.field==='settings'));
+  assert.deepEqual(resourceFieldsForPath('/reading'),[],'independent reader state is not misrepresented as Schedule data');
 });

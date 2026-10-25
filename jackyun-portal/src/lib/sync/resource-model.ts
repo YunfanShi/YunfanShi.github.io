@@ -1,5 +1,6 @@
 export const SYNC_V5_SCOPES = ['timetable','learning','cue','practice','timer','settings'] as const;
 export type SyncV5Scope = typeof SYNC_V5_SCOPES[number];
+export type SyncV5ResourceTarget = {scope:SyncV5Scope;field:string};
 
 export interface ScheduleResource {
   scope: SyncV5Scope;
@@ -47,6 +48,9 @@ export function resourceScopeForRecordId(recordId:string):SyncV5Scope|null{
   const field=recordId.slice(0,colon);
   if(field==='__root')return recordId==='__root:value'?'settings':null;
   return fields.find(item=>item.field===field)?.scope??null;
+}
+export function resourceFieldsForScope(scope:SyncV5Scope):string[]{
+  return [...new Set(fields.filter(item=>item.scope===scope).map(item=>item.field).concat(scope==='settings'?['__root']:[]))];
 }
 const record=(field:ResourceField,itemId:string,value:unknown):ScheduleResource=>({
   scope:field.scope,field:field.field,itemId,recordId:`${field.field}:${encodeURIComponent(itemId)}`,value,

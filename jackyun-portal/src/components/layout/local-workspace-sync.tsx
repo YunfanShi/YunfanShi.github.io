@@ -13,7 +13,7 @@ import {CLOUD_STATE_APPLIED_EVENT,MAX_SYNC_VALUE_CHARACTERS,isSyncableStorageKey
 import * as syncStore from '@/lib/sync/outbox';
 import {getSetting,getV5Conflicts,getV5Outbox} from '@/lib/sync/outbox';
 import {createWorkspaceSync} from '@/lib/sync/engine';
-import {createV5ResourceSync,resourceScopesForPath} from '@/lib/sync/resource-engine';
+import {createV5ResourceSync,resourceFieldsForPath} from '@/lib/sync/resource-engine';
 import {SYNC_V5_SCOPES} from '@/lib/sync/resource-model';
 import {isBackupableLegacyKey,legacyBackupPage,type BackupPage} from '@/lib/backup/pages';
 import {localPageValues,saveLocalBackup} from '@/lib/backup/local';
@@ -123,7 +123,8 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         pending:totalPending,conflicts:totalConflicts,lastSyncedAt,error,progress:progress??(v5Conflicts.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':undefined),consecutiveFailures:failures});
     };
     let requestReason='periodic';
-    const storedV5Authority=accountStore.getSetting<boolean>('v5ScheduleAuthority').then(enabled=>{if(enabled)setV5ScheduleAuthority(SYNC_V5_SCOPES);return Boolean(enabled);});
+    let v5Enabled=false,v5Authority=false;
+    const storedV5Authority=accountStore.getSetting<boolean>('v5ScheduleAuthority').then(enabled=>{if(enabled){setV5ScheduleAuthority(SYNC_V5_SCOPES);v5Enabled=true;v5Authority=true;}return Boolean(enabled);});
     const engine=createWorkspaceSync({store:accountStore,snapshot:()=>localSnapshot(true),read:key=>workspaceStorage.getItem(key),
       write:async(key,value,expected)=>{if(cancelled||signingOut)throw new DOMException('Sync cancelled','AbortError');await applyRepositoryRecord(key,value,expected);},
       backup:async key=>{if(isBackupableLegacyKey(key))await saveLocalBackup(userId,legacyBackupPage(key),localPageValues(localSnapshot(true),legacyBackupPage(key)));},
@@ -135,8 +136,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     });
     const v5Sync=createV5ResourceSync({request:(url,init)=>fetchSyncWithTimeout(url,{...init,headers:{...init?.headers,'X-Sync-Reason':requestReason,'X-Sync-Account':userId},signal:controller.signal},false),deviceId:accountStore.getOrCreateDeviceId,
       readSchedule:()=>workspaceStorage.getItem('jackyun_schedule_control_v1'),projectSchedule:value=>{if(cancelled||signingOut)throw new DOMException('Sync cancelled','AbortError');return projectCommittedRepositoryRecord('jackyun_schedule_control_v1',value);},
-      setAuthority:async scopes=>{if(cancelled||signingOut)return;setV5ScheduleAuthority(scopes);await accountStore.setSetting('v5ScheduleAuthority',SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)));},databaseScope:accountStore.databaseScope,isCurrent:()=>!cancelled&&!signingOut,uuid:()=>crypto.randomUUID()});
-    let v5Authority=false;
+      setAuthority:async scopes=>{if(cancelled||signingOut)return;setV5ScheduleAuthority(scopes);v5Enabled=scopes.length>0;v5Authority=SYNC_V5_SCOPES.every(scope=>scopes.includes(scope));await accountStore.setSetting('v5ScheduleAuthority',v5Authority);},databaseScope:accountStore.databaseScope,isCurrent:()=>!cancelled&&!signingOut,uuid:()=>crypto.randomUUID()});
     let queuedResolution: SyncResolutionRequest | undefined;
     let queuedV5Resolution:{operationId:string;choice:'local'|'remote'}|undefined;
     async function sync(manual=false,allowHidden=false,resolution?:SyncResolutionRequest,reason=manual?'manual':'periodic') {
@@ -152,7 +152,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           await flushLocalWrites();await engine.capture();
           if(!navigator.onLine){await publish('offline_pending');return false;}
           if(authPaused)return false;
-          const [pending,conflicts,lastRead,v5Pending]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull'),v5Authority?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([])]);
+          const [pending,conflicts,lastRead,v5Pending]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull'),v5Enabled?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([])]);
           const blocked=new Set(conflicts.map(c=>c.key));
           if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&!v5Pending.length&&requestReason!=='edit'&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
@@ -160,11 +160,11 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           if(queuedV5Resolution){const choice=queuedV5Resolution;await v5Sync.resolveConflict(choice.operationId,choice.choice);if(queuedV5Resolution===choice)queuedV5Resolution=undefined;}
           await v5Sync.refreshAuthority?.();
           await engine.synchronize();
-          const v5Result=await v5Sync.synchronize(resourceScopesForPath(window.location.pathname));
-          v5Authority=v5Result.enabled;
+          const v5Result=await v5Sync.synchronize(resourceFieldsForPath(window.location.pathname));
+          v5Enabled=v5Result.enabled;v5Authority=v5Result.authoritativeSchedule;
           await flushLocalWrites();await engine.capture();
           await accountStore.setSetting('lastAutomaticPull',Date.now());
-          const [remaining,unresolved,v5Remaining,v5Unresolved]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),v5Authority?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),v5Authority?getV5Conflicts(accountStore.databaseScope):Promise.resolve([])]);
+          const [remaining,unresolved,v5Remaining,v5Unresolved]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),v5Enabled?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),v5Enabled?getV5Conflicts(accountStore.databaseScope):Promise.resolve([])]);
           if(!remaining.length&&!unresolved.length&&!v5Remaining.length&&!v5Unresolved.length)await accountStore.setSetting('lastSyncedAt',new Date().toISOString());
           failures=0;
           if(Date.now()-lastBackupCheck>=5*60_000){lastBackupCheck=Date.now();void runScheduledSync('backup',userId!,async()=>{await createDueBackupVersions();}).catch(()=>console.warn('[Backup] Cloud backup deferred'));}
