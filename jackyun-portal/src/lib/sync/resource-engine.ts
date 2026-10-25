@@ -12,19 +12,21 @@ const digest=async(value:unknown)=>Array.from(new Uint8Array(await crypto.subtle
 const targets=(scope:SyncV5Scope,...fields:string[]):SyncV5ResourceTarget[]=>fields.map(field=>({scope,field}));
 export function resourceFieldsForPath(pathname:string):SyncV5ResourceTarget[]{
   const path=pathname.length>1?pathname.replace(/\/+$/,''):pathname;
-  if(path==='/schedule'||path==='/dashboard')return [
+  if(path==='/schedule')return [
     ...targets('timetable','timetable'),...targets('learning','manualTasks','completions','cancellations','reviewProgress'),
-    ...targets('cue','cues','cueStudyDraft','cueStudyDrafts'),...targets('settings','settings','cueScheduleRevision','dailyLearningAdvice','schemaVersion'),
+    ...targets('cue','cues','cueGameAccount','cueCollectionUpdates','cueChangeHistory','cueSimilarityDecisions','cueStudyDraft','cueStudyDrafts'),
+    ...targets('settings','settings','cueScheduleRevision','dailyLearningAdvice','studyReports','schemaVersion'),
   ];
+  if(path==='/dashboard')return targets('cue','cues','cueReviews','cueStudyDraft','cueStudyDrafts');
   if(path==='/study'||path.startsWith('/study/'))return [
     ...targets('learning','manualTasks','completions','cancellations','reviewProgress','learningCatalog','learningReminders'),
-    ...targets('cue','cues','cueReviews','cueAnswerCards','cueMemos'),...targets('practice','practiceSessions'),
+    ...targets('cue','cues','cueReviews','cueAnswerCards','cueMemos'),...targets('timer','practiceSessions'),
   ];
   if(path==='/review'||path.startsWith('/review/')||path==='/cue'||path.startsWith('/cue/'))return [
     ...targets('cue','cues','cueReviews','cueGameAccount','cueMemos','cueAnswerCards','cueStudyDraft','cueStudyDrafts'),...targets('learning','reviewProgress'),
   ];
   if(path==='/timetable-hub'||path.startsWith('/timetable-hub/'))return [...targets('timetable','timetable'),...targets('learning','manualTasks','completions','cancellations','learningReminders')];
-  if(path==='/activity'||path.startsWith('/activity/'))return [...targets('learning','learningRecords','practiceFrequencies'),...targets('practice','timedPracticeRecords','examDiagnoses')];
+  if(path==='/activity'||path.startsWith('/activity/'))return [...targets('learning','learningRecords'),...targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies')];
   if(path==='/practice-timer'||path.startsWith('/practice-timer/'))return [...targets('timer','practiceSessions','practiceTimerConfig'),...targets('practice','timedPracticeRecords','practiceFrequencies')];
   if(path==='/ielts'||path.startsWith('/ielts/'))return targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies');
   if(path==='/study-guide')return [...targets('learning','learningCatalog','manualTasks','learningRecords'),...targets('cue','cues','cueMemos')];
