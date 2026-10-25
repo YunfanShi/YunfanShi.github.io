@@ -6,7 +6,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-OUT = Path(__file__).with_name('SEIUE-Schedule-Watch-3.43.0-20261024.docx')
+OUT = Path(__file__).with_name('SEIUE-Schedule-Watch-3.43.1-20261025.docx')
 doc = Document()
 section = doc.sections[0]
 section.top_margin = Inches(.72)
@@ -38,7 +38,7 @@ header.text = 'JACKYUN PORTAL AND WATCH  |  SEIUE READ-ONLY SYNC'
 header.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 footer = section.footer.paragraphs[0]
 footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-footer.add_run('实现与安全验收说明 · v3.43.0 · 2026-10-24  |  ')
+footer.add_run('实现与安全验收说明 · v3.43.1 · 2026-10-25  |  ')
 page = OxmlElement('w:fldSimple')
 page.set(qn('w:instr'), 'PAGE')
 footer._p.append(page)
@@ -87,7 +87,7 @@ def bullet(value):
 title = doc.add_paragraph(style='Title')
 title.add_run('SEIUE 日程同步与手表端接入说明')
 subtitle = doc.add_paragraph(style='Subtitle')
-subtitle.add_run('Portal 3.43.0 · Watch 3.1.0-beta.1 · 2026 年 10 月 24 日')
+subtitle.add_run('Portal 3.43.1 · Watch 3.1.0-beta.1 · 2026 年 10 月 25 日')
 doc.add_paragraph('这份说明记录 SEIUE 与 JackYun SCHEDULE 的只读同步改进，以及 Watch 日程里的待办呈现。待办只在源状态明确为未完成时显示，并附带截止时间和可用的课程上下文。SEIUE Token 留在 Portal 服务端加密区，不发送给 Watch；任务仍由用户回到 SEIUE 查看或提交。')
 
 doc.add_heading('1. 本次变更', level=1)
@@ -98,6 +98,12 @@ table(['位置', '实现'], [
     ('Watch 截止提醒', '遵循 Watch 原有“任务截止”通知开关；提示仅对状态为 pending 且有合法截止时间的 SEIUE 待办建立，不进入可写任务完成队列。'),
     ('离线与上游故障', 'Watch API 失败时通过现有模块快照恢复保留上次成功的 SEIUE 日程；SEIUE 失败不清除 JackYun 本地课表或待同步队列。')
 ], [1.55, 5.55])
+
+doc.add_heading('1.1 合并后审查与边界修复', level=2)
+bullet('连接助手在捕获到首个匹配请求时会立刻恢复浏览器原始 fetch/XHR。修复后会先保存当前请求所使用的原始发送函数，因此触发捕获的课表读取照常完成；合成浏览器环境回归测试同时覆盖 fetch 与 XHR。')
+bullet('SEIUE 课后复习任务现在会在课程结束边界自动重算，无需切换日期或刷新页面；在日视图和周视图均尊重本地完成与取消记录。')
+bullet('单日校历事件不再因为缺少 endDate 而渗入后续周；仅关联 SEIUE 且没有本地课表的用户仍可看到复习任务列表。')
+bullet('版本 3.43.1 是合并后边界修复版本。没有修改既有 Watch APK/Android 源码；Watch 端在 3.43.0 配套的只读待办/截止提醒实现继续沿用。')
 
 doc.add_heading('2. SEIUE 字段映射', level=1)
 table(['界面字段', '源字段和规则'], [
@@ -122,15 +128,16 @@ bullet('自动续期、SEIUE 写入、代提交和源端完成状态回写仍保
 
 doc.add_heading('5. 验证清单与结果', level=1)
 table(['检查', '结果与边界'], [
-    ('SEIUE、Watch 映射和路由定向测试', '47/47 通过：截止时间校验、课程/类型/布置人描述映射、明确待办过滤、分页、认证隔离、Watch 用户隔离、过期密文清理和只读端点。'),
+    ('SEIUE、Watch 映射和路由定向测试', '49 项级检查通过：截止时间校验、课程/类型/布置人描述映射、明确待办过滤、分页、认证隔离、Watch 用户隔离、过期密文清理和只读端点；新增捕获请求不中断及校历周范围回归。'),
     ('Portal TypeScript 检查', '通过：tsc --noEmit。'),
+    ('DOCX 页面视觉检查', '未完成：当前受限执行环境未提供打包版 LibreOffice 渲染器，且不能通过浏览器直接打开本地文件；文档 ZIP/段落/表格结构检查通过。发布前请在 Word 中人工确认页面换行与表格分页。'),
     ('Watch Android 单元测试、Lint、Release 构建', '本地通过：:app:testReleaseUnitTest、:app:lintRelease、:app:assembleRelease。产物为 1,482,571 字节，无 native library，低于 4 MB 限制。lint 报告生成；目标设备仍需确认腕上版式和通知送达。'),
     ('在线 SEIUE 账户验收', '需在最新预览登录并重新关联短期 Token；本说明不包含任何生产凭据或真实响应样本。'),
     ('实体手表验收', '无已连接设备证据时不宣称通知送达和腕上版式已通过；需在目标设备确认日程显示、提醒权限与截止通知。')
 ], [2.25, 4.85])
 
 doc.add_heading('6. 版本与发布边界', level=1)
-doc.add_paragraph('Portal 功能版本从 3.42.10 升为 3.43.0；Watch 从 3.0.0-beta.1 升为 3.1.0-beta.1，versionCode 从 21 升为 22。两个项目位于不同 Git 仓库，Portal PR 与 Watch 源码/CI 独立验证。PR 合并或预览可用不等于生产部署成功；生产发布后仍须核对 Vercel 部署状态、线上版本和日程路由。')
+doc.add_paragraph('Portal 功能版本 3.43.0 合并后按缺陷修复规则升为 3.43.1；配套 Watch 版本为 3.1.0-beta.1，versionCode 22。两个项目位于不同 Git 仓库，Portal PR 与 Watch 源码/CI 独立验证。PR 合并或预览可用不等于生产部署成功；生产发布后仍须核对 Vercel 部署状态、线上版本和日程路由。')
 doc.add_paragraph('由于 SEIUE 连接令牌为短期凭据，真实账户端到端验证必须在预览网页内由账户持有人完成。不要把 Token、Cookie、完整 HAR 或包含 Authorization 请求头的截图发到聊天或提交仓库。')
 
 doc.save(OUT)

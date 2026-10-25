@@ -17,6 +17,10 @@ export type SeiueTodo = {
 export type SeiueCalendarEvent = { id: string; title: string; date: string; endDate?: string; description?: string };
 export type SeiueSnapshot = { lessons: SeiueLesson[]; todos: SeiueTodo[]; calendar: SeiueCalendarEvent[]; syncedAt: string };
 
+export function isSeiueCalendarEventInWeek(event: Pick<SeiueCalendarEvent, 'date' | 'endDate'>, weekStart: string, weekEnd: string): boolean {
+  return event.date <= weekEnd && (event.endDate ?? event.date) >= weekStart;
+}
+
 export function safeSeiueSite(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > 250) return null;
   try {

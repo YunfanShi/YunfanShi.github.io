@@ -106,6 +106,9 @@
   function installHooks() {
     originalFetch = window.fetch;
     wrappedFetch = function(input, init) {
+      // tryCapture() disarms and restores the hooks synchronously. Retain the
+      // transport for this in-flight page request before attempting capture.
+      const transport = originalFetch;
       if (armed) {
         const rawUrl = typeof input === 'string' || input instanceof URL ? String(input) : input?.url;
         const method = init?.method || (input instanceof Request ? input.method : 'GET');
@@ -113,7 +116,7 @@
         if (init?.headers) isHeaderBag(init.headers).forEach((value, name) => headers.set(name, value));
         tryCapture(method, rawUrl, headers);
       }
-      return originalFetch.apply(this, arguments);
+      return transport.apply(this, arguments);
     };
     window.fetch = wrappedFetch;
 
@@ -133,10 +136,11 @@
       return originalSetHeader.apply(this, arguments);
     };
     proto.send = function() {
+      const transport = originalSend;
       const detail = xhrDetails.get(this);
       if (armed && detail) tryCapture(detail.method, detail.url, detail.headers);
       xhrDetails.delete(this);
-      return originalSend.apply(this, arguments);
+      return transport.apply(this, arguments);
     };
   }
 

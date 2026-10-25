@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { normalizeSeiueCalendar, normalizeSeiueLessons, normalizeSeiueTodos, parseSeiueDateTime, parseSeiueHelperBundle, safeSeiueSite, seiueCourseReviewKey, type SeiueSnapshot } from '../src/lib/integrations/seiue.ts';
+import { runInNewContext } from 'node:vm';
+import { isSeiueCalendarEventInWeek, normalizeSeiueCalendar, normalizeSeiueLessons, normalizeSeiueTodos, parseSeiueDateTime, parseSeiueHelperBundle, safeSeiueSite, seiueCourseReviewKey, type SeiueSnapshot } from '../src/lib/integrations/seiue.ts';
 import { getSeiueSnapshot, withSeiueSnapshot } from '../src/lib/integrations/seiue-snapshot-cache.ts';
 
 test('snapshot cache is scoped by account and selected week and preserves the last success on failure', () => {
@@ -38,6 +39,46 @@ test('SEIUE helper auto-detects only a bounded course request, keeps memory-only
   assert.ok(helper.includes('const EVENT_PATH = /^\\/chalk\\/calendar\\/personals'));
   assert.doesNotMatch(helper, /localStorage|sessionStorage|document\.cookie|GM_xmlhttpRequest|@connect|console\.(log|info|warn|error)/i);
   assert.doesNotMatch(helper, /fetch\s*\(\s*['"`]/i);
+});
+
+test('SEIUE helper forwards the fetch and XHR call that triggers one-time capture', async () => {
+  const helper = readFileSync(new URL('../public/userscripts/seiue-connector.user.js', import.meta.url), 'utf8');
+  let fetchCalls = 0;
+  let xhrCalls = 0;
+  class MockXhr {
+    open() {}
+    setRequestHeader() {}
+    send() { xhrCalls += 1; return 'sent'; }
+  }
+  const windowMock = {
+    fetch() { fetchCalls += 1; return Promise.resolve(new Response(null, { status: 204 })); },
+    setTimeout() { return 1; }, clearTimeout() {},
+  };
+  runInNewContext(helper, {
+    window: windowMock,
+    location: { protocol: 'https:', hostname: 'chalk-c3.seiue.com', origin: 'https://chalk-c3.seiue.com', href: 'https://chalk-c3.seiue.com/' },
+    document: { readyState: 'loading', addEventListener() {} },
+    XMLHttpRequest: MockXhr, Headers, Request, URL, WeakMap, String, RegExp, Promise,
+    navigator: {},
+  });
+  const headers = { Authorization: 'Bearer synthetic-token-0123456789', 'X-Reflection-Id': '4226602', 'X-School-Id': '120', 'X-Role': 'student' };
+  await windowMock.fetch('https://api.seiue.com/chalk/calendar/personals/4226602/events', { method: 'GET', headers });
+  assert.equal(fetchCalls, 1);
+  assert.equal(windowMock.fetch.name, 'fetch');
+  const xhr = new MockXhr() as MockXhr & { open: (method: string, url: string) => void; setRequestHeader: (name: string, value: string) => void };
+  xhr.open('GET', 'https://api.seiue.com/chalk/calendar/personals/4226602/events');
+  for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+  assert.equal(xhr.send(), 'sent');
+  assert.equal(xhrCalls, 1);
+});
+
+test('single-day SEIUE calendar events only appear in their own week', () => {
+  const weekStart = '2026-10-19';
+  const weekEnd = '2026-10-25';
+  assert.equal(isSeiueCalendarEventInWeek({ date: '2026-10-18' }, weekStart, weekEnd), false);
+  assert.equal(isSeiueCalendarEventInWeek({ date: '2026-10-19' }, weekStart, weekEnd), true);
+  assert.equal(isSeiueCalendarEventInWeek({ date: '2026-10-26' }, weekStart, weekEnd), false);
+  assert.equal(isSeiueCalendarEventInWeek({ date: '2026-10-17', endDate: '2026-10-21' }, weekStart, weekEnd), true);
 });
 
 test('SEIUE connection instructions warn users not to share authorization screenshots', () => {
