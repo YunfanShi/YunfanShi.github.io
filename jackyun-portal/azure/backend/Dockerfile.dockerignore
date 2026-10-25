@@ -15,3 +15,4 @@
 !src/lib/sync/transfer.ts
 !src/lib/sync/delta.ts
 !src/lib/sync/compression.ts
+!src/lib/sync/resource-model.ts

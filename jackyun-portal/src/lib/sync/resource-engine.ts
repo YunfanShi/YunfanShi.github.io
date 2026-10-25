@@ -53,6 +53,9 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
   }
   async function commit(scope:SyncV5Scope,descriptors:Descriptor[],cursor:V5ResourceCursor){
     const records=await fetchPageRecords(scope,descriptors);assertCurrent();
+    // A local edit may land while the page request is in flight. Queue it before
+    // the page transaction so commitV5ResourcePage overlays it instead of clobbering it.
+    await captureLocalChanges(scope);assertCurrent();
     const projected=await commitV5ResourcePage(scope,records,cursor,e.databaseScope);
     assertCurrent();if(projected!==null)await e.projectSchedule(projected);
   }
@@ -108,7 +111,8 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
   }
   async function resolveReceipt(scope:SyncV5Scope,operation:V5ResourceOperation,result:Result){
     if(result.status==='applied'){
-      await acknowledgeV5Operations([{operation,revision:Number(result.revision),contentHash:String(result.contentHash),updatedAt:String(result.updatedAt??new Date().toISOString())}],e.databaseScope);return true;
+      const projected=await acknowledgeV5Operations([{operation,revision:Number(result.revision),contentHash:String(result.contentHash),updatedAt:String(result.updatedAt??new Date().toISOString())}],e.databaseScope);
+      assertCurrent();if(projected!==null)await e.projectSchedule(projected);return true;
     }
     if(result.status==='conflict'){
       const conflict:V5ResourceConflict={operationId:operation.id,scope,recordId:operation.recordId,baseRevision:operation.baseRevision,baseHash:operation.baseHash,
@@ -137,13 +141,19 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     }
     throw Error('v5 上传队列超过单轮上限。');
   }
-  async function synchronize(requestedScopes:readonly SyncV5Scope[]){
+  async function refreshAuthority(){
     const capabilities=await readJson(e.request,'/api/sync/v5');
     assertCurrent();
     const scopes=Array.isArray(capabilities.scopes)?capabilities.scopes.filter((scope):scope is SyncV5Scope=>SYNC_V5_SCOPES.includes(scope as SyncV5Scope)):[];
     const flags=capabilities.capabilities as Record<string,unknown>|undefined;
     await e.setAuthority(scopes);
-    if(flags?.v5!==true||!SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)))return {enabled:false,conflicts:await getV5Conflicts(e.databaseScope)};
+    return {enabled:flags?.v5===true&&SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)),scopes};
+  }
+  async function synchronize(requestedScopes:readonly SyncV5Scope[]){
+    const authority=await refreshAuthority();if(!authority.enabled)return {enabled:false,conflicts:await getV5Conflicts(e.databaseScope)};
+    const {scopes}=authority;
+    // Snapshot current local edits before remote pages can replace their resource rows.
+    for(const scope of scopes)await captureLocalChanges(scope);
     for(const scope of requestedScopes)if(scopes.includes(scope))await pull(scope);
     for(const scope of scopes)await captureLocalChanges(scope);
     for(const scope of SYNC_V5_SCOPES)await push(scope);
@@ -154,5 +164,5 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     if(choice==='local')await resolveV5ConflictLocally(operationId,e.uuid(),e.databaseScope);
     else {const projected=await resolveV5ConflictRemotely(operationId,e.databaseScope);if(projected!==null)await e.projectSchedule(projected);}
   }
-  return {synchronize,resolveConflict};
+  return {synchronize,resolveConflict,refreshAuthority};
 }

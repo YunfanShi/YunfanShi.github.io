@@ -161,6 +161,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
         if(!Array.isArray(requestBody?.operations))return applyBody(client,identity,requestBody,large);
         const operation=requestBody.operations.find(row=>row.key===SCHEDULE_STORAGE_KEY);
         if(!operation)return applyBody(client,identity,requestBody,large);
+        if(json(requestBody).length>(large?MAX_LARGE_SYNC_BYTES:1_000_000)||!requestBody.operations.every(row=>validOperation(row,large)))fail(400,'INVALID_OPERATIONS');
         const projection=await scheduleProjection();
         if(!projection)return applyBody(client,identity,requestBody,large);
         const physical=projection.legacy,baseMatches=!operation.deleted&&operation.baseRevision===projection.revision&&operation.baseHash===projection.contentHash;
@@ -173,7 +174,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
         const physicalRevision=Number(physical?.revision??0),physicalHash=physical?.content_hash??null;
         const rewritten={...operation,baseRevision:baseMatches?physicalRevision:physicalRevision+1,baseHash:baseMatches?physicalHash:'0'.repeat(64),baseValue:baseMatches?(physical?.storage_value??null):operation.baseValue};
         if(baseMatches){delete rewritten.patch;rewritten.value=nextValue;rewritten.deleted=operation.deleted;}
-        const response=await applyBody(client,identity,{...requestBody,operations:requestBody.operations.map(row=>row===operation?rewritten:row)},large,requestBody.operations);
+        const response=await applyBody(client,identity,{...requestBody,operations:requestBody.operations.map(row=>row===operation?rewritten:row)},true,requestBody.operations);
         const conflict=response.conflicts?.find(row=>row.operationId===operation.id);
         if(conflict){
           Object.assign(conflict,{remoteValue:projection.value,remoteDeleted:false,remoteHash:projection.contentHash,remoteRevision:projection.revision});

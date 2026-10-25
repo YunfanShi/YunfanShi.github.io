@@ -5,11 +5,12 @@ import {createHash,randomUUID} from 'node:crypto';
 import {handleSyncV5,readScheduleProjection,scheduleProjectionState,syncV5Rollout} from '../sync-v5.mjs';
 import {createApiHandler} from '../server.mjs';
 import {canonicalJson} from '../../../src/lib/sync/hash.ts';
+import {readFile} from 'node:fs/promises';
 
 const identity={sub:randomUUID()},url=(path,query='')=>new URL(`https://sync.test/api/sync/v5${path}${query}`);
 function database(){
-  const records=new Map(),receipts=new Map(),heads=new Map(),projectionHeads=new Set(),changes=[];let writes=0;
-  return {records,receipts,heads,projectionHeads,changes,get writes(){return writes;},async query(sql,params=[]){
+  const records=new Map(),receipts=new Map(),heads=new Map(),projectionHeads=new Set(),changes=[];let writes=0,projectionWrites=0;
+  return {records,receipts,heads,projectionHeads,changes,get writes(){return writes;},get projectionWrites(){return projectionWrites;},async query(sql,params=[]){
     if(sql.includes("to_regclass('public.sync_v5_records')"))return {rows:[{ready:true}]};
     if(sql.startsWith('SELECT pg_advisory_xact_lock'))return {rows:[]};
     if(sql.includes('count(*)::integer AS count FROM public.sync_v5_receipts'))return {rows:[{count:0}]};
@@ -19,7 +20,7 @@ function database(){
     if(sql.startsWith('SELECT scope FROM public.sync_v5_heads WHERE user_id=$1'))return {rows:[...heads.keys()].filter(key=>key.startsWith(`${params[0]}:`)).map(key=>({scope:key.slice(params[0].length+1)}))};
     if(sql.startsWith('SELECT scope,record_id,value,deleted_at FROM public.sync_v5_records'))return {rows:[...records.values()]};
     if(sql.startsWith('INSERT INTO public.legacy_sync_data'))return {rows:[]};
-    if(sql.startsWith('INSERT INTO public.sync_v5_projection_heads')){projectionHeads.add(params[0]);return {rows:[]};}
+    if(sql.startsWith('INSERT INTO public.sync_v5_projection_heads')){projectionHeads.add(params[0]);projectionWrites++;return {rows:[]};}
     if(sql.startsWith('INSERT INTO public.sync_change_heads'))return {rows:[{sequence:1}]};
     if(sql.startsWith('INSERT INTO public.sync_change_log'))return {rows:[]};
     if(sql.startsWith('WITH removed AS'))return {rows:[]};
@@ -81,11 +82,31 @@ test('resource writes use CAS, idempotent receipts, and return actionable confli
   const operation={id,scope:'cue',recordId:'cues:cue-1',baseRevision:0,baseHash:null,value,deleted:false,clientUpdatedAt:new Date().toISOString()};
   const first=await handleSyncV5(db,identity,'POST',url('/operations'),{scope:'cue',deviceId,operations:[operation]},['cue']);
   assert.equal(first.applied[0].revision,1);assert.equal(first.applied[0].contentHash,hash(value));assert.equal(db.writes,1);
-  const replay=await handleSyncV5(db,identity,'POST',url('/operations'),{scope:'cue',deviceId,operations:[operation]},['cue']);
+  const projectionWrites=db.projectionWrites,replay=await handleSyncV5(db,identity,'POST',url('/operations'),{scope:'cue',deviceId,operations:[operation]},['cue']);
   assert.equal(replay.applied[0].operationId,id);assert.equal(db.writes,1);
+  assert.equal(replay.projectionBuildMs,0);assert.equal(db.projectionWrites,projectionWrites);
   const stale={...operation,id:randomUUID(),value:{id:'cue-1',prompt:'stale'}};
   const conflict=await handleSyncV5(db,identity,'POST',url('/operations'),{scope:'cue',deviceId,operations:[stale]},['cue']);
   assert.deepEqual(conflict.conflicts[0].value,value);assert.equal(conflict.conflicts[0].revision,1);assert.equal(db.writes,1);
+});
+
+test('v5 rejects resource IDs that belong to another scope',async()=>{
+  const operation={id:randomUUID(),scope:'cue',recordId:'timetable:%24value',baseRevision:0,baseHash:null,value:{},deleted:false,clientUpdatedAt:new Date().toISOString()};
+  await assert.rejects(handleSyncV5(database(),identity,'POST',url('/operations'),{scope:'cue',deviceId:randomUUID(),operations:[operation]},['cue']),{status:400,code:'V5_RESOURCE_SCOPE_MISMATCH'});
+});
+
+test('v5 mutations cannot remove immutable practice evidence',async()=>{
+  const db=database(),diagnosis={id:'diagnosis-1',originalAnswer:'submitted',sourceRecordId:'record-1',sourceSessionId:'session-1',sourceQuestionId:'question-1',reviews:[],events:[]};
+  db.records.set('examDiagnoses:$order',{user_id:identity.sub,scope:'practice',record_id:'examDiagnoses:$order',revision:1,content_hash:hash(['diagnosis-1']),value:['diagnosis-1'],deleted_at:null,updated_at:new Date().toISOString()});
+  db.records.set('examDiagnoses:diagnosis-1',{user_id:identity.sub,scope:'practice',record_id:'examDiagnoses:diagnosis-1',revision:1,content_hash:hash(diagnosis),value:diagnosis,deleted_at:null,updated_at:new Date().toISOString()});
+  db.heads.set(`${identity.sub}:practice`,0);
+  const operation={id:randomUUID(),scope:'practice',recordId:'examDiagnoses:diagnosis-1',baseRevision:1,baseHash:hash(diagnosis),value:null,deleted:true,clientUpdatedAt:new Date().toISOString()};
+  await assert.rejects(handleSyncV5(db,identity,'POST',url('/operations'),{scope:'practice',deviceId:randomUUID(),operations:[operation]},['practice']),{status:409,code:'SCHEDULE_EVIDENCE_IMMUTABLE'});
+});
+
+test('Azure container allowlist includes the shared v5 resource model dependency',async()=>{
+  const dockerfile=await readFile(new URL('../Dockerfile',import.meta.url),'utf8'),ignore=await readFile(new URL('../Dockerfile.dockerignore',import.meta.url),'utf8');
+  assert.match(dockerfile,/src\/lib\/sync\/resource-model\.ts/);assert.match(ignore,/!src\/lib\/sync\/resource-model\.ts/);
 });
 
 test('scope rollout is account-wide and rejects unenabled resource scopes',async()=>{

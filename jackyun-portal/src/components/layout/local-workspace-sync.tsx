@@ -116,7 +116,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const controller=new AbortController(), gate=createSyncRunGate();
     const accountStore=syncStore.accountSyncStore(userId);
     const publish=async (state:SyncStatus,error?:string,progress?:string) => {
-      const [pending,conflicts,lastSyncedAt,v5Pending,v5Conflicts]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<string>('lastSyncedAt'),v5Authority?getV5Outbox(undefined,userId!):Promise.resolve([]),v5Authority?getV5Conflicts(userId!):Promise.resolve([])]);
+      const [pending,conflicts,lastSyncedAt,v5Pending,v5Conflicts]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<string>('lastSyncedAt'),v5Authority?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),v5Authority?getV5Conflicts(accountStore.databaseScope):Promise.resolve([])]);
       if(cancelled) return;
       const totalPending=pending.length+v5Pending.length,totalConflicts=conflicts.length+v5Conflicts.length;
       announce({state:totalConflicts && state!=='syncing' && state!=='error' && state!=='server_unavailable' && state!=='auth_required' && state!=='access_denied' ? 'conflict' : state==='synced' && totalPending ? 'offline_pending' : state,
@@ -152,18 +152,19 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           await flushLocalWrites();await engine.capture();
           if(!navigator.onLine){await publish('offline_pending');return false;}
           if(authPaused)return false;
-          const [pending,conflicts,lastRead,v5Pending]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull'),v5Authority?getV5Outbox(undefined,userId!):Promise.resolve([])]);
+          const [pending,conflicts,lastRead,v5Pending]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull'),v5Authority?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([])]);
           const blocked=new Set(conflicts.map(c=>c.key));
           if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&!v5Pending.length&&requestReason!=='edit'&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
           if(queuedResolution){const choice=queuedResolution;await engine.resolve(choice.operationId,choice.choice,choice.review);if(queuedResolution===choice)queuedResolution=undefined;await engine.flush();}
           if(queuedV5Resolution){const choice=queuedV5Resolution;await v5Sync.resolveConflict(choice.operationId,choice.choice);if(queuedV5Resolution===choice)queuedV5Resolution=undefined;}
+          await v5Sync.refreshAuthority?.();
           await engine.synchronize();
           const v5Result=await v5Sync.synchronize(resourceScopesForPath(window.location.pathname));
           v5Authority=v5Result.enabled;
           await flushLocalWrites();await engine.capture();
           await accountStore.setSetting('lastAutomaticPull',Date.now());
-          const [remaining,unresolved,v5Remaining,v5Unresolved]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),v5Authority?getV5Outbox(undefined,userId!):Promise.resolve([]),v5Authority?getV5Conflicts(userId!):Promise.resolve([])]);
+          const [remaining,unresolved,v5Remaining,v5Unresolved]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),v5Authority?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),v5Authority?getV5Conflicts(accountStore.databaseScope):Promise.resolve([])]);
           if(!remaining.length&&!unresolved.length&&!v5Remaining.length&&!v5Unresolved.length)await accountStore.setSetting('lastSyncedAt',new Date().toISOString());
           failures=0;
           if(Date.now()-lastBackupCheck>=5*60_000){lastBackupCheck=Date.now();void runScheduledSync('backup',userId!,async()=>{await createDueBackupVersions();}).catch(()=>console.warn('[Backup] Cloud backup deferred'));}

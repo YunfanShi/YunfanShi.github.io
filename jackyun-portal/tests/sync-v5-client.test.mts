@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {IDBFactory} from 'fake-indexeddb';
-import {accountSyncStore,commitV5ResourcePage,getV5Cursor,getV5Resources,openDatabase,resolveV5ConflictRemotely,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
+import {accountSyncStore,acknowledgeV5Operations,commitV5ResourcePage,getV5Cursor,getV5Resources,openDatabase,resolveV5ConflictRemotely,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
 import {createV5ResourceSync} from '../src/lib/sync/resource-engine.ts';
 import {canonicalJson} from '../src/lib/sync/hash.ts';
 import {SYNC_V5_SCOPES} from '../src/lib/sync/resource-model.ts';
@@ -29,6 +29,19 @@ test('v5 cursor does not advance when the Schedule document cannot be safely mer
     {scope:'cue',mode:'changes',after:'',cursor:1,head:1},dbName));
   assert.equal(await getV5Cursor('cue',dbName),null);
   assert.deepEqual(await getV5Resources('cue',dbName),[]);
+});
+
+test('a late old receipt cannot downgrade a newer pulled resource or its Schedule projection',async()=>{
+  const dbName=id(),newer={id:'cue-1',prompt:'revision 3 from another device'},oldUpload={id:'cue-1',prompt:'revision 2 upload'};
+  const hash=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex'),operation={id:crypto.randomUUID(),scope:'cue' as const,recordId:'cues:cue-1',baseRevision:1,baseHash:'b'.repeat(64),value:oldUpload,deleted:false,clientUpdatedAt:'now'};
+  const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction(['documents','v5Resources','v5Outbox'],'readwrite');
+    tx.objectStore('documents').put({key:'jackyun_schedule_control_v1',value:JSON.stringify({schemaVersion:1,cues:[newer]}),updatedAt:0});
+    tx.objectStore('v5Resources').put({scope:'cue',recordId:'cues:$order',revision:3,contentHash:hash(['cue-1']),deleted:false,updatedAt:'new',value:['cue-1']});
+    tx.objectStore('v5Resources').put({scope:'cue',recordId:'cues:cue-1',revision:3,contentHash:hash(newer),deleted:false,updatedAt:'new',value:newer});tx.objectStore('v5Outbox').put(operation);
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+  const projected=await acknowledgeV5Operations([{operation,revision:2,contentHash:hash(oldUpload),updatedAt:'old'}],dbName);
+  assert.deepEqual(JSON.parse(projected!).cues,[newer]);assert.equal((await getV5Resources('cue',dbName)).find(row=>row.recordId==='cues:cue-1')?.revision,3);
+  const read=await openDatabase(dbName);try{const value=await new Promise<string>((resolve,reject)=>{const tx=read.transaction('documents','readonly'),request=tx.objectStore('documents').get('jackyun_schedule_control_v1');request.onsuccess=()=>resolve(request.result.value);request.onerror=()=>reject(request.error);});assert.deepEqual(JSON.parse(value).cues,[newer]);}finally{read.close();}
 });
 
 test('resolving one remote conflict preserves other local conflicted resources',async()=>{

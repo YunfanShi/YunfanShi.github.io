@@ -342,6 +342,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
         validate(descriptor);
         if (byteOrder(descriptor.key,previous) <= 0) throw Error('同步游标无效。');
         previous = descriptor.key; scanned++;
+        if(e.usesV5Schedule?.()&&descriptor.key==='jackyun_schedule_control_v1')continue;
         const conflict=conflicts.get(descriptor.key);
         if(conflict && !conflict.remoteLarge && conflict.remoteRevision===descriptor.revision
           && conflict.remoteHash===descriptor.contentHash && conflict.remoteDeleted===descriptor.deleted) {

@@ -26,6 +26,16 @@ test('stale device with year 2999 clock retains additions on both devices',async
   assert.deepEqual(new Set((a.value as Page).cues.map(r=>r.id)),new Set(['a','new-a','new-b']));
   assert.deepEqual(a.value,b.value);assert.equal((await b.store.getOutbox()).length,0);
 });
+test('v3 fallback does not replace a Schedule owned by v5',async()=>{
+  const local={cues:[{id:'local',text:'keep'}]},remoteSchedule=remote({cues:[{id:'cloud',text:'newer'}]},2),cloud=server(remoteSchedule),d=device(cloud,remote(local));
+  d.set(local);let scheduleBodyReads=0;d.environment.usesV5Schedule=()=>true;
+  d.environment.request=async(url)=>{
+    if(url.startsWith('/api/sync/v3'))return Response.json({ok:true,syncProtocol:3,records:[{key:remoteSchedule.key,revision:remoteSchedule.revision,contentHash:remoteSchedule.contentHash,deleted:false,updatedAt:remoteSchedule.updatedAt}],next:null});
+    if(url.startsWith('/api/sync/v2?key=')){scheduleBodyReads++;return Response.json({ok:true,records:[remoteSchedule]});}
+    throw new Error(`Unexpected request ${url}`);
+  };
+  await d.engine.pull();assert.deepEqual(d.value,local);assert.equal(scheduleBodyReads,0);assert.equal((await d.store.getOutbox()).length,0);
+});
 test('same field changes persist both copies across restart and stop automatic writes',async()=>{
   const base=remote({cues:[{id:'a',text:'base'}]}),cloud=server(base),d=device(cloud,base);
   d.set({cues:[{id:'a',text:'local'}]});cloud.cloud=remote({cues:[{id:'a',text:'remote'},{id:'b',text:'unique'}]},2);

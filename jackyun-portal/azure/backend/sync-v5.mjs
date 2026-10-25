@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import {canonicalJson} from '../../src/lib/sync/hash.ts';
-import {mergeScheduleResources,scheduleToResources} from '../../src/lib/sync/resource-model.ts';
+import {mergeScheduleResources,resourceScopeForRecordId,scheduleToResources} from '../../src/lib/sync/resource-model.ts';
+import {unsafeScheduleReplacement} from '../../src/lib/sync/schedule-safety.ts';
 import {ApiError} from './errors.mjs';
 
 export const SYNC_V5_SCOPES=new Set(['timetable','learning','cue','practice','timer','settings']);
@@ -119,6 +120,7 @@ function validateOperation(operation,scope) {
     ||!(operation.baseHash===null||(typeof operation.baseHash==='string'&&HASH.test(operation.baseHash)))
     ||typeof operation.deleted!=='boolean'||(!operation.deleted&&!Object.hasOwn(operation,'value'))
     ||typeof operation.clientUpdatedAt!=='string'||!Number.isFinite(Date.parse(operation.clientUpdatedAt)))fail(400,'INVALID_V5_OPERATION');
+  if(resourceScopeForRecordId(operation.recordId)!==scope)fail(400,'V5_RESOURCE_SCOPE_MISMATCH');
   if(Buffer.byteLength(json(operation.deleted?null:operation.value))>MAX_RECORD_BYTES)fail(413,'V5_RECORD_TOO_LARGE');
 }
 
@@ -191,7 +193,7 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
     if(recent+body.operations.length>600)fail(429,'RATE_LIMITED');
     const device=(await client.query('SELECT revoked_at FROM public.web_sync_devices WHERE id=$1 AND user_id=$2',[body.deviceId,identity.sub])).rows[0];
     if(device?.revoked_at)fail(403,'DEVICE_REVOKED');
-    const applied=[],remote=[],conflicts=[];
+    const applied=[],remote=[],conflicts=[],newlyApplied=[],evidenceBaseline=scope==='practice'?(await readScheduleProjection(client,identity.sub)).value:null;
     for(const operation of body.operations){
       const requestHash=digest(operation);
       const prior=(await client.query('SELECT request_hash,result FROM public.sync_v5_receipts WHERE user_id=$1 AND scope=$2 AND operation_id=$3',[identity.sub,scope,operation.id])).rows[0];
@@ -221,11 +223,13 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
       await client.query('INSERT INTO public.sync_v5_changes(user_id,scope,sequence,record_id) VALUES($1,$2,$3,$4)',[identity.sub,scope,sequence,operation.recordId]);
       const result={status:'applied',operationId:operation.id,...descriptor(saved)};
       applied.push(result);
+      newlyApplied.push(result);
+      if(evidenceBaseline){const projected=await readScheduleProjection(client,identity.sub);if(unsafeScheduleReplacement(evidenceBaseline,projected.value))fail(409,'SCHEDULE_EVIDENCE_IMMUTABLE');}
       await client.query(`INSERT INTO public.sync_v5_receipts(user_id,scope,operation_id,request_hash,result)
         VALUES($1,$2,$3,$4,$5::jsonb)`,[identity.sub,scope,operation.id,requestHash,json(result)]);
     }
     let projectionBuildMs=0,projectionRecordCount=0,projectionBytes=0;
-    if(applied.length){
+    if(newlyApplied.length){
       const started=performance.now(),projection=await readScheduleProjection(client,identity.sub);
       await writeProjectionHead(client,identity.sub,projection.revision+1,projection.value,{recordV4Change:true});
       projectionBuildMs=Math.round(performance.now()-started);

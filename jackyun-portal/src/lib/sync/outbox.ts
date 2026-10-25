@@ -101,10 +101,22 @@ export async function commitV5ResourcePage(scope:SyncV5Scope,records:V5ResourceR
     for(const request of [known,pending,conflicts,document]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
     tx.oncomplete=()=>resolve(projected);tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error??new Error('v5 page commit aborted'));};});}finally{db.close();}
 }
-export async function acknowledgeV5Operations(applied:Array<{operation:V5ResourceOperation;revision:number;contentHash:string|null;updatedAt:string}>,dbScope?:string):Promise<void>{
-  const db=await openDatabase(dbScope);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction(['v5Outbox','v5Resources'],'readwrite'),outbox=tx.objectStore('v5Outbox'),resources=tx.objectStore('v5Resources');
-    for(const row of applied){outbox.delete(row.operation.id);resources.put({scope:row.operation.scope,recordId:row.operation.recordId,revision:row.revision,contentHash:row.contentHash,deleted:row.operation.deleted,updatedAt:row.updatedAt,value:row.operation.value});}
-    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}finally{db.close();}
+export async function acknowledgeV5Operations(applied:Array<{operation:V5ResourceOperation;revision:number;contentHash:string|null;updatedAt:string}>,dbScope?:string):Promise<string|null>{
+  const db=await openDatabase(dbScope);try{return await new Promise<string|null>((resolve,reject)=>{const tx=db.transaction(['v5Outbox','v5Resources','v5Conflicts','documents'],'readwrite'),outbox=tx.objectStore('v5Outbox'),resources=tx.objectStore('v5Resources'),conflicts=tx.objectStore('v5Conflicts'),documents=tx.objectStore('documents');
+    const all=resources.getAll(),pending=outbox.getAll(),blocked=conflicts.getAll(),document=documents.get(SCHEDULE_DOCUMENT_KEY);let done=0,failed=false,projected:string|null=null;
+    const finish=()=>{if(++done!==4||failed)return;try{
+      const rows=new Map((all.result as V5ResourceRecord[]).map(row=>[`${row.scope}\0${row.recordId}`,row])),acknowledged=new Set(applied.map(row=>row.operation.id)),touched=new Set<string>();
+      for(const row of applied){const operation=row.operation,key=`${operation.scope}\0${operation.recordId}`,current=rows.get(key);
+        outbox.delete(operation.id);touched.add(operation.recordId.slice(0,operation.recordId.indexOf(':')));
+        if(!current||current.revision<=row.revision){const saved={scope:operation.scope,recordId:operation.recordId,revision:row.revision,contentHash:row.contentHash,deleted:operation.deleted,updatedAt:row.updatedAt,value:operation.value};resources.put(saved);rows.set(key,saved);}
+      }
+      for(const operation of pending.result as V5ResourceOperation[])if(!acknowledged.has(operation.id))rows.set(`${operation.scope}\0${operation.recordId}`,{scope:operation.scope,recordId:operation.recordId,revision:operation.baseRevision,contentHash:operation.baseHash,deleted:operation.deleted,updatedAt:operation.clientUpdatedAt,value:operation.value});
+      for(const conflict of blocked.result as V5ResourceConflict[])rows.set(`${conflict.scope}\0${conflict.recordId}`,{scope:conflict.scope,recordId:conflict.recordId,revision:conflict.baseRevision,contentHash:conflict.baseHash,deleted:conflict.localDeleted,updatedAt:conflict.createdAt,value:conflict.localValue});
+      if(touched.size){const raw=document.result?.value as string|null|undefined,base=raw?JSON.parse(raw):{};if(!base||typeof base!=='object'||Array.isArray(base))throw Error('Schedule local document invalid');
+        projected=JSON.stringify(mergeScheduleResources(base,parseScheduleResources([...rows.values()]),[...touched]));if(projected!==raw)documents.put({...document.result,key:SCHEDULE_DOCUMENT_KEY,value:projected,updatedAt:Date.now()});}
+    }catch(error){failed=true;tx.abort();reject(error);}};
+    for(const request of [all,pending,blocked,document]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
+    tx.oncomplete=()=>resolve(projected);tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error??new Error('v5 receipt acknowledgment aborted'));};});}finally{db.close();}
 }
 export async function saveV5Conflicts(conflicts:V5ResourceConflict[],dbScope?:string):Promise<void>{
   const db=await openDatabase(dbScope);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction(['v5Conflicts','v5Outbox','v5Resources'],'readwrite'),store=tx.objectStore('v5Conflicts'),outbox=tx.objectStore('v5Outbox'),resources=tx.objectStore('v5Resources');for(const conflict of conflicts){store.put(conflict);outbox.delete(conflict.operationId);resources.put({scope:conflict.scope,recordId:conflict.recordId,revision:conflict.remoteRevision,contentHash:conflict.remoteHash,deleted:conflict.remoteDeleted,updatedAt:conflict.createdAt,value:conflict.remoteValue});}tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}finally{db.close();}

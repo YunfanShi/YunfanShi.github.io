@@ -42,6 +42,12 @@ const fields:ResourceField[]=[
   {field:'schemaVersion',scope:'settings',mode:'value'},
 ];
 const configured=new Set(fields.map(item=>item.field));
+export function resourceScopeForRecordId(recordId:string):SyncV5Scope|null{
+  const colon=recordId.indexOf(':');if(colon<1)return null;
+  const field=recordId.slice(0,colon);
+  if(field==='__root')return recordId==='__root:value'?'settings':null;
+  return fields.find(item=>item.field===field)?.scope??null;
+}
 const record=(field:ResourceField,itemId:string,value:unknown):ScheduleResource=>({
   scope:field.scope,field:field.field,itemId,recordId:`${field.field}:${encodeURIComponent(itemId)}`,value,
 });
