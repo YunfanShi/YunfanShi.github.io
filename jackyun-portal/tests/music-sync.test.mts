@@ -35,7 +35,7 @@ test('follower reset and incoming stop never broadcast a stop back',async()=>{
  const p=player(); p.Engine.reset(); await p.handleIncomingBroadcast(p.command('stop',1)); assert.equal(p.requests.length,0);
 });
 test('late playback catches up to the shared timeline',async()=>{
- const p=player(); await p.handleIncomingBroadcast(p.command('play',1,Date.now()-4000)); await Promise.resolve();
+ const p=player(); await p.handleIncomingBroadcast(p.command('play',1,Date.now()-4500)); await Promise.resolve();
  assert.equal(p.STATE.status,'PLAYING'); assert.ok(p.audio.currentTime>=4);
 });
 test('autoplay rejection remains visible and user can retry',async()=>{
@@ -168,7 +168,7 @@ test('playlist escapes imported names and IDs rather than inserting markup', () 
 
 test('follower player button resumes the last song on its shared timeline', async () => {
   const p = player();
-  await p.handleIncomingBroadcast(p.command('play', 1, Date.now() - 4000));
+  await p.handleIncomingBroadcast(p.command('play', 1, Date.now() - 4500));
   await Promise.resolve();
   p.Engine.toggleSystem();
   assert.equal(p.STATE.status, 'IDLE');

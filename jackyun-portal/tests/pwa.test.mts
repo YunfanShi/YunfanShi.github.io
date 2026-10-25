@@ -47,8 +47,11 @@ test('offline workspace stores snapshots and queued operations per authenticated
   assert.match(store, /queueOfflineMutation/);
   assert.match(sync, /navigator\.onLine/);
   assert.match(sync, /已记录，联网后同步/);
-  assert.match(route, /task\.toggle/);
-  assert.match(route, /review\.attempt/);
+  assert.match(route, /supabase\.rpc\('apply_offline_mutation'/);
+  assert.match(route, /p_operation_id:operationId/);
+  const mutation = await readFile(new URL('supabase/migrations/20261025023755_reliable_offline_mutations.sql', projectDir), 'utf8');
+  assert.match(mutation, /'task\.toggle'/);
+  assert.match(mutation, /'review\.attempt'/);
 });
 
 test('logout preserves pending work, clears worker cache, and uses local sign-out', async () => {

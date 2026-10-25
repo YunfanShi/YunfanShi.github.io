@@ -8,8 +8,8 @@ function review(cueId: string, status: CueReview['status'] = 'stable', at = now)
 }
 test('game is opt-in and new Cue sessions default to shuffle, including legacy preferences', () => {
   for (const value of [undefined, null, {}, [], 'invalid', { cueGameEnabled: 'true', cueShuffle: 'false' }])
-    assert.deepEqual(cueStudyPreferences(value), { cueGameEnabled: false, cueShuffle: true });
-  assert.deepEqual(cueStudyPreferences({ cueGameEnabled: true, cueShuffle: false }), { cueGameEnabled: true, cueShuffle: false });
+    assert.deepEqual(cueStudyPreferences(value), { cueGameEnabled: false, cueShuffle: true, cueItemMotion: true, cueCelebrationMotion: false, cueAmbientMotion: false });
+  assert.deepEqual(cueStudyPreferences({ cueGameEnabled: true, cueShuffle: false }), { cueGameEnabled: true, cueShuffle: false, cueItemMotion: true, cueCelebrationMotion: false, cueAmbientMotion: false });
 });
 test('rating edits, duplicate sync records and repeated sessions do not farm XP', () => {
   const reviews = [review('a'), review('a', 'partial'), review('a', 'unclear'), review('b', 'partial'), review('c', 'unclear')];
@@ -80,7 +80,7 @@ test('desktop background renders real star history, accessible experience and re
     return jsx.jsxs(type, props, key);
   } };
   const react = { ...require('react'), useState: (initial: unknown) => React.useState(initial === null ? { id: 23, cueId: 'render-22', status: 'partial', gained: 10, milestone: true, situation: 'constellation', variant: 1, duration: 1600 } : initial) };
-  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name === './use-cue-study-preferences' ? { useCueReducedMotion: () => false } : name === './cue-star-shop' || name === './cue-sky-viewer' ? { __esModule: true, default: () => null } : name === '@/lib/learning/cue-shop' ? shop : name === './cue-practice-burst' ? { __esModule: true, default: () => null } : name === './cue-universe-backdrop' ? { __esModule: true, default: backdropModule.exports.default } : name === 'react' ? react : name === 'react/jsx-runtime' ? runtime : name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
+  runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name === './use-cue-study-preferences' ? { useCueReducedMotion: () => false, useCueStudyPreferences: () => ({cueItemMotion:true,cueCelebrationMotion:true,cueAmbientMotion:true}) } : name === './cue-star-shop' || name === './cue-sky-viewer' ? { __esModule: true, default: () => null } : name === '@/lib/learning/cue-shop' ? shop : name === './cue-practice-burst' ? { __esModule: true, default: () => null } : name === './cue-universe-backdrop' ? { __esModule: true, default: backdropModule.exports.default } : name === 'react' ? react : name === 'react/jsx-runtime' ? runtime : name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
   const at = new Date();
   const reviews = Array.from({ length: 23 }, (_, i) => review(`render-${i}`, 'partial', at));
   const html = renderToStaticMarkup(React.createElement(compiled.exports.default, { reviews, animations: false }));
@@ -116,7 +116,7 @@ test('desktop background renders real star history, accessible experience and re
   const receiptReact = { ...react,
     useState: (initial: unknown) => {
       const state = React.useState(initial);
-      return stateIndex++ === 2
+      return stateIndex++ === 3
         ? [{ stars: 1, extra: 2, xp: 10 }, (value: unknown) => { cleared = value === undefined; }]
         : state;
     },
@@ -126,7 +126,7 @@ test('desktop background renders real star history, accessible experience and re
   runInNewContext(outputText, { module: receiptModule, exports: receiptModule.exports,
     setTimeout: (callback: () => void, ms: number) => { expire = callback; delay = ms; return 1; }, clearTimeout: () => {},
     require: (name: string) => name === 'react' ? receiptReact
-      : name === './use-cue-study-preferences' ? { useCueReducedMotion: () => true }
+      : name === './use-cue-study-preferences' ? { useCueReducedMotion: () => true, useCueStudyPreferences: () => ({cueItemMotion:true,cueCelebrationMotion:true,cueAmbientMotion:true}) }
       : ['./cue-star-shop', './cue-sky-viewer', './cue-practice-burst', './cue-universe-backdrop'].includes(name) ? { __esModule: true, default: () => null }
       : name === '@/lib/learning/cue-shop' ? shop : name === '@/lib/learning/cue-game' ? game
       : name === '@/lib/learning/schedule-control' ? schedule : name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name),
@@ -137,7 +137,7 @@ test('desktop background renders real star history, accessible experience and re
   assert.doesNotMatch(receiptHtml, /按任意键|点击收下|跳过动画|data-cue-global-celebration/);
   assert.match(receiptHtml, /data-motion="false"/);
   effects[1]();
-  assert.equal(delay, 1000);
+  assert.equal(delay, 5000);
   assert.equal(cleared, false);
   expire!();
   assert.equal(cleared, true);
