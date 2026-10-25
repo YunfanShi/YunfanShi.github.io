@@ -8,7 +8,7 @@ let tail:Promise<void>=Promise.resolve(),ready:Promise<void>|null=null,failed:un
 let currentOwner:string|null|undefined;
 let saveState:'saving'|'saved'|'storage_error'|'projection_degraded'='saving';
 export const getLocalSaveState=()=>saveState;
-const failures=new Map<string,{value:string|null;error:unknown}>();
+const failures=new Map<string,{value:string|null;error:unknown;expected?:string|null}>();
 export const LOCAL_DURABILITY_EVENT='jackyun-local-durability';
 function status(state:'saving'|'saved'|'storage_error'|'projection_degraded') {
   saveState=state;
@@ -20,10 +20,10 @@ async function project(key:string,value:string|null) {
 }
 export function initializeRepository(userId:string|null):Promise<void> {
   if(ready&&currentOwner===userId)return ready;
-  const previous=ready,oldOwner=currentOwner;currentOwner=userId;
+  const previous=ready;currentOwner=userId;
   ready=(async()=>{
     if(previous)await previous;
-    const projectedOwner=oldOwner===undefined?await projectionOwner():oldOwner??'guest';
+    const projectedOwner=await projectionOwner();
     if(projectedOwner&&projectedOwner!==(userId??'guest')){
       if(pending)throw Error('账户切换前仍有本机保存操作，请保留页面并导出恢复副本。');
       await bindSyncUser(projectedOwner);
@@ -71,9 +71,10 @@ export function initializeRepository(userId:string|null):Promise<void> {
         }).catch(error=>{failed=error;status('storage_error');});
       }
     });
-    if(!pending)status('saved');
+    failed=failures.values().next().value?.error??null;
+    if(!pending&&!failed)status('saved');
     window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source:'repository',keys:[...memory.keys()]}}));
-  })().catch(error=>{failed=error;status('storage_error');throw error;});
+  })().catch(error=>{ready=null;failed=error;status('storage_error');throw error;});
   return ready;
 }
 function enqueue(key:string,value:string|null,expected?:string|null) {
@@ -88,9 +89,13 @@ function enqueue(key:string,value:string|null,expected?:string|null) {
     const row=(await getDocuments()).find(row=>row.key===key);
     if(row){if(memory.get(key)===value)memory.set(key,row.value);await project(key,row.value);}
     failures.delete(key);failed=failures.values().next().value?.error??null;
-  }).catch(error=>{failures.set(key,{value,error});failed=error;status('storage_error');}).finally(()=>{pending--;if(!pending&&!failed)status('saved');});
+  }).catch(error=>{failures.set(key,{value,error,expected});failed=error;status('storage_error');}).finally(()=>{pending--;if(!pending&&!failed)status('saved');});
 }
-export async function flushLocalWrites():Promise<void>{await tail;if(failed)throw failed;}
+export async function flushLocalWrites():Promise<void>{
+  await tail;
+  if(failures.size&&ready){for(const [key,draft]of [...failures])enqueue(key,draft.value,draft.expected);await tail;}
+  if(failed)throw failed;
+}
 /** Legacy readers see pending drafts immediately; saved is announced only after IDB commit. */
 export const workspaceStorage={
   flush:flushLocalWrites,

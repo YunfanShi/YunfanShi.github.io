@@ -36,10 +36,10 @@
     "anonymousReceiptRead": false
   },
   "backendDeployment": {
-    "id": "391bb633-6ee4-4c8e-b2a2-b56133e01cec",
+    "id": "c3604ea6-36a1-4cc7-b740-aaf98c67c810",
     "result": "Deployment was successful.",
     "liveVersion": "3.7.0",
-    "archiveSha256": "8df30866ca3e1874ba3f1439c85a431da952425952b507e36cdadd1f626e760a"
+    "archiveSha256": "f6706f40f4d3b9e4d36f7dd14f7674713945d076bf5113efb34b363f77e233a5"
   },
   "azureChangeLogMigration": "pending approved database network access",
   "v4ProductionEnabled": false,
@@ -53,5 +53,20 @@
     "No authenticated physical two-device acceptance has been performed.",
     "V4 code and unit coverage do not establish that the Azure database migration has run."
   ],
-  "integratedRemoteBaseline": "c5d7ba8fb72ed161d386a375e7f1f4503ecd12f3"
+  "integratedRemoteBaseline": "c5d7ba8fb72ed161d386a375e7f1f4503ecd12f3",
+  "learningRegression": {
+    "passed": 185,
+    "failed": 3,
+    "baselineFailures": [
+      "cue preference expectation lacks motion fields",
+      "game panel test fixture lacks useCueStudyPreferences",
+      "mobile toolbar aria-controls source assertion absent on Main"
+    ]
+  },
+  "seiueRegression": {
+    "passed": 27,
+    "failed": 0
+  },
+  "coreModifiedModulesLint": "passed",
+  "productionBuild": "passed after integrating Main 3.43.2"
 }

@@ -1,5 +1,14 @@
 -- Additive migration. Run as migration administrator, never the runtime login.
 BEGIN;
+DO $$ BEGIN
+ IF current_database()<>'jackyun_migration_20261007' THEN
+  RAISE EXCEPTION 'Run only against the designated Azure sync database';
+ END IF;
+ IF current_user='jackyun_sync_runtime' THEN RAISE EXCEPTION 'Migration administrator required'; END IF;
+ IF to_regclass('public.sync_v3_receipts') IS NULL THEN RAISE EXCEPTION 'Install and verify the v3 CAS receipt migration first'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='jackyun_sync_runtime' AND NOT rolsuper AND NOT rolbypassrls)
+ THEN RAISE EXCEPTION 'Safe runtime role required'; END IF;
+END $$;
 CREATE TABLE IF NOT EXISTS public.sync_change_heads (
   user_id uuid PRIMARY KEY, sequence bigint NOT NULL DEFAULT 0,
   retained_after bigint NOT NULL DEFAULT 0, last_pruned_at timestamptz

@@ -101,6 +101,19 @@ export async function readOfflineSnapshot<T>(userId: string, scope: OfflineScope
   const row = await transact<SnapshotRow<T> | undefined>('snapshots', 'readonly', (transaction) => transaction.objectStore('snapshots').get(`${userId}:${scope}`));
   return row?.userId === userId ? row.value : null;
 }
+export const mutationScope=(operation:OfflineMutation):OfflineScope=>operation.kind.startsWith('review.')?'review':operation.kind.startsWith('task.')||operation.kind.startsWith('plan.')?'tasks':'reading';
+/** A remote read cannot overwrite a local mutation queued while the network was in flight. */
+export async function saveRemoteSnapshot(userId:string,scope:OfflineScope,value:unknown):Promise<boolean>{
+  const db=await openDatabase();let applied=false;
+  try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction(['snapshots','outbox'],'readwrite'),pending=tx.objectStore('outbox').getAll();
+    pending.onsuccess=()=>{if(pending.result.some((op:OfflineMutation)=>op.userId===userId&&mutationScope(op)===scope))return;
+      tx.objectStore('snapshots').put({id:`${userId}:${scope}`,userId,scope,value,updatedAt:new Date().toISOString()});applied=true;};
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });}finally{db.close();}
+  if(applied)window.dispatchEvent(new CustomEvent('jackyun-offline-snapshot',{detail:{userId,scope,value}}));
+  return applied;
+}
 
 export async function queueOfflineMutation(userId: string, kind: string, payload: Record<string, unknown>): Promise<void> {
   const operation: OfflineMutation = { id: crypto.randomUUID(), userId, kind, payload, createdAt: new Date().toISOString() };

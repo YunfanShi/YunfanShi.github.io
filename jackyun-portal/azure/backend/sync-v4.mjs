@@ -6,7 +6,12 @@ export async function handleSyncV4(client,identity,method,url,body,applyBody) {
   const rollout=process.env.SYNC_V4_ENABLED==='true'
     || (process.env.SYNC_V4_USERS??'').split(',').map(s=>s.trim()).includes(identity.sub);
   if(!rollout)return {ok:true,syncProtocol:3,capabilities:{v4:false}};
-  const ready=(await client.query("SELECT to_regclass('public.sync_change_heads') IS NOT NULL AND to_regclass('public.sync_change_log') IS NOT NULL AS ready")).rows[0]?.ready;
+  const ready=(await client.query(`SELECT to_regclass('public.sync_change_heads') IS NOT NULL
+    AND to_regclass('public.sync_change_log') IS NOT NULL AND to_regclass('public.sync_v3_receipts') IS NOT NULL
+    AND (SELECT bool_and(has_table_privilege(current_user,to_regclass(required.relation),required.privilege))
+      FROM (VALUES ('public.sync_change_heads','SELECT'),('public.sync_change_heads','INSERT'),('public.sync_change_heads','UPDATE'),
+      ('public.sync_change_log','SELECT'),('public.sync_change_log','INSERT'),('public.sync_change_log','DELETE'),
+      ('public.sync_v3_receipts','SELECT'),('public.sync_v3_receipts','INSERT')) AS required(relation,privilege)) AS ready`)).rows[0]?.ready;
   if(!ready)return {ok:true,syncProtocol:3,capabilities:{v4:false}};
   if(method==='POST') {
     await client.query('SELECT public.prune_sync_changes()');

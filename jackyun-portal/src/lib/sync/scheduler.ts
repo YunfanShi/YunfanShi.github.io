@@ -15,7 +15,7 @@ export function retryAfterMilliseconds(value:string|null,now=Date.now()):number 
 export function recoveryDelay(failures:number,random=Math.random()):number {
   return Math.round(Math.min(120_000,2_000*2**Math.min(Math.max(0,failures-1),6))*(0.5+0.5*random));
 }
-export async function runScheduledSync(lane:SyncLane,userId:string,work:()=>Promise<void>,manual=false):Promise<boolean> {
+export async function runScheduledSync(lane:SyncLane,userId:string,work:()=>Promise<void|boolean>,manual=false):Promise<boolean> {
   const {getSetting,setSetting}=accountSyncStore(userId);
   const key=`recovery:${userId}:${lane}`;
   if(running.has(key))return false;running.add(key);
@@ -25,7 +25,10 @@ export async function runScheduledSync(lane:SyncLane,userId:string,work:()=>Prom
       if(!manual&&(state.authPaused||Date.now()<state.nextAttemptAt||Date.now()<state.openUntil)){announce(lane,userId,state,state.authPaused?'auth_required':'waiting');return false;}
       // A manual attempt is one half-open probe under the same cross-tab lease.
       announce(lane,userId,state,'syncing');
-      try{await work();const confirmed={failures:0,nextAttemptAt:0,openUntil:0,lastSuccessAt:new Date().toISOString()};await setSetting(key,confirmed);announce(lane,userId,confirmed,'confirmed');return true;}
+      try{
+        const performed=await work();
+        if(performed===false){announce(lane,userId,{...state,nextAttemptAt:Date.now()+30_000},state.authPaused?'auth_required':'waiting');return false;}
+        const confirmed={failures:0,nextAttemptAt:0,openUntil:0,lastSuccessAt:new Date().toISOString()};await setSetting(key,confirmed);announce(lane,userId,confirmed,'confirmed');return true;}
       catch(error){
         const status=error&&typeof error==='object'&&'status'in error?Number(error.status):0;
         const retryAfter=error&&typeof error==='object'&&'retryAfterMs'in error?Number(error.retryAfterMs)||0:0;

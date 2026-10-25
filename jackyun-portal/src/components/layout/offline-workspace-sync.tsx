@@ -5,7 +5,7 @@ import { fetchSyncWithTimeout } from '@/lib/request-timeout';
 import {runScheduledSync} from '@/lib/sync/scheduler';
 import {initializeRepository} from '@/lib/sync/repository';
 import { useEffect, useState } from 'react';
-import { bindOfflineWorkspaceUser, deferOfflineMutation, listOfflineMutations, submitOfflineOperation, blockOfflineMutation, offlineEntity, saveOfflineSnapshot } from '@/lib/offline/workspace';
+import { bindOfflineWorkspaceUser, deferOfflineMutation, listOfflineMutations, submitOfflineOperation, blockOfflineMutation, offlineEntity, saveRemoteSnapshot,mutationScope } from '@/lib/offline/workspace';
 
 export default function OfflineWorkspaceSync({ userId }: { userId: string | null }) {
   const [notice, setNotice] = useState<string | null>(null);
@@ -19,11 +19,11 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
 
     async function refresh(includeSnapshot=true,manual=false){if(userId)await runScheduledSync('business',userId,()=>refreshNow(includeSnapshot),manual);}
     async function refreshNow(includeSnapshot = true) {
-      if (!userId || !bound || signingOut || cancelled || !navigator.onLine || running || isWorkspaceSleeping()) return;
+      if (!userId || !bound || signingOut || cancelled || !navigator.onLine || running || isWorkspaceSleeping()) return false;
       running = true;
       try {
         const queued = await listOfflineMutations(userId);
-        if (!includeSnapshot && !queued.some(operation => !operation.nextAttemptAt || Date.parse(operation.nextAttemptAt) <= Date.now())) return;
+        if (!includeSnapshot && !queued.some(operation => !operation.nextAttemptAt || Date.parse(operation.nextAttemptAt) <= Date.now())) return false;
         let deferred = false;
         const blocked=new Set(queued.filter(op=>op.blocked).map(offlineEntity));
         for (const operation of queued) {
@@ -40,20 +40,26 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
             throw error;
           }
         }
-        if (deferred) return;
-        if ((await listOfflineMutations(userId)).length) return;
-        const response = await fetchSyncWithTimeout('/api/offline/workspace', { cache: 'no-store' });
-        if (!response.ok) throw new Error(`Offline snapshot failed (${response.status})`);
-        const snapshot = await response.json() as { tasks: unknown; review: unknown; reading: unknown };
-        await Promise.all([
-          saveOfflineSnapshot(userId, 'tasks', snapshot.tasks),
-          saveOfflineSnapshot(userId, 'review', snapshot.review),
-          saveOfflineSnapshot(userId, 'reading', snapshot.reading),
-        ]);
+        if (deferred) return false;
+        const remaining=await listOfflineMutations(userId);
+        const protectedScopes=new Set(remaining.map(mutationScope));
+        const scopes=(['tasks','review','reading'] as const).filter(scope=>!protectedScopes.has(scope));
+        const snapshots=await Promise.allSettled(scopes.map(async scope=>{
+          const response=await fetchSyncWithTimeout('/api/offline/workspace?scope='+scope,{cache:'no-store'});
+          if(!response.ok)throw Object.assign(Error('业务快照暂时无法读取'),{status:response.status});
+          const snapshot=await response.json() as Record<string,unknown>;
+          if(!Object.hasOwn(snapshot,scope))throw Error('业务快照格式未确认。');
+          if(cancelled||signingOut)return;
+          await saveRemoteSnapshot(userId!,scope,snapshot[scope]);
+        }));
+        const failed=snapshots.find((result):result is PromiseRejectedResult=>result.status==='rejected');
+        if(failed)throw failed.reason;
+        if(remaining.length)return false;
         if (!cancelled && queued.length) {
           const remaining = await listOfflineMutations(userId);
           if (!remaining.length) setNotice(`已联网，${queued.length} 项离线操作已同步`);
         }
+        return true;
       } catch (error) {
         if (navigator.onLine) console.warn('[offline-workspace] sync deferred');
         throw error;

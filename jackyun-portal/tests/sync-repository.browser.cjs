@@ -40,6 +40,7 @@ const loader=`const sources=${JSON.stringify(modules)},cache={};function load(na
   });
   const atomic=await a.evaluate(async()=>{const offline=load('src/lib/offline/workspace.ts');return {snapshot:await offline.readOfflineSnapshot('browser-alice','tasks'),operations:await offline.listOfflineMutations('browser-alice')};});
   assert.equal(atomic.snapshot.inboxTasks[0].id,atomic.operations[0].id);
+  assert.equal(await a.evaluate(()=>load('src/lib/offline/workspace.ts').saveRemoteSnapshot('browser-alice','tasks',{inboxTasks:[]})),false);
   const aborted=await a.evaluate(async()=>{
     const offline=load('src/lib/offline/workspace.ts'),original=IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put=function(...args){if(this.transaction.db.name==='jackyun-offline-workspace'&&this.name==='outbox')throw new DOMException('quota','QuotaExceededError');return original.apply(this,args);};

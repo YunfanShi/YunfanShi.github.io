@@ -17,14 +17,17 @@ export async function GET(request: NextRequest) {
     return error?NextResponse.json({error:'RECEIPT_UNAVAILABLE'},{status:503}):NextResponse.json({ok:true,receipt:data?.result??null});
   }
   const now = new Date().toISOString();
+  const scope=request.nextUrl.searchParams.get('scope');
+  if(scope&&!['tasks','review','reading'].includes(scope))return NextResponse.json({error:'INVALID_SCOPE'},{status:400});
   const [plans, inbox, review, reading] = await Promise.all([
-    supabase.from('study_plans').select('id, user_id, title, description, start_date, end_date, created_at, updated_at, tasks:study_tasks(id, user_id, plan_id, title, completed, due_date, subject, estimated_minutes, priority, scheduled_at, completed_at, created_at, updated_at)').eq('user_id', user.id).order('created_at', { ascending: false }),
-    supabase.from('study_tasks').select('id, title, completed, due_date, estimated_minutes').eq('user_id', user.id).is('plan_id', null).order('created_at', { ascending: false }),
-    fetchReviewSnapshot(supabase, user.id, now),
-    getReaderBootstrap(),
+    !scope||scope==='tasks'?supabase.from('study_plans').select('id, user_id, title, description, start_date, end_date, created_at, updated_at, tasks:study_tasks(id, user_id, plan_id, title, completed, due_date, subject, estimated_minutes, priority, scheduled_at, completed_at, created_at, updated_at)').eq('user_id', user.id).order('created_at', { ascending: false }):Promise.resolve({data:[],error:null}),
+    !scope||scope==='tasks'?supabase.from('study_tasks').select('id, title, completed, due_date, estimated_minutes').eq('user_id', user.id).is('plan_id', null).order('created_at', { ascending: false }):Promise.resolve({data:[],error:null}),
+    !scope||scope==='review'?fetchReviewSnapshot(supabase, user.id, now):Promise.resolve(null),
+    !scope||scope==='reading'?getReaderBootstrap():Promise.resolve(null),
   ]);
   const error = plans.error ?? inbox.error;
   if (error) return NextResponse.json({ error: 'Unable to build offline snapshot' }, { status: 500 });
+  if(scope)return NextResponse.json({[scope]:scope==='tasks'?{plans:plans.data??[],inboxTasks:inbox.data??[]}:scope==='review'?review:reading,cachedAt:new Date().toISOString()});
   return NextResponse.json({
     tasks: { plans: plans.data ?? [], inboxTasks: inbox.data ?? [] },
     review,
@@ -34,6 +37,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const origin=request.headers.get('origin');
+  if(origin&&origin!==request.nextUrl.origin)return NextResponse.json({error:'ORIGIN_DENIED'},{status:403});
+  if(!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type')??''))return NextResponse.json({error:'JSON_REQUIRED'},{status:415});
   const supabase = await createClient();
   const { data: { user } } = await getVerifiedUser(supabase);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -55,7 +61,7 @@ export async function POST(request: NextRequest) {
   if(body.requestHash&&body.requestHash!==requestHash)return NextResponse.json({error:'OPERATION_HASH_MISMATCH'},{status:409});
   const {data,error}=await supabase.rpc('apply_offline_mutation',{p_operation_id:operationId,p_kind:body.kind,p_payload:body.payload,p_request_hash:requestHash});
   if(error){
-    const status=error.code==='42501'?403:error.code==='23505'?409:error.code==='P0002'?404:['22023','22P02','22007','22008','23514'].includes(error.code)?400:503;
+    const status=error.code==='42501'?403:error.code==='23505'?409:error.code==='P0002'?404:error.code?.startsWith('22')||['23502','23503','23514'].includes(error.code)?400:503;
     console.warn('[offline-mutation]',{requestId:request.headers.get('x-request-id'),status,code:/^[A-Z0-9]{5}$/.test(error.code??'')?error.code:'UNAVAILABLE'});
     return NextResponse.json({error:status===503?'SERVICE_UNAVAILABLE':status===409?'OPERATION_ID_REUSED':'MUTATION_REJECTED'},{status});
   }

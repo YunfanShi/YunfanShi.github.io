@@ -12,4 +12,3 @@ const renderer=process.env.JACKYUN_DOCX_PREVIEW||require.resolve('docx-preview/d
  fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({renderer:'docx-preview browser; packaged LibreOffice render unavailable because soffice.exe is not installed',pages:results},null,2));console.log(JSON.stringify(results));
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});
-

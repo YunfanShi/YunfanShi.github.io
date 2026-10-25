@@ -86,7 +86,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         await saveLocalBackup(owner, page, localPageValues(previous, page));
       }
     }).catch((error) => { baselineFailed = true; console.error('[Backup] Local baseline failed', error); });
-    // localStorage already persists edits immediately. This fallback discovers
+    // Repository transactions persist edits before updating the projection. This fallback discovers
     // changes for version backups; exits and sleep still force a checkpoint.
     const timer = window.setInterval(() => {
       if (!isWorkspaceSleeping() && document.visibilityState === 'visible') checkpoint();
@@ -138,13 +138,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       if(manual){authPaused=false;}
       try {
         const work=async()=>{
-          if(cancelled||signingOut)return;
+          if(cancelled||signingOut)return false;
           await flushLocalWrites();await engine.capture();
-          if(!navigator.onLine){await publish('offline_pending');return;}
-          if(authPaused)return;
+          if(!navigator.onLine){await publish('offline_pending');return false;}
+          if(authPaused)return false;
           const [pending,conflicts,lastRead]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull')]);
           const blocked=new Set(conflicts.map(c=>c.key));
-          if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&Date.now()-(lastRead??0)<30_000){await publish('synced');return;}
+          if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
           if(queuedResolution){const choice=queuedResolution;await engine.resolve(choice.operationId,choice.choice,choice.review);if(queuedResolution===choice)queuedResolution=undefined;await engine.flush();}
           await engine.synchronize();
@@ -156,6 +156,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           if(Date.now()-lastBackupCheck>=5*60_000){lastBackupCheck=Date.now();void runScheduledSync('backup',userId!,async()=>{await createDueBackupVersions();}).catch(()=>console.warn('[Backup] Cloud backup deferred'));}
           await publish(unresolved.length?'conflict':remaining.length?'offline_pending':'synced',undefined,
             unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':remaining.length?'本机修改仍在队列中，将分批继续上传。':undefined);
+          return true;
         };
         await runScheduledSync('workspace',userId!,work,manual);
       } catch(error) {
@@ -173,13 +174,14 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     }
     workspaceStorage.removeItem('jackyun_guest_mode');
     void publish('syncing',undefined,'正在初始化版本同步…');
-    void initializeRepository(userId).then(()=>{bound=true;return sync();}).catch(error=>{
+    const initialize=()=>initializeRepository(userId).then(()=>{bound=true;return sync();}).catch(error=>{
       void reportSyncFailure(error,'initialization');
       void publish('error',error instanceof Error?error.message:'无法绑定账号');
     });
+    void initialize();
     const editTrigger=createEditTrigger(()=>{void sync(false,false,undefined,'edit');});
     const onEdit=()=>editTrigger.trigger();
-    const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void sync();},30_000);
+    const timer=window.setInterval(()=>{if(document.visibilityState==='visible'){if(!bound)void initialize();else void sync();}},30_000);
     const recoveryTimers=new Map<string,ReturnType<typeof setTimeout>>();
     const onLane=(event:Event)=>{
       const lane=(event as CustomEvent<{userId:string;lane:string;state:string;nextAttemptAt:number;openUntil:number}>).detail;
@@ -193,7 +195,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       },Math.max(100,Math.max(lane.nextAttemptAt,lane.openUntil)-Date.now())));
     };
     window.addEventListener('jackyun-sync-lane',onLane);
-    const onOnline=()=>{void sync(false,false,undefined,'online');};
+    const onOnline=()=>{if(!bound)void initialize();else void sync(false,false,undefined,'online');};
     const onWake=()=>void sync(false,false,undefined,'resume');
     const onOffline=()=>void publish('offline_pending');
     const onRetry=()=>void sync(true);
