@@ -141,7 +141,13 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
       await verifyBackupCapture(identity,token,body);
     }
     return database.withUser(identity, async client => {
-      if (route.startsWith('/api/sync/v5')) return handleSyncV5(client,identity,method,url,body,syncV5Rollout(identity));
+      if (route.startsWith('/api/sync/v5')) {
+        const result=await handleSyncV5(client,identity,method,url,body,syncV5Rollout(identity));
+        if(Number.isFinite(result.projectionBuildMs))Object.assign(context,{projectionBuildMs:result.projectionBuildMs,
+          projectionRecordCount:result.projectionRecordCount,projectionV5RecordBytes:result.projectionBytes,
+          projectionStorageInsertBytes:result.projectionStorageInsertBytes});
+        return result;
+      }
       const v5Scopes=syncV5Rollout(identity);
       let projectionScopesPromise;
       const projectionScopes=()=>projectionScopesPromise??=scheduleProjectionState(client,identity.sub,v5Scopes);
@@ -364,6 +370,6 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
         return { ok: true, operationId: op.id, revision: response.applied[0].revision };
       }
       fail(404, 'NOT_FOUND');
-    }, { write,onMetrics:metrics=>Object.assign(context,metrics) });
+    }, { write,measureParameterBytes:route.startsWith('/api/sync/v5'),onMetrics:metrics=>Object.assign(context,metrics) });
   };
 }

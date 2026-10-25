@@ -49,10 +49,16 @@ export async function writeProjectionHead(client,userId,revision,value,{recordV4
   const contentHash=hashValue(value);
   // Keep v4's row-based CAS and change-log readers on the same account-wide
   // revision without rewriting the multi-megabyte compatibility body.
-  await client.query(`INSERT INTO public.legacy_sync_data(user_id,storage_key,storage_value,revision,content_hash,updated_at,deleted_at)
-    VALUES($1,$4,$5::jsonb,$2,$3,now(),NULL)
-    ON CONFLICT(user_id,storage_key) DO UPDATE SET revision=excluded.revision,content_hash=excluded.content_hash,
-    updated_at=now(),deleted_at=NULL`,[userId,revision,contentHash,scheduleKey,json(value)]);
+  let legacyStorageInsertBytes=0;
+  const updated=await client.query(`UPDATE public.legacy_sync_data SET revision=$2,content_hash=$3,updated_at=now(),deleted_at=NULL
+    WHERE user_id=$1 AND storage_key=$4 RETURNING user_id`,[userId,revision,contentHash,scheduleKey]);
+  if(!updated.rows.length){
+    const storageValue=json(value);legacyStorageInsertBytes=Buffer.byteLength(storageValue);
+    await client.query(`INSERT INTO public.legacy_sync_data(user_id,storage_key,storage_value,revision,content_hash,updated_at,deleted_at)
+      VALUES($1,$4,$5::jsonb,$2,$3,now(),NULL)
+      ON CONFLICT(user_id,storage_key) DO UPDATE SET revision=excluded.revision,content_hash=excluded.content_hash,
+      updated_at=now(),deleted_at=NULL`,[userId,revision,contentHash,scheduleKey,storageValue]);
+  }
   await client.query(`INSERT INTO public.sync_v5_projection_heads(user_id,revision,content_hash,updated_at)
     VALUES($1,$2,$3,now()) ON CONFLICT(user_id) DO UPDATE SET revision=excluded.revision,content_hash=excluded.content_hash,updated_at=now()`,[userId,revision,contentHash]);
   if(recordV4Change){
@@ -60,7 +66,7 @@ export async function writeProjectionHead(client,userId,revision,value,{recordV4
       ON CONFLICT(user_id) DO UPDATE SET sequence=public.sync_change_heads.sequence+1 RETURNING sequence`,[userId])).rows[0].sequence);
     await client.query('INSERT INTO public.sync_change_log(user_id,sequence,storage_key) VALUES($1,$2,$3)',[userId,sequence,scheduleKey]);
   }
-  return {revision,contentHash};
+  return {revision,contentHash,legacyStorageInsertBytes};
 }
 async function bootstrapScopes(client,userId,scopes){
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[userId]);
@@ -249,12 +255,13 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
       await client.query(`INSERT INTO public.sync_v5_receipts(user_id,scope,operation_id,request_hash,result)
         VALUES($1,$2,$3,$4,$5::jsonb)`,[identity.sub,scope,operation.id,requestHash,json(result)]);
     }
-    let projectionBuildMs=0,projectionRecordCount=0,projectionBytes=0;
+    let projectionBuildMs=0,projectionRecordCount=0,projectionBytes=0,projectionStorageInsertBytes=0;
     if(newlyApplied.length){
       const started=performance.now(),projection=await readScheduleProjection(client,identity.sub);
-      await writeProjectionHead(client,identity.sub,projection.revision+1,projection.value,{recordV4Change:true});
+      const head=await writeProjectionHead(client,identity.sub,projection.revision+1,projection.value,{recordV4Change:true});
       projectionBuildMs=Math.round(performance.now()-started);
       projectionRecordCount=projection.projectionRecordCount;projectionBytes=projection.projectionBytes;
+      projectionStorageInsertBytes=head.legacyStorageInsertBytes;
     }
     await client.query(`WITH removed AS (
       DELETE FROM public.sync_v5_changes WHERE user_id=$1 AND scope=$2 AND created_at<now()-interval '90 days' RETURNING sequence
@@ -262,7 +269,7 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
     UPDATE public.sync_v5_heads SET retained_after=GREATEST(retained_after,COALESCE((SELECT sequence FROM floor),retained_after))
     WHERE user_id=$1 AND scope=$2`,[identity.sub,scope]);
     const head=(await client.query('SELECT sequence FROM public.sync_v5_heads WHERE user_id=$1 AND scope=$2',[identity.sub,scope])).rows[0];
-    return {ok:true,syncProtocol:5,applied,remote,conflicts,head:integer(head?.sequence??0),projectionBuildMs,projectionRecordCount,projectionBytes};
+    return {ok:true,syncProtocol:5,applied,remote,conflicts,head:integer(head?.sequence??0),projectionBuildMs,projectionRecordCount,projectionBytes,projectionStorageInsertBytes};
   }
   fail(404,'NOT_FOUND');
 }

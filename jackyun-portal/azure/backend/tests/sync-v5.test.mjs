@@ -6,16 +6,23 @@ import {handleSyncV5,readScheduleProjection,scheduleProjectionState,syncV5Rollou
 import {createApiHandler} from '../server.mjs';
 import {canonicalJson} from '../../../src/lib/sync/hash.ts';
 import {readFile} from 'node:fs/promises';
+import {estimateSqlParameterBytes} from '../database.mjs';
 
 const identity={sub:randomUUID()},url=(path,query='')=>new URL(`https://sync.test/api/sync/v5${path}${query}`);
 function database(){
-  const records=new Map(),receipts=new Map(),heads=new Map(),projectionHeads=new Set(),changes=[],queries=[];let writes=0,projectionWrites=0;
-  return {records,receipts,heads,projectionHeads,changes,queries,legacySchedule:null,get writes(){return writes;},get projectionWrites(){return projectionWrites;},async query(sql,params=[]){
+  const records=new Map(),receipts=new Map(),heads=new Map(),projectionHeads=new Set(),changes=[],queries=[],calls=[];let writes=0,projectionWrites=0;
+  return {records,receipts,heads,projectionHeads,changes,queries,calls,legacySchedule:null,get writes(){return writes;},get projectionWrites(){return projectionWrites;},async query(sql,params=[]){
     queries.push(sql.replace(/\s+/g,' ').trim());
+    calls.push({sql:sql.replace(/\s+/g,' ').trim(),params});
     if(sql.includes("to_regclass('public.sync_v5_records')"))return {rows:[{ready:true}]};
     if(sql.startsWith('SELECT pg_advisory_xact_lock'))return {rows:[]};
     if(sql.includes('count(*)::integer AS count FROM public.sync_v5_receipts'))return {rows:[{count:0}]};
     if(sql.startsWith('SELECT storage_value,revision,content_hash,deleted_at,updated_at FROM public.legacy_sync_data'))return {rows:this.legacySchedule?[this.legacySchedule]:[]};
+    if(sql.startsWith('UPDATE public.legacy_sync_data SET revision=')){
+      if(!this.legacySchedule)return {rows:[]};
+      this.legacySchedule={...this.legacySchedule,revision:params[1],content_hash:params[2],deleted_at:null};
+      return {rows:[{user_id:params[0]}]};
+    }
     if(sql.startsWith('SELECT revision,content_hash,updated_at FROM public.sync_v5_projection_heads'))return {rows:[]};
     if(sql.startsWith('SELECT 1 FROM public.sync_v5_projection_heads'))return {rows:projectionHeads.has(params[0])?[{}]:[]};
     if(sql.startsWith('SELECT scope FROM public.sync_v5_heads WHERE user_id=$1'))return {rows:[...heads.keys()].filter(key=>key.startsWith(`${params[0]}:`)).map(key=>({scope:key.slice(params[0].length+1)}))};
@@ -120,6 +127,30 @@ test('initialized scopes skip the legacy Schedule and full-record scan during bo
   assert.equal(db.queries.filter(sql=>sql.startsWith('SELECT storage_value,revision,content_hash,deleted_at,updated_at FROM public.legacy_sync_data')).length,1);
   assert.equal(db.queries.filter(sql=>sql.startsWith('SELECT scope,record_id,value,deleted_at FROM public.sync_v5_records')).length,1);
   assert.ok(Buffer.byteLength(JSON.stringify(largeLegacy))>200_000);
+});
+
+test('single-resource writes do not resend the full legacy Schedule as SQL parameters',async()=>{
+  const db=database(),deviceId=randomUUID(),largeLegacy={legacyHistory:'private-'.repeat(30_000),featureGate:{enabled:false}};
+  db.legacySchedule={storage_value:largeLegacy,revision:5,content_hash:hash(largeLegacy),deleted_at:null,updated_at:new Date().toISOString()};
+  db.heads.set(`${identity.sub}:cue`,1);
+  const operation={id:randomUUID(),scope:'cue',recordId:'cues:cue-1',baseRevision:0,baseHash:null,
+    value:{id:'cue-1',prompt:'Recall'},deleted:false,clientUpdatedAt:new Date().toISOString()};
+  const result=await handleSyncV5(db,identity,'POST',url('/operations'),{scope:'cue',deviceId,operations:[operation]},['cue']);
+  const projectionUpdate=db.calls.find(call=>call.sql.startsWith('UPDATE public.legacy_sync_data SET revision='));
+  assert.ok(projectionUpdate,'existing compatibility row should be updated in place');
+  assert.ok(projectionUpdate.params.every(value=>typeof value!=='string'||Buffer.byteLength(value)<1024));
+  assert.equal(db.calls.some(call=>call.sql.startsWith('INSERT INTO public.legacy_sync_data')),false);
+  assert.deepEqual(db.legacySchedule.storage_value,largeLegacy,'the v4 storage body remains byte-for-byte logically unchanged');
+  const projected=await readScheduleProjection(db,identity.sub);
+  assert.equal(db.legacySchedule.content_hash,hash(projected.value),'legacy hash still describes the reconstructed v4 Schedule body');
+  assert.ok(Buffer.byteLength(JSON.stringify(largeLegacy))>200_000);
+  assert.equal(result.projectionStorageInsertBytes,0);
+});
+
+test('SQL parameter byte estimation counts UTF-8 without exposing parameter values',()=>{
+  const secret='学习内容-'.repeat(20_000),estimated=estimateSqlParameterBytes(['SELECT $1',[secret,Buffer.from([1,2,3]),null,42]]);
+  assert.equal(estimated,Buffer.byteLength(secret)+3+4+2);
+  assert.equal(JSON.stringify({sqlParameterBytes:estimated}).includes(secret),false);
 });
 
 test('v5 rejects resource IDs that belong to another scope',async()=>{
