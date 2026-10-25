@@ -12,11 +12,12 @@ const digest=async(value:unknown)=>Array.from(new Uint8Array(await crypto.subtle
 const targets=(scope:SyncV5Scope,...fields:string[]):SyncV5ResourceTarget[]=>fields.map(field=>({scope,field}));
 export function resourceFieldsForPath(pathname:string):SyncV5ResourceTarget[]{
   const path=pathname.length>1?pathname.replace(/\/+$/,''):pathname;
-  if(path==='/schedule'||path==='/dashboard')return [
+  if(path==='/schedule')return [
     ...targets('timetable','timetable'),...targets('learning','manualTasks','completions','cancellations','reviewProgress'),
     ...targets('cue','cues','cueGameAccount','cueCollectionUpdates','cueChangeHistory','cueSimilarityDecisions','cueStudyDraft','cueStudyDrafts'),
     ...targets('settings','settings','cueScheduleRevision','dailyLearningAdvice','studyReports','schemaVersion'),
   ];
+  if(path==='/dashboard')return targets('cue','cues','cueReviews','cueStudyDraft','cueStudyDrafts');
   if(path==='/study'||path.startsWith('/study/'))return [
     ...targets('learning','manualTasks','completions','cancellations','reviewProgress','learningCatalog','learningReminders'),
     ...targets('cue','cues','cueReviews','cueAnswerCards','cueMemos'),...targets('timer','practiceSessions'),

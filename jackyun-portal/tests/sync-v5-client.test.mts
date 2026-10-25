@@ -191,7 +191,8 @@ test('page resource selection avoids unrelated CUE history and schedule scopes',
   assert.ok(!review.some(row=>row.field==='cueChangeHistory'||row.field==='cueCollectionUpdates'));
   const timetable=resourceFieldsForPath('/timetable-hub');
   assert.deepEqual(timetable.map(row=>row.field),['timetable','manualTasks','completions','cancellations','learningReminders']);
-  assert.ok(resourceFieldsForPath('/dashboard').some(row=>row.field==='timetable'));
+  assert.ok(resourceFieldsForPath('/dashboard').some(row=>row.scope==='cue'&&row.field==='cueReviews'));
+  assert.deepEqual(resourceFieldsForPath('/dashboard').filter(row=>['cueChangeHistory','cueCollectionUpdates','cueSimilarityDecisions','studyReports'].includes(row.field)),[]);
   assert.ok(resourceFieldsForPath('/study/tasks').some(row=>row.field==='manualTasks'));
   assert.ok(resourceFieldsForPath('/cue/study').some(row=>row.field==='cueGameAccount'));
   assert.ok(resourceFieldsForPath('/settings/watch').some(row=>row.field==='settings'));
