@@ -97,7 +97,11 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   let v4:boolean|undefined;
   async function negotiate() {
     if(v4!==undefined||!store.getSetting)return;
-    try{const response=await json('/api/sync/v4');v4=response.syncProtocol===4&&Boolean((response.capabilities as {v4?:boolean})?.v4);}
+    try{
+      const response=await json('/api/sync/v4');
+      v4=response.syncProtocol===4&&Boolean((response.capabilities as {v4?:boolean})?.v4);
+      compressedUploads=v4&&response.transferEncoding==='gzip';
+    }
     catch(error){if((error as {status?:number}).status===404||(error as {status?:number}).status===501)v4=false;else throw error;}
   }
   const reassessedConflicts=new Set<string>();
@@ -164,10 +168,22 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
         downloads.get(downloadId)!.set(part.index,{count:part.count,data:part.data});cachedBytes+=part.data.length;
       }
     }
+    let partCount:number|undefined;
+    const receivedParts=new Set<number>();
+    const showReceived=()=>{
+      if(partCount===undefined)return;
+      for(const [index,part] of downloads.get(downloadId)??[])if(part.count===partCount)receivedParts.add(index);
+      e.progress(`已接收分片 ${receivedParts.size} / ${partCount}`);
+    };
     const readPart = async (part: number, expectedCount?: number) => {
       const cached = downloads.get(downloadId)?.get(part);
-      if (cached && (expectedCount === undefined || cached.count === expectedCount)) return cached;
-      e.progress(`下载分片 ${part+1}${expectedCount ? ` / ${expectedCount}` : ''}`);
+      if (cached && (expectedCount === undefined || cached.count === expectedCount)) {
+        partCount??=cached.count;
+        receivedParts.add(part);
+        showReceived();
+        return cached;
+      }
+      e.progress(`正在接收分片 ${part+1}${expectedCount ? ` / ${expectedCount}` : ''}`);
       const chunk = await json(`/api/sync/v2/large?key=${encodeURIComponent(record.key)}&revision=${record.revision}&part=${part}${typeof DecompressionStream === 'function' ? '&encoding=gzip' : ''}`);
       if (chunk.revision !== record.revision || chunk.part !== part || !Number.isInteger(chunk.count) || Number(chunk.count) < 1 || Number(chunk.count) > MAX_SYNC_PARTS
         || typeof chunk.data !== 'string' || (expectedCount !== undefined && chunk.count !== expectedCount)) throw new SyncTransferShapeError('同步分片布局发生变化，原始数据已保留，下一轮重新核对。');
@@ -176,6 +192,9 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       if (cachedBytes+decoded.data.length > 32_000_000) { downloads.clear(); cachedBytes=0; }
       if (!downloads.has(downloadId)) downloads.set(downloadId,new Map());
       downloads.get(downloadId)!.set(part,decoded); cachedBytes+=decoded.data.length;
+      partCount=decoded.count;
+      receivedParts.add(part);
+      showReceived();
       return decoded;
     };
     let first:{count:number;data:string},remaining:Array<{count:number;data:string}>;
@@ -187,6 +206,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       throw error;
     }
     const parts = [first.data, ...remaining.map((part) => part.data)];
+    e.progress('正在校验完整数据');
     let value: unknown;
     try { value = joinSyncParts(parts); }
     catch(error) { dropDownload(downloadId); await store.clearDownload(record.key).catch(()=>{}); throw error; }

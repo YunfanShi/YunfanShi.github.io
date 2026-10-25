@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {IDBFactory,IDBKeyRange,IDBObjectStore} from 'fake-indexeddb';
 import {randomUUID} from 'node:crypto';
+import {gunzipSync} from 'node:zlib';
 import * as store from '../src/lib/sync/outbox.ts';
 import {recoveryDelay,retryAfterMilliseconds,runScheduledSync} from '../src/lib/sync/scheduler.ts';
 import {createWorkspaceSync} from '../src/lib/sync/engine.ts';
@@ -119,6 +120,30 @@ test('v4 recovers a lost committed response from receipts without another write'
   };
   d.set({text:'new'});await assert.rejects(d.restart().flush(),/lost/);
   await d.restart().flush();assert.equal(pushes,1);assert.equal((await d.store.getOutbox()).length,0);
+});
+
+test('v4 gzip capability is used for resumable large uploads',async()=>{
+  const cloud=server(),d=device(cloud),settings=new Map<string,unknown>(),parts:string[]=[],compressedSubmissions:boolean[]=[];
+  Object.assign(d.store,{getSetting:async(key:string)=>settings.get(key)??null,setSetting:async(key:string,value:unknown)=>{settings.set(key,value);}});
+  const saveSubmission=d.store.saveSubmission.bind(d.store);
+  d.store.saveSubmission=async submission=>{if(submission)compressedSubmissions.push(submission.compressed);await saveSubmission(submission);};
+  d.environment.request=async(url,init)=>{
+    if(url==='/api/sync/v4'&&!init?.method)return Response.json({ok:true,syncProtocol:4,capabilities:{v4:true},transferEncoding:'gzip'});
+    const body=init?.body?JSON.parse(String(init.body)):null;
+    if(url==='/api/sync/v4'&&body?.action==='receipts')return Response.json({ok:true,receipts:body.operations.map((op:{id:string})=>({operationId:op.id,state:'unknown'}))});
+    if(url==='/api/sync/v2/large'&&body?.complete){
+      const bytes=Buffer.concat(parts.map(part=>Buffer.from(part,'base64')));
+      const upload=JSON.parse(gunzipSync(bytes).toString('utf8'));
+      return cloud.request('/api/sync/v2',{...init,body:JSON.stringify(upload)});
+    }
+    if(url==='/api/sync/v2/large'&&body?.data){parts[body.index]=body.data;return Response.json({ok:true});}
+    if(url==='/api/sync/v4'&&init?.method==='POST')return cloud.request('/api/sync/v2',{...init,body:JSON.stringify({...body,syncProtocol:3})});
+    return cloud.request(url,init);
+  };
+  d.set({text:'compressible '.repeat(40_000)});
+  await createWorkspaceSync(d.environment).flush();
+  assert.deepEqual(compressedSubmissions,[true]);assert.ok(parts.length>0);assert.ok(parts[0].startsWith('H4sI'));
+  assert.deepEqual(cloud.cloud?.value,d.value);
 });
 
 test('v4 staged page replays after failure and cursor advances only after successful apply',async()=>{
