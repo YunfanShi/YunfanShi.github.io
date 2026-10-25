@@ -64,10 +64,10 @@ export async function writeProjectionHead(client,userId,revision,value,{recordV4
 }
 async function bootstrapScopes(client,userId,scopes){
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[userId]);
-  const current=await readScheduleProjection(client,userId);
   const existing=(await client.query('SELECT scope FROM public.sync_v5_heads WHERE user_id=$1',[userId])).rows.map(row=>row.scope);
   const pending=scopes.filter(scope=>!existing.includes(scope));
-  if(!pending.length)return current;
+  if(!pending.length)return null;
+  const current=await readScheduleProjection(client,userId);
   const resources=scheduleToResources(current.value);
   for(const scope of pending){
     let sequence=0;
