@@ -35,7 +35,7 @@ function harness() {
     const compiled = ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
     const date = class extends Date { static now(){return now;} };
     runInNewContext(compiled+'\nexports.TestStore=NotificationStore;', {
-      exports, require:(name:string)=>name==='react'?{}:domain,
+      exports, require:(name:string)=>name==='react'?{}:name==='@/lib/sync/repository'?{workspaceStorage:localStorage}:domain,
       window:{addEventListener:()=>{},removeEventListener:()=>{}},document,navigator,localStorage,
       BroadcastChannel:Channel, Date:date, AbortController, performance, console:{debug:()=>{}}, crypto:{randomUUID:()=>Math.random().toString()},
       setInterval:(task:()=>void)=>{callbacks.push(task);return callbacks.length;},clearInterval:()=>{},

@@ -26,6 +26,16 @@ test('stale device with year 2999 clock retains additions on both devices',async
   assert.deepEqual(new Set((a.value as Page).cues.map(r=>r.id)),new Set(['a','new-a','new-b']));
   assert.deepEqual(a.value,b.value);assert.equal((await b.store.getOutbox()).length,0);
 });
+test('v3 fallback does not replace a Schedule owned by v5',async()=>{
+  const local={cues:[{id:'local',text:'keep'}]},remoteSchedule=remote({cues:[{id:'cloud',text:'newer'}]},2),cloud=server(remoteSchedule),d=device(cloud,remote(local));
+  d.set(local);let scheduleBodyReads=0;d.environment.usesV5Schedule=()=>true;
+  d.environment.request=async(url)=>{
+    if(url.startsWith('/api/sync/v3'))return Response.json({ok:true,syncProtocol:3,records:[{key:remoteSchedule.key,revision:remoteSchedule.revision,contentHash:remoteSchedule.contentHash,deleted:false,updatedAt:remoteSchedule.updatedAt}],next:null});
+    if(url.startsWith('/api/sync/v2?key=')){scheduleBodyReads++;return Response.json({ok:true,records:[remoteSchedule]});}
+    throw new Error(`Unexpected request ${url}`);
+  };
+  await d.engine.pull();assert.deepEqual(d.value,local);assert.equal(scheduleBodyReads,0);assert.equal((await d.store.getOutbox()).length,0);
+});
 test('same field changes persist both copies across restart and stop automatic writes',async()=>{
   const base=remote({cues:[{id:'a',text:'base'}]}),cloud=server(base),d=device(cloud,base);
   d.set({cues:[{id:'a',text:'local'}]});cloud.cloud=remote({cues:[{id:'a',text:'remote'},{id:'b',text:'unique'}]},2);
@@ -91,7 +101,7 @@ test('pull reads changed records with bounded concurrency',async()=>{
 test('large record parts download concurrently and retain their integrity check',async()=>{
  const cloud=server(),d=device(cloud),value={text:'同步📚'.repeat(70_000)},chunks=splitSyncBody(JSON.stringify(value));
  const record={key,value:null,revision:3,contentHash:checksum(value),deleted:false,updatedAt:'2026-10-20T00:00:00Z',large:true};
- let active=0,maximum=0;
+ let active=0,maximum=0;const progress:string[]=[];d.environment.progress=message=>progress.push(message);
  d.environment.request=async(url)=>{
   if(url.startsWith('/api/sync/v3'))return Response.json({ok:true,syncProtocol:3,records:[{key:record.key,revision:record.revision,contentHash:record.contentHash,deleted:false,updatedAt:record.updatedAt}],next:null});
   if(url.startsWith('/api/sync/v2?key='))return Response.json({ok:true,records:[record]});
@@ -104,6 +114,13 @@ test('large record parts download concurrently and retain their integrity check'
  await d.engine.pull();
  assert.ok(maximum>1&&maximum<=4);
  assert.deepEqual(d.value,value);
+ const received=progress.filter(message=>message.startsWith('已接收分片 ')).map(message=>Number(message.match(/已接收分片 (\d+) \/ /)?.[1]));
+ assert.deepEqual(received,[...received].sort((a,b)=>a-b));
+ assert.equal(progress.some(message=>/正在接收分片\s+\d/.test(message)),false);
+ const visibleCounts=progress.flatMap(message=>[...message.matchAll(/(?:已接收分片\s+)(\d+)\s+\/\s+(\d+)/g)].map(match=>Number(match[1])));
+ assert.deepEqual(visibleCounts,[...visibleCounts].sort((a,b)=>a-b));
+ assert.equal(received.at(-1),chunks.length);
+ assert.equal(progress.at(-1),'正在校验完整数据');
 });
 test('JSON null is distinct from a tombstone when recreating deleted state',async()=>{
   const deleted=remote(null,2,true),cloud=server(deleted),d=device(cloud,deleted);d.set(null);await d.engine.flush();assert.equal(cloud.cloud!.deleted,false);assert.equal(cloud.cloud!.value,null);

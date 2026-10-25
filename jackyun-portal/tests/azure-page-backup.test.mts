@@ -69,6 +69,7 @@ test('backend refuses a version changed after the final client read before any w
   const api=createSyncApi({async withUser(identity:{sub:string},work:(client:object)=>unknown,options:{write:boolean}){
     assert.equal(identity.sub,user);assert.equal(options.write,true);
     return work({async query(sql:string,args:string[]){
+      if(sql.includes("to_regclass('public.sync_v5_records')"))return {rows:[{ready:false}]};
       if(sql.startsWith('SELECT storage_key,result')) return {rows:[]};
       if(sql.startsWith('SELECT revision,content_hash')){
         assert.match(sql,/FOR UPDATE/);assert.deepEqual(args,[user,key]);return {rows:[{revision:8,content_hash:hash(current)}]};

@@ -1,3 +1,4 @@
+/* eslint @typescript-eslint/no-require-imports: off -- this browser harness is intentionally CommonJS. */
 const fs=require('node:fs');
 const path=require('node:path');
 const http=require('node:http');

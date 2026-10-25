@@ -7,6 +7,8 @@ import { ApiError } from './errors.mjs';
 import { applyRecordDelta } from '../../src/lib/sync/delta.ts';
 import { decodeSyncUpload, compressSyncPart } from '../../src/lib/sync/compression.ts';
 import { handleSyncV4 } from './sync-v4.mjs';
+import { handleSyncV5,syncV5Rollout } from './sync-v5.mjs';
+import {readScheduleProjection,scheduleProjectionState,replaceScheduleResources,writeProjectionHead} from './sync-v5.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH = /^[a-f0-9]{64}$/i;
@@ -33,7 +35,7 @@ async function applyOperation(client, op, deviceId) {
   return result.rows[0].result;
 }
 
-async function applyBody(client, identity, body, large = false) {
+async function applyBody(client, identity, body, large = false, originalOperations = body?.operations) {
   if (body?.syncProtocol !== 3 && body?.requireCurrentVersion !== true) fail(426, 'SYNC_UPGRADE_REQUIRED');
   if (!body || !UUID.test(body.deviceId ?? '') || json(body).length > (large ? MAX_LARGE_SYNC_BYTES : 1_000_000)) fail(400, 'INVALID_BODY');
   if (!Array.isArray(body.operations) || body.operations.length > 100 || !body.operations.every(op => validOperation(op, large))) fail(400, 'INVALID_OPERATIONS');
@@ -70,7 +72,8 @@ async function applyBody(client, identity, body, large = false) {
   if (recent + body.operations.length > 600) fail(429, 'RATE_LIMITED');
   const applied = [], remote = [], conflicts = [];
   for (const incoming of body.operations) {
-    const requestHash = createHash('sha256').update(canonicalJson(incoming)).digest('hex');
+    const requestSource=originalOperations?.find(operation=>operation.id===incoming.id)??incoming;
+    const requestHash = createHash('sha256').update(canonicalJson(requestSource)).digest('hex');
     const prior = (await client.query('SELECT storage_key,result,(SELECT request_hash FROM public.sync_v3_receipts r WHERE r.user_id=$1 AND r.operation_id=$2) AS request_hash FROM public.sync_operations WHERE user_id=$1 AND id=$2', [identity.sub,incoming.id])).rows[0];
     const current = prior ? undefined : (await client.query('SELECT * FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE', [identity.sub,incoming.key])).rows[0];
     let op = incoming;
@@ -138,7 +141,59 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
       await verifyBackupCapture(identity,token,body);
     }
     return database.withUser(identity, async client => {
-      if (route === '/api/sync/v4') return handleSyncV4(client,identity,method,url,body,applyBody);
+      if (route.startsWith('/api/sync/v5')) return handleSyncV5(client,identity,method,url,body,syncV5Rollout(identity));
+      const v5Scopes=syncV5Rollout(identity);
+      let projectionScopesPromise;
+      const projectionScopes=()=>projectionScopesPromise??=scheduleProjectionState(client,identity.sub,v5Scopes);
+      const scheduleProjection=async()=>{
+        if(await projectionScopes()===null)return null;
+        return readScheduleProjection(client,identity.sub);
+      };
+      const shapeScheduleRecord=async(record)=>{
+        if(!record||record.key!==SCHEDULE_STORAGE_KEY)return record;
+        const projection=await scheduleProjection();
+        if(!projection)return record;
+        const large=!projection.legacy?.deleted_at&&!syncValueFits(projection.value);
+        return {...record,value:large?null:projection.value,revision:projection.revision,contentHash:projection.contentHash,
+          deleted:false,large,updatedAt:projection.legacy?.updated_at?iso(projection.legacy.updated_at):record.updatedAt};
+      };
+      const applyCompatibleBody=async(requestBody,large=false)=>{
+        if(!Array.isArray(requestBody?.operations))return applyBody(client,identity,requestBody,large);
+        const operation=requestBody.operations.find(row=>row.key===SCHEDULE_STORAGE_KEY);
+        if(!operation)return applyBody(client,identity,requestBody,large);
+        if(json(requestBody).length>(large?MAX_LARGE_SYNC_BYTES:1_000_000)||!requestBody.operations.every(row=>validOperation(row,large)))fail(400,'INVALID_OPERATIONS');
+        const projection=await scheduleProjection();
+        if(!projection)return applyBody(client,identity,requestBody,large);
+        const physical=projection.legacy,baseMatches=!operation.deleted&&operation.baseRevision===projection.revision&&operation.baseHash===projection.contentHash;
+        let nextValue;
+        if(baseMatches){
+          try{nextValue=Object.hasOwn(operation,'patch')?applyRecordDelta(projection.value,operation.patch):(operation.deleted?null:operation.value);}
+          catch{fail(400,'INVALID_DELTA');}
+          if(!operation.deleted&&unsafeScheduleReplacement(projection.value,nextValue))fail(409,'SCHEDULE_EMPTY_REPLACEMENT');
+        }
+        const physicalRevision=Number(physical?.revision??0),physicalHash=physical?.content_hash??null;
+        const rewritten={...operation,baseRevision:baseMatches?physicalRevision:physicalRevision+1,baseHash:baseMatches?physicalHash:'0'.repeat(64),baseValue:baseMatches?(physical?.storage_value??null):operation.baseValue};
+        if(baseMatches){delete rewritten.patch;rewritten.value=nextValue;rewritten.deleted=operation.deleted;}
+        const response=await applyBody(client,identity,{...requestBody,operations:requestBody.operations.map(row=>row===operation?rewritten:row)},true,requestBody.operations);
+        const conflict=response.conflicts?.find(row=>row.operationId===operation.id);
+        if(conflict){
+          Object.assign(conflict,{remoteValue:projection.value,remoteDeleted:false,remoteHash:projection.contentHash,remoteRevision:projection.revision});
+          await client.query(`UPDATE public.sync_conflicts SET remote_value=$1::jsonb,remote_deleted=false,remote_hash=$2,remote_revision=$3
+            WHERE user_id=$4 AND operation_id=$5`,[json(projection.value),projection.contentHash,projection.revision,identity.sub,operation.id]);
+        }
+        const applied=response.applied?.find(row=>row.operationId===operation.id);
+        if(applied&&baseMatches&&!operation.deleted){
+          await replaceScheduleResources(client,identity.sub,nextValue,await projectionScopes()??[]);
+          const head=await writeProjectionHead(client,identity.sub,Number(applied.revision),nextValue);
+          if(head.contentHash!==applied.contentHash)fail(503,'SYNC_V5_PROJECTION_HASH_MISMATCH');
+        }
+        return response;
+      };
+      if (route === '/api/sync/v4') {
+        const response=await handleSyncV4(client,identity,method,url,body,(c,i,b,large)=>applyCompatibleBody(b,large));
+        if(method==='GET'&&Array.isArray(response.records))response.records=await Promise.all(response.records.map(shapeScheduleRecord));
+        return response;
+      }
       if (route === '/api/sync/backup-markers') {
         if (method === 'GET') {
           const markers = (await client.query('SELECT public.sync_backup_markers() AS markers')).rows[0]?.markers;
@@ -161,6 +216,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
           for (const row of rows) if (isSyncableStorageKey(row.storage_key)) {
             data[row.storage_key] = row.storage_value; timestamps[row.storage_key] = iso(row.updated_at);
           }
+          if(Object.hasOwn(data,SCHEDULE_STORAGE_KEY))data[SCHEDULE_STORAGE_KEY]=(await shapeScheduleRecord({key:SCHEDULE_STORAGE_KEY,value:data[SCHEDULE_STORAGE_KEY],revision:0,contentHash:null,deleted:false,updatedAt:timestamps[SCHEDULE_STORAGE_KEY]})).value;
           return { ok: true, data, timestamps };
         }
         if (!['POST', 'PUT', 'DELETE'].includes(method)) fail(405, 'METHOD_NOT_ALLOWED');
@@ -187,10 +243,11 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
           if (scanned+21>=20000) fail(413,'EXPORT_SCAN_LIMIT');
         }
         const page = visible.slice(0,20);
-        return { ok:true,records:page.filter(row=>isSyncableStorageKey(row.storage_key)).map(row=>({
+        const records=page.filter(row=>isSyncableStorageKey(row.storage_key)).map(row=>({
           key:row.storage_key,value:row.storage_value,revision:Number(row.revision),contentHash:row.content_hash,
           deleted:Boolean(row.deleted_at),large:Boolean(row.large),updatedAt:iso(row.updated_at),
-        })),next:visible.length>20?page.at(-1).storage_key:null };
+        }));
+        return {ok:true,records:await Promise.all(records.map(shapeScheduleRecord)),next:visible.length>20?page.at(-1).storage_key:null};
       }
       if (route === '/api/sync/v3') {
         if (method !== 'GET') fail(405,'METHOD_NOT_ALLOWED');
@@ -209,28 +266,37 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
           if(scanned+101>=20000)fail(413,'MANIFEST_SCAN_LIMIT');
         }
         const page=visible.slice(0,100);
-        return {ok:true,syncProtocol:3,transferEncoding:'gzip',records:page.map(row=>({key:row.storage_key,revision:Number(row.revision),contentHash:row.content_hash,
-          deleted:Boolean(row.deleted_at),updatedAt:iso(row.updated_at)})),next:visible.length>100?page.at(-1).storage_key:null};
+        const records=page.map(row=>({key:row.storage_key,revision:Number(row.revision),contentHash:row.content_hash,
+          deleted:Boolean(row.deleted_at),updatedAt:iso(row.updated_at)}));
+        return {ok:true,syncProtocol:3,transferEncoding:'gzip',records:await Promise.all(records.map(shapeScheduleRecord)),next:visible.length>100?page.at(-1).storage_key:null};
       }
       if (route === '/api/sync/v2') {
-        if (method === 'POST') return applyBody(client, identity, body);
+        if (method === 'POST') return applyCompatibleBody(body);
         if (method !== 'GET') fail(405, 'METHOD_NOT_ALLOWED');
         const key = url.searchParams.get('key');
         if (key && !isSyncableStorageKey(key)) fail(400, 'INVALID_KEY');
         const rawCursor = url.searchParams.get('cursor');
         const cursor = rawCursor && Number.isFinite(Date.parse(rawCursor)) ? new Date(rawCursor).toISOString() : null;
         const rows = (await client.query('SELECT * FROM public.list_web_sync_records($1::timestamptz,$2::text)', [cursor, key])).rows;
-        return { ok: true, records: rows.filter(row => isSyncableStorageKey(row.storage_key)).map(row => ({
+        const records=rows.filter(row => isSyncableStorageKey(row.storage_key)).map(row => ({
           key: row.storage_key, value: row.deleted_at || !syncValueFits(row.storage_value) ? null : row.storage_value,
           revision: Number(row.revision), contentHash: row.content_hash, deleted: Boolean(row.deleted_at),
           large: !row.deleted_at && (row.large || !syncValueFits(row.storage_value)), updatedAt: iso(row.updated_at),
-        })), cursor: rows.length ? iso(rows.at(-1).updated_at) : new Date().toISOString(), serverTime: new Date().toISOString() };
+        }));
+        return { ok: true, records:await Promise.all(records.map(shapeScheduleRecord)), cursor: rows.length ? iso(rows.at(-1).updated_at) : new Date().toISOString(), serverTime: new Date().toISOString() };
       }
       if (route === '/api/sync/v2/large') {
         if (method === 'GET') {
           const key = url.searchParams.get('key'), rawPart = url.searchParams.get('part'), rawRevision = url.searchParams.get('revision');
           const part = Number(rawPart), revision = Number(rawRevision);
           if (!key || !isSyncableStorageKey(key) || !rawPart || !rawRevision || !Number.isInteger(part) || part < 0 || !Number.isSafeInteger(revision) || revision < 1) fail(400, 'INVALID_BODY');
+          if(key===SCHEDULE_STORAGE_KEY&&v5Scopes.length){
+            const projection=await scheduleProjection();
+            if(revision!==projection.revision)fail(409,'REVISION_CHANGED');
+            const chunks=splitSyncBody(JSON.stringify(projection.value));
+            if(part>=chunks.length)fail(400,'INVALID_PART');
+            return {ok:true,revision,part,count:chunks.length,...compressSyncPart(chunks[part],url.searchParams.get('encoding')==='gzip')};
+          }
           const chunk = (await client.query('SELECT public.get_web_sync_record_part($1,$2,$3) AS chunk', [key, revision, part])).rows[0].chunk;
           if (!chunk || chunk.error === 'REVISION_CHANGED') fail(409, 'REVISION_CHANGED');
           if (chunk.error === 'UNAUTHORIZED') fail(401, 'UNAUTHORIZED');
@@ -250,7 +316,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
           try { upload = decodeSyncUpload(Buffer.concat(rows.map(row => Buffer.from(row.data, 'base64')))); }
           catch { fail(400, 'INVALID_BODY'); }
           if (!Array.isArray(upload?.operations) || upload.operations.length !== 1 || upload.operations[0]?.id !== body.uploadId) fail(400, 'INVALID_OPERATIONS');
-          const result = await applyBody(client, identity, upload, true);
+          const result = await applyCompatibleBody(upload,true);
           await client.query('DELETE FROM public.web_sync_upload_chunks WHERE user_id=$1 AND upload_id=$2', [identity.sub, body.uploadId]);
           return result;
         }
@@ -292,7 +358,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
         const op = { id: randomUUID(), key: conflict.storage_key, baseRevision: Number(conflict.remote_revision),
           baseHash: conflict.remote_hash, baseValue: conflict.remote_value, value: body.value,
           deleted: body.deleted === true, clientUpdatedAt: new Date().toISOString() };
-        const response = await applyBody(client,identity,{syncProtocol:3,deviceId:body.deviceId,operations:[op]});
+        const response = await applyCompatibleBody({syncProtocol:3,deviceId:body.deviceId,operations:[op]});
         if (response.applied.length !== 1) fail(409, 'CONFLICT_CHANGED');
         await client.query('UPDATE public.sync_conflicts SET resolved_at=now() WHERE id=$1 AND user_id=$2', [conflict.id, identity.sub]);
         return { ok: true, operationId: op.id, revision: response.applied[0].revision };

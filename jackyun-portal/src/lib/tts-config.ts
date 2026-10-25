@@ -1,4 +1,4 @@
-import { workspaceStorage } from '@/lib/sync/repository';
+import { workspaceStorage } from './sync/repository.ts';
 /**
  * 统一 TTS 配置管理 —— 纯本地存储
  *

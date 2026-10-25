@@ -155,7 +155,7 @@ test('Cue manager compares similar prompts side by side with highlighted evidenc
 
 test('repeated Cue ratings use the reviewed navigation policy and clear the answer state', async () => {
   const component = await readFile(new URL('src/components/modules/schedule/schedule-control.tsx', projectDir), 'utf8');
-  assert.match(component, /const destination = practice\.active \? currentIndex : cueRatingDestination\(/);
+  assert.match(component, /const destination = practice\.active \? currentIndex : \(\(\) => \{ const next = cueRatingDestination\(/);
   assert.match(component, /setRevealed\(false\);\s*setSelectedChoice\(undefined\)/);
   assert.match(component, /activeAssessments/);
   assert.match(component, /event\.key === 'Backspace'/);

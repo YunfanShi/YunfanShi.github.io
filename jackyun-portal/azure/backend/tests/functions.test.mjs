@@ -12,7 +12,7 @@ test('runtime metadata proves the deployed version and original error codes rema
   const health=await handler(request('/health/live'));
   assert.equal(health.status,200);
   const metadata=JSON.parse(health.body);
-  assert.equal(metadata.version,'3.7.0');assert.equal(metadata.transferEncoding,'gzip');assert.equal(metadata.legacyEncoding,'identity');
+  assert.equal(metadata.version,'3.8.0');assert.equal(metadata.transferEncoding,'gzip');assert.equal(metadata.legacyEncoding,'identity');
   const denied=JSON.parse((await handler(request('/api/sync/v3'))).body);
   assert.equal(denied.code,'UNAUTHORIZED');assert.equal(denied.siteCode,'JY-1001');assert.ok(denied.requestId);
 });
@@ -71,4 +71,14 @@ test('export and backup marker routes reach the shared HTTP handler and retain a
   assert.equal((await handler(request('/api/sync/backup-markers',{method:'POST',headers:{authorization:'Bearer verified','content-type':'application/json'},body:{string:JSON.stringify(body)}}))).status,200);
   assert.deepEqual(seen.map(s=>s.path),['/api/sync/export','/api/sync/backup-markers','/api/sync/backup-markers']);
   assert.ok(seen.every(s=>s.token==='verified'&&s.identity.sub==='verified'));assert.deepEqual(seen.at(-1).body,body);
+});
+
+test('v5 protocol routes pass the server allowlist and preserve authentication',async()=>{
+  let called;
+  const handler=createFunctionHandler({authenticate,handle:async(method,url,body,identity)=>{
+    called={method,path:url.pathname,scope:url.searchParams.get('scope'),identity};return {ok:true,syncProtocol:5};
+  }});
+  const result=await handler(request('/api/sync/v5/manifest?scope=cue',{headers:{authorization:'Bearer verified'}}));
+  assert.equal(result.status,200);
+  assert.deepEqual(called,{method:'GET',path:'/api/sync/v5/manifest',scope:'cue',identity:{sub:'verified'}});
 });
