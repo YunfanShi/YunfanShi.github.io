@@ -134,8 +134,8 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       deviceId:accountStore.getOrCreateDeviceId,device:deviceDescription,cancelled:()=>cancelled||signingOut||syncStore.isSyncLeaseLost?.(`recovery:${userId}:workspace`)===true,now:Date.now,uuid:()=>crypto.randomUUID(),
     });
     const v5Sync=createV5ResourceSync({request:(url,init)=>fetchSyncWithTimeout(url,{...init,headers:{...init?.headers,'X-Sync-Reason':requestReason,'X-Sync-Account':userId},signal:controller.signal},false),deviceId:accountStore.getOrCreateDeviceId,
-      readSchedule:()=>workspaceStorage.getItem('jackyun_schedule_control_v1'),projectSchedule:value=>projectCommittedRepositoryRecord('jackyun_schedule_control_v1',value),
-      setAuthority:async scopes=>{setV5ScheduleAuthority(scopes);if(SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)))await accountStore.setSetting('v5ScheduleAuthority',true);},uuid:()=>crypto.randomUUID()});
+      readSchedule:()=>workspaceStorage.getItem('jackyun_schedule_control_v1'),projectSchedule:value=>{if(cancelled||signingOut)throw new DOMException('Sync cancelled','AbortError');return projectCommittedRepositoryRecord('jackyun_schedule_control_v1',value);},
+      setAuthority:async scopes=>{if(cancelled||signingOut)return;setV5ScheduleAuthority(scopes);await accountStore.setSetting('v5ScheduleAuthority',SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)));},databaseScope:accountStore.databaseScope,isCurrent:()=>!cancelled&&!signingOut,uuid:()=>crypto.randomUUID()});
     let v5Authority=false;
     let queuedResolution: SyncResolutionRequest | undefined;
     let queuedV5Resolution:{operationId:string;choice:'local'|'remote'}|undefined;
@@ -160,7 +160,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           if(queuedV5Resolution){const choice=queuedV5Resolution;await v5Sync.resolveConflict(choice.operationId,choice.choice);if(queuedV5Resolution===choice)queuedV5Resolution=undefined;}
           await engine.synchronize();
           const v5Result=await v5Sync.synchronize(resourceScopesForPath(window.location.pathname));
-          if(v5Result.enabled)v5Authority=true;
+          v5Authority=v5Result.enabled;
           await flushLocalWrites();await engine.capture();
           await accountStore.setSetting('lastAutomaticPull',Date.now());
           const [remaining,unresolved,v5Remaining,v5Unresolved]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),v5Authority?getV5Outbox(undefined,userId!):Promise.resolve([]),v5Authority?getV5Conflicts(userId!):Promise.resolve([])]);

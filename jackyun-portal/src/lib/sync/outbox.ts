@@ -115,13 +115,16 @@ export async function resolveV5ConflictLocally(operationId:string,newId:string,d
     tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}finally{db.close();}
 }
 export async function resolveV5ConflictRemotely(operationId:string,dbScope?:string):Promise<string|null>{
-  const db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{const tx=db.transaction(['v5Conflicts','v5Resources','documents'],'readwrite'),conflicts=tx.objectStore('v5Conflicts'),resources=tx.objectStore('v5Resources'),documents=tx.objectStore('documents');let projected:string|null=null,done=0,failed=false;
-    const conflict=conflicts.get(operationId);let all:IDBRequest<V5ResourceRecord[]>,document:IDBRequest<{key:string;value:string}|undefined>;
-    conflict.onsuccess=()=>{const row=conflict.result as V5ResourceConflict|undefined;if(!row)return;all=resources.index('scope').getAll(row.scope);document=documents.get(SCHEDULE_DOCUMENT_KEY);
-      const finish=()=>{if(++done!==2||failed)return;try{const raw=document.result?.value??'{}',base=JSON.parse(raw) as Record<string,unknown>,touched=[row.recordId.slice(0,row.recordId.indexOf(':'))];
-        projected=JSON.stringify(mergeScheduleResources(base,parseScheduleResources(all.result),touched));if(projected!==document.result?.value)documents.put({...document.result,key:SCHEDULE_DOCUMENT_KEY,value:projected,updatedAt:Date.now()});conflicts.delete(operationId);
+  const db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{const tx=db.transaction(['v5Conflicts','v5Resources','v5Outbox','documents'],'readwrite'),conflicts=tx.objectStore('v5Conflicts'),resources=tx.objectStore('v5Resources'),outbox=tx.objectStore('v5Outbox'),documents=tx.objectStore('documents');let projected:string|null=null,done=0,failed=false;
+    const conflict=conflicts.get(operationId);let all:IDBRequest<V5ResourceRecord[]>,document:IDBRequest<{key:string;value:string}|undefined>,pending:IDBRequest<V5ResourceOperation[]>,otherConflicts:IDBRequest<V5ResourceConflict[]>;
+    conflict.onsuccess=()=>{const row=conflict.result as V5ResourceConflict|undefined;if(!row)return;all=resources.index('scope').getAll(row.scope);document=documents.get(SCHEDULE_DOCUMENT_KEY);pending=outbox.getAll();otherConflicts=conflicts.getAll();
+      const finish=()=>{if(++done!==4||failed)return;try{const raw=document.result?.value??'{}',base=JSON.parse(raw) as Record<string,unknown>,touched=[row.recordId.slice(0,row.recordId.indexOf(':'))];
+        const visible=new Map((all.result as V5ResourceRecord[]).map(item=>[item.recordId,item]));
+        for(const op of pending.result as V5ResourceOperation[])if(op.scope===row.scope)visible.set(op.recordId,{scope:op.scope,recordId:op.recordId,revision:op.baseRevision,contentHash:op.baseHash,deleted:op.deleted,updatedAt:op.clientUpdatedAt,value:op.value});
+        for(const pendingConflict of otherConflicts.result as V5ResourceConflict[])if(pendingConflict.operationId!==operationId&&pendingConflict.scope===row.scope)visible.set(pendingConflict.recordId,{scope:pendingConflict.scope,recordId:pendingConflict.recordId,revision:pendingConflict.baseRevision,contentHash:pendingConflict.baseHash,deleted:pendingConflict.localDeleted,updatedAt:pendingConflict.createdAt,value:pendingConflict.localValue});
+        projected=JSON.stringify(mergeScheduleResources(base,parseScheduleResources([...visible.values()]),touched));if(projected!==document.result?.value)documents.put({...document.result,key:SCHEDULE_DOCUMENT_KEY,value:projected,updatedAt:Date.now()});conflicts.delete(operationId);
       }catch(error){failed=true;tx.abort();reject(error);}};
-      all.onsuccess=finish;all.onerror=()=>{failed=true;reject(all.error);};document.onsuccess=finish;document.onerror=()=>{failed=true;reject(document.error);};
+      for(const request of [all,document,pending,otherConflicts]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
     };
     conflict.onerror=()=>{failed=true;reject(conflict.error);};tx.oncomplete=()=>resolve(projected);tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error);};});}finally{db.close();}
 }
@@ -355,6 +358,7 @@ export function activateGuestRepository(){account='guest';}
 export function accountSyncStore(userId:string){
   const scope=`${DB_NAME}:${userId}`;
   return {
+    databaseScope:scope,
     getOutbox:()=>getOutbox(scope),getMetadata:()=>getMetadata(scope),saveMetadata:(r:SyncRecord)=>saveMetadata(r,scope),
     queueOperation:(o:SyncOperation)=>queueOperation(o,scope),replaceOperation:(o:SyncOperation,n:SyncOperation|null)=>replaceOperation(o,n,scope),
     acknowledgeOperation:(o:SyncOperation,r:SyncRecord)=>acknowledgeOperation(o,r,undefined,scope),

@@ -168,6 +168,7 @@ export function createSyncApi(database, { verifyBackupCapture } = {}) {
         if(baseMatches){
           try{nextValue=Object.hasOwn(operation,'patch')?applyRecordDelta(projection.value,operation.patch):(operation.deleted?null:operation.value);}
           catch{fail(400,'INVALID_DELTA');}
+          if(!operation.deleted&&unsafeScheduleReplacement(projection.value,nextValue))fail(409,'SCHEDULE_EMPTY_REPLACEMENT');
         }
         const physicalRevision=Number(physical?.revision??0),physicalHash=physical?.content_hash??null;
         const rewritten={...operation,baseRevision:baseMatches?physicalRevision:physicalRevision+1,baseHash:baseMatches?physicalHash:'0'.repeat(64),baseValue:baseMatches?(physical?.storage_value??null):operation.baseValue};

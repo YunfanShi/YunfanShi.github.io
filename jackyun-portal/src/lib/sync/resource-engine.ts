@@ -4,7 +4,7 @@ import {acknowledgeV5Operations,commitV5ResourcePage,getV5Conflicts,getV5Cursor,
 
 type Descriptor={scope:SyncV5Scope;recordId:string;revision:number;contentHash:string;deleted:boolean;updatedAt:string;sequence?:number};
 type Result=Record<string,unknown>;
-type ResourceSyncEnvironment={request:(url:string,init?:RequestInit)=>Promise<Response>;deviceId:()=>Promise<string>;readSchedule:()=>string|null;projectSchedule:(value:string|null)=>Promise<void>;setAuthority:(scopes:readonly string[])=>void|Promise<void>;uuid:()=>string;databaseScope?:string};
+type ResourceSyncEnvironment={request:(url:string,init?:RequestInit)=>Promise<Response>;deviceId:()=>Promise<string>;readSchedule:()=>string|null;projectSchedule:(value:string|null)=>Promise<void>;setAuthority:(scopes:readonly string[])=>void|Promise<void>;uuid:()=>string;databaseScope?:string;isCurrent?:()=>boolean};
 const parse=(raw:string|null)=>{if(!raw)return {};const value=JSON.parse(raw);if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Schedule 数据格式无效。');return value as Record<string,unknown>;};
 const equal=(a:unknown,b:unknown)=>canonicalJson(a)===canonicalJson(b);
 const digest=async(value:unknown)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(value)))),n=>n.toString(16).padStart(2,'0')).join('');
@@ -32,6 +32,7 @@ function validDescriptor(row:Result,scope:SyncV5Scope):Descriptor{
 
 export function createV5ResourceSync(environment:ResourceSyncEnvironment){
   const e=environment;
+  const assertCurrent=()=>{if(e.isCurrent&&!e.isCurrent())throw new DOMException('Sync cancelled','AbortError');};
   async function fetchPageRecords(scope:SyncV5Scope,descriptors:Descriptor[]):Promise<V5ResourceRecord[]>{
     const active=descriptors.filter(row=>!row.deleted),values:Result[]=[];
     for(let offset=0;offset<active.length;offset+=100){
@@ -51,8 +52,9 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     return records;
   }
   async function commit(scope:SyncV5Scope,descriptors:Descriptor[],cursor:V5ResourceCursor){
-    const records=await fetchPageRecords(scope,descriptors),projected=await commitV5ResourcePage(scope,records,cursor,e.databaseScope);
-    if(projected!==null)await e.projectSchedule(projected);
+    const records=await fetchPageRecords(scope,descriptors);assertCurrent();
+    const projected=await commitV5ResourcePage(scope,records,cursor,e.databaseScope);
+    assertCurrent();if(projected!==null)await e.projectSchedule(projected);
   }
   async function baseline(scope:SyncV5Scope){
     let after='',head:number|undefined;
@@ -101,7 +103,7 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
       if(blocked.has(change.recordId)||pendingIds.has(change.recordId))continue;
       const base=byId.get(change.recordId),same=base?base.deleted===change.deleted&&(change.deleted||equal(base.value,change.value)):false;
       if(same||(!base&&change.deleted))continue;
-      await queueV5ResourceOperation({id:e.uuid(),scope,recordId:change.recordId,baseRevision:base?.revision??0,baseHash:base?.contentHash??null,value:change.value,deleted:change.deleted,clientUpdatedAt:new Date().toISOString()},e.databaseScope);
+      assertCurrent();await queueV5ResourceOperation({id:e.uuid(),scope,recordId:change.recordId,baseRevision:base?.revision??0,baseHash:base?.contentHash??null,value:change.value,deleted:change.deleted,clientUpdatedAt:new Date().toISOString()},e.databaseScope);
     }
   }
   async function resolveReceipt(scope:SyncV5Scope,operation:V5ResourceOperation,result:Result){
@@ -137,10 +139,11 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
   }
   async function synchronize(requestedScopes:readonly SyncV5Scope[]){
     const capabilities=await readJson(e.request,'/api/sync/v5');
+    assertCurrent();
     const scopes=Array.isArray(capabilities.scopes)?capabilities.scopes.filter((scope):scope is SyncV5Scope=>SYNC_V5_SCOPES.includes(scope as SyncV5Scope)):[];
     const flags=capabilities.capabilities as Record<string,unknown>|undefined;
-    if(flags?.v5!==true||!SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)))return {enabled:false,conflicts:await getV5Conflicts(e.databaseScope)};
     await e.setAuthority(scopes);
+    if(flags?.v5!==true||!SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)))return {enabled:false,conflicts:await getV5Conflicts(e.databaseScope)};
     for(const scope of requestedScopes)if(scopes.includes(scope))await pull(scope);
     for(const scope of scopes)await captureLocalChanges(scope);
     for(const scope of SYNC_V5_SCOPES)await push(scope);

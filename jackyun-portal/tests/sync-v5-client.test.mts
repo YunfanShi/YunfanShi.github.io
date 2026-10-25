@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {IDBFactory} from 'fake-indexeddb';
-import {commitV5ResourcePage,getV5Cursor,getV5Resources,openDatabase} from '../src/lib/sync/outbox.ts';
+import {accountSyncStore,commitV5ResourcePage,getV5Cursor,getV5Resources,openDatabase,resolveV5ConflictRemotely,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
 import {createV5ResourceSync} from '../src/lib/sync/resource-engine.ts';
 import {canonicalJson} from '../src/lib/sync/hash.ts';
 import {SYNC_V5_SCOPES} from '../src/lib/sync/resource-model.ts';
@@ -29,6 +29,43 @@ test('v5 cursor does not advance when the Schedule document cannot be safely mer
     {scope:'cue',mode:'changes',after:'',cursor:1,head:1},dbName));
   assert.equal(await getV5Cursor('cue',dbName),null);
   assert.deepEqual(await getV5Resources('cue',dbName),[]);
+});
+
+test('resolving one remote conflict preserves other local conflicted resources',async()=>{
+  const dbName=id(),selectedId=crypto.randomUUID(),otherId=crypto.randomUUID(),base={schemaVersion:1,cues:[{id:'a',prompt:'local A'},{id:'b',prompt:'local B'}]};
+  const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction(['documents','v5Resources','v5Conflicts'],'readwrite');
+    tx.objectStore('documents').put({key:'jackyun_schedule_control_v1',value:JSON.stringify(base),updatedAt:0});
+    tx.objectStore('v5Resources').put({scope:'cue',recordId:'cues:$order',revision:2,contentHash:'a'.repeat(64),deleted:false,updatedAt:'now',value:['a','b']});
+    for(const [recordId,value] of [['cues:a',{id:'a',prompt:'remote A'}],['cues:b',{id:'b',prompt:'remote B'}]] as const)tx.objectStore('v5Resources').put({scope:'cue',recordId,revision:2,contentHash:'a'.repeat(64),deleted:false,updatedAt:'now',value});
+    const conflict=(operationId:string,recordId:string,localValue:unknown,remoteValue:unknown):V5ResourceConflict=>({operationId,scope:'cue',recordId,baseRevision:1,baseHash:'b'.repeat(64),localValue,localDeleted:false,remoteValue,remoteDeleted:false,remoteRevision:2,remoteHash:'a'.repeat(64),createdAt:'now'});
+    tx.objectStore('v5Conflicts').put(conflict(selectedId,'cues:a',{id:'a',prompt:'local A'},{id:'a',prompt:'remote A'}));
+    tx.objectStore('v5Conflicts').put(conflict(otherId,'cues:b',{id:'b',prompt:'local B'},{id:'b',prompt:'remote B'}));
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+  const projected=await resolveV5ConflictRemotely(selectedId,dbName);
+  assert.deepEqual(JSON.parse(projected!).cues,[{id:'a',prompt:'remote A'},{id:'b',prompt:'local B'}]);
+});
+
+test('v5 capability withdrawal clears resource authority for the caller',async()=>{
+  const dbName=id(),authorities:string[][]=[];
+  const engine=createV5ResourceSync({databaseScope:dbName,request:async()=>Response.json({syncProtocol:5,capabilities:{v5:false},scopes:[]}),deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>null,projectSchedule:async()=>{},setAuthority:scopes=>{authorities.push([...scopes]);},uuid:()=>crypto.randomUUID()});
+  assert.equal((await engine.synchronize(['cue'])).enabled,false);
+  assert.deepEqual(authorities,[[]]);
+});
+
+test('v5 worker keeps its account database scope and discards responses after account change',async()=>{
+  const userId=crypto.randomUUID(),dbScope=accountSyncStore(userId).databaseScope,value:string[]=[];
+  let current=true;
+  const contentHash=createHash('sha256').update(canonicalJson(value)).digest('hex');
+  const engine=createV5ResourceSync({databaseScope:dbScope,isCurrent:()=>current,request:async(url)=>{
+    const parsed=new URL(url,'https://sync.test');
+    if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:SYNC_V5_SCOPES});
+    if(parsed.pathname==='/api/sync/v5/manifest')return Response.json({syncProtocol:5,records:[{scope:'cue',recordId:'cues:$order',revision:1,contentHash,deleted:false,updatedAt:'now'}],next:null,head:0});
+    if(parsed.pathname==='/api/sync/v5/records'){current=false;return Response.json({syncProtocol:5,records:[{scope:'cue',recordId:'cues:$order',revision:1,contentHash,deleted:false,updatedAt:'now',value}]});}
+    throw new Error(`Unexpected request ${parsed.pathname}`);
+  },deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>null,projectSchedule:async()=>{},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
+  await assert.rejects(engine.synchronize(['cue']),{name:'AbortError'});
+  assert.equal(await getV5Cursor('cue',dbScope),null);
+  assert.deepEqual(await getV5Resources('cue',dbScope),[]);
 });
 
 test('v5 client downloads only changed records, queues a stable resource operation, and stays incremental',async()=>{
