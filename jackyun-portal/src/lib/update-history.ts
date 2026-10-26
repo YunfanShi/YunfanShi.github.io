@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.47.5', date: '2026-10-26', dateLabel: '2026 年 10 月 26 日', title: '离线任务错误静默与自动续传', summary: '可恢复的 503 不再打断快速添加任务；任务先保存在本机队列，再使用同一操作编号后台重试。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['快速任务回归用例验证用户看到已记录提示，而不是暴露临时网络错误。', '回归用例覆盖 IndexedDB 保留唯一操作，以及后台重试复用原幂等编号。', '本次修复不改变同步协议或 v5 灰度；Azure 数据库验收仍待完成。'] },
   { version: '3.47.4', date: '2026-10-26', dateLabel: '2026 年 10 月 26 日', title: 'v4 兼容写入回归测试修复', summary: '兼容投影更新既有 Schedule 行时，Azure SQL 测试夹具现已识别 metadata-only UPDATE。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['复现并修复 sync-v5-compat 第二个用例因 mock 不支持 UPDATE 而失败的问题。', '不改变生产 SQL、协议行为或 v5 灰度状态；Azure 生产迁移和账号读写仍需独立验收。'] },
   { version: '3.47.3', date: '2026-10-26', dateLabel: '2026 年 10 月 26 日', title: '资源写入避免重复传输旧正文', summary: '单条 v5 资源修改只更新旧版兼容行的版本元数据，不再把整份 Schedule 正文作为数据库写入参数重复发送。', categories: ['稳定性'], accent: 'blue', featured: false, highlights: ['兼容行缺失时仍会初始化完整正文；已有行的 SHA-256 继续对应重建后的 v4 Schedule。', 'Azure 请求日志增加 v5 SQL 参数估算字节、投影重建耗时和记录数，不记录 SQL 参数内容。', '合成数据库夹具与同步测试通过；真实 Azure 查询字节、负载和生产账号读写仍待环境验收。'] },
   { version: '3.47.2', date: '2026-10-26', dateLabel: '2026 年 10 月 26 日', title: 'v5 初始化读取优化', summary: '已初始化的资源范围不再在每次请求开始时重复读取整份旧 Schedule 和全部 v5 记录。', categories: ['稳定性'], accent: 'blue', featured: false, highlights: ['仍会在成功写入后构建完整兼容投影；优化仅消除冗余 bootstrap 扫描，不代表 Azure 数据库性能实测或全量投影成本已解决。'] },
