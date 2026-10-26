@@ -49,6 +49,7 @@ try {
   await addButton.click();
   await page.getByText('已记录，联网后同步').first().waitFor();
   await page.waitForFunction(() => document.querySelector('input[placeholder="快速添加一个学习任务…"]')?.value === '');
+  await page.evaluate(() => window.dispatchEvent(new Event('jackyun-sync-retry')));
   await failedResponse;
   const retryConfirmed = page.waitForResponse(response => response.url().includes('/api/offline/workspace') && response.request().method() === 'POST' && response.status() === 200, { timeout: 45_000 });
   assert.equal(await page.getByText(/Offline mutation failed|本机模拟服务暂不可用/).count(), 0, 'recoverable 503 details stay out of the user-facing task flow');
