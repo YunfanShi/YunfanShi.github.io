@@ -79,7 +79,7 @@ function harness() {
   };
   function tab() {
     const ticks: (() => void)[] = [], effects: (() => (() => void) | undefined)[] = [];
-    let pathname='/schedule';
+    let pathname='/schedule',routePathRef:{current:string}|undefined;
     const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
     const win = Object.assign(new EventTarget(), { location: { pathname: '/schedule' }, setInterval: (task: () => void) => { ticks.push(task); return ticks.length; },
       clearInterval: () => {}, setTimeout: () => 1, clearTimeout: () => {}, matchMedia: () => ({ matches: false }) });
@@ -93,7 +93,7 @@ function harness() {
       'react/jsx-runtime':{jsx:()=>null},'./local-durability':{default:()=>null},'next/navigation':{usePathname:()=>pathname},
       '@/lib/sync/repository':{workspaceStorage:storage,initializeRepository:async()=>{},flushLocalWrites:async()=>{},applyRepositoryRecord:async(key:string,value:string|null)=>{if(value===null)storage.removeItem(key);else storage.setItem(key,value);},projectCommittedRepositoryRecord:async()=>{},setV5ScheduleAuthority:()=>{}},
       '@/lib/sync/scheduler':{runScheduledSync:async(lane:string,userId:string,work:()=>Promise<void>)=>nav.locks.request('shared:'+lane+userId,{},async lock=>{if(lock)await work();}),createEditTrigger:()=>({trigger:()=>{},dispose:()=>{}})},
-      react: { useEffect: (effect: () => (() => void) | undefined) => effects.push(effect) },
+      react: { useEffect: (effect: () => (() => void) | undefined) => effects.push(effect), useRef:(value:string)=>routePathRef??(routePathRef={current:value}) },
       '@/lib/sync/engine':{createWorkspaceSync},
       '@/lib/sync/resource-engine':{createV5ResourceSync:()=>({synchronize:async()=>({enabled:false,conflicts:[]}),resolveConflict:async()=>{}}),resourceFieldsForPath:(path:string)=>{resourcePaths.push(path);return[];}},
       '@/lib/sync/resource-model':{SYNC_V5_SCOPES:['timetable','learning','cue','practice','timer','settings']},
@@ -150,6 +150,7 @@ function harness() {
     exports.default({ userId: 'alice' });
     // The independent first effect manages local backups, not cloud sync.
     result.stop = effects[1]()!;
+    effects.at(-1)?.();
     tabs.push(result); return result;
   }
   return { tab, tabs, requests, resourcePaths, storage, settings, outboxApi,
@@ -173,6 +174,12 @@ test('page navigation immediately syncs the new page subscription despite the re
   tab.navigate('/review');await settle();
   assert.ok(h.requests.length>initialRequests,'route change must not wait for the next 30-second poll');
   assert.equal(h.resourcePaths.at(-1),'/review');
+  tab.stop();
+});
+
+test('initial pathname does not trigger a duplicate route pull',async()=>{
+  const h=harness(),tab=h.tab();await settle();
+  assert.equal(h.resourcePaths.filter(path=>path==='/schedule').length,1,JSON.stringify(h.resourcePaths));
   tab.stop();
 });
 
