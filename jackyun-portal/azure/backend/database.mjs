@@ -2,6 +2,17 @@ import { readFileSync } from 'node:fs';
 import { Pool } from 'pg';
 import { ApiError } from './errors.mjs';
 
+export function estimateSqlParameterBytes(args) {
+  const query=args[0],values=Array.isArray(args[1])?args[1]:Array.isArray(query?.values)?query.values:[];
+  return values.reduce((total,value)=>{
+    if(Buffer.isBuffer(value))return total+value.byteLength;
+    if(value===null||value===undefined)return total+4;
+    if(typeof value==='string')return total+Buffer.byteLength(value);
+    if(typeof value==='number'||typeof value==='boolean')return total+Buffer.byteLength(String(value));
+    return total+Buffer.byteLength(JSON.stringify(value)??'');
+  },0);
+}
+
 export function createDatabase(config) {
   if (!config.host || !config.user || !config.database || !config.password || !config.caPath) {
     throw new Error('Explicit database host, user, database, password and trusted CA are required');
@@ -15,11 +26,11 @@ export function createDatabase(config) {
   });
   pool.on('error', () => { /* Failed idle connections are removed without logging credentials. */ });
   return {
-    async withUser(identity, work, { write = false, onMetrics } = {}) {
+    async withUser(identity, work, { write = false, measureParameterBytes = false, onMetrics } = {}) {
       const started=performance.now();
       const client = await pool.connect();
-      const poolWaitMs=performance.now()-started;let sqlCount=0;
-      const query=(...args)=>{sqlCount++;return client.query(...args);};
+      const poolWaitMs=performance.now()-started;let sqlCount=0,sqlParameterBytes=0;
+      const query=(...args)=>{sqlCount++;if(measureParameterBytes)sqlParameterBytes+=estimateSqlParameterBytes(args);return client.query(...args);};
       let broken = false;
       try {
         await query('BEGIN');
@@ -39,7 +50,10 @@ export function createDatabase(config) {
       } catch (error) {
         try { await query('ROLLBACK'); } catch { broken = true; }
         throw error;
-      } finally { client.release(broken);onMetrics?.({sqlCount,poolWaitMs:Math.round(poolWaitMs),databaseMs:Math.round(performance.now()-started)}); }
+      } finally {
+        client.release(broken);
+        onMetrics?.({sqlCount,poolWaitMs:Math.round(poolWaitMs),databaseMs:Math.round(performance.now()-started),...(measureParameterBytes?{sqlParameterBytes}:{})});
+      }
     },
     close: () => pool.end(),
   };
