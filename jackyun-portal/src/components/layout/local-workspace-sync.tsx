@@ -42,8 +42,18 @@ function deviceDescription() {
   return {name:`${mobile?'Mobile':'Desktop'} ${standalone?'PWA':'Browser'}`,platform:standalone?'pwa':mobile?'mobile-web':'web'};
 }
 
-export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
+function WorkspaceRouteSyncTrigger() {
   const pathname=usePathname();
+  const lastRoutePathname=useRef(pathname);
+  useEffect(()=>{
+    if(!pathname||pathname===lastRoutePathname.current)return;
+    lastRoutePathname.current=pathname;
+    window.dispatchEvent(new CustomEvent('jackyun-sync-page-change',{detail:{pathname}}));
+  },[pathname]);
+  return null;
+}
+
+export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
   useEffect(() => {
     let owner = userId ?? 'guest';
     let previous = localSnapshot(true);
@@ -253,11 +263,5 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     return()=>{window.removeEventListener('jackyun-sync-lane',onLane);for(const retry of recoveryTimers.values())clearTimeout(retry);channel?.close();window.removeEventListener('jackyun-local-durability',onDurable);cancelled=true;controller.abort();window.clearInterval(timer);editTrigger.dispose();
       for(const [name,listener]of listeners)window.removeEventListener(name,listener);document.removeEventListener('visibilitychange',onVisibility);};
   },[userId]);
-  const lastRoutePathname=useRef(pathname);
-  useEffect(()=>{
-    if(!pathname||pathname===lastRoutePathname.current)return;
-    lastRoutePathname.current=pathname;
-    window.dispatchEvent(new CustomEvent('jackyun-sync-page-change',{detail:{pathname}}));
-  },[pathname]);
-  return <LocalDurabilityNotice/>;
+  return <><WorkspaceRouteSyncTrigger/><LocalDurabilityNotice/></>;
 }

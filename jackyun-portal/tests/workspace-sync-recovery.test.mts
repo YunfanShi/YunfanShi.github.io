@@ -90,7 +90,7 @@ function harness() {
     const result = { win, doc, nav, ticks, stop: () => {}, status: null as any, navigate:(path:string)=>{pathname=path;win.location.pathname=path;exports.default({userId:'alice'});effects.at(-1)?.();} };
     const exports: Record<string, any> = {};
     const modules: Record<string, unknown> = {
-      'react/jsx-runtime':{jsx:()=>null},'./local-durability':{default:()=>null},'next/navigation':{usePathname:()=>pathname},
+      'react/jsx-runtime':{jsx:(component:unknown)=>typeof component==='function'?(component as ()=>unknown)():null,jsxs:(component:unknown)=>typeof component==='function'?(component as ()=>unknown)():null},'./local-durability':{default:()=>null},'next/navigation':{usePathname:()=>pathname},
       '@/lib/sync/repository':{workspaceStorage:storage,initializeRepository:async()=>{},flushLocalWrites:async()=>{},applyRepositoryRecord:async(key:string,value:string|null)=>{if(value===null)storage.removeItem(key);else storage.setItem(key,value);},projectCommittedRepositoryRecord:async()=>{},setV5ScheduleAuthority:()=>{}},
       '@/lib/sync/scheduler':{runScheduledSync:async(lane:string,userId:string,work:()=>Promise<void>)=>nav.locks.request('shared:'+lane+userId,{},async lock=>{if(lock)await work();}),createEditTrigger:()=>({trigger:()=>{},dispose:()=>{}})},
       react: { useEffect: (effect: () => (() => void) | undefined) => effects.push(effect), useRef:(value:string)=>routePathRef??(routePathRef={current:value}) },
