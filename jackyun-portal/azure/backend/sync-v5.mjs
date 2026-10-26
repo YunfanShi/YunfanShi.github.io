@@ -52,7 +52,8 @@ export async function writeProjectionHead(client,userId,revision,value,{recordV4
   let legacyStorageInsertBytes=0;
   const updated=await client.query(`UPDATE public.legacy_sync_data SET revision=$2,content_hash=$3,updated_at=now(),deleted_at=NULL
     WHERE user_id=$1 AND storage_key=$4 RETURNING user_id`,[userId,revision,contentHash,scheduleKey]);
-  if(!updated.rows.length){
+  // A zero-revision empty projection has no legal legacy row; materialize it on first write.
+  if(!updated.rows.length&&revision>0){
     const storageValue=json(value);legacyStorageInsertBytes=Buffer.byteLength(storageValue);
     await client.query(`INSERT INTO public.legacy_sync_data(user_id,storage_key,storage_value,revision,content_hash,updated_at,deleted_at)
       VALUES($1,$4,$5::jsonb,$2,$3,now(),NULL)

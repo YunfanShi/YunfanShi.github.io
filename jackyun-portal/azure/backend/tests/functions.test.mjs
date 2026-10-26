@@ -12,7 +12,7 @@ test('runtime metadata proves the deployed version and original error codes rema
   const health=await handler(request('/health/live'));
   assert.equal(health.status,200);
   const metadata=JSON.parse(health.body);
-  assert.equal(metadata.version,'3.9.0');assert.equal(metadata.transferEncoding,'gzip');assert.equal(metadata.legacyEncoding,'identity');
+  assert.equal(metadata.version,'3.9.1');assert.equal(metadata.transferEncoding,'gzip');assert.equal(metadata.legacyEncoding,'identity');
   const denied=JSON.parse((await handler(request('/api/sync/v3'))).body);
   assert.equal(denied.code,'UNAUTHORIZED');assert.equal(denied.siteCode,'JY-1001');assert.ok(denied.requestId);
 });
