@@ -151,9 +151,20 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       setAuthority:async scopes=>{if(cancelled||signingOut)return;setV5ScheduleAuthority(scopes);v5Enabled=scopes.length>0;v5Authority=SYNC_V5_SCOPES.every(scope=>scopes.includes(scope));await accountStore.setSetting('v5ScheduleAuthority',v5Authority);},databaseScope:accountStore.databaseScope,isCurrent:()=>!cancelled&&!signingOut,uuid:()=>crypto.randomUUID()});
     let queuedResolution: SyncResolutionRequest | undefined;
     let queuedV5Resolution:{operationId:string;choice:'local'|'remote'}|undefined;
-    let activePathname=window.location.pathname,queuedRouteSync=false;
+    let activePathname=window.location.pathname,queuedRouteSync=false,routeRetryDelay=1_000;
+    let routeRetryTimer:ReturnType<typeof setTimeout>|undefined;
+    const scheduleRouteRetry=()=>{
+      if(routeRetryTimer||cancelled||signingOut||!queuedRouteSync||!navigator.onLine||document.visibilityState!=='visible'||isWorkspaceSleeping())return;
+      const delay=routeRetryDelay;routeRetryDelay=Math.min(30_000,routeRetryDelay*2);
+      routeRetryTimer=window.setTimeout(()=>{
+        routeRetryTimer=undefined;
+        if(!cancelled&&!signingOut&&queuedRouteSync)void sync(false,false,undefined,'route');
+      },delay);
+    };
     async function sync(manual=false,allowHidden=false,resolution?:SyncResolutionRequest,reason=manual?'manual':'periodic') {
-      if(cancelled||signingOut||!bound||isWorkspaceSleeping())return;
+      if(cancelled||signingOut)return;
+      if(reason==='route')queuedRouteSync=true;
+      if(!bound||isWorkspaceSleeping())return;
       if(!manual&&!allowHidden&&document.visibilityState!=='visible'){await engine.capture();return;}
       if(resolution)queuedResolution=resolution;
       if(!gate.begin(manual)){if(reason==='route')queuedRouteSync=true;return;}
@@ -186,7 +197,9 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
             unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':v5Unresolved.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':remaining.length||v5Remaining.length?'本机修改仍在队列中，将分批继续上传。':undefined);
           return true;
         };
-        await runScheduledSync('workspace',userId!,work,manual);
+        const completed=await runScheduledSync('workspace',userId!,work,manual);
+        if(completed&&activePathname===routeForRun){queuedRouteSync=false;routeRetryDelay=1_000;if(routeRetryTimer){window.clearTimeout(routeRetryTimer);routeRetryTimer=undefined;}}
+        else if(!completed&&queuedRouteSync)scheduleRouteRetry();
       } catch(error) {
         if(cancelled||signingOut)return;
         if(error instanceof Error && error.name==='SyncReviewChangedError') {
@@ -202,20 +215,20 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         const manualQueued=gate.finish();
         if(!cancelled&&!signingOut){
           if(manualQueued){queuedRouteSync=false;void sync(true);}
-          else if(queuedRouteSync){queuedRouteSync=false;void sync(false,false,undefined,'route');}
+          else if(queuedRouteSync&&!routeRetryTimer){queuedRouteSync=false;void sync(false,false,undefined,'route');}
         }
       }
     }
     workspaceStorage.removeItem('jackyun_guest_mode');
     void publish('syncing',undefined,'正在初始化版本同步…');
-    const initialize=()=>initializeRepository(userId).then(async()=>{v5Authority=await storedV5Authority;bound=true;return sync();}).catch(error=>{
+    const initialize=()=>initializeRepository(userId).then(async()=>{v5Authority=await storedV5Authority;bound=true;return sync(false,false,undefined,queuedRouteSync?'route':'periodic');}).catch(error=>{
       void reportSyncFailure(error,'initialization');
       void publish('error',error instanceof Error?error.message:'无法绑定账号');
     });
     void initialize();
     const editTrigger=createEditTrigger(()=>{void sync(false,false,undefined,'edit');});
     const onEdit=()=>editTrigger.trigger();
-    const timer=window.setInterval(()=>{if(document.visibilityState==='visible'){if(!bound)void initialize();else void sync();}},30_000);
+    const timer=window.setInterval(()=>{if(document.visibilityState==='visible'){if(!bound)void initialize();else void sync(false,false,undefined,queuedRouteSync?'route':'periodic');}},30_000);
     const recoveryTimers=new Map<string,ReturnType<typeof setTimeout>>();
     const onLane=(event:Event)=>{
       const lane=(event as CustomEvent<{userId:string;lane:string;state:string;nextAttemptAt:number;openUntil:number}>).detail;
@@ -228,13 +241,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       if(lane.state!=='waiting')return;
       recoveryTimers.set(lane.lane,setTimeout(()=>{
         if(cancelled||signingOut||document.visibilityState!=='visible'||isWorkspaceSleeping())return;
-        if(lane.lane==='workspace')void sync();
+        if(lane.lane==='workspace')void sync(false,false,undefined,queuedRouteSync?'route':'periodic');
         else void runScheduledSync('backup',userId!,async()=>{await createDueBackupVersions();}).catch(()=>{});
       },Math.max(100,Math.max(lane.nextAttemptAt,lane.openUntil)-Date.now())));
     };
     window.addEventListener('jackyun-sync-lane',onLane);
-    const onOnline=()=>{if(!bound)void initialize();else void sync(false,false,undefined,'online');};
-    const onWake=()=>void sync(false,false,undefined,'resume');
+    const onOnline=()=>{if(routeRetryTimer){window.clearTimeout(routeRetryTimer);routeRetryTimer=undefined;}if(!bound)void initialize();else void sync(false,false,undefined,queuedRouteSync?'route':'online');};
+    const onWake=()=>void sync(false,false,undefined,queuedRouteSync?'route':'resume');
     const onOffline=()=>void publish('offline_pending');
     const onRetry=()=>void sync(true);
     const onRouteChange=(event:Event)=>{
@@ -245,7 +258,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     };
     const onResolve=(event:Event)=>{const detail=(event as CustomEvent<SyncResolutionRequest>).detail;if(detail?.operationId&&['local','remote','merged'].includes(detail.choice))void sync(true,false,detail);};
     const onResolveV5=(event:Event)=>{const detail=(event as CustomEvent<{operationId:string;choice:'local'|'remote'}>).detail;if(detail?.operationId&&['local','remote'].includes(detail.choice)){queuedV5Resolution=detail;void sync(true);}};
-    const onVisibility=()=>{if(document.visibilityState==='visible')void sync();else void engine.capture();};
+    const onVisibility=()=>{if(document.visibilityState==='visible')void sync(false,false,undefined,queuedRouteSync?'route':'periodic');else void engine.capture();};
     const onLeave=()=>void engine.capture();
     const onSignOut=()=>{signingOut=true;};
     const onCancel=()=>{signingOut=false;};
@@ -260,7 +273,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       ['jackyun-signout-cancel',onCancel],['jackyun-sync-before-signout',onBeforeSignOut],[BEFORE_SLEEP_EVENT,onSleep],[WAKE_EVENT,onWake]];
     for(const [name,listener]of listeners)window.addEventListener(name,listener);
     document.addEventListener('visibilitychange',onVisibility);
-    return()=>{window.removeEventListener('jackyun-sync-lane',onLane);for(const retry of recoveryTimers.values())clearTimeout(retry);channel?.close();window.removeEventListener('jackyun-local-durability',onDurable);cancelled=true;controller.abort();window.clearInterval(timer);editTrigger.dispose();
+    return()=>{window.removeEventListener('jackyun-sync-lane',onLane);for(const retry of recoveryTimers.values())clearTimeout(retry);if(routeRetryTimer)window.clearTimeout(routeRetryTimer);channel?.close();window.removeEventListener('jackyun-local-durability',onDurable);cancelled=true;controller.abort();window.clearInterval(timer);editTrigger.dispose();
       for(const [name,listener]of listeners)window.removeEventListener(name,listener);document.removeEventListener('visibilitychange',onVisibility);};
   },[userId]);
   return <>{userId&&<WorkspaceRouteSyncTrigger/>}<LocalDurabilityNotice/></>;
