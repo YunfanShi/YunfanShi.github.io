@@ -116,6 +116,23 @@ test('resource writes use CAS, idempotent receipts, and return actionable confli
   assert.deepEqual(conflict.conflicts[0].value,value);assert.equal(conflict.conflicts[0].revision,1);assert.equal(db.writes,1);
 });
 
+test('empty Schedule bootstrap defers the legacy projection until revision one',async()=>{
+  const db=database();
+  const manifest=await handleSyncV5(db,identity,'GET',url('/manifest','?scope=cue'),null,['cue']);
+  assert.deepEqual(manifest.records,[]);
+  assert.equal(db.calls.some(call=>call.sql.startsWith('INSERT INTO public.legacy_sync_data')),false);
+  const initialHead=db.calls.find(call=>call.sql.startsWith('INSERT INTO public.sync_v5_projection_heads'));
+  assert.equal(initialHead.params[1],0);
+
+  const operation={id:randomUUID(),scope:'cue',recordId:'cues:first-cue',baseRevision:0,baseHash:null,
+    value:{id:'first-cue',prompt:'Recall'},deleted:false,clientUpdatedAt:new Date().toISOString()};
+  const result=await handleSyncV5(db,identity,'POST',url('/operations'),{scope:'cue',deviceId:randomUUID(),operations:[operation]},['cue']);
+  const legacyInsert=db.calls.find(call=>call.sql.startsWith('INSERT INTO public.legacy_sync_data'));
+  assert.ok(legacyInsert,'first mutation creates the v4 compatibility row');
+  assert.equal(legacyInsert.params[1],1,'legacy revisions must satisfy the database CHECK constraint');
+  assert.equal(result.applied[0].revision,1);
+});
+
 test('initialized scopes skip the legacy Schedule and full-record scan during bootstrap',async()=>{
   const db=database(),deviceId=randomUUID(),largeLegacy={legacyHistory:'x'.repeat(200_000)};
   db.legacySchedule={storage_value:largeLegacy,revision:5,content_hash:hash(largeLegacy),deleted_at:null,updated_at:new Date().toISOString()};
