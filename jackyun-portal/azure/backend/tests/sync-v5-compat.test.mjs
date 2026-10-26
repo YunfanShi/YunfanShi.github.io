@@ -50,6 +50,7 @@ test('compact v4 Schedule delta can safely expand into a large compatibility pro
     if(sql.startsWith('SELECT public.prune_sync_changes()'))return {rows:[]};
     if(sql.includes('apply_web_sync_operation')){expandedBytes=Buffer.byteLength(params[6]);return {rows:[{result:{status:'applied',revision:11,contentHash:createHash('sha256').update(canonicalJson(JSON.parse(params[6]))).digest('hex')}}]};}
     if(sql.startsWith('SELECT scope,record_id,revision,content_hash,value,deleted_at FROM public.sync_v5_records'))return {rows:[]};
+    if(sql.startsWith('UPDATE public.legacy_sync_data SET revision=$2,content_hash=$3,updated_at=now(),deleted_at=NULL'))return {rows:[{user_id:userId}]};
     if(sql.startsWith('INSERT INTO public.sync_v5_records')||sql.startsWith('INSERT INTO public.sync_v5_changes')||sql.startsWith('INSERT INTO public.legacy_sync_data')||sql.startsWith('INSERT INTO public.sync_v5_projection_heads')||sql.startsWith('INSERT INTO public.sync_change_log')||sql.startsWith('INSERT INTO public.sync_v3_receipts'))return {rows:[]};
     if(sql.startsWith('INSERT INTO public.sync_v5_heads'))return {rows:[{sequence:1}]};
     if(sql.startsWith('INSERT INTO public.sync_change_heads'))return {rows:[{sequence:1}]};
