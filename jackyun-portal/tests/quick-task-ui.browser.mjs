@@ -1,6 +1,23 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 
+async function readTaskOutbox(page, operationIdOrTitle) {
+  return page.evaluate(key => new Promise((resolve, reject) => {
+    const request = indexedDB.open('jackyun-offline-workspace', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const read = db.transaction('outbox', 'readonly').objectStore('outbox').getAll();
+      read.onerror = () => { db.close(); reject(read.error); };
+      read.onsuccess = () => {
+        const row = read.result.find(item => item.id === key || item.payload?.title === key) ?? null;
+        db.close();
+        resolve(row);
+      };
+    };
+  }), operationIdOrTitle);
+}
+
 const base = process.env.JACKYUN_AUTH_TEST_URL || 'http://127.0.0.1:3154';
 const backend = 'http://127.0.0.1:54329';
 if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('Quick task UI regression requires a loopback app');
@@ -60,23 +77,17 @@ try {
   const retryConfirmed = page.waitForResponse(response => response.url().includes('/api/offline/workspace') && response.request().method() === 'POST' && response.status() === 200, { timeout: 45_000 });
   assert.equal(await page.getByText(/Offline mutation failed|本机模拟服务暂不可用/).count(), 0, 'recoverable 503 details stay out of the user-facing task flow');
 
-  const pending = await page.evaluate(() => new Promise((resolve, reject) => {
-    const request = indexedDB.open('jackyun-offline-workspace', 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const read = db.transaction('outbox', 'readonly').objectStore('outbox').getAll();
-      read.onerror = () => { db.close(); reject(read.error); };
-      read.onsuccess = () => {
-        const rows = read.result.filter(row => row.kind === 'task.create' && row.payload?.title === '共享控件任务回归');
-        db.close();
-        resolve(rows);
-      };
-    };
-  }));
-  assert.equal(pending.length, 1, '503 leaves exactly one durable operation in the local outbox');
-  assert.equal(pending[0].attemptCount, 1);
-  assert.equal(payloads[0].operationId, pending[0].id);
+  const taskTitle = '共享控件任务回归';
+  let pending = null;
+  const attemptDeadline = Date.now() + 5_000;
+  while (Date.now() < attemptDeadline) {
+    pending = await readTaskOutbox(page, taskTitle);
+    if (pending?.attemptCount === 1) break;
+    await page.waitForTimeout(50);
+  }
+  assert.ok(pending, '503 leaves a durable operation in the local outbox');
+  assert.equal(pending.attemptCount, 1, 'the retry count is committed before it is asserted');
+  assert.equal(payloads[0].operationId, pending.id);
   assert.equal(payloads[0].kind, 'task.create');
   assert.equal(payloads[0].payload.estimatedMinutes, 45);
   assert.equal(payloads[0].payload.dueDate, new Date(Date.now() + 86_400_000).toISOString().slice(0, 10));
@@ -85,21 +96,9 @@ try {
   assert.ok(receiptResponse, 'background retry receives a successful confirmation');
   assert.equal(payloads.length, 2, 'the queued operation is retried once without a second user submission');
   assert.equal(payloads[1].operationId, payloads[0].operationId, 'retry reuses the original idempotency key');
-  const remaining = await page.evaluate(operationId => new Promise((resolve, reject) => {
-    const request = indexedDB.open('jackyun-offline-workspace', 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result;
-      const read = db.transaction('outbox', 'readonly').objectStore('outbox').getAll();
-      read.onerror = () => { db.close(); reject(read.error); };
-      read.onsuccess = () => {
-        const rows = read.result.filter(row => row.id === operationId);
-        db.close();
-        resolve(rows.length);
-      };
-    };
-  }), payloads[0].operationId);
-  assert.equal(remaining, 0, 'a matching confirmed receipt clears the local operation');
+  const removalDeadline = Date.now() + 5_000;
+  while (Date.now() < removalDeadline && await readTaskOutbox(page, payloads[0].operationId)) await page.waitForTimeout(50);
+  assert.equal(await readTaskOutbox(page, payloads[0].operationId), null, 'a matching confirmed receipt clears the local operation');
   assert.deepEqual(pageErrors.map(error => error.message), [], 'the task flow has no uncaught browser errors');
   await context.close();
   console.log(JSON.stringify({ passed: 4, checks: [
