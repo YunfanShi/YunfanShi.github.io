@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 export const UPDATE_HISTORY: UpdateEntry[] = [
+  { version: '3.47.7', date: '2026-10-26', dateLabel: '2026 年 10 月 26 日', title: '跨标签页页面同步续接', summary: '切换页面时若另一标签页占用同步租约，请求现在会保留并退避重试，直到最新页面资源完成核对。', categories: ['稳定性'], accent: 'blue', featured: false, highlights: ['租约竞争不会绕过 Web Locks 或 IndexedDB 租约；路径意图保留为最新页面，并以递增且有上限的间隔重新尝试。', '离线或页面隐藏时不启动重试计时器；联网、恢复可见或同步退避到期后继续处理待同步页面。', '新增跨标签页持锁回归测试；v5 仍默认关闭，未执行数据库迁移或生产账号读写。'] },
   { version: '3.47.6', date: '2026-10-26', dateLabel: '2026 年 10 月 26 日', title: '页面切换同步当前资源', summary: '切换页面后立即同步该页面订阅的资源，不再等待轮询间隔和最近同步冷却结束。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['根级同步组件监听 App Router 路径变化，并只为新页面选择对应的 v5 资源字段。', '同步进行时的多次路由变化合并为一次最新页面补跑，仍遵守跨标签页协调与失败退避。', '本次不启用 v5 灰度、不触碰生产数据库；认证读写和真实跨设备验收仍待完成。'] },
   { version: '3.47.5', date: '2026-10-26', dateLabel: '2026 年 10 月 26 日', title: '离线任务错误静默与自动续传', summary: '可恢复的 503 不再打断快速添加任务；任务先保存在本机队列，再使用同一操作编号后台重试。', categories: ['稳定性'], accent: 'blue', featured: false, highlights: ['快速任务回归用例验证用户看到已记录提示，而不是暴露临时网络错误。', '回归用例覆盖 IndexedDB 保留唯一操作，以及后台重试复用原幂等编号。', '本次修复不改变同步协议或 v5 灰度；Azure 数据库验收仍待完成。'] },
   { version: '3.47.4', date: '2026-10-26', dateLabel: '2026 年 10 月 26 日', title: 'v4 兼容写入回归测试修复', summary: '兼容投影更新既有 Schedule 行时，Azure SQL 测试夹具现已识别 metadata-only UPDATE。', categories: ['稳定性'], accent: 'blue', highlights: ['复现并修复 sync-v5-compat 第二个用例因 mock 不支持 UPDATE 而失败的问题。', '不改变生产 SQL、协议行为或 v5 灰度状态；Azure 生产迁移和账号读写仍需独立验收。'] },
