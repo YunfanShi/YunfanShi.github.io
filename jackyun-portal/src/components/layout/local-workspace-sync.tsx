@@ -263,5 +263,5 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     return()=>{window.removeEventListener('jackyun-sync-lane',onLane);for(const retry of recoveryTimers.values())clearTimeout(retry);channel?.close();window.removeEventListener('jackyun-local-durability',onDurable);cancelled=true;controller.abort();window.clearInterval(timer);editTrigger.dispose();
       for(const [name,listener]of listeners)window.removeEventListener(name,listener);document.removeEventListener('visibilitychange',onVisibility);};
   },[userId]);
-  return <><WorkspaceRouteSyncTrigger/><LocalDurabilityNotice/></>;
+  return <>{userId&&<WorkspaceRouteSyncTrigger/>}<LocalDurabilityNotice/></>;
 }
