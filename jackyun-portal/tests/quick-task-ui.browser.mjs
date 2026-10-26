@@ -46,11 +46,17 @@ try {
     return field?.value === '共享控件任务回归' && button instanceof HTMLButtonElement && !button.disabled;
   });
   const failedResponse = page.waitForResponse(response => response.url().includes('/api/offline/workspace') && response.request().method() === 'POST' && response.status() === 503, { timeout: 10_000 });
+  let initialPostStarted = false;
+  page.on('request', request => {
+    if (request.url().includes('/api/offline/workspace') && request.method() === 'POST') initialPostStarted = true;
+  });
   await addButton.click();
   await page.getByText('已记录，联网后同步').first().waitFor();
   await page.waitForFunction(() => document.querySelector('input[placeholder="快速添加一个学习任务…"]')?.value === '');
-  await page.evaluate(() => window.dispatchEvent(new Event('jackyun-sync-retry')));
-  await failedResponse;
+  const retryPump = setInterval(() => {
+    if (!initialPostStarted) void page.evaluate(() => window.dispatchEvent(new Event('jackyun-sync-retry'))).catch(() => {});
+  }, 250);
+  try { await failedResponse; } finally { clearInterval(retryPump); }
   const retryConfirmed = page.waitForResponse(response => response.url().includes('/api/offline/workspace') && response.request().method() === 'POST' && response.status() === 200, { timeout: 45_000 });
   assert.equal(await page.getByText(/Offline mutation failed|本机模拟服务暂不可用/).count(), 0, 'recoverable 503 details stay out of the user-facing task flow');
 
