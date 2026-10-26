@@ -152,7 +152,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     let queuedResolution: SyncResolutionRequest | undefined;
     let queuedV5Resolution:{operationId:string;choice:'local'|'remote'}|undefined;
     let activePathname=window.location.pathname,queuedRouteSync=false,routeRetryDelay=1_000;
-    let routeRetryTimer:ReturnType<typeof setTimeout>|undefined;
+    let routeRetryTimer:number|undefined;
     const scheduleRouteRetry=()=>{
       if(routeRetryTimer||cancelled||signingOut||!queuedRouteSync||!navigator.onLine||document.visibilityState!=='visible'||isWorkspaceSleeping())return;
       const delay=routeRetryDelay;routeRetryDelay=Math.min(30_000,routeRetryDelay*2);
