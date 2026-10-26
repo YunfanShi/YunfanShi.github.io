@@ -52,6 +52,7 @@ function harness() {
   const requests: { method: string; url: string; body?: { operations: SyncOperation[] } }[] = [];
   const resourcePaths:string[]=[];
   const locks = new Set<string>();
+  const windowTimers=new Map<number,()=>void>();let timerSequence=0;
   const tabs: { win: EventTarget; doc: EventTarget & { visibilityState: string }; nav: { onLine: boolean }; ticks: (() => void)[]; stop: () => void; status: any }[] = [];
   const storage = { get length() { return values.size; }, key: (i: number) => [...values.keys()][i] ?? null,
     getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) };
@@ -82,17 +83,17 @@ function harness() {
     let pathname='/schedule',routePathRef:{current:string}|undefined;
     const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
     const win = Object.assign(new EventTarget(), { location: { pathname: '/schedule' }, setInterval: (task: () => void) => { ticks.push(task); return ticks.length; },
-      clearInterval: () => {}, setTimeout: () => 1, clearTimeout: () => {}, matchMedia: () => ({ matches: false }) });
-    const nav = { onLine: true, userAgent: 'test', locks: { request: async (name: string, _options: unknown, task: (lock: unknown) => Promise<void>) => {
+      clearInterval: () => {}, setTimeout: (task:()=>void) => {const id=++timerSequence;windowTimers.set(id,task);return id;}, clearTimeout: (id:number) => {windowTimers.delete(id);}, matchMedia: () => ({ matches: false }) });
+    const nav = { onLine: true, userAgent: 'test', locks: { request: async (name: string, _options: unknown, task: (lock: unknown) => Promise<unknown>) => {
       if (locks.has(name)) return task(null);
-      locks.add(name); try { await task({ name }); } finally { locks.delete(name); }
+      locks.add(name); try { return await task({ name }); } finally { locks.delete(name); }
     } } };
     const result = { win, doc, nav, ticks, stop: () => {}, status: null as any, navigate:(path:string)=>{pathname=path;win.location.pathname=path;exports.default({userId:'alice'});effects.at(-1)?.();} };
     const exports: Record<string, any> = {};
     const modules: Record<string, unknown> = {
       'react/jsx-runtime':{jsx:(component:unknown)=>typeof component==='function'?(component as ()=>unknown)():null,jsxs:(component:unknown)=>typeof component==='function'?(component as ()=>unknown)():null},'./local-durability':{default:()=>null},'next/navigation':{usePathname:()=>pathname},
       '@/lib/sync/repository':{workspaceStorage:storage,initializeRepository:async()=>{},flushLocalWrites:async()=>{},applyRepositoryRecord:async(key:string,value:string|null)=>{if(value===null)storage.removeItem(key);else storage.setItem(key,value);},projectCommittedRepositoryRecord:async()=>{},setV5ScheduleAuthority:()=>{}},
-      '@/lib/sync/scheduler':{runScheduledSync:async(lane:string,userId:string,work:()=>Promise<void>)=>nav.locks.request('shared:'+lane+userId,{},async lock=>{if(lock)await work();}),createEditTrigger:()=>({trigger:()=>{},dispose:()=>{}})},
+      '@/lib/sync/scheduler':{runScheduledSync:async(lane:string,userId:string,work:()=>Promise<void|boolean>)=>nav.locks.request('shared:'+lane+userId,{},async lock=>lock?await work():false),createEditTrigger:()=>({trigger:()=>{},dispose:()=>{}})},
       react: { useEffect: (effect: () => (() => void) | undefined) => effects.push(effect), useRef:(value:string)=>routePathRef??(routePathRef={current:value}) },
       '@/lib/sync/engine':{createWorkspaceSync},
       '@/lib/sync/resource-engine':{createV5ResourceSync:()=>({synchronize:async()=>({enabled:false,conflicts:[]}),resolveConflict:async()=>{}}),resourceFieldsForPath:(path:string)=>{resourcePaths.push(path);return[];}},
@@ -156,7 +157,8 @@ function harness() {
   return { tab, tabs, requests, resourcePaths, storage, settings, outboxApi,
     set cloudRecords(value: SyncRecord[]) { cloudRecords = value; },
     get outbox() { return outbox; }, set blocked(value: boolean) { blocked = value; }, set conflict(value: boolean) { conflict = value; }, set fail(value: boolean) { fail = value; },
-    release() { blocked = false; release?.(); }, advance(ms: number) { now += ms; tabs.forEach(tab => tab.ticks.forEach(tick => tick())); } };
+    set workspaceLockHeld(value:boolean){if(value)locks.add('shared:workspacealice');else locks.delete('shared:workspacealice');},
+    release() { blocked = false; release?.(); },runTimers(){const pending=[...windowTimers.values()];windowTimers.clear();pending.forEach(task=>task());}, advance(ms: number) { now += ms; tabs.forEach(tab => tab.ticks.forEach(tick => tick())); } };
 }
 
 test('four tabs idle for an hour share a bounded 30-second pull budget and no full-value downloads or uploads', async () => {
@@ -174,6 +176,16 @@ test('page navigation immediately syncs the new page subscription despite the re
   tab.navigate('/review');await settle();
   assert.ok(h.requests.length>initialRequests,'route change must not wait for the next 30-second poll');
   assert.equal(h.resourcePaths.at(-1),'/review');
+  tab.stop();
+});
+
+test('route subscription is retried after another tab releases the workspace lease',async()=>{
+  const h=harness(),tab=h.tab();await settle();
+  h.workspaceLockHeld=true;tab.navigate('/review');await settle();
+  assert.notEqual(h.resourcePaths.at(-1),'/review','a held cross-tab lease must not be bypassed');
+  h.workspaceLockHeld=false;h.runTimers();await settle();
+  assert.equal(h.resourcePaths.at(-1),'/review');
+  assert.equal(h.resourcePaths.filter(path=>path==='/review').length,1,JSON.stringify(h.resourcePaths));
   tab.stop();
 });
 
