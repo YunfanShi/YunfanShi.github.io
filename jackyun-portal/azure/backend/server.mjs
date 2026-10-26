@@ -51,7 +51,7 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
     const send = (status, value) => { httpStatus=status;response.writeHead(status); response.end(JSON.stringify({ ...value, requestId })); };
     try {
       const url = new URL(request.url, 'http://localhost');route=url.pathname;
-      if (url.pathname === '/health/live' && request.method === 'GET') { send(200, { ok: true,version:'3.8.0',syncProtocol:5,transferEncoding:'gzip',legacyEncoding:'identity' }); return; }
+      if (url.pathname === '/health/live' && request.method === 'GET') { send(200, { ok: true,version:'3.9.0',syncProtocol:5,transferEncoding:'gzip',legacyEncoding:'identity' }); return; }
       if (!paths.has(url.pathname)) throw new ApiError(404, 'NOT_FOUND');
       const origin = request.headers.origin;
       if (origin && !allowedOrigins.includes(origin)) throw new ApiError(403, 'ORIGIN_DENIED');
