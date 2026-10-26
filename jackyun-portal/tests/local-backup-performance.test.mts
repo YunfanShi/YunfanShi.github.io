@@ -104,9 +104,10 @@ test('visible idle scans fall to 240 per hour; hidden scans pause and exits stil
   const exports: Record<string, any> = {};
   runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX } }).outputText, {
     exports, require: (name: string) => {
-      if(name==='react/jsx-runtime')return {jsx:()=>null};
+      if(name==='react/jsx-runtime')return {jsx:()=>null,jsxs:()=>null};
+      if(name==='next/navigation')return {usePathname:()=>'/schedule'};
       if(name.endsWith('/sync/repository'))return {workspaceStorage:localStorage};
-      if (name === 'react') return { useEffect: (effect: () => () => void) => effects.push(effect) };
+      if (name === 'react') return { useEffect: (effect: () => () => void) => effects.push(effect), useRef:(current:unknown)=>({current}) };
       if (name.endsWith('/local-workspace')) return { isSyncableStorageKey: (key: string) => key === 'study' };
       if (name.endsWith('/backup/pages')) return { isBackupableLegacyKey: (key: string) => key === 'study', legacyBackupPage: () => 'study' };
       if (name.endsWith('/backup/local')) return { localPageValues: (value: unknown) => value, saveLocalBackup: async (_user: unknown, _page: unknown, value: { study: string }) => { backups.push(value.study); } };

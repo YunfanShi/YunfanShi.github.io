@@ -1,6 +1,7 @@
 'use client';
 
-import {useEffect} from 'react';
+import {useEffect,useRef} from 'react';
+import {usePathname} from 'next/navigation';
 import LocalDurabilityNotice from './local-durability';
 import {fetchAuthenticatedSync as fetchSyncWithTimeout} from '@/lib/sync/session-transport';
 import {shouldPauseSync} from '@/lib/sync/retry-policy';
@@ -39,6 +40,17 @@ function localSnapshot(includeLarge = false): Record<string, string> {
 function deviceDescription() {
   const mobile=/Android|iPhone|iPad/i.test(navigator.userAgent), standalone=window.matchMedia('(display-mode: standalone)').matches;
   return {name:`${mobile?'Mobile':'Desktop'} ${standalone?'PWA':'Browser'}`,platform:standalone?'pwa':mobile?'mobile-web':'web'};
+}
+
+function WorkspaceRouteSyncTrigger() {
+  const pathname=usePathname();
+  const lastRoutePathname=useRef(pathname);
+  useEffect(()=>{
+    if(!pathname||pathname===lastRoutePathname.current)return;
+    lastRoutePathname.current=pathname;
+    window.dispatchEvent(new CustomEvent('jackyun-sync-page-change',{detail:{pathname}}));
+  },[pathname]);
+  return null;
 }
 
 export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
@@ -139,11 +151,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       setAuthority:async scopes=>{if(cancelled||signingOut)return;setV5ScheduleAuthority(scopes);v5Enabled=scopes.length>0;v5Authority=SYNC_V5_SCOPES.every(scope=>scopes.includes(scope));await accountStore.setSetting('v5ScheduleAuthority',v5Authority);},databaseScope:accountStore.databaseScope,isCurrent:()=>!cancelled&&!signingOut,uuid:()=>crypto.randomUUID()});
     let queuedResolution: SyncResolutionRequest | undefined;
     let queuedV5Resolution:{operationId:string;choice:'local'|'remote'}|undefined;
+    let activePathname=window.location.pathname,queuedRouteSync=false;
     async function sync(manual=false,allowHidden=false,resolution?:SyncResolutionRequest,reason=manual?'manual':'periodic') {
       if(cancelled||signingOut||!bound||isWorkspaceSleeping())return;
       if(!manual&&!allowHidden&&document.visibilityState!=='visible'){await engine.capture();return;}
       if(resolution)queuedResolution=resolution;
-      if(!gate.begin(manual))return;
+      if(!gate.begin(manual)){if(reason==='route')queuedRouteSync=true;return;}
+      const routeForRun=activePathname;
       requestReason=reason;
       if(manual){authPaused=false;}
       try {
@@ -154,13 +168,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           if(authPaused)return false;
           const [pending,conflicts,lastRead,v5Pending]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull'),v5Enabled?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([])]);
           const blocked=new Set(conflicts.map(c=>c.key));
-          if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&!v5Pending.length&&requestReason!=='edit'&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
+          if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&!v5Pending.length&&requestReason!=='edit'&&requestReason!=='route'&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
           if(queuedResolution){const choice=queuedResolution;await engine.resolve(choice.operationId,choice.choice,choice.review);if(queuedResolution===choice)queuedResolution=undefined;await engine.flush();}
           if(queuedV5Resolution){const choice=queuedV5Resolution;await v5Sync.resolveConflict(choice.operationId,choice.choice);if(queuedV5Resolution===choice)queuedV5Resolution=undefined;}
           await v5Sync.refreshAuthority?.();
           await engine.synchronize();
-          const v5Result=await v5Sync.synchronize(resourceFieldsForPath(window.location.pathname));
+          const v5Result=await v5Sync.synchronize(resourceFieldsForPath(routeForRun));
           v5Enabled=v5Result.enabled;v5Authority=v5Result.authoritativeSchedule;
           await flushLocalWrites();await engine.capture();
           await accountStore.setSetting('lastAutomaticPull',Date.now());
@@ -184,7 +198,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         emitDiagnostic('error','WorkspaceSync','同步未确认，原始内容与待上传修改保留',{error:errorDetails(error),failures,online:navigator.onLine});
         void reportSyncFailure(error,'cycle');
         await publish(syncFailureStatus(error,navigator.onLine,failures),error instanceof Error?error.message:'同步失败');
-      } finally {if(gate.finish()&&!cancelled&&!signingOut)void sync(true);}
+      } finally {
+        const manualQueued=gate.finish();
+        if(!cancelled&&!signingOut){
+          if(manualQueued){queuedRouteSync=false;void sync(true);}
+          else if(queuedRouteSync){queuedRouteSync=false;void sync(false,false,undefined,'route');}
+        }
+      }
     }
     workspaceStorage.removeItem('jackyun_guest_mode');
     void publish('syncing',undefined,'正在初始化版本同步…');
@@ -217,6 +237,12 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const onWake=()=>void sync(false,false,undefined,'resume');
     const onOffline=()=>void publish('offline_pending');
     const onRetry=()=>void sync(true);
+    const onRouteChange=(event:Event)=>{
+      const next=(event as CustomEvent<{pathname?:unknown}>).detail?.pathname;
+      if(typeof next!=='string'||!next||next===activePathname)return;
+      activePathname=next;
+      void sync(false,false,undefined,'route');
+    };
     const onResolve=(event:Event)=>{const detail=(event as CustomEvent<SyncResolutionRequest>).detail;if(detail?.operationId&&['local','remote','merged'].includes(detail.choice))void sync(true,false,detail);};
     const onResolveV5=(event:Event)=>{const detail=(event as CustomEvent<{operationId:string;choice:'local'|'remote'}>).detail;if(detail?.operationId&&['local','remote'].includes(detail.choice)){queuedV5Resolution=detail;void sync(true);}};
     const onVisibility=()=>{if(document.visibilityState==='visible')void sync();else void engine.capture();};
@@ -230,12 +256,12 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const onDurable=(event:Event)=>{if((event as CustomEvent).detail?.state==='saved')channel?.postMessage({wake:true});};
     window.addEventListener('jackyun-local-durability',onDurable);
     const listeners:[string,EventListener][]=[['online',onOnline],['offline',onOffline],['focus',onWake],['pagehide',onLeave],
-      ['jackyun-local-durability',onEdit],['storage',onEdit],['jackyun-auth-recovered',onRetry],['jackyun-sync-retry',onRetry],['jackyun-sync-resolve',onResolve],['jackyun-sync-v5-resolve',onResolveV5],['jackyun-sync-edit',onEdit],['jackyun-signout-start',onSignOut],
+      ['jackyun-local-durability',onEdit],['storage',onEdit],['jackyun-auth-recovered',onRetry],['jackyun-sync-retry',onRetry],['jackyun-sync-resolve',onResolve],['jackyun-sync-v5-resolve',onResolveV5],['jackyun-sync-edit',onEdit],['jackyun-sync-page-change',onRouteChange],['jackyun-signout-start',onSignOut],
       ['jackyun-signout-cancel',onCancel],['jackyun-sync-before-signout',onBeforeSignOut],[BEFORE_SLEEP_EVENT,onSleep],[WAKE_EVENT,onWake]];
     for(const [name,listener]of listeners)window.addEventListener(name,listener);
     document.addEventListener('visibilitychange',onVisibility);
     return()=>{window.removeEventListener('jackyun-sync-lane',onLane);for(const retry of recoveryTimers.values())clearTimeout(retry);channel?.close();window.removeEventListener('jackyun-local-durability',onDurable);cancelled=true;controller.abort();window.clearInterval(timer);editTrigger.dispose();
       for(const [name,listener]of listeners)window.removeEventListener(name,listener);document.removeEventListener('visibilitychange',onVisibility);};
   },[userId]);
-  return <LocalDurabilityNotice/>;
+  return <>{userId&&<WorkspaceRouteSyncTrigger/>}<LocalDurabilityNotice/></>;
 }
