@@ -105,6 +105,7 @@ test('visible idle scans fall to 240 per hour; hidden scans pause and exits stil
   runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX } }).outputText, {
     exports, require: (name: string) => {
       if(name==='react/jsx-runtime')return {jsx:()=>null};
+      if(name==='next/navigation')return {usePathname:()=>'/schedule'};
       if(name.endsWith('/sync/repository'))return {workspaceStorage:localStorage};
       if (name === 'react') return { useEffect: (effect: () => () => void) => effects.push(effect) };
       if (name.endsWith('/local-workspace')) return { isSyncableStorageKey: (key: string) => key === 'study' };
