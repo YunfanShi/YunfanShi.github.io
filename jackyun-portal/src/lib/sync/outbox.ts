@@ -547,6 +547,77 @@ export async function bindSyncUser(userId: string | null): Promise<void> {
   }
 }
 export function activateGuestRepository(){account='guest';}
+
+/** Explicit migration policy: legacy cloud wins, without consuming v5 intent. */
+export async function replaceLegacyFromCloud(record:SyncRecord,expected:string|null,scope?:string):Promise<{applied:boolean;value:string|null}>{
+  if(!isSyncableStorageKey(record.key)||record.large||!Number.isSafeInteger(record.revision)||record.revision<0)throw Error('旧数据云端基线无效。');
+  if(!record.deleted){
+    const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(record.value)));
+    const hash=Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('');
+    if(hash!==record.contentHash)throw Error('旧数据云端 SHA-256 校验失败。');
+  }
+  if(record.key===SCHEDULE_DOCUMENT_KEY&&!record.deleted&&(!record.value||typeof record.value!=='object'||Array.isArray(record.value)))throw Error('云端 Schedule 格式无效，未替换本机内容。');
+  const db=await openDatabase(scope);
+  try{return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(['documents','metadata','outbox','conflicts','settings','v5Outbox','v5Conflicts'],'readwrite');
+    const documents=tx.objectStore('documents'),settings=tx.objectStore('settings');
+    const reads=[documents.get(record.key),tx.objectStore('outbox').getAll(),tx.objectStore('conflicts').getAll(),
+      settings.get('v5WorkspaceAuthorityKeys'),tx.objectStore('v5Outbox').getAll(),tx.objectStore('v5Conflicts').getAll(),settings.get('syncSubmission'),tx.objectStore('metadata').get(record.key)];
+    let done=0,failed=false,result={applied:false,value:expected};
+    const finish=()=>{if(++done!==reads.length||failed)return;try{
+      const [document,pending,conflicts,authority,v5Pending,v5Conflicts,submission,metadata]=reads.map(read=>read.result);
+      if((document?.value??null)!==expected)return;
+      const workspaceId=legacyWorkspaceRecordId(record.key);
+      if(record.key!==SCHEDULE_DOCUMENT_KEY&&((authority?.value??[]).includes(record.key)
+        ||workspaceId&&[...v5Pending,...v5Conflicts].some(row=>row.scope==='workspace'&&row.recordId===workspaceId)))return;
+      let value=record.deleted?null:typeof record.value==='string'?record.value:JSON.stringify(record.value);
+      if(record.key===SCHEDULE_DOCUMENT_KEY){
+        const base=record.deleted?{}:record.value as Record<string,unknown>;
+        const rows=new Map(scheduleToResources(base).map(row=>[`${row.scope}\0${row.recordId}`,row]));
+        const touched=new Set<string>();
+        for(const operation of v5Pending as V5ResourceOperation[]){
+          if(operation.scope==='workspace')continue;
+          const field=operation.recordId.slice(0,operation.recordId.indexOf(':'));touched.add(field);
+          const key=`${operation.scope}\0${operation.recordId}`;
+          if(operation.deleted)rows.delete(key);else rows.set(key,{scope:operation.scope,recordId:operation.recordId,field,itemId:decodeURIComponent(operation.recordId.slice(operation.recordId.indexOf(':')+1)),value:operation.value});
+        }
+        for(const conflict of v5Conflicts as V5ResourceConflict[]){
+          if(conflict.scope==='workspace')continue;
+          const field=conflict.recordId.slice(0,conflict.recordId.indexOf(':'));touched.add(field);
+          const key=`${conflict.scope}\0${conflict.recordId}`;
+          if(conflict.localDeleted)rows.delete(key);else rows.set(key,{scope:conflict.scope,recordId:conflict.recordId,field,itemId:decodeURIComponent(conflict.recordId.slice(conflict.recordId.indexOf(':')+1)),value:conflict.localValue});
+        }
+        // An unconfirmed new item can precede its ordering operation in the queue.
+        for(const field of touched){
+          const intents=[...(v5Pending as V5ResourceOperation[]).filter(row=>row.scope!=='workspace'&&!row.deleted).map(row=>({scope:row.scope,recordId:row.recordId})),
+            ...(v5Conflicts as V5ResourceConflict[]).filter(row=>row.scope!=='workspace'&&!row.localDeleted).map(row=>({scope:row.scope,recordId:row.recordId}))];
+          const additions=intents.flatMap(intent=>{const row=rows.get(`${intent.scope}\0${intent.recordId}`);return row?.field===field&&!row.itemId.startsWith('$')?[row.itemId]:[];});
+          if(!additions.length)continue;
+          const template=scheduleToResources({[field]:[]}).find(row=>row.field===field&&row.itemId==='$order')
+            ??scheduleToResources({[field]:{}}).find(row=>row.field===field&&row.itemId==='$keys');
+          if(!template)continue;
+          const markerKey=`${template.scope}\0${template.recordId}`,marker=rows.get(markerKey)??template;
+          const order=Array.isArray(marker.value)?marker.value:[];
+          rows.set(markerKey,{...marker,value:[...new Set([...order,...additions])]});
+        }
+        if(!record.deleted||touched.size)value=JSON.stringify(mergeScheduleResources(base,[...rows.values()],[...touched]));
+      }
+      const retired=(pending as SyncOperation[]).filter(row=>row.key===record.key),retiredConflicts=(conflicts as SyncConflict[]).filter(row=>row.key===record.key);
+      settings.put({key:`legacyCloudArchive:v1:${record.key}`,value:{document:document??null,metadata:metadata??null,operations:retired,conflicts:retiredConflicts,replacedAt:new Date().toISOString(),cloudRevision:record.revision,cloudHash:record.contentHash}});
+      if((submission?.value as SyncSubmission|undefined)?.operations.some(row=>row.key===record.key)){
+        settings.put({key:'legacyCloudSubmissionArchive:v1',value:submission.value});settings.put({key:'syncSubmission',value:null});
+      }
+      for(const row of retired)tx.objectStore('outbox').delete(row.id);
+      for(const row of retiredConflicts)tx.objectStore('conflicts').delete(row.operationId);
+      documents.put({...document,key:record.key,value,updatedAt:Date.now()});
+      tx.objectStore('metadata').put({...record,large:false});
+      settings.put({key:`legacyCloudComplete:v1:${record.key}`,value:{revision:record.revision,contentHash:record.contentHash,completedAt:new Date().toISOString()}});
+      result={applied:true,value};
+    }catch(error){failed=true;tx.abort();reject(error);}};
+    for(const read of reads)read.onsuccess=finish;
+    tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error??Error('旧数据云端替换事务失败。'));};
+  });}finally{db.close();}
+}
 /** A worker retains its account even if the UI switches accounts mid-request. */
 export function accountSyncStore(userId:string){
   const scope=`${DB_NAME}:${userId}`;
@@ -561,6 +632,7 @@ export function accountSyncStore(userId:string){
     getDownloadParts:(key:string,revision:number,hash:string|null)=>getDownloadParts(key,revision,hash,scope),
     saveDownloadPart:(p:SyncDownloadPart)=>saveDownloadPart(p,scope),clearDownload:(key:string)=>clearDownload(key,scope),
     commitPullPage:(checkpoint:unknown)=>commitPullPage(checkpoint,scope),getOrCreateDeviceId:()=>getOrCreateDeviceId(scope),
+    replaceLegacyFromCloud:(record:SyncRecord,expected:string|null)=>replaceLegacyFromCloud(record,expected,scope),
   };
 }
 export async function projectionOwner(userId?:string):Promise<string|null>{

@@ -6,11 +6,39 @@ import {createV5ResourceSync,resourceFieldsForPath,retainV5ScheduleAuthority} fr
 import {legacyWorkspaceRecordId,resourceFieldsForScope} from '../src/lib/sync/resource-model.ts';
 import {canonicalJson} from '../src/lib/sync/hash.ts';
 import {SYNC_V5_SCOPES} from '../src/lib/sync/resource-model.ts';
-import {WRITING_COLLECTIONS,writingItemKey} from '../src/lib/sync/writing-resource-model.ts';
+import {WRITING_COLLECTIONS,writingItemKey,writingMarkerKey} from '../src/lib/sync/writing-resource-model.ts';
 import {createHash} from 'node:crypto';
 
 Object.assign(globalThis,{indexedDB:new IDBFactory()});
 const id=()=>`v5-client-${crypto.randomUUID()}`;
+
+test('writing removals queue only item tombstones from an active, present editor projection',async()=>{
+  const collection=WRITING_COLLECTIONS[2],removed=legacyWorkspaceRecordId(writingItemKey(collection,'removed'))!;
+  for(const variant of ['active','missing','inactive','null'] as const){
+    const databaseScope=id(),db=await openDatabase(databaseScope);
+    try{await new Promise<void>((resolve,reject)=>{
+      const tx=db.transaction(['documents','v5Resources','v5FieldCursors'],'readwrite');
+      if(variant!=='missing')tx.objectStore('documents').put({key:collection.legacyKey,value:variant==='null'?null:'[]',writingProjection:variant!=='inactive',updatedAt:1});
+      for(const recordId of [removed,legacyWorkspaceRecordId(collection.legacyKey)!,legacyWorkspaceRecordId(writingMarkerKey(collection))!]){
+        tx.objectStore('v5Resources').put({scope:'workspace',recordId,revision:2,contentHash:'a'.repeat(64),deleted:false,value:{id:'removed'},updatedAt:'now'});
+      }
+      tx.objectStore('v5FieldCursors').put({scope:'workspace',field:collection.field,mode:'changes',after:'',cursor:2,head:2});
+      tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+    });}finally{db.close();}
+    const engine=createV5ResourceSync({databaseScope,request:async url=>{
+      if(url==='/api/sync/v5')return Response.json({capabilities:{v5:true,writingCollections:true},scopes:['workspace']});
+      throw Error('pause after capture');
+    },deviceId:async()=>crypto.randomUUID(),uuid:()=>crypto.randomUUID(),readSchedule:()=>null,readWorkspace:()=>getDocuments(databaseScope),projectSchedule:async()=>{},setAuthority:()=>{}});
+    await assert.rejects(engine.synchronize([{scope:'workspace',field:collection.field}]),/pause after capture/);
+    const queued=await getV5Outbox('workspace',databaseScope);
+    assert.equal(queued.length,variant==='active'?1:0,variant);
+    if(variant==='active'){
+      assert.equal(queued[0].recordId,removed);
+      assert.equal(queued[0].deleted,true);assert.equal(queued[0].value,null);
+      assert.equal(queued[0].baseRevision,2);assert.equal(queued[0].baseHash,'a'.repeat(64));
+    }
+  }
+});
 
 async function seed(dbName:string,value:string){
   const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction('documents','readwrite');tx.objectStore('documents').put({key:'jackyun_schedule_control_v1',value,updatedAt:0});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{db.close();}

@@ -1,5 +1,5 @@
 import {canonicalJson} from './hash.ts';
-import {WRITING_COLLECTIONS,writingCollectionForKey} from './writing-resource-model.ts';
+import {WRITING_COLLECTIONS,writingCollectionForKey,writingItemId} from './writing-resource-model.ts';
 import {prepareWritingCollection,resolveWritingConflictRemotely} from './writing-outbox.ts';
 import {legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceFieldsForScope,scheduleToResources,workspaceStorageToResources,SYNC_V5_SCHEDULE_SCOPES,SYNC_V5_SCOPES,type SyncV5ResourceTarget,type SyncV5Scope} from './resource-model.ts';
 import {acknowledgeV5Operations,acknowledgeV5WorkspaceOperations,commitV5ResourcePage,commitV5WorkspacePage,getConflicts,getOutbox,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,openDatabase,prepareV5WorkspaceAuthority,queueV5ResourceOperation,resolveV5ConflictLocally,resolveV5ConflictRemotely,resolveV5WorkspaceConflictRemotely,saveV5Conflicts,setV5Cursor,type V5ResourceConflict,type V5ResourceCursor,type V5ResourceOperation,type V5ResourceRecord} from './outbox.ts';
@@ -141,14 +141,23 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     const cursor=await getV5Cursor(scope,e.databaseScope,field);if(!cursor||cursor.mode!=='changes')return;
     if(scope==='workspace'){
       await e.flushLocalWrites?.();assertCurrent();
-      const wanted=workspaceStorageToResources(await e.readWorkspace?.()??[]).filter(row=>row.field===field);
+      const documents=await e.readWorkspace?.()??[];
+      const wanted=workspaceStorageToResources(documents).filter(row=>row.field===field);
       const remote=(await getV5Resources(scope,e.databaseScope)).filter(row=>row.recordId.slice(0,row.recordId.indexOf(':'))===field),byId=new Map(remote.map(row=>[row.recordId,row]));
       const pending=await getV5Outbox(scope,e.databaseScope),conflicts=await getV5Conflicts(e.databaseScope);
       const legacyPending=await getOutbox(e.databaseScope),legacyConflicts=await getConflicts(e.databaseScope);
       const legacyBlocked=new Set([...legacyPending.map(row=>row.key),...legacyConflicts.map(row=>row.key)].map(legacyWorkspaceRecordId).filter((recordId):recordId is string=>Boolean(recordId)));
       const blocked=new Set(conflicts.filter(row=>row.scope===scope&&row.recordId.startsWith(`${field}:`)).map(row=>row.recordId));
       const pendingIds=new Set(pending.filter(row=>row.scope===scope&&row.recordId.startsWith(`${field}:`)).map(row=>row.recordId));
-      for(const local of wanted){
+      const collection=WRITING_COLLECTIONS.find(row=>row.field===field);
+      const projection=collection&&documents.find(row=>row.key===collection.legacyKey&&row.writingProjection&&row.value!==null);
+      const wantedIds=new Set(wanted.map(row=>row.recordId));
+      const removals=collection&&projection&&!legacyBlocked.has(legacyWorkspaceRecordId(collection.legacyKey)!)
+        ?remote.filter(row=>{
+          const key=legacyWorkspaceKeyFromRecordId(row.recordId);
+          return !row.deleted&&!wantedIds.has(row.recordId)&&key!==null&&writingItemId(collection,key)!==null;
+        }).map(row=>({recordId:row.recordId,value:null,deleted:true})):[];
+      for(const local of [...wanted,...removals]){
         if(legacyBlocked.has(local.recordId)||blocked.has(local.recordId)||pendingIds.has(local.recordId))continue;
         const base=byId.get(local.recordId),deleted=Boolean(local.deleted);
         if(base&&base.deleted===deleted&&(deleted||equal(base.value,local.value)))continue;

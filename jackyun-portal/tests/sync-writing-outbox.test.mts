@@ -19,6 +19,35 @@ async function seed(dbName:string,work:(tx:IDBTransaction)=>void){
 }
 function put(tx:IDBTransaction,store:string,value:unknown){tx.objectStore(store).put(value);}
 
+test('writing baselines accept their exact legacy aggregate alongside the marker and item records',async()=>{
+  for(const collection of WRITING_COLLECTIONS){
+    const dbName=id(),item={ [collection.idField]:'item-a',savedAt:'2026-10-27',draft:{essay:'preserved draft'} };
+    const aggregate:V5ResourceRecord={scope:'workspace',recordId:recordId(collection.legacyKey),revision:1,contentHash:'a'.repeat(64),deleted:false,updatedAt:'now',value:[item]};
+    const marker={...aggregate,recordId:recordId(writingMarkerKey(collection)),value:{kind:'baseline'}};
+    const resource={...aggregate,recordId:recordId(writingItemKey(collection,'item-a')),value:item};
+    const updates=await commitWritingPage(openDatabase,[aggregate,marker,resource],{scope:'workspace',field:collection.field,mode:'changes',after:'',cursor:3,head:3},dbName);
+    assert.deepEqual(updates,[{key:collection.legacyKey,value:JSON.stringify([item])}]);
+    const db=await openDatabase(dbName);let result;
+    try{result=await prepareWritingCollection(db,collection.field);}finally{db.close();}
+    assert.equal(result.active,true);
+    assert.deepEqual(JSON.parse((await getDocuments(dbName)).find(row=>row.key===collection.legacyKey)!.value!),[item]);
+    assert.equal((await getV5Cursor('workspace',dbName,collection.field))?.cursor,3);
+    assert.equal((await getV5Resources('workspace',dbName)).length,3);
+    assert.deepEqual(await getV5Outbox('workspace',dbName),[]);
+  }
+});
+
+test('a foreign or malformed writing aggregate cannot commit records or advance the cursor',async()=>{
+  const dbName=id(),base={scope:'workspace' as const,recordId:recordId(essay.legacyKey),revision:1,contentHash:'a'.repeat(64),deleted:false,updatedAt:'now',value:{not:'an array'}};
+  const cursor={scope:'workspace' as const,field:essay.field,mode:'changes' as const,after:'',cursor:3,head:3};
+  await assert.rejects(commitWritingPage(openDatabase,[base],cursor,dbName));
+  assert.equal(await getV5Cursor('workspace',dbName,essay.field),null);
+  assert.deepEqual(await getV5Resources('workspace',dbName),[]);
+  const foreign={...base,recordId:recordId(WRITING_COLLECTIONS[2].legacyKey),value:[]};
+  await assert.rejects(commitWritingPage(openDatabase,[foreign],cursor,dbName));
+  assert.equal(await getV5Cursor('workspace',dbName,essay.field),null);
+});
+
 test('writing handoff splits legacy edits into stable v5 records and retains the editor projection',async()=>{
   const dbName=id(),base=[{id:'essay-a',savedAt:'2026-10-01',draft:{essay:'base',essayId:'essay-a',question:'',originalEssay:'',task:'task2'},feedback:null}],local=[{...base[0],draft:{...base[0].draft,essay:'local edit'}}];
   const marker={scope:'workspace' as const,recordId:recordId(writingMarkerKey(essay)),revision:1,contentHash:'a'.repeat(64),deleted:false,updatedAt:'now',value:{kind:'baseline'}};

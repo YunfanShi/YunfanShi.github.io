@@ -157,6 +157,15 @@ export async function applyRepositoryRecord(key:string,value:string|null,expecte
 export async function projectCommittedRepositoryRecord(key:string,value:string|null):Promise<void>{
   memory.set(key,value);await project(key,value);window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source:'v5',keys:[key]}}));
 }
+export async function projectLegacyCloudBaseline(key:string,value:string|null,expected:string|null):Promise<void>{
+  const owner=currentOwner;
+  if(await projectionOwner()!==(owner??'guest')||currentOwner!==owner)return;
+  if(workspaceStorage.getItem(key)!==expected&&workspaceStorage.getItem(key)!==value)return;
+  const failure=failures.get(key);if(failure&&failure.value===expected)failures.delete(key);
+  failed=failures.values().next().value?.error??null;
+  await projectCommittedRepositoryRecord(key,value);
+  if(!pending&&!failed)status('saved');
+}
 export function exportLocalRecovery():string {
   const native:Record<string,string>={};
   try{for(let i=0;i<projection().length;i++){const key=projection().key(i);if(key&&isSyncableStorageKey(key)){const value=projection().getItem(key);if(value!==null)native[key]=value;}}}catch{}

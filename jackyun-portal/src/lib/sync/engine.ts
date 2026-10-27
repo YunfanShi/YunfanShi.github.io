@@ -27,6 +27,7 @@ export interface SyncStore {
   getSetting?<T>(key:string):Promise<T|null>;
   setSetting?(key:string,value:unknown):Promise<void>;
   commitPullPage?(checkpoint:unknown):Promise<void>;
+  replaceLegacyFromCloud?(record:SyncRecord,expected:string|null):Promise<{applied:boolean;value:string|null}>;
 }
 export interface SyncEnvironment {
   store: SyncStore;
@@ -45,6 +46,7 @@ export interface SyncEnvironment {
   wait?(milliseconds: number): Promise<void>;
   usesV5Schedule?:()=>boolean;
   usesV5WorkspaceKey?:(key:string)=>boolean;
+  projectLegacyBaseline?:(key:string,value:string|null,expected:string|null)=>Promise<void>;
 }
 
 const parse = (value: string | null | undefined): unknown => {
@@ -250,6 +252,35 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       after=previous;
     }
   }
+  async function refreshLegacyCloudBaselines(){
+    if(!store.getSetting||!store.setSetting||!store.replaceLegacyFromCloud||!e.projectLegacyBaseline)return;
+    const fingerprint=async(value:string|null)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value??'__missing__'))),byte=>byte.toString(16).padStart(2,'0')).join('');
+    let plan=await store.getSetting<Record<string,string>>('legacyCloudPlan:v1');
+    if(!plan){
+      plan={};
+      for(const [key,value]of Object.entries(e.snapshot()))if(isSyncableStorageKey(key)&&!writingCollectionForKey(key)&&!e.usesV5WorkspaceKey?.(key))plan[key]=await fingerprint(value);
+      await store.setSetting('legacyCloudPlan:v1',plan);
+    }
+    const skipped=await store.getSetting<string[]>('legacyCloudSkipped:v1')??[];
+    const entries=Object.entries(plan).sort(([left],[right])=>Number(right==='jackyun_schedule_control_v1')-Number(left==='jackyun_schedule_control_v1'));
+    for(const [key,initialFingerprint]of entries){
+      if(e.cancelled())throw new DOMException('Sync cancelled','AbortError');
+      if(skipped.includes(key)||await store.getSetting(`legacyCloudComplete:v1:${key}`))continue;
+      if(writingCollectionForKey(key)||e.usesV5WorkspaceKey?.(key))continue;
+      const expected=e.read(key);
+      if(await fingerprint(expected)!==initialFingerprint){skipped.push(key);await store.setSetting('legacyCloudSkipped:v1',skipped);continue;}
+      e.progress('正在下载旧数据的云端最新版…');
+      const remote=await readRecord(key)??{key,value:null,revision:0,contentHash:null,deleted:true,updatedAt:new Date(e.now()).toISOString()};
+      if(e.cancelled())throw new DOMException('Sync cancelled','AbortError');
+      if(e.read(key)!==expected){skipped.push(key);await store.setSetting('legacyCloudSkipped:v1',skipped);continue;}
+      const result=await store.replaceLegacyFromCloud(remote,expected);
+      if(!result.applied)continue;
+      if(e.cancelled())throw new DOMException('Sync cancelled','AbortError');
+      await e.projectLegacyBaseline(key,result.value,expected);
+      const current=e.read(key);if(current===null)delete observed[key];else observed[key]=current;
+      e.changed([key]);
+    }
+  }
   async function capture() {
     if(e.cancelled())return;
     const snapshot = e.snapshot();
@@ -264,7 +295,8 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       const operation = pending.get(key), base = metadata.get(key);
       if (operation && operationMatchesStorage(operation,current ?? null)) continue;
       // An undo is also intent: the previous queued edit may already be in flight.
-      if (!operation && base && same(parse(current),valueOf(base))) continue;
+      if (!operation && base && (same(parse(current),valueOf(base)) ||
+        (base.deleted ? current === undefined : current === storageValueToString(base.value)))) continue;
       await store.queueOperation({id:e.uuid(),key,baseRevision:base?.revision ?? 0,baseHash:base?.contentHash ?? null,
         baseValue:base?.deleted ? null : base?.value ?? null,baseDeleted:base?.deleted ?? true,value:parse(current) ?? null,deleted:current === undefined,
         clientUpdatedAt:new Date(e.now()).toISOString()});
@@ -576,5 +608,5 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
     await flush();
     if (deferred) throw deferred;
   }
-  return {capture,pull,flush,resolve,synchronize};
+  return {capture,pull,flush,resolve,synchronize,refreshLegacyCloudBaselines};
 }

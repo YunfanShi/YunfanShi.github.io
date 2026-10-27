@@ -116,7 +116,8 @@ export async function commitWritingPage(open:(scope?:string)=>Promise<IDBDatabas
     for(const row of records){
       if(row.scope!=='workspace'||!row.recordId.startsWith(`${collection.field}:`))throw Error('Writing page field mismatch');
       const key=legacyWorkspaceKeyFromRecordId(row.recordId);
-      if(!key||key!==writingMarkerKey(collection)&&writingItemId(collection,key)===null)throw Error('Writing record identity invalid');
+      if(!key||key!==collection.legacyKey&&key!==writingMarkerKey(collection)&&writingItemId(collection,key)===null)throw Error('Writing record identity invalid');
+      if(key===collection.legacyKey&&!row.deleted)splitWritingCollection(collection,row.value);
       resourceStore.put(row);
       const index=state.resources.findIndex(old=>old.scope==='workspace'&&old.recordId===row.recordId);
       if(index<0)state.resources.push(row);else state.resources[index]=row;

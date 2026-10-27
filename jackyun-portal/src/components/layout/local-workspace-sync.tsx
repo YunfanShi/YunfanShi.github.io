@@ -5,7 +5,7 @@ import {usePathname} from 'next/navigation';
 import {fetchAuthenticatedSync as fetchSyncWithTimeout} from '@/lib/sync/session-transport';
 import {shouldPauseSync} from '@/lib/sync/retry-policy';
 import {runScheduledSync,createEditTrigger} from '@/lib/sync/scheduler';
-import {workspaceStorage,initializeRepository,flushLocalWrites,applyRepositoryRecord,projectCommittedRepositoryRecord,setV5ScheduleAuthority,setV5WorkspaceAuthorityKeys} from '@/lib/sync/repository';
+import {workspaceStorage,initializeRepository,flushLocalWrites,applyRepositoryRecord,projectCommittedRepositoryRecord,projectLegacyCloudBaseline,setV5ScheduleAuthority,setV5WorkspaceAuthorityKeys} from '@/lib/sync/repository';
 import {BEFORE_SLEEP_EVENT,LOCAL_SLEEP_SAVE_EVENT,WAKE_EVENT,isWorkspaceSleeping,type SleepRequest} from '@/lib/workspace-idle';
 import {createSyncRunGate} from '@/lib/sync/run-gate';
 import {announceSyncStatus as announce,getLatestSyncStatus} from '@/lib/sync/status';
@@ -147,6 +147,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       progress:progress=>{if(!cancelled){const current=getLatestSyncStatus();announce({...current??{state:'syncing',pending:0,conflicts:0,lastSyncedAt:null},progress});}},
       usesV5Schedule:()=>v5Authority,
       usesV5WorkspaceKey:key=>v5WorkspaceKeys.has(key),
+      projectLegacyBaseline:(key,value,expected)=>{if(cancelled||signingOut)throw new DOMException('Sync cancelled','AbortError');return projectLegacyCloudBaseline(key,value,expected);},
       deviceId:accountStore.getOrCreateDeviceId,device:deviceDescription,cancelled:()=>cancelled||signingOut||syncStore.isSyncLeaseLost?.(`recovery:${userId}:workspace`)===true,now:Date.now,uuid:()=>crypto.randomUUID(),
     });
     const v5Sync=createV5ResourceSync({request:(url,init)=>fetchSyncWithTimeout(url,{...init,headers:{...init?.headers,'X-Sync-Reason':requestReason,'X-Sync-Account':userId},signal:controller.signal},false),deviceId:accountStore.getOrCreateDeviceId,
@@ -186,6 +187,8 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       try {
         const work=async()=>{
           if(cancelled||signingOut)return false;
+          try{await flushLocalWrites();}catch{/* Only the verified cloud replacement below may retire a legacy failure. */}
+          if(navigator.onLine)await engine.refreshLegacyCloudBaselines();
           await flushLocalWrites();await engine.capture();
           if(!navigator.onLine){await publish('offline_pending');return false;}
           if(authPaused)return false;
