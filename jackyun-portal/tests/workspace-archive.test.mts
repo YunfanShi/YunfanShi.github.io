@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { IDBFactory } from 'fake-indexeddb';
-import { applyV5WorkspaceArchive, createV5WorkspaceArchive, parseV5WorkspaceArchive } from '../src/lib/backup/workspace-archive.ts';
+import { applyV5WorkspaceArchive, createV5WorkspaceArchive, createV5WorkspaceArchiveFromSources, parseV5WorkspaceArchive } from '../src/lib/backup/workspace-archive.ts';
 import { exportOfflineWorkspaceArchiveData, listOfflineMutations, restoreOfflineWorkspaceArchiveData } from '../src/lib/offline/workspace.ts';
 import { initializeRepository, workspaceStorage } from '../src/lib/sync/repository.ts';
 import { getSyncArchiveData, restoreSyncArchiveData } from '../src/lib/sync/outbox.ts';
@@ -32,6 +32,21 @@ test('v5 workspace archive round-trips a Schedule larger than 1 MB and checks re
   altered.records[0].value = `${schedule} `;
   await assert.rejects(parseV5WorkspaceArchive(JSON.stringify(altered)), /记录完整性校验失败/);
   await assert.rejects(parseV5WorkspaceArchive('{"format":"jackyun-v5-workspace","version":5}'), /归档版本或记录数量无效/);
+});
+
+test('portable archive export aborts if the active account changes during an IndexedDB read', async () => {
+  let activeOwner = 'export-owner-a';
+  let workspaceRead = false;
+  await assert.rejects(createV5WorkspaceArchiveFromSources({
+    assertContextCurrent: () => { if (activeOwner !== 'export-owner-a') throw new Error('account switched'); },
+    readOfflineWorkspace: async () => {
+      activeOwner = 'export-owner-b';
+      return { ownerId: 'export-owner-a', snapshots: [], outbox: [] };
+    },
+    readSyncState: async () => ({ ownerId: 'export-owner-a', legacyOutbox: [], legacyConflicts: [], v5Outbox: [], v5Conflicts: [] }),
+    readWorkspace: () => { workspaceRead = true; return {}; },
+  }), /account switched/);
+  assert.equal(workspaceRead, false, 'must not read the new account workspace into the archive');
 });
 
 test('workspace restore saves page recovery points first, preserves omitted keys, then queues changed v5 resources', async () => {

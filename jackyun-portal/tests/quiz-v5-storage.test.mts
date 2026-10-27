@@ -3,7 +3,7 @@ import test from 'node:test';
 import {IDBFactory} from 'fake-indexeddb';
 import {getDocuments,getOutbox} from '../src/lib/sync/outbox.ts';
 import {applyRepositoryRecord,initializeRepository,workspaceStorage} from '../src/lib/sync/repository.ts';
-import {appendLocalQuizHistory,clearCurrentQuizProgress,clearCurrentSession,clearOfflineAnswers,getCurrentQuestions,getCurrentQuizProgress,getCurrentSession,getLocalQuizHistory,getOfflineAnswers,getQuizSettings,getSelectedSubject,queueOfflineAnswer,quizProgressMatchesQuestions,saveCurrentQuestions,saveCurrentQuizProgress,saveCurrentSession,saveQuizSettings,saveSelectedSubject} from '../src/lib/quiz/storage.ts';
+import {appendLocalQuizHistory,clearCurrentQuizProgress,clearCurrentSession,clearOfflineAnswers,getCurrentQuestions,getCurrentQuizProgress,getCurrentSession,getLocalQuizHistory,getOfflineAnswers,getQuizSettings,getSelectedSubject,queueOfflineAnswer,quizProgressMatchesQuestions,quizProgressQuestionIds,saveCurrentQuestions,saveCurrentQuizProgress,saveCurrentSession,saveQuizSettings,saveSelectedSubject} from '../src/lib/quiz/storage.ts';
 import {legacyWorkspaceFieldForKey,legacyWorkspaceRecordId} from '../src/lib/sync/resource-model.ts';
 
 class StorageMock {
@@ -108,6 +108,12 @@ test('QuizWise progress is restored only with the question set named by its stab
     {id:'question-b',questionText:'b',type:'short_answer',options:null,correctAnswer:'b',explanation:''}]),true);
   assert.equal(quizProgressMatchesQuestions(progress,[{id:'old-a',questionText:'old',type:'short_answer',options:null,correctAnswer:'old',explanation:''},
     {id:'old-b',questionText:'old',type:'short_answer',options:null,correctAnswer:'old',explanation:''}]),false);
+  assert.equal(quizProgressMatchesQuestions({...progress,sessionId:null,questionIds:[]},[]),true);
+  assert.equal(quizProgressMatchesQuestions({...progress,questionIds:['','question-b']},[
+    {id:'',questionText:'a',type:'short_answer',options:null,correctAnswer:'a',explanation:''},
+    {id:'question-b',questionText:'b',type:'short_answer',options:null,correctAnswer:'b',explanation:''}]),false);
+  assert.deepEqual(quizProgressQuestionIds(['','']),[],'local-only quizzes must not persist placeholder IDs');
+  assert.deepEqual(quizProgressQuestionIds(['question-a','question-b']),['question-a','question-b']);
 });
 
 test('all QuizWise local business keys map to stable v5 records and remain in the account outbox',async()=>{

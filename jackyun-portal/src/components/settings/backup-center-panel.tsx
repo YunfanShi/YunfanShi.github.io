@@ -13,7 +13,7 @@ import { listLocalBackups, localPageValues, saveLocalBackup, type LocalBackup } 
 import { SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
 import { inspectScheduleVersion, type BackupInspection } from '@/lib/backup/inspection';
 import { applyLocalPageImport, parseLocalPageBackup } from '@/lib/backup/local-import';
-import { applyV5WorkspaceArchive, createV5WorkspaceArchive, parseV5WorkspaceArchive } from '@/lib/backup/workspace-archive';
+import { applyV5WorkspaceArchive, createV5WorkspaceArchive, createV5WorkspaceArchiveFromSources, parseV5WorkspaceArchive } from '@/lib/backup/workspace-archive';
 import { exportOfflineWorkspaceArchiveData, restoreOfflineWorkspaceArchiveData } from '@/lib/offline/workspace';
 
 const REASONS: Record<BackupVersion['reason'], string> = {
@@ -179,15 +179,22 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
 
   async function exportAllLocalData() {
     await run(async () => {
-      const offlineWorkspace = await exportOfflineWorkspaceArchiveData(localOwner);
-      const syncState = await getSyncArchiveData(localOwner);
-      const archive = await createV5WorkspaceArchive(workspaceStorage.snapshot(), new Date().toISOString(), offlineWorkspace, syncState);
+      const repository = await captureRepositoryContext();
+      if (repository.owner !== (localOwner === 'guest' ? null : localOwner)) throw new Error('本机账号已变化，请刷新备份中心后重试。');
+      const archive = await createV5WorkspaceArchiveFromSources({
+        assertContextCurrent: repository.assertCurrent,
+        readOfflineWorkspace: () => exportOfflineWorkspaceArchiveData(localOwner),
+        readSyncState: () => getSyncArchiveData(localOwner),
+        readWorkspace: () => workspaceStorage.snapshot(),
+      });
       const url = URL.createObjectURL(new Blob([JSON.stringify(archive)], { type: 'application/json' }));
       const link = document.createElement('a');
       link.href = url;
       link.download = `jackyun-v5-local-${new Date().toISOString().slice(0, 10)}.json`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const offlineWorkspace = archive.offlineWorkspace!;
+      const syncState = archive.syncState!;
       setMessage(`已导出 ${archive.recordCount} 条工作区记录、${offlineWorkspace.snapshots.length} 个离线快照、${offlineWorkspace.outbox.length} 个离线操作，以及 ${syncState.legacyOutbox.length + syncState.v5Outbox.length} 个同步待办、${syncState.legacyConflicts.length + syncState.v5Conflicts.length} 个冲突；未下载的云端数据不在此文件内。`);
     });
   }

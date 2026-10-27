@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 const require = createRequire(import.meta.url);
 const bundledModules = process.env.CODEX_NODE_MODULES;
 const { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, WidthType } = require(bundledModules ? resolve(bundledModules, 'docx') : 'docx');
-const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.58.1-20261028.docx');
+const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.58.2-20261028.docx');
 const p = (text, options = {}) => new Paragraph({ text, ...options });
 const h = (text, level = HeadingLevel.HEADING_1) => new Paragraph({ text, heading: level, keepNext: true });
 const cell = text => new TableCell({ children: [p(text)], width: { size: 25, type: WidthType.PERCENTAGE } });
@@ -22,7 +22,7 @@ const doc = new Document({
   },
   sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } } }, children: [
     new Paragraph({ text: 'JackYun 全量资源同步与数据恢复实施记录', style: 'Title' }),
-    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档、3.57.1 存储键映射回归、3.58.0 同步待办归档及 3.58.1 多设备恢复缺陷修复。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
+    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档、3.57.1 存储键映射回归、3.58.0 同步待办归档、3.58.1 多设备恢复缺陷修复及 3.58.2 导出账号隔离与本机 Quiz 题目身份修复。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
     p('结论：本记录确认了现有 Schedule v5 客户端的空缓存保护、哈希校验、原子游标与按页订阅测试，并针对日志中可恢复网络错误造成的噪音进行修复。它不表示全账号资源已迁入 v5，也不表示生产账号、staging 迁移或真实双设备验收已通过。'),
     h('1. 当前工作范围'),
     p('3.52.3 已通过 PR #168 合入并部署生产；本地当前在基于最新 main 的隔离分支推进 3.52.4。当前修改没有接触 Supabase 分支或生产数据。3.52.1 将主动取消降为 debug；网络断开、408、425、429、500、502、503、504 记为 warn，不附加重复错误正文；401、403、409、其他非恢复类 HTTP 错误仍保留 error 诊断。3.52.2 修复删除最后一条 CUE 时空集合保护吞掉 tombstone 的 P2 缺陷。3.52.3 再修复放弃或完成最后一个 CUE 学习草稿时空 map 吞掉 tombstone 的 P2 缺陷。两类已同步记录都以当前 revision/hash 写入 v5 outbox；存在未解决冲突时阻止该资源删除并提示用户。所有请求日志仅保留 origin 与 pathname，避免把 ID 查询参数完整写进日志。'),
@@ -82,6 +82,10 @@ const doc = new Document({
     p('本机验证：workspace archive 与 update history 定向测试 12/12；QuizWise 存储/恢复测试覆盖 tombstone 与题集 ID 一致性；TypeScript --noEmit、定向 ESLint 通过；完整 test:sync 313/313 通过。大于 1 MB Schedule 归档、哈希/损坏检查、IndexedDB 落盘失败保护、账号切换隔离、离线重放顺序、恢复目标代次、未支持能力保留及 v4/v5 待办/冲突归档均有测试覆盖。'),
     p('GitHub Actions run 40589643193（PR #169 测试头 3084408）：生产构建、Type/lint、Existing data safety regressions 通过；Run production UI flows 失败。日志中的失败分布在 IELTS dashboard、旧 iframe/theme 页面、quick-task-ui、study-guide、music-player、answer-sheet-legacy、cue-route-draft、cue-search 和 review-queue。当前改动触及备份归档/outbox，而失败断言来自上述独立页面；这次运行不能证明它们是本次回归，也不能证明它们属于既有基线。需要以同一脚本在目标基线复跑后分类；同步数据安全测试不得跳过。'),
     p('真实 v5 E2E 仍未完成：当前本机阶段的恢复归档尚未覆盖独立 QuizWise IndexedDB/Supabase 业务表、焦点/阅读业务副作用或云端未下载数据；staging/生产仍需最新迁移、受限账号读写与 receipt/SHA/RLS 证据；还需两个独立真实浏览器双向修改、离线重试、冲突回滚与生产部署 SHA 验收。没有实体手机，因此不得标记手机验收通过。'),
+    h('13. 3.58.2 导出账号隔离与 Quiz 本地身份'),
+    p('修复备份中心导出竞态：导出前捕获 repository account context，并在读取离线快照、同步 outbox/conflicts、本机 workspace 及异步计算归档 SHA-256 后逐次验证上下文。若用户在任一 IndexedDB 等待期间切换账号，流程立即中止，且不会继续读取新账号 workspace、下载混合账号的归档或暴露跨账号数据。新增故障注入测试在首个异步读取中模拟账号切换，并断言 workspace 源未被读取。'),
+    p('修复 QuizWise 本地-only 测验恢复：本地测验没有服务端题目 UUID 时，恢复后的进度继续保存为空 questionIds 列表，不再把缺失 ID 伪造成空字符串并写回。带有空 ID 的不完整题目身份集合不会被当作稳定题集匹配；真正的云端 session 仍要求题目 ID 与当前题集逐项一致。测试覆盖无 session 空列表可恢复、混入空字符串的 ID 集合拒绝匹配，以及仅完整非空 ID 集合可写回。'),
+    p('本次属于 3.58.2 小缺陷修复，未变更协议、数据库或生产灰度，也未宣称全量数据迁移完成。最新代码本机完整同步/安全测试 314/314、TypeScript、定向 ESLint 及 Next.js 生产构建通过。GitHub Actions 最新 SHA 与 Vercel Preview 仍须核实；即使构建与数据安全回归通过，独立业务表 v5 适配、staging/生产实际数据库验收、真实双浏览器离线/冲突/回滚仍是 4.0.0 阻断门槛。'),
   ] }],
 });
 

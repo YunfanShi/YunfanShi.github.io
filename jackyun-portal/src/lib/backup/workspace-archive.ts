@@ -18,6 +18,29 @@ export type V5WorkspaceArchive = {
   sha256: string;
 };
 
+export async function createV5WorkspaceArchiveFromSources({
+  assertContextCurrent,
+  readOfflineWorkspace,
+  readSyncState,
+  readWorkspace,
+}: {
+  assertContextCurrent: () => void;
+  readOfflineWorkspace: () => Promise<OfflineWorkspaceArchiveData>;
+  readSyncState: () => Promise<SyncArchiveData>;
+  readWorkspace: () => Record<string, string>;
+}): Promise<V5WorkspaceArchive> {
+  assertContextCurrent();
+  const offlineWorkspace = await readOfflineWorkspace();
+  assertContextCurrent();
+  const syncState = await readSyncState();
+  assertContextCurrent();
+  const values = readWorkspace();
+  assertContextCurrent();
+  const archive = await createV5WorkspaceArchive(values, new Date().toISOString(), offlineWorkspace, syncState);
+  assertContextCurrent();
+  return archive;
+}
+
 type WorkspaceArchiveStorage = {
   keys: () => string[];
   getItem: (key: string) => string | null;

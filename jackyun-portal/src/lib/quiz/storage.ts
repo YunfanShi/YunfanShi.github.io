@@ -157,8 +157,13 @@ export interface CurrentQuizProgress {
 }
 
 export function quizProgressMatchesQuestions(progress: CurrentQuizProgress, questions: readonly AnalyzedQuestion[]): boolean {
-  return !progress.questionIds.length || progress.questionIds.length === questions.length
-    && progress.questionIds.every((id, index) => questions[index]?.id === id);
+  if (!progress.questionIds.length) return progress.sessionId === null;
+  return progress.questionIds.length === questions.length
+    && progress.questionIds.every((id, index) => id.length > 0 && questions[index]?.id === id);
+}
+
+export function quizProgressQuestionIds(questionIds: readonly string[]): string[] {
+  return questionIds.length > 0 && questionIds.every(id => id.length > 0) ? [...questionIds] : [];
 }
 
 const CURRENT_PROGRESS_KEY = 'quizwise_current_progress';

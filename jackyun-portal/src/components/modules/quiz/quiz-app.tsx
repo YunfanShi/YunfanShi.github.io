@@ -14,6 +14,7 @@ import {
   clearCurrentQuizProgress,
   getCurrentQuizProgress,
   quizProgressMatchesQuestions,
+  quizProgressQuestionIds,
   getCurrentSession,
   saveCurrentQuestions,
   saveCurrentQuizProgress,
@@ -356,7 +357,7 @@ export default function QuizApp() {
     try {
       const current = getCurrentSession();
       await saveCurrentQuizProgress({ sessionId, startedAt: current?.startedAt ?? new Date().toISOString(),
-        subjectName, currentIndex: questionIndex, questionIds: dbQuestions.map(question => question.id), answers: answerSnapshot });
+        subjectName, currentIndex: questionIndex, questionIds: quizProgressQuestionIds(dbQuestions.map(question => question.id)), answers: answerSnapshot });
       setUserAnswers(answerSnapshot);
       setProgressSaveError(null);
     } catch {
@@ -390,7 +391,7 @@ export default function QuizApp() {
     const startedAt = quizStartedAtRef.current ?? getCurrentSession()?.startedAt;
     if (!startedAt) return;
     void saveCurrentQuizProgress({ sessionId, startedAt, subjectName, currentIndex,
-      questionIds: dbQuestions.map(question => question.id),
+      questionIds: quizProgressQuestionIds(dbQuestions.map(question => question.id)),
       answers: questions.map((_, questionIndex) => ({
         questionIndex, answer: userAnswers[questionIndex]?.answer ?? '',
         isCorrect: userAnswers[questionIndex]?.isCorrect ?? null,
