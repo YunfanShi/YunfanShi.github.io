@@ -13,6 +13,7 @@ import { listLocalBackups, localPageValues, saveLocalBackup, type LocalBackup } 
 import { SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
 import { inspectScheduleVersion, type BackupInspection } from '@/lib/backup/inspection';
 import { applyLocalPageImport, parseLocalPageBackup } from '@/lib/backup/local-import';
+import { applyV5WorkspaceArchive, createV5WorkspaceArchive, parseV5WorkspaceArchive } from '@/lib/backup/workspace-archive';
 
 const REASONS: Record<BackupVersion['reason'], string> = {
   automatic: '自动', baseline: '初始', before_restore: '恢复前', manual: '手动',
@@ -175,6 +176,45 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  async function exportAllLocalData() {
+    await run(async () => {
+      const archive = await createV5WorkspaceArchive(workspaceStorage.snapshot());
+      const url = URL.createObjectURL(new Blob([JSON.stringify(archive)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `jackyun-v5-local-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setMessage(`已导出 ${archive.recordCount} 条本机 v5 工作区记录；此文件不含云端尚未下载的数据。`);
+    });
+  }
+
+  async function importAllLocalData(file?: File) {
+    if (!file) return;
+    await run(async () => {
+      const archive = await parseV5WorkspaceArchive(await file.text());
+      if (!(await siteConfirm(`完整性校验通过，共 ${archive.recordCount} 条记录。合并到本机 v5 工作区？导入会先保存各页面恢复点，不会因文件中缺少某键而删除本机数据。`))) return;
+      const keys = await applyV5WorkspaceArchive({
+        archive,
+        owner: localOwner,
+        storage: {
+          keys: () => Object.keys(workspaceStorage.snapshot()),
+          getItem: key => workspaceStorage.getItem(key),
+          setItem: (key, value) => workspaceStorage.setItem(key, value),
+          flush: () => workspaceStorage.flush(),
+        },
+        saveRecoveryPoint: saveLocalBackup,
+        queueV5Targets: queueV5RestoreTargets,
+      });
+      if (keys.length) {
+        window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys } }));
+        window.dispatchEvent(new Event('jackyun-sync-retry'));
+      }
+      setMessage(keys.length ? `已将 ${keys.length} 条变更保存到本机；v5 云端核对将在后台继续。` : '文件与本机内容相同，无需恢复。');
+      await load();
+    });
+  }
+
   async function uploadLocal(file?: File) {
     if (!file) return;
     await run(async () => {
@@ -193,6 +233,8 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
         </select>
       </label>
       {cloudEnabled && <button type="button" disabled={busy} onClick={() => void run(async () => { await createBackupVersion(page); await load(); setMessage('已保存当前页面版本。'); })} className="rounded-lg bg-[#4285F4] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">立即备份此页面</button>}
+      <button type="button" disabled={busy} onClick={() => void exportAllLocalData()} className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm disabled:opacity-50">导出全部本机 v5 数据</button>
+      <label className={`cursor-pointer rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm ${busy ? 'pointer-events-none opacity-50' : ''}`}>导入本机 v5 归档<input type="file" accept="application/json,.json" disabled={busy} className="hidden" onChange={(event) => { void importAllLocalData(event.target.files?.[0]); event.target.value = ''; }} /></label>
       <button type="button" disabled={busy} onClick={() => void run(async () => {
         const current: Record<string, string> = {};
         for (let index = 0; index < workspaceStorage.length; index += 1) {
