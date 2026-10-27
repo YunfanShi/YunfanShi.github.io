@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {IDBFactory,IDBObjectStore} from 'fake-indexeddb';
-import {accountSyncStore,acknowledgeV5Operations,acknowledgeV5WorkspaceOperations,commitV5ResourcePage,commitV5WorkspacePage,getDocuments,getOutbox,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,openDatabase,prepareV5WorkspaceAuthority,queueV5ResourceDeletion,resolveV5ConflictLocally,resolveV5ConflictRemotely,setV5Cursor,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
+import {accountSyncStore,acknowledgeV5Operations,acknowledgeV5RestoreTargets,acknowledgeV5WorkspaceOperations,commitV5ResourcePage,commitV5WorkspacePage,getDocuments,getOutbox,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,getV5RestoreTargets,openDatabase,prepareV5WorkspaceAuthority,queueV5ResourceDeletion,queueV5RestoreTargets,resolveV5ConflictLocally,resolveV5ConflictRemotely,setV5Cursor,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
 import {createV5ResourceSync,resourceFieldsForPath,retainV5ScheduleAuthority} from '../src/lib/sync/resource-engine.ts';
-import {legacyWorkspaceRecordId,resourceFieldsForScope} from '../src/lib/sync/resource-model.ts';
+import {legacyWorkspaceRecordId,resourceFieldsForScope,resourceTargetsForStorageKeys} from '../src/lib/sync/resource-model.ts';
 import {canonicalJson} from '../src/lib/sync/hash.ts';
 import {SYNC_V5_SCOPES} from '../src/lib/sync/resource-model.ts';
 import {WRITING_COLLECTIONS,writingItemKey,writingMarkerKey} from '../src/lib/sync/writing-resource-model.ts';
@@ -643,6 +643,28 @@ test('page resource selection avoids unrelated CUE history and schedule scopes',
   assert.ok(resourceFieldsForPath('/settings/watch').some(row=>row.field==='settings'));
   assert.ok(!resourceFieldsForPath('/settings/watch').some(row=>row.field==='legacyMisc'),'settings pages must not subscribe to a generic catch-all scope');
   assert.deepEqual(resourceFieldsForPath('/reading'),[],'independent reader state is not misrepresented as Schedule data');
+});
+
+test('backup restore targets persist per account until their v5 records and conflicts settle',async()=>{
+  const databaseScope=id(),targets=resourceTargetsForStorageKeys(['jackyun_ielts_goal_v1','jackyun_schedule_control_v1','eruda-console']);
+  assert.ok(targets.some(row=>row.scope==='workspace'&&row.field==='legacyIELTS'));
+  assert.ok(targets.some(row=>row.scope==='cue'&&row.field==='cues'));
+  assert.ok(!targets.some(row=>row.field==='eruda-console'));
+  await queueV5RestoreTargets(targets,databaseScope);
+  assert.deepEqual(await getV5RestoreTargets(databaseScope),targets);
+  const pendingTarget=targets.find(row=>row.field==='legacyIELTS')!,conflictTarget=targets.find(row=>row.field==='cues')!;
+  const pendingId=crypto.randomUUID(),conflictId=crypto.randomUUID(),db=await openDatabase(databaseScope);
+  try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction(['v5Outbox','v5Conflicts'],'readwrite');
+    tx.objectStore('v5Outbox').put({id:pendingId,scope:pendingTarget.scope,recordId:`${pendingTarget.field}:pending`,baseRevision:0,baseHash:null,value:{id:'pending'},deleted:false,clientUpdatedAt:new Date().toISOString()});
+    tx.objectStore('v5Conflicts').put({operationId:conflictId,scope:conflictTarget.scope,recordId:`${conflictTarget.field}:conflict`,baseRevision:0,baseHash:null,localValue:{id:'local'},localDeleted:false,remoteValue:{id:'remote'},remoteDeleted:false,remoteRevision:1,remoteHash:'a'.repeat(64),createdAt:new Date().toISOString()});
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+  });}finally{db.close();}
+  assert.deepEqual(await acknowledgeV5RestoreTargets(targets,databaseScope),[conflictTarget,pendingTarget].sort((a,b)=>`${a.scope}\0${a.field}`.localeCompare(`${b.scope}\0${b.field}`)),'pending writes and actionable conflicts keep their resource fields queued');
+  const cleanup=await openDatabase(databaseScope);
+  try{await new Promise<void>((resolve,reject)=>{const tx=cleanup.transaction(['v5Outbox','v5Conflicts'],'readwrite');tx.objectStore('v5Outbox').delete(pendingId);tx.objectStore('v5Conflicts').delete(conflictId);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{cleanup.close();}
+  assert.deepEqual(await acknowledgeV5RestoreTargets(targets,databaseScope),[]);
+  assert.deepEqual(await getV5RestoreTargets(databaseScope),[]);
 });
 
 test('new writing subscriptions wait for the backend capability instead of sending unknown fields to an older server',async()=>{

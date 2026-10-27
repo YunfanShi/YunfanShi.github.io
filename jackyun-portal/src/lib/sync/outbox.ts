@@ -6,7 +6,7 @@ import { reconcileAcknowledgment } from './acknowledgment.ts';
 import { canonicalJson } from './hash.ts';
 import { threeWayMerge } from './merge.ts';
 import { isSyncableStorageKey } from '../local-workspace.ts';
-import { isEmptyScheduleCollection, legacyWorkspaceFieldForKey, legacyWorkspaceKeyFromRecordId, legacyWorkspaceRecordId, mergeScheduleResources, scheduleToResources, workspaceValueToStorage, type ScheduleResource, type SyncV5Scope } from './resource-model.ts';
+import { isEmptyScheduleCollection, legacyWorkspaceFieldForKey, legacyWorkspaceKeyFromRecordId, legacyWorkspaceRecordId, mergeScheduleResources, resourceFieldsForScope, scheduleToResources, SYNC_V5_SCOPES, workspaceValueToStorage, type ScheduleResource, type SyncV5ResourceTarget, type SyncV5Scope } from './resource-model.ts';
 import {WRITING_COLLECTIONS} from './writing-resource-model.ts';
 import {commitWritingPage} from './writing-outbox.ts';
 
@@ -460,6 +460,44 @@ export async function clearConflicts(): Promise<void> {
 export async function getSetting<T>(key: string,scope?:string): Promise<T | null> {
   const row = await storeRequest<{ key: string; value: T } | undefined>('settings', 'readonly', (store) => store.get(key),scope);
   return row?.value ?? null;
+}
+
+const V5_RESTORE_TARGETS='v5RestoreTargets';
+const targetKey=(target:SyncV5ResourceTarget)=>`${target.scope}\0${target.field}`;
+const validRestoreTarget=(target:unknown):target is SyncV5ResourceTarget=>Boolean(target&&typeof target==='object'
+  &&'scope'in target&&'field'in target&&typeof target.scope==='string'&&SYNC_V5_SCOPES.includes(target.scope as SyncV5Scope)
+  &&typeof target.field==='string'&&resourceFieldsForScope(target.scope as SyncV5Scope).includes(target.field));
+export async function queueV5RestoreTargets(targets:readonly SyncV5ResourceTarget[],scope?:string):Promise<void>{
+  const additions=[...new Map(targets.filter(validRestoreTarget).map(target=>[targetKey(target),target])).values()];
+  if(!additions.length)return;
+  const db=await openDatabase(scope);
+  try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction('settings','readwrite'),store=tx.objectStore('settings'),request=store.get(V5_RESTORE_TARGETS);
+    request.onsuccess=()=>{const existing=Array.isArray(request.result?.value)?request.result.value.filter(validRestoreTarget):[];
+      store.put({key:V5_RESTORE_TARGETS,value:[...new Map([...existing,...additions].map(target=>[targetKey(target),target])).values()].sort((a,b)=>targetKey(a).localeCompare(targetKey(b)))});};
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('v5 恢复同步目标无法保存。'));
+  });}finally{db.close();}
+}
+export async function getV5RestoreTargets(scope?:string):Promise<SyncV5ResourceTarget[]>{
+  const targets=await getSetting<unknown>(V5_RESTORE_TARGETS,scope);
+  return Array.isArray(targets)?[...new Map(targets.filter(validRestoreTarget).map(target=>[targetKey(target),target])).values()].sort((a,b)=>targetKey(a).localeCompare(targetKey(b))):[];
+}
+/** Clear only targets whose v5 writes and conflict state are fully settled. */
+export async function acknowledgeV5RestoreTargets(targets:readonly SyncV5ResourceTarget[],scope?:string):Promise<SyncV5ResourceTarget[]>{
+  const requested=new Set(targets.map(targetKey)),db=await openDatabase(scope);
+  try{return await new Promise<SyncV5ResourceTarget[]>((resolve,reject)=>{
+    const tx=db.transaction(['settings','v5Outbox','v5Conflicts'],'readwrite'),settings=tx.objectStore('settings'),outbox=tx.objectStore('v5Outbox'),conflicts=tx.objectStore('v5Conflicts');
+    const setting=settings.get(V5_RESTORE_TARGETS),pending=outbox.getAll(),blocked=conflicts.getAll();let remaining:SyncV5ResourceTarget[]=[];let seen=0,failed=false;
+    const finish=()=>{if(++seen!==3||failed)return;const existing=Array.isArray(setting.result?.value)?(setting.result.value as unknown[]).filter(validRestoreTarget):[];
+      const active=new Set<string>();
+      for(const row of pending.result as V5ResourceOperation[]){const colon=row.recordId.indexOf(':');if(colon>0)active.add(`${row.scope}\0${row.recordId.slice(0,colon)}`);}
+      for(const row of blocked.result as V5ResourceConflict[]){const colon=row.recordId.indexOf(':');if(colon>0)active.add(`${row.scope}\0${row.recordId.slice(0,colon)}`);}
+      remaining=existing.filter(target=>!(requested.has(targetKey(target))&&!active.has(targetKey(target))));
+      if(remaining.length)settings.put({key:V5_RESTORE_TARGETS,value:remaining});else settings.delete(V5_RESTORE_TARGETS);
+    };
+    for(const request of [setting,pending,blocked]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
+    tx.oncomplete=()=>resolve(remaining);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('v5 恢复同步确认无法保存。'));
+  });}finally{db.close();}
 }
 
 export async function setSetting(key: string, value: unknown,scope?:string): Promise<void> {

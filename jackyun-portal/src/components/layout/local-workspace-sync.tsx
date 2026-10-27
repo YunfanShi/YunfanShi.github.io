@@ -208,8 +208,10 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
           if(queuedResolution){const choice=queuedResolution;await engine.resolve(choice.operationId,choice.choice,choice.review);if(queuedResolution===choice)queuedResolution=undefined;await engine.flush();}
           if(queuedV5Resolution){const choice=queuedV5Resolution;await v5Sync.resolveConflict(choice.operationId,choice.choice);if(queuedV5Resolution===choice)queuedV5Resolution=undefined;}
-          const v5Result=await v5Sync.synchronize(resourceFieldsForPath(routeForRun));
+          const restoreTargets=await syncStore.getV5RestoreTargets(accountStore.databaseScope);
+          const v5Result=await v5Sync.synchronize([...resourceFieldsForPath(routeForRun),...restoreTargets]);
           v5Enabled=v5Result.enabled;
+          if(v5Result.enabled&&restoreTargets.length)await syncStore.acknowledgeV5RestoreTargets(restoreTargets,accountStore.databaseScope);
           await engine.synchronize();
           await flushLocalWrites();await engine.capture();
           await accountStore.setSetting('lastAutomaticPull',Date.now());

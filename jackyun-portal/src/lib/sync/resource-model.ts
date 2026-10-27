@@ -90,6 +90,16 @@ export function legacyWorkspaceFieldForKey(key:string):typeof LEGACY_WORKSPACE_F
   if(/(settings|theme|language|sidebar|preference|profile|interface|display|font|nav|notification|tts|^ai_|^llm_|^warden_ai_(provider|custom)|^jackyun_workspace_idle|fullscreen|beta_active|personal_site_active)/i.test(key))return 'legacySettings';
   return null;
 }
+export function resourceTargetsForStorageKeys(keys:readonly string[]):SyncV5ResourceTarget[]{
+  const targets=new Map<string,SyncV5ResourceTarget>();
+  for(const key of keys){
+    const field=legacyWorkspaceFieldForKey(key);
+    if(field)targets.set(`workspace\0${field}`,{scope:'workspace',field});
+    if(key===SCHEDULE_STORAGE_KEY)for(const scope of SYNC_V5_SCHEDULE_SCOPES)for(const scheduleField of resourceFieldsForScope(scope))
+      targets.set(`${scope}\0${scheduleField}`,{scope,field:scheduleField});
+  }
+  return [...targets.values()].sort((a,b)=>`${a.scope}\0${a.field}`.localeCompare(`${b.scope}\0${b.field}`));
+}
 export function legacyWorkspaceRecordId(key:string):string|null{
   const field=legacyWorkspaceFieldForKey(key);return field?`${field}:${base64UrlEncode(key)}`:null;
 }

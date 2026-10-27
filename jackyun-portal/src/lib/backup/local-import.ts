@@ -1,6 +1,7 @@
 import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './pages.ts';
 import { scheduleHasContent, SCHEDULE_STORAGE_KEY } from '../sync/schedule-safety.ts';
 import { localPageValues } from './local.ts';
+import { resourceTargetsForStorageKeys } from '../sync/resource-model.ts';
 
 type LocalPageImportStorage = {
   keys: () => string[];
@@ -16,6 +17,7 @@ type LocalPageImportOptions = {
   values: Record<string, string>;
   storage: LocalPageImportStorage;
   saveRecoveryPoint: (owner: string, page: BackupPage, values: Record<string, string>) => Promise<void>;
+  queueV5Targets?: (targets: ReturnType<typeof resourceTargetsForStorageKeys>) => Promise<void>;
 };
 
 function validateValues(values: Record<string, string>, page: BackupPage): void {
@@ -51,7 +53,9 @@ export async function applyLocalPageImport(options: LocalPageImportOptions): Pro
   for (const key of Object.keys(current)) if (!(key in values)) storage.removeItem(key);
   for (const [key, value] of Object.entries(values)) storage.setItem(key, value);
   await storage.flush();
-  return Object.keys(values);
+  const changedKeys=[...new Set([...Object.keys(current), ...Object.keys(values)])];
+  await options.queueV5Targets?.(resourceTargetsForStorageKeys(changedKeys));
+  return changedKeys;
 }
 
 export function parseLocalPageBackup(text: string, page: BackupPage): Record<string, string> {

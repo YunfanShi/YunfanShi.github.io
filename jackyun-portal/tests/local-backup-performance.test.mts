@@ -104,6 +104,7 @@ test('large local Schedule import saves a durable recovery point before writing 
   const current = new Map([[key, previous], ['jackyun_schedule_old_v1', '{"cues":[]}']]);
   const events: string[] = [];
   let persisted = false;
+  let queuedFields: string[] = [];
 
   const committedKeys = await applyLocalPageImport({
     page: 'schedule', owner: 'alice', values,
@@ -122,13 +123,15 @@ test('large local Schedule import saves a durable recovery point before writing 
       persisted = true;
       events.push('recovery:complete');
     },
+    queueV5Targets: async targets => { assert.ok(events.includes('flush:complete'), 'v5 restore targets are queued only after local IndexedDB flush'); queuedFields=targets.map(target=>target.field); events.push('v5-targets-queued'); },
   });
 
-  assert.deepEqual(committedKeys, [key]);
+  assert.deepEqual(committedKeys, [key,'jackyun_schedule_old_v1']);
   assert.equal(current.get(key), importedSchedule);
   assert.equal(current.has('jackyun_schedule_old_v1'), false, 'keys absent from the selected page import are removed after backup');
   assert.ok(events.indexOf('recovery:complete') < events.indexOf(`set:${key}`));
-  assert.equal(events.at(-1), 'flush:complete');
+  assert.ok(events.indexOf('flush:complete') < events.indexOf('v5-targets-queued'));
+  assert.ok(queuedFields.includes('cues'), 'Schedule imports target all required v5 Schedule resources');
 });
 
 test('local import failure before recovery or during IndexedDB flush never returns success', async () => {

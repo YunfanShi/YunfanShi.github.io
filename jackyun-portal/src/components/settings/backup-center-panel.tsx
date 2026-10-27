@@ -7,7 +7,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { cancelBackupRestore, createBackupVersion, downloadBackupVersion, inspectBackupVersion, listBackupVersions, restoreBackupVersion, type BackupVersion } from '@/actions/backup-center';
 import { BACKUP_PAGES, isBackupableLegacyKey, type BackupPage } from '@/lib/backup/pages';
 import { CLOUD_STATE_APPLIED_EVENT, storageValueToString } from '@/lib/local-workspace';
-import { getOutbox, getSetting, removeOperation, saveMetadata } from '@/lib/sync/outbox';
+import { getOutbox, getSetting, queueV5RestoreTargets, removeOperation, saveMetadata } from '@/lib/sync/outbox';
+import { resourceTargetsForStorageKeys } from '@/lib/sync/resource-model';
 import { listLocalBackups, localPageValues, saveLocalBackup, type LocalBackup } from '@/lib/backup/local';
 import { SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
 import { inspectScheduleVersion, type BackupInspection } from '@/lib/backup/inspection';
@@ -126,9 +127,14 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
         await saveMetadata(record);
         keys.push(record.key);
       }
+      await workspaceStorage.flush();
+      await queueV5RestoreTargets(resourceTargetsForStorageKeys(keys));
       sessionStorage.removeItem(requestKey);
       setPendingRestore(null);
-      if (keys.length) window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys } }));
+      if (keys.length) {
+        window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys } }));
+        window.dispatchEvent(new Event('jackyun-sync-retry'));
+      }
       setMessage(`已恢复${BACKUP_PAGES.find((item) => item.id === result.page)?.label ?? '页面'}，恢复前版本已保存。刷新页面可查看结果。`);
       await load();
     });
@@ -147,6 +153,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
         flush: () => workspaceStorage.flush(),
       },
       saveRecoveryPoint: saveLocalBackup,
+      queueV5Targets: queueV5RestoreTargets,
     });
     window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys } }));
     window.dispatchEvent(new Event('jackyun-sync-retry'));
