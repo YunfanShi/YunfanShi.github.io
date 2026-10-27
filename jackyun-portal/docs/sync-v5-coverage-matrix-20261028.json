@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-27T19:50:09.069Z",
+  "generated_at": "2026-10-27T20:21:06.140Z",
   "source_files_scanned": 590,
-  "storage_call_sites": 742,
+  "storage_call_sites": 743,
   "inventory_rows": [
     {
       "key_or_pattern": "? conflict.key",
@@ -4591,9 +4591,10 @@
       ],
       "operations": [
         "getItem",
+        "removeItem",
         "setItem"
       ],
-      "call_sites": 2,
+      "call_sites": 3,
       "page_or_module": [
         "QuizWise"
       ]
@@ -4657,9 +4658,9 @@
       "v5_scope": "workspace",
       "v5_record_id": "legacyQuiz:base64url(runtime key)",
       "migration": "Bootstrap the exact legacy key with owner, revision, SHA-256 and tombstone; reconcile pending legacy outbox before v5 authority.",
-      "test_status": "local durable v5 workspace queue and browser reload/resume covered; authenticated server receipt and cross-device business history remain pending",
+      "test_status": "durable local workspace flush and account outbox asserted by tests/quiz-v5-storage.test.mts; authenticated server receipt, legacy history migration and cross-device business verification remain pending",
       "unresolved_risk": "Key-level mapping does not split nested arrays/records; inspect value schema and credential content.",
-      "runtime_sampling_or_test_method": "Run tests/quiz-v5-storage.test.mts and tests/quiz-ui.browser.mjs to verify durable active progress, explicit completion tombstone and reload/resume; separately verify authenticated v5 receipt, cross-device quiz history and review-item side effects before declaring this domain migrated.",
+      "runtime_sampling_or_test_method": "Run tests/quiz-v5-storage.test.mts for durable workspace/outbox writes and explicit deletion intent; run tests/quiz-ui.browser.mjs for active-progress reload/resume; separately verify authenticated v5 receipt, cross-device quiz history and review-item side effects before declaring this domain migrated.",
       "source_files": [
         "src/lib/quiz/storage.ts"
       ],
@@ -4682,9 +4683,9 @@
       "v5_scope": "workspace",
       "v5_record_id": "legacyQuiz:base64url(runtime key)",
       "migration": "Bootstrap the exact legacy key with owner, revision, SHA-256 and tombstone; reconcile pending legacy outbox before v5 authority.",
-      "test_status": "named key covered by inventory/resource-model regression",
+      "test_status": "durable local workspace flush and account outbox asserted by tests/quiz-v5-storage.test.mts; authenticated server receipt, legacy history migration and cross-device business verification remain pending",
       "unresolved_risk": "Key-level mapping does not split nested arrays/records; inspect value schema and credential content.",
-      "runtime_sampling_or_test_method": "Run the page-specific resource-model round-trip and authenticated v5 create/read/update/delete test; confirm the migration manifest contains the same stable record ID.",
+      "runtime_sampling_or_test_method": "Run tests/quiz-v5-storage.test.mts for durable workspace/outbox writes and explicit deletion intent; run tests/quiz-ui.browser.mjs for active-progress reload/resume; separately verify authenticated v5 receipt, cross-device quiz history and review-item side effects before declaring this domain migrated.",
       "source_files": [
         "public/QuizWise.html"
       ],
@@ -4707,9 +4708,9 @@
       "v5_scope": "workspace",
       "v5_record_id": "legacyQuiz:base64url(runtime key)",
       "migration": "Bootstrap the exact legacy key with owner, revision, SHA-256 and tombstone; reconcile pending legacy outbox before v5 authority.",
-      "test_status": "named key covered by inventory/resource-model regression",
+      "test_status": "durable local workspace flush and account outbox asserted by tests/quiz-v5-storage.test.mts; authenticated server receipt, legacy history migration and cross-device business verification remain pending",
       "unresolved_risk": "Key-level mapping does not split nested arrays/records; inspect value schema and credential content.",
-      "runtime_sampling_or_test_method": "Run the page-specific resource-model round-trip and authenticated v5 create/read/update/delete test; confirm the migration manifest contains the same stable record ID.",
+      "runtime_sampling_or_test_method": "Run tests/quiz-v5-storage.test.mts for durable workspace/outbox writes and explicit deletion intent; run tests/quiz-ui.browser.mjs for active-progress reload/resume; separately verify authenticated v5 receipt, cross-device quiz history and review-item side effects before declaring this domain migrated.",
       "source_files": [
         "src/app/(portal)/quiz/page.tsx",
         "src/lib/ai-tools.ts",
@@ -4783,9 +4784,9 @@
       "v5_scope": "workspace",
       "v5_record_id": "legacyQuiz:base64url(runtime key)",
       "migration": "Bootstrap the exact legacy key with owner, revision, SHA-256 and tombstone; reconcile pending legacy outbox before v5 authority.",
-      "test_status": "named key covered by inventory/resource-model regression",
+      "test_status": "durable local workspace flush and account outbox asserted by tests/quiz-v5-storage.test.mts; authenticated server receipt, legacy history migration and cross-device business verification remain pending",
       "unresolved_risk": "Key-level mapping does not split nested arrays/records; inspect value schema and credential content.",
-      "runtime_sampling_or_test_method": "Run the page-specific resource-model round-trip and authenticated v5 create/read/update/delete test; confirm the migration manifest contains the same stable record ID.",
+      "runtime_sampling_or_test_method": "Run tests/quiz-v5-storage.test.mts for durable workspace/outbox writes and explicit deletion intent; run tests/quiz-ui.browser.mjs for active-progress reload/resume; separately verify authenticated v5 receipt, cross-device quiz history and review-item side effects before declaring this domain migrated.",
       "source_files": [
         "public/QuizWise.html"
       ],

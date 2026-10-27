@@ -3,7 +3,7 @@ import test from 'node:test';
 import {IDBFactory} from 'fake-indexeddb';
 import {getDocuments,getOutbox} from '../src/lib/sync/outbox.ts';
 import {initializeRepository,workspaceStorage} from '../src/lib/sync/repository.ts';
-import {appendLocalQuizHistory,clearCurrentQuizProgress,getCurrentQuestions,getCurrentQuizProgress,getCurrentSession,getLocalQuizHistory,getQuizSettings,getSelectedSubject,saveCurrentQuestions,saveCurrentQuizProgress,saveCurrentSession,saveQuizSettings,saveSelectedSubject} from '../src/lib/quiz/storage.ts';
+import {appendLocalQuizHistory,clearCurrentQuizProgress,clearCurrentSession,getCurrentQuestions,getCurrentQuizProgress,getCurrentSession,getLocalQuizHistory,getQuizSettings,getSelectedSubject,saveCurrentQuestions,saveCurrentQuizProgress,saveCurrentSession,saveQuizSettings,saveSelectedSubject} from '../src/lib/quiz/storage.ts';
 import {legacyWorkspaceFieldForKey,legacyWorkspaceRecordId} from '../src/lib/sync/resource-model.ts';
 
 class StorageMock {
@@ -71,10 +71,10 @@ test('all QuizWise local business keys map to stable v5 records and remain in th
   const settings={show_answer_immediately:false,auto_submit_on_enter:false,default_subject_id:'subject-a',selected_subjects:['subject-a']};
   const session={id:'session-a',startedAt:'2026-10-27T08:00:00.000Z'};
   const history={id:'history-a',subject_name:'Mathematics',started_at:'2026-10-27T08:00:00.000Z',completed_at:'2026-10-27T08:01:00.000Z',total_questions:1,correct_count:1,accuracy:100,duration_seconds:60};
-  saveCurrentSession(session);
-  saveQuizSettings(settings);
-  appendLocalQuizHistory(history);
-  saveSelectedSubject('subject-a');
+  await saveCurrentSession(session);
+  await saveQuizSettings(settings);
+  await appendLocalQuizHistory(history);
+  await saveSelectedSubject('subject-a');
   await workspaceStorage.flush();
 
   assert.deepEqual(getCurrentSession(),session);
@@ -92,6 +92,11 @@ test('all QuizWise local business keys map to stable v5 records and remain in th
     assert.ok(documents.some(row=>row.key===key),`${key} must be present in the durable account workspace`);
     assert.ok(outbox.some(row=>row.key===key),`${key} must stay queued until the remote receipt is confirmed`);
   }
+
+  await clearCurrentSession();
+  assert.equal(getCurrentSession(),null);
+  assert.ok((await getOutbox()).some(row=>row.key==='quizwise_current_session'&&row.deleted),
+    'clearing the active session must wait for and queue its explicit workspace tombstone');
 });
 
 test('active QuizWise answers are restored from the durable v5 workspace row and explicit completion queues a tombstone',async()=>{
@@ -112,4 +117,16 @@ test('active QuizWise answers are restored from the durable v5 workspace row and
   await clearCurrentQuizProgress();
   assert.equal(getCurrentQuizProgress(),null);
   assert.ok((await getOutbox()).some(row=>row.key==='quizwise_current_progress'&&row.deleted),`explicit clear must queue a v5 tombstone for ${recordId}`);
+});
+
+test('QuizWise preference and history writers surface workspace durability failures',async()=>{
+  await initializeRepository('quiz-owner-storage-failure');
+  const originalFlush=workspaceStorage.flush.bind(workspaceStorage);
+  workspaceStorage.flush=async()=>{throw new Error('injected IndexedDB transaction failure');};
+  try{
+    await assert.rejects(saveSelectedSubject('Chemistry'),/injected IndexedDB transaction failure/);
+    await assert.rejects(appendLocalQuizHistory({id:'local-failure',subject_name:'Chemistry',started_at:'2026-10-28T09:00:00.000Z',
+      completed_at:'2026-10-28T09:01:00.000Z',total_questions:1,correct_count:1,accuracy:100,duration_seconds:60}),
+    /injected IndexedDB transaction failure/);
+  }finally{workspaceStorage.flush=originalFlush;}
 });

@@ -229,7 +229,12 @@ export default function QuizApp() {
     progressRestoreHandledRef.current = true;
     const startedAt = new Date().toISOString();
     quizStartedAtRef.current = startedAt;
-    saveCurrentSession({ id: `local-${crypto.randomUUID()}`, startedAt });
+    try {
+      await saveCurrentSession({ id: `local-${crypto.randomUUID()}`, startedAt });
+    } catch {
+      setProgressSaveError('本机会话缓存未能保存；答题开始前请重试。');
+      return;
+    }
     setSubjectName(subject);
     setSessionId(null);
     setDraftAnswers({});
@@ -249,7 +254,9 @@ export default function QuizApp() {
     const result = signedIn ? await createSession(subject, questions).catch(() => ({ error: 'local-only' })) : { error: 'local-only' };
     if ('sessionId' in result) {
       setSessionId(result.sessionId);
-      saveCurrentSession({ id: result.sessionId, startedAt });
+      await saveCurrentSession({ id: result.sessionId, startedAt }).catch(() => {
+        setProgressSaveError('云端会话已建立，但本机会话缓存未能更新；答题快照仍会独立保存。');
+      });
 
       // Use REAL question IDs from DB
       const questionIds = result.questionIds;
@@ -424,7 +431,8 @@ export default function QuizApp() {
     }
     const completedAt = new Date().toISOString();
     const startedAt = quizStartedAtRef.current ?? getCurrentSession()?.startedAt ?? completedAt;
-    appendLocalQuizHistory({
+    try {
+      await appendLocalQuizHistory({
       id: `local-${crypto.randomUUID()}`,
       subject_name: subjectName || 'Untitled Quiz',
       started_at: startedAt,
@@ -433,7 +441,11 @@ export default function QuizApp() {
       correct_count: userAnswers.filter((answer) => answer.isCorrect === true).length,
       accuracy: questions.length ? Math.round(userAnswers.filter((answer) => answer.isCorrect === true).length / questions.length * 100) : 0,
       duration_seconds: elapsedSeconds(startedAt, completedAt),
-    });
+      });
+    } catch {
+      setProgressSaveError('测验成绩未能保存到本机；答题恢复数据仍保留，请重试完成。');
+      return;
+    }
     try {
       await clearCurrentQuizProgress();
       setProgressSaveError(null);
@@ -441,8 +453,12 @@ export default function QuizApp() {
     } catch {
       setProgressSaveError('测验结果已生成，但本机恢复进度未能清理；请勿重复导入同一测验。');
     }
-    await clearCurrentQuestions();
-    clearCurrentSession();
+    try {
+      await clearCurrentQuestions();
+      await clearCurrentSession();
+    } catch {
+      setProgressSaveError('测验已完成并记入本机历史；旧恢复缓存未能完全清理，请稍后重试。');
+    }
     quizStartedAtRef.current = null;
     setView('results');
   }, [dbQuestions, questions.length, sessionId, signedIn, subjectName, userAnswers]);
@@ -456,8 +472,13 @@ export default function QuizApp() {
       setProgressSaveError('本机答题恢复进度未能清理；请稍后重试。');
       return;
     }
-    await clearCurrentQuestions();
-    clearCurrentSession();
+    try {
+      await clearCurrentQuestions();
+      await clearCurrentSession();
+    } catch {
+      setProgressSaveError('本机恢复缓存未能完全清理；请稍后重试。');
+      return;
+    }
     setQuestions([]);
     setUserAnswers([]);
     setSessionId(null);
@@ -466,9 +487,14 @@ export default function QuizApp() {
   }, []);
 
   // Settings change
-  const handleSettingsChange = useCallback((newSettings: typeof settings) => {
+  const handleSettingsChange = useCallback(async (newSettings: typeof settings) => {
     setSettings(newSettings);
-    saveQuizSettings(newSettings);
+    try {
+      await saveQuizSettings(newSettings);
+      setProgressSaveError(null);
+    } catch {
+      setProgressSaveError('QuizWise 设置未能保存到本机；请重试。');
+    }
   }, []);
 
   // Retry same questions

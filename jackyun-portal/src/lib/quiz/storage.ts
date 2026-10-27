@@ -85,12 +85,14 @@ function lsGet<T>(key: string): T | null {
   }
 }
 
-function lsSet(key: string, value: unknown): void {
-  try {
-    workspaceStorage.setItem(`quizwise_${key}`, JSON.stringify(value));
-  } catch {
-    // ignore
-  }
+async function saveWorkspaceValue(key: string, value: unknown): Promise<void> {
+  workspaceStorage.setItem(`quizwise_${key}`, JSON.stringify(value));
+  await workspaceStorage.flush();
+}
+
+async function removeWorkspaceValue(key: string): Promise<void> {
+  workspaceStorage.removeItem(`quizwise_${key}`);
+  await workspaceStorage.flush();
 }
 
 // Current questions (in-progress quiz)
@@ -99,8 +101,7 @@ export async function getCurrentQuestions(): Promise<AnalyzedQuestion[]> {
   if (synced) return synced;
   const cached = await getItem<AnalyzedQuestion[]>('current_questions');
   if (cached) {
-    lsSet('current_questions', cached);
-    await workspaceStorage.flush();
+    await saveWorkspaceValue('current_questions', cached);
     return cached;
   }
   return [];
@@ -111,15 +112,14 @@ export function getCurrentQuestionsSync(): AnalyzedQuestion[] {
 }
 
 export async function saveCurrentQuestions(questions: AnalyzedQuestion[]): Promise<void> {
-  lsSet('current_questions', questions);
-  await workspaceStorage.flush();
+  await saveWorkspaceValue('current_questions', questions);
   await setItem('current_questions', questions);
 }
 
 export async function clearCurrentQuestions(): Promise<void> {
+  await setItem('current_questions', null);
   workspaceStorage.removeItem('quizwise_current_questions');
   await workspaceStorage.flush();
-  await setItem('current_questions', null);
 }
 
 // Current session
@@ -127,12 +127,12 @@ export function getCurrentSession(): { id: string; startedAt: string } | null {
   return lsGet('current_session');
 }
 
-export function saveCurrentSession(session: { id: string; startedAt: string }): void {
-  lsSet('current_session', session);
+export async function saveCurrentSession(session: { id: string; startedAt: string }): Promise<void> {
+  await saveWorkspaceValue('current_session', session);
 }
 
-export function clearCurrentSession(): void {
-  lsSet('current_session', null);
+export async function clearCurrentSession(): Promise<void> {
+  await removeWorkspaceValue('current_session');
 }
 
 export interface CurrentQuizProgress {
@@ -190,21 +190,21 @@ export function getQuizSettings(): QuizSettings {
   };
 }
 
-export function saveQuizSettings(settings: QuizSettings): void {
-  lsSet('quiz_settings', settings);
+export async function saveQuizSettings(settings: QuizSettings): Promise<void> {
+  await saveWorkspaceValue('quiz_settings', settings);
 }
 
 export function getLocalQuizHistory(): QuizSession[] {
   return lsGet<QuizSession[]>('history') ?? [];
 }
 
-export function appendLocalQuizHistory(entry: Omit<QuizSession, 'user_id' | 'subject_id'>): void {
+export async function appendLocalQuizHistory(entry: Omit<QuizSession, 'user_id' | 'subject_id'>): Promise<void> {
   const history = getLocalQuizHistory();
-  lsSet('history', [{ ...entry, user_id: 'local', subject_id: null }, ...history].slice(0, 100));
+  await saveWorkspaceValue('history', [{ ...entry, user_id: 'local', subject_id: null }, ...history].slice(0, 100));
 }
 
-export function deleteLocalQuizHistory(id: string): void {
-  lsSet('history', getLocalQuizHistory().filter((entry) => entry.id !== id));
+export async function deleteLocalQuizHistory(id: string): Promise<void> {
+  await saveWorkspaceValue('history', getLocalQuizHistory().filter((entry) => entry.id !== id));
 }
 
 // Selected subject preference
@@ -212,8 +212,8 @@ export function getSelectedSubject(): string | null {
   return lsGet<string>('selected_subject');
 }
 
-export function saveSelectedSubject(subject: string | null): void {
-  lsSet('selected_subject', subject);
+export async function saveSelectedSubject(subject: string | null): Promise<void> {
+  await saveWorkspaceValue('selected_subject', subject);
 }
 
 // Offline answer queue (for when network is down)
