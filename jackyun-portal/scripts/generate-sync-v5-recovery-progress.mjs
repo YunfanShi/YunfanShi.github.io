@@ -31,7 +31,7 @@ const doc = new Document({
     p('本机页面 JSON 导入不再限制 1 MB；3.58 MB Schedule 备份可正常解析并校验页面键、JSON 结构和 Schedule 内容。导入操作现在统一通过 applyLocalPageImport：先收集当前页面值并等待 IndexedDB 恢复版本事务完成，再应用导入/删除变更，最后等待 workspaceStorage.flush 完成 IndexedDB 仓库写入；只有整段 Promise 成功返回后，界面才触发恢复成功状态。'),
     p('失败边界已加入真实 IndexedDB 测试：恢复点可在第一次页面改动前从 IDB 读回；恢复点写入失败会在不修改当前页面时中止；仓库 flush 失败不会返回成功，之前的恢复点仍保留；空文件、损坏的 Schedule JSON、空 Schedule 都在应用前拒绝。导入本身不进行云端写入回执确认；联网后的跨设备确认仍由 v5 同步流程负责。'),
     h('2. 数据覆盖现状'),
-    p('仓库生成的同步清单包含 256 项存储键/调用点，其中 187 项仍标注为 v2/v4 候选，50 项为设备本地或其他本地用途。清单同时识别出 6 类独立 Supabase/API 业务所有者：离线任务与复习操作、QuizWise 云端历史、专注会话与番茄任务、阅读架与阅读进度、个人站点定义以及 IELTS 写作工作区。个人站点、写作和部分离线数据已经有 v5 交接或工作区映射；其余仍有独立 API、RLS、业务副作用或操作回执语义。'),
+    p('2026-10-28 重新扫描的机器清单覆盖 590 个源文件、738 个存储调用点、256 个 localStorage 键模式和 30 个 IndexedDB 调用点。256 个键模式中，186 个仍标注为 v2/v4 路径且是 v5 候选，51 个明确是设备本地/非同步用途，其余是 v5、v4/v5 元数据或条件继承映射。该分类是代码所有权/协议盘点，不等于每个候选都完成了 v5 业务往返验收。清单同时识别 6 类独立 Supabase/API 业务所有者；个人站点、写作和部分离线数据已有 v5 交接或工作区映射，QuizWise 云历史、专注会话/番茄任务、小说书架/阅读进度及离线工作区 mutations 仍有独立业务 API、RLS、副作用或回执语义。最新机器清单保存为 docs/sync-v5-coverage-matrix-20261028.json。'),
     p('不能只把这些表或键名映射进 v5 就宣布迁移完成。Quiz 完成会产生复习项，专注会话要验证用户与任务关联，阅读进度以 book_id 为主键，离线 review attempt 会更新间隔、难度和下次复习时间。迁移必须保留这些事务边界、RLS 所有权、稳定 ID 和幂等回执。'),
     table([
       ['验收范围', '已有代码或证据', '尚未通过的条件'],
@@ -52,7 +52,7 @@ const doc = new Document({
     p('通过 staging 后先在生产专用测试账号受控验证两个浏览器的双向更新、离线恢复、冲突和回滚，并记录 Vercel 部署 READY 对应 SHA、Azure Functions 健康版本与同步端点结果。真实手机当前不可用，手机验收必须标为未执行；桌面移动视口不等同于实体手机。'),
     p('用户业务迁移计数、每资源哈希、待处理操作队列及回执必须核对后，才可退役运行时 v4 兼容。若服务端凭据、数据库权限、测试账号或服务端日志不可访问，应记录具体最小权限和阻碍，不能用合成测试或部署 READY 替代。'),
     h('6. 本次代码变更清单'),
-    p('新增 applyLocalPageImport，将恢复点、校验、页面替换和仓库 flush 按顺序协调；tests/local-backup-performance.test.mts 覆盖大于 1 MB Schedule、恢复点读回和失败时不报告成功；backup-center-panel.tsx 统一调用该持久化路径。既有 queueV5ResourceDeletion 仍保护最后一条 CUE 与草稿的明确删除。Portal 版本为 3.52.4；当前覆盖底表尚待逐项转化为业务域真实读写验收，目标 4.0.0 未宣称完成。'),
+    p('新增 applyLocalPageImport，将恢复点、校验、页面替换和仓库 flush 按顺序协调；tests/local-backup-performance.test.mts 覆盖大于 1 MB Schedule、恢复点读回和失败时不报告成功；backup-center-panel.tsx 统一调用该持久化路径。最新机器清单为 docs/sync-v5-coverage-matrix-20261028.json，覆盖 256 个本机键模式、30 个 IndexedDB 调用点与独立 API 所有者；它是迁移底表，不代表每条记录均已 v5 验收。Portal 版本为 3.52.4；全资源端到端迁移尚未完成，目标 4.0.0 未宣称完成。'),
   ] }],
 });
 

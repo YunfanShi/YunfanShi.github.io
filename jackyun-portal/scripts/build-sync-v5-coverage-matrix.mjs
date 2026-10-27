@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { scanSyncStorageInventory } from './audit-sync-storage-inventory.mjs';
 
-const outputPath = resolve('docs/sync-v5-coverage-matrix-20261026.json');
+const outputPath = resolve('docs/sync-v5-coverage-matrix-20261028.json');
 const testedKeys = new Set([
   'jackyun_schedule_control_v1', 'jackyun_ielts_goal_v1', 'jackyun_ielts_writing_workspaces_v1',
   'jackyun_ielts_reading_library_v1', 'quizwise_current_questions', 'quizwise_history',
