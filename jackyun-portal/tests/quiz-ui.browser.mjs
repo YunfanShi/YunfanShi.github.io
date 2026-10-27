@@ -41,6 +41,7 @@ try {
     assert.equal(await page.evaluate(() => localStorage.getItem('quizwise_version_preference')), 'html');
     await reactVersionSwitch.click();
     await page.getByRole('heading', { name: /QuizWise/ }).waitFor();
+    await page.waitForFunction(() => localStorage.getItem('quizwise_version_preference') === 'react');
     assert.equal(await page.evaluate(() => localStorage.getItem('quizwise_version_preference')), 'react');
     console.log(`PASS QuizWise version dialog, preference persistence and HTML/React switch at ${width}px`);
     await context.close();

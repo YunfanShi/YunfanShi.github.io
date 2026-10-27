@@ -88,7 +88,8 @@ const doc = new Document({
     p('本次属于 3.58.2 小缺陷修复，未变更协议、数据库或生产灰度，也未宣称全量数据迁移完成。最新代码本机完整同步/安全测试 314/314、TypeScript、定向 ESLint 及 Next.js 生产构建通过。GitHub Actions 最新 SHA 与 Vercel Preview 仍须核实；即使构建与数据安全回归通过，独立业务表 v5 适配、staging/生产实际数据库验收、真实双浏览器离线/冲突/回滚仍是 4.0.0 阻断门槛。'),
     h('14. 3.58.3 清理旧 Quiz 身份'),
     p('开始新的 QuizWise 测验时立即清空上一场测验留下的 dbQuestions。若当前新测验无法建立云端 session，进度的 questionIds 继续保持为空数组，不会短暂把上一场云端题目 UUID 写入新的本机-only 进度。新增浏览器回归先建立旧云端题目与进度，再导入另一套本机题目并开始本机测验，检查新进度不继承旧 questionIds。此修复不改变 QuizWise 独立云端历史、成绩/复习副作用或 v5 migration scope。'),
-    p('本次为 3.58.3 稳定性修复，不改同步协议、数据库或生产灰度。GitHub Actions 最新 SHA 与 Vercel Preview 状态需在该提交重新核对；4.0.0 前仍必须完成独立业务数据适配、staging/生产实际迁移读写证据、双浏览器离线冲突回滚和实体手机验收。'),
+    p('本次为 3.58.3 稳定性修复，不改同步协议、数据库或生产灰度。GitHub Actions run 40601080902（SHA 02c573a）中生产构建、Type/lint 与 Existing data safety regressions 通过；Run production UI flows 失败，失败包含 shell 主题状态、Quiz 版本切换立即读写、IELTS dashboard、旧 iframe/theme、study guide、music player、answer sheet、CUE route/search 和 review queue。Quiz 的产品页面文件不在 PR 改动中，本机 Edge 同一浏览器套件 6/6 通过；其跨浏览器断言现改为等待 localStorage 状态，不降低断言。准确 main SHA 382ea47 的本机工作区未包含后续 Quiz 版本选择流程，因此该整组 CI UI 失败仍不应标为已证实历史基线；它们也不是同步安全测试结果。最新提交 CI 及 Preview 需重新核对。'),
+    p('4.0.0 前仍必须完成独立业务数据适配、staging/生产真实迁移的计数与哈希、受限账号认证读写及 receipt/SHA/RLS、两个独立浏览器双向/离线/冲突/回滚验收，以及实体手机验收。当前距离真实 v5 端到端仍差这些线上数据与设备证据；不创建 Supabase 分支、不扩大灰度，也不移除运行时 v4 兼容。'),
   ] }],
 });
 
