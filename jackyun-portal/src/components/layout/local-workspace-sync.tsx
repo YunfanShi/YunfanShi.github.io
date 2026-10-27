@@ -2,7 +2,6 @@
 
 import {useEffect,useRef} from 'react';
 import {usePathname} from 'next/navigation';
-import LocalDurabilityNotice from './local-durability';
 import {fetchAuthenticatedSync as fetchSyncWithTimeout} from '@/lib/sync/session-transport';
 import {shouldPauseSync} from '@/lib/sync/retry-policy';
 import {runScheduledSync,createEditTrigger} from '@/lib/sync/scheduler';
@@ -288,5 +287,5 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     return()=>{window.removeEventListener('jackyun-sync-lane',onLane);for(const retry of recoveryTimers.values())clearTimeout(retry);if(routeRetryTimer)window.clearTimeout(routeRetryTimer);channel?.close();window.removeEventListener('jackyun-local-durability',onDurable);cancelled=true;controller.abort();window.clearInterval(timer);editTrigger.dispose();
       for(const [name,listener]of listeners)window.removeEventListener(name,listener);document.removeEventListener('visibilitychange',onVisibility);};
   },[userId]);
-  return <>{userId&&<WorkspaceRouteSyncTrigger/>}<LocalDurabilityNotice/></>;
+  return <>{userId&&<WorkspaceRouteSyncTrigger/>}</>;
 }

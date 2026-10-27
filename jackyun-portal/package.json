@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.50.0",
+  "version": "3.50.1",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -55,6 +55,7 @@
     "test:sync-quiz-storage": "node --test tests/quiz-v5-storage.test.mts",
     "build:sync-coverage-matrix": "node scripts/build-sync-v5-coverage-matrix.mjs",
     "test:sync-status-ui": "node tests/sync-status-indicator.browser.mjs",
+    "test:sync-navigation": "node --test tests/sync-navigation-queue.test.mts",
     "test:notification-polling": "node --test tests/notification-polling.test.mts",
     "test:beta": "node --test tests/beta-enrollment.test.mts",
     "test:ai-platform": "node --test tests/ai-platform.test.mts",

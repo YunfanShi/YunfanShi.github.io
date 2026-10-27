@@ -20,7 +20,7 @@ import { coerceNavigationPreferences } from '@/lib/companion';
 import { canPrefetchNavigation } from '@/lib/navigation-prefetch';
 
 interface Props { initialPrefs: SidebarPreferences; adaptiveScores?: Record<string, number>; initialIsAdmin?: boolean; betaActive?: boolean; allowedFeatureKeys?: string[]; }
-const PENDING_USAGE_KEY = 'jackyun_nav_usage_pending';
+const PENDING_USAGE_KEY = 'jackyun_nav_usage_queue_v2';
 const ADAPTIVE_SNAPSHOT_KEY = 'jackyun_nav_adaptive_snapshot_v1';
 const LOCAL_PREFS_KEY = 'jackyun_sidebar_preferences';
 

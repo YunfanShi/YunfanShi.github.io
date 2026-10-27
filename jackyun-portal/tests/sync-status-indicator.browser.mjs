@@ -33,9 +33,13 @@ try{
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     await page.waitForTimeout(200);
     if(errors.length)throw Error(`Browser startup failed: ${errors.join('; ')}; ${await page.locator('#root').innerHTML()}`);
-    const trigger=page.locator('summary[aria-label="更多同步详情"]');await trigger.waitFor({state:'visible'});
+    const trigger=page.locator('summary[aria-label^="同步状态与详情"]');await trigger.waitFor({state:'visible'});
+    const initialBounds=await trigger.boundingBox();
     await page.evaluate(()=>window.dispatchEvent(new CustomEvent('jackyun-local-sync-status',{detail:{state:'server_unavailable',pending:2,conflicts:1,lastSyncedAt:'2026-10-26T03:00:00.000Z',progress:'修改仍在本机队列，等待自动重试',consecutiveFailures:3,error:'fixture private upstream detail'}})));
     assert.equal(await page.getByRole('alert').count(),0,'transient sync failure is not shown as an interrupting alert');
+    assert.equal(await page.locator('[data-sync-attention]').count(),1,'actual conflict retains an unobtrusive attention marker');
+    assert.deepEqual(await trigger.boundingBox(),initialBounds,'status changes do not resize or shift the control');
+    assert.equal(await trigger.innerText(),'cloud','the topbar does not display alarming text or queue counts');
     await trigger.click();const panel=page.locator('[data-sync-details]');await panel.getByText('同步诊断',{exact:true}).waitFor();
     await panel.getByText('服务暂不可用，后台会继续重试',{exact:true}).waitFor();
     await panel.getByText('待上传 2 项 · 待处理冲突 1 项',{exact:true}).waitFor();
@@ -49,6 +53,8 @@ try{
     await page.screenshot({path:path.join(out,`sync-status-${width}.png`)});
     await panel.getByRole('button',{name:'立即重试同步'}).click();await page.waitForFunction(()=>document.getElementById('retry-count')?.textContent==='1');
     await trigger.click();await panel.waitFor({state:'hidden'});assert.deepEqual(errors,[]);
+    await trigger.click();await panel.waitFor({state:'visible'});await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});
+    await trigger.click();await panel.waitFor({state:'visible'});await page.locator('body').click({position:{x:2,y:2}});await panel.waitFor({state:'hidden'});
     await context.close();
   }
   console.log('Sync status diagnostics passed on 390px and 1440px viewports.');

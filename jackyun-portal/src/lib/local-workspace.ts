@@ -27,6 +27,7 @@ const SENSITIVE_STORAGE_KEYS = new Set([
   'enforcer_pin',
 ]);
 const LOCAL_ONLY_KEYS = new Set([
+  'jackyun_nav_usage_queue_v2',
   'enforcer_sessions',
   'jackyun_ai_music_command',
   'jackyun_pomodoro_launch',
