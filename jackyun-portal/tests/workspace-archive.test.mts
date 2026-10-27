@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { IDBFactory } from 'fake-indexeddb';
 import { applyV5WorkspaceArchive, createV5WorkspaceArchive, parseV5WorkspaceArchive } from '../src/lib/backup/workspace-archive.ts';
+import { exportOfflineWorkspaceArchiveData, restoreOfflineWorkspaceArchiveData } from '../src/lib/offline/workspace.ts';
 import { initializeRepository, workspaceStorage } from '../src/lib/sync/repository.ts';
 
 class StorageMock {
@@ -98,4 +99,63 @@ test('failed workspace IndexedDB flush never queues remote restore targets and l
 test('v5 workspace archive rejects an empty Schedule instead of replacing local data', async () => {
   const archive = await createV5WorkspaceArchive({ jackyun_schedule_control_v1: JSON.stringify({ cues: [] }) });
   await assert.rejects(parseV5WorkspaceArchive(JSON.stringify(archive)), /拒绝从空 Schedule 归档覆盖本机数据/);
+});
+
+test('portable archive includes account-owned offline snapshots and retries and restores them atomically', async () => {
+  indexedDB = new IDBFactory();
+  Object.assign(window, { localStorage: new StorageMock() });
+  const owner = 'offline-archive-owner';
+  const offlineWorkspace = {
+    ownerId: owner,
+    snapshots: [{ id: `${owner}:tasks`, userId: owner, scope: 'tasks' as const, value: { plans: [], inboxTasks: [{ id: 'task-a' }] }, updatedAt: '2026-10-28T10:00:00.000Z' }],
+    outbox: [{ id: '00400000-0000-4000-8000-000000000001', userId: owner, kind: 'task.create', payload: { title: 'offline task' }, createdAt: '2026-10-28T10:01:00.000Z', attemptCount: 2, nextAttemptAt: '2026-10-28T10:05:00.000Z' }],
+  };
+  const archive = await createV5WorkspaceArchive({}, '2026-10-28T10:02:00.000Z', offlineWorkspace);
+  const parsed = await parseV5WorkspaceArchive(JSON.stringify(archive));
+  await restoreOfflineWorkspaceArchiveData(owner, parsed.offlineWorkspace!);
+  const restored = await exportOfflineWorkspaceArchiveData(owner);
+  assert.deepEqual(restored.snapshots, offlineWorkspace.snapshots);
+  assert.equal(restored.outbox.length, 1);
+  assert.equal(restored.outbox[0].id, offlineWorkspace.outbox[0].id);
+  assert.equal(restored.outbox[0].attemptCount, 2);
+  assert.equal(restored.outbox[0].sequence, 1);
+  const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open('jackyun-offline-workspace'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+  try {
+    const checkpoints = await new Promise<unknown[]>((resolve, reject) => {
+      const tx = db.transaction('archiveRecoveryPoints', 'readonly');
+      const request = tx.objectStore('archiveRecoveryPoints').getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    assert.equal(checkpoints.length, 1);
+  } finally { db.close(); }
+
+  await assert.rejects(restoreOfflineWorkspaceArchiveData('other-account', parsed.offlineWorkspace!), /属于其他账号/);
+});
+
+test('offline archive restore collision rolls back snapshots and operation rows', async () => {
+  indexedDB = new IDBFactory();
+  Object.assign(window, { localStorage: new StorageMock() });
+  const owner = 'offline-archive-conflict';
+  const data = {
+    ownerId: owner,
+    snapshots: [{ id: `${owner}:tasks`, userId: owner, scope: 'tasks' as const, value: { marker: 'archived' }, updatedAt: '2026-10-28T10:00:00.000Z' }],
+    outbox: [{ id: '00400000-0000-4000-8000-000000000002', userId: owner, kind: 'task.create', payload: { title: 'archive' }, createdAt: '2026-10-28T10:01:00.000Z' }],
+  };
+  const archive = await createV5WorkspaceArchive({}, undefined, data);
+  await restoreOfflineWorkspaceArchiveData(owner, { ...data, outbox: [{ ...data.outbox[0], payload: { title: 'local collision' } }] });
+  await assert.rejects(restoreOfflineWorkspaceArchiveData(owner, archive.offlineWorkspace!), /操作 ID 与本机内容冲突/);
+  const current = await exportOfflineWorkspaceArchiveData(owner);
+  assert.deepEqual(current.snapshots, [{ id: `${owner}:tasks`, userId: owner, scope: 'tasks', value: { marker: 'archived' }, updatedAt: '2026-10-28T10:00:00.000Z' }]);
+  assert.deepEqual(current.outbox[0].payload, { title: 'local collision' });
+  const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open('jackyun-offline-workspace'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+  try {
+    const checkpoints = await new Promise<unknown[]>((resolve, reject) => {
+      const tx = db.transaction('archiveRecoveryPoints', 'readonly');
+      const request = tx.objectStore('archiveRecoveryPoints').getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    assert.equal(checkpoints.length, 1);
+  } finally { db.close(); }
 });

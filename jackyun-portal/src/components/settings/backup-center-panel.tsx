@@ -14,6 +14,7 @@ import { SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
 import { inspectScheduleVersion, type BackupInspection } from '@/lib/backup/inspection';
 import { applyLocalPageImport, parseLocalPageBackup } from '@/lib/backup/local-import';
 import { applyV5WorkspaceArchive, createV5WorkspaceArchive, parseV5WorkspaceArchive } from '@/lib/backup/workspace-archive';
+import { exportOfflineWorkspaceArchiveData, restoreOfflineWorkspaceArchiveData } from '@/lib/offline/workspace';
 
 const REASONS: Record<BackupVersion['reason'], string> = {
   automatic: '自动', baseline: '初始', before_restore: '恢复前', manual: '手动',
@@ -178,14 +179,15 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
 
   async function exportAllLocalData() {
     await run(async () => {
-      const archive = await createV5WorkspaceArchive(workspaceStorage.snapshot());
+      const offlineWorkspace = await exportOfflineWorkspaceArchiveData(localOwner);
+      const archive = await createV5WorkspaceArchive(workspaceStorage.snapshot(), new Date().toISOString(), offlineWorkspace);
       const url = URL.createObjectURL(new Blob([JSON.stringify(archive)], { type: 'application/json' }));
       const link = document.createElement('a');
       link.href = url;
       link.download = `jackyun-v5-local-${new Date().toISOString().slice(0, 10)}.json`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessage(`已导出 ${archive.recordCount} 条本机 v5 工作区记录；此文件不含云端尚未下载的数据。`);
+      setMessage(`已导出 ${archive.recordCount} 条本机工作区记录、${offlineWorkspace.snapshots.length} 个离线快照和 ${offlineWorkspace.outbox.length} 个离线待确认操作；同步资源 outbox 与本机未下载的云端数据不在此文件内。`);
     });
   }
 
@@ -201,16 +203,19 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
           keys: () => Object.keys(workspaceStorage.snapshot()),
           getItem: key => workspaceStorage.getItem(key),
           setItem: (key, value) => workspaceStorage.setItem(key, value),
+          removeItem: key => workspaceStorage.removeItem(key),
           flush: () => workspaceStorage.flush(),
         },
         saveRecoveryPoint: saveLocalBackup,
         queueV5Targets: queueV5RestoreTargets,
+        restoreOfflineWorkspace: restoreOfflineWorkspaceArchiveData,
       });
       if (keys.length) {
         window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys } }));
         window.dispatchEvent(new Event('jackyun-sync-retry'));
       }
-      setMessage(keys.length ? `已将 ${keys.length} 条变更保存到本机；v5 云端核对将在后台继续。` : '文件与本机内容相同，无需恢复。');
+      const offlineCount = archive.offlineWorkspace ? `；归档含 ${archive.offlineWorkspace.snapshots.length} 个离线快照和 ${archive.offlineWorkspace.outbox.length} 个离线操作（已存在的快照保留，操作按 ID 合并）` : '';
+      setMessage(keys.length || archive.offlineWorkspace ? `已将 ${keys.length} 条工作区变更保存到本机${offlineCount}；v5 云端核对将在后台继续。` : '文件与本机内容相同，无需恢复。');
       await load();
     });
   }
@@ -226,6 +231,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
 
   return <div className="space-y-4">
     <p className="text-sm leading-6 text-[var(--muted-foreground)]">只有内容发生修改才会备份。累计约 4 MB 修改或等待 15 分钟，任一条件先到就保存，并重新计数。此设备每页留 10 个版本，云端每页留 5 个新版本；故障排查时已有的历史版本暂时额外保留。点击“对比当前数据”查看数量和具体差异，再决定是否恢复。</p>
+    <p className="text-sm leading-6 text-[var(--muted-foreground)]">本机归档包含工作区键值及当前账号的离线快照/待确认操作；不会包含尚未下载的云端数据，也不会复制同步资源 outbox、冲突或设备设置。</p>
     <div className="flex flex-wrap items-end gap-3">
       <label className="grid gap-1 text-sm">页面
         <select value={page} onChange={(event) => { setPage(event.target.value as BackupPage); setVersions([]); setPreview(null); setError(''); }} className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2">
@@ -233,8 +239,8 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
         </select>
       </label>
       {cloudEnabled && <button type="button" disabled={busy} onClick={() => void run(async () => { await createBackupVersion(page); await load(); setMessage('已保存当前页面版本。'); })} className="rounded-lg bg-[#4285F4] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">立即备份此页面</button>}
-      <button type="button" disabled={busy} onClick={() => void exportAllLocalData()} className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm disabled:opacity-50">导出全部本机 v5 数据</button>
-      <label className={`cursor-pointer rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm ${busy ? 'pointer-events-none opacity-50' : ''}`}>导入本机 v5 归档<input type="file" accept="application/json,.json" disabled={busy} className="hidden" onChange={(event) => { void importAllLocalData(event.target.files?.[0]); event.target.value = ''; }} /></label>
+      <button type="button" disabled={busy} onClick={() => void exportAllLocalData()} className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm disabled:opacity-50">导出本机工作区与离线队列</button>
+      <label className={`cursor-pointer rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm ${busy ? 'pointer-events-none opacity-50' : ''}`}>导入本机恢复归档<input type="file" accept="application/json,.json" disabled={busy} className="hidden" onChange={(event) => { void importAllLocalData(event.target.files?.[0]); event.target.value = ''; }} /></label>
       <button type="button" disabled={busy} onClick={() => void run(async () => {
         const current: Record<string, string> = {};
         for (let index = 0; index < workspaceStorage.length; index += 1) {

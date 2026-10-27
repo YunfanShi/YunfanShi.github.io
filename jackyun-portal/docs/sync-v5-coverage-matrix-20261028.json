@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-27T20:27:55.283Z",
-  "source_files_scanned": 590,
-  "storage_call_sites": 753,
+  "generated_at": "2026-10-27T21:22:29.154Z",
+  "source_files_scanned": 591,
+  "storage_call_sites": 756,
   "inventory_rows": [
     {
       "key_or_pattern": "? conflict.key",
@@ -279,7 +279,7 @@
         "removeItem",
         "setItem"
       ],
-      "call_sites": 5,
+      "call_sites": 8,
       "page_or_module": [
         "Shared or unresolved module"
       ]
@@ -6420,21 +6420,21 @@
       "database_or_store": "jackyun-offline-workspace",
       "kind": "database",
       "source_file": "src/lib/offline/workspace.ts",
-      "line": 36,
-      "data_class": "cached task/review/reading snapshots plus durable business outbox",
-      "current_protocol": "/api/offline/workspace (separate authenticated API; not yet v5)",
+      "line": 43,
+      "data_class": "cached task/review/reading snapshots, durable business outbox and portable-restore checkpoints",
+      "current_protocol": "snapshots/outbox remain on /api/offline/workspace; archiveRecoveryPoints are local rollback data",
       "should_cloud_sync": true,
-      "v5_mapping": "workspace learning/cue resources; exact resource schema and receipt migration remain P1/P2 work",
-      "migration": "Preserve snapshots and pending operation IDs. Before cutover, map each operation to a stable v5 resource and obtain receipt or explicit migration acknowledgement; never discard this outbox.",
+      "v5_mapping": "offline snapshots/outbox are included in the owner-bound local archive; business mutations are not yet migrated to v5",
+      "migration": "Preserve snapshot and pending operation IDs. Before v5 cutover, map each mutation to stable resources and obtain receipt or explicit migration acknowledgement; never discard the outbox or local restore checkpoints.",
       "test_status": "source ownership classified; behavior-specific acceptance required as noted",
       "unresolved_risk": "Syncable business state is not yet proven to use v5 end-to-end.",
-      "runtime_sampling_or_test_method": "Enumerate active snapshot/outbox callers, then verify create/update/delete, retries and receipts against v5 before removing the legacy route."
+      "runtime_sampling_or_test_method": "Archive import verifies owner, same-ID idempotency and collision rollback; independently test all business mutation kinds and receipts against v5 before removing the legacy route."
     },
     {
       "database_or_store": "snapshots",
       "kind": "store",
       "source_file": "src/lib/offline/workspace.ts",
-      "line": 39,
+      "line": 46,
       "data_class": "cached server snapshots",
       "current_protocol": "/api/offline/workspace read path",
       "should_cloud_sync": false,
@@ -6448,7 +6448,7 @@
       "database_or_store": "outbox",
       "kind": "store",
       "source_file": "src/lib/offline/workspace.ts",
-      "line": 40,
+      "line": 47,
       "data_class": "durable offline business mutations",
       "current_protocol": "/api/offline/workspace; separate from sync v4/v5 outboxes",
       "should_cloud_sync": true,
@@ -6462,7 +6462,7 @@
       "database_or_store": "settings",
       "kind": "store",
       "source_file": "src/lib/offline/workspace.ts",
-      "line": 41,
+      "line": 48,
       "data_class": "offline workspace cache metadata",
       "current_protocol": "local cache metadata",
       "should_cloud_sync": false,
@@ -6471,6 +6471,20 @@
       "test_status": "source ownership classified; behavior-specific acceptance required as noted",
       "unresolved_risk": "Ensure local cache/recovery data remains available and is not mistaken for canonical state.",
       "runtime_sampling_or_test_method": "Verify account switch clears/binds cached snapshots without cross-user exposure."
+    },
+    {
+      "database_or_store": "archiveRecoveryPoints",
+      "kind": "store",
+      "source_file": "src/lib/offline/workspace.ts",
+      "line": 49,
+      "data_class": "local rollback snapshots for portable archive restore",
+      "current_protocol": "device-local IndexedDB recovery store",
+      "should_cloud_sync": false,
+      "v5_mapping": null,
+      "migration": "Keep current owner snapshots/outbox before merging an imported archive; retain until a user-initiated local retention policy removes it.",
+      "test_status": "source ownership classified; behavior-specific acceptance required as noted",
+      "unresolved_risk": "Ensure local cache/recovery data remains available and is not mistaken for canonical state.",
+      "runtime_sampling_or_test_method": "Inject archive collisions and restore failures; assert the pre-import snapshots and pending operation payloads remain recoverable."
     },
     {
       "database_or_store": "jackyun-personal-sites",

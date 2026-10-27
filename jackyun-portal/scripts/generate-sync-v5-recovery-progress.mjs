@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 const require = createRequire(import.meta.url);
 const bundledModules = process.env.CODEX_NODE_MODULES;
 const { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, WidthType } = require(bundledModules ? resolve(bundledModules, 'docx') : 'docx');
-const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.56.0-20261028.docx');
+const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.57.0-20261028.docx');
 const p = (text, options = {}) => new Paragraph({ text, ...options });
 const h = (text, level = HeadingLevel.HEADING_1) => new Paragraph({ text, heading: level, keepNext: true });
 const cell = text => new TableCell({ children: [p(text)], width: { size: 25, type: WidthType.PERCENTAGE } });
@@ -62,10 +62,15 @@ const doc = new Document({
     p('重新检查后发现 quizwise.offline_answers 仅剩 IndexedDB schema 和三个旧导出函数，没有活跃调用点；但已安装客户端仍可能留有只存在本机的答案。此前矩阵把它分类为可忽略的无调用 store，可能漏掉历史用户数据。本次将其定义为一次性迁移输入，而不是继续保留一条静默失败的独立队列。'),
     p('迁移读取全部旧答案及 IndexedDB 自动递增 ID，将每项稳定映射为 legacy:<old-id>，写入账号隔离键 quizwise_offline_answers，并在同一个 workspaceStorage IndexedDB flush 中写入 quizwise_offline_answers_migrated_v5 标记。两者同事务落盘成功后才清理旧 offline_answers store；flush 失败则旧记录保留。标记用于防止删除旧副本后，任何遗留行或清理失败再次把旧答案复活。新队列写入等待 v5 本机 flush；读取错误、无效数据、写入错误不再被吞掉。显式清空先持久化 workspace tombstone 和迁移标记，再清理旧 store。'),
     p('自动化验证包括旧队列迁移、稳定 v5 workspace ID、v5 outbox 待回执保留、失败注入时旧副本不变、重试完成迁移，以及明确清空生成 tombstone。该本地与 outbox 路径测试不等价于 Azure/Supabase 已认证写入、服务端 receipt、SHA-256 回读或 RLS 验收；这些全账号发布门槛仍未通过。机器清单从 257 个增长至 259 个 localStorage 键模式，IndexedDB 调用点仍为 30；offline_answers 现归类为有明确 v5 目标的一次性迁移源，不再以“当前无调用”作为丢弃依据。'),
-    h('8. 3.56.0 本机 v5 全量归档'),
-    p('备份中心新增“导出全部本机 v5 数据”和“导入本机 v5 归档”。格式为 jackyun-v5-workspace，包含全部通过备份白名单的本机 workspace 键，逐记录保存 SHA-256，并对规范化后的完整归档再次计算 SHA-256。没有应用层固定文件大小门槛；导入按 File.text() 读取并在写入前完成 JSON、版本、计数、键白名单、重复键、每条哈希和整体哈希核验。它导出本机已持有的 v5 工作区，不会假称包含尚未下载的云端记录。'),
+    h('8. 3.56.0 本机工作区归档'),
+    p('备份中心新增本机工作区 JSON 导入/导出。格式为 jackyun-v5-workspace，包含全部通过备份白名单的本机 workspace 键，逐记录保存 SHA-256，并对规范化后的完整归档再次计算 SHA-256。没有应用层固定文件大小门槛；导入按 File.text() 读取并在写入前完成 JSON、版本、计数、键白名单、重复键、每条哈希和整体哈希核验。此时它仅包含本机已持有的工作区键，不包括 IndexedDB 队列、同步资源 outbox 或尚未下载的云端记录。'),
     p('导入采用合并策略：只应用归档明确包含的记录，不将缺失键推断为删除。拒绝空或格式错误的 Schedule。写入前逐页面保存当前恢复点，随后写入 workspaceStorage 并等待 IndexedDB flush，成功后才持久排入对应 v5 资源恢复目标；同步器继续负责云端回执和哈希确认。若本机 flush 失败，则不排入云端恢复目标、不报告成功，恢复点仍保留。'),
     p('新增测试覆盖大于 1 MB 的 Unicode Schedule、逐记录和整体哈希、损坏归档、空 Schedule 拒绝、先恢复后落盘再排目标、缺失键保留及落盘失败不排远端任务。此功能解决本机 workspace 归档与恢复，不覆盖当前独立云端 backup_center_versions 的 v2 格式，也不把 30 个 IndexedDB 调用点全部纳入归档。独立 QuizWise/Supabase 历史、专注、阅读、离线业务 outbox 的 v5 迁移仍需逐项完成。'),
+    h('9. 3.57.0 离线工作区归档与恢复'),
+    p('本机归档增加 jackyun-offline-workspace 数据库中的当前账号 snapshots 与 outbox：覆盖任务、复习、阅读的离线快照及未确认操作。导出只选择匹配 ownerId 的记录，不导出其他账号队列。归档 SHA-256 覆盖这些内容；导入校验 ownerId、快照 scope、稳定 operationId、payload 与创建时间。跨账号导入直接拒绝。'),
+    p('恢复会在同一 IndexedDB readwrite transaction 中先将当前账号快照/outbox 写入 archiveRecoveryPoints，再合并归档内容。每账号最多保留最近 10 个恢复点。现有快照优先保留；同 operationId 且 payload/kind 相同的记录保持原有重试状态，不覆盖；同 ID 不同内容会 abort 整个离线数据库事务。新操作保留原 ID、追加本地 sequence，并在事务完成后发出本地队列事件。重复提交仍由服务端原 receipt/idempotency 语义处理。'),
+    p('导入流程先保存 localStorage 页面恢复点，持久化工作区记录后再恢复离线数据库，最后才排入 v5 工作区目标。离线恢复失败会尝试恢复此次工作区写入前的 localStorage 值；IndexedDB 队列导入自身具备事务原子性。全局 localStorage 与多个独立 IndexedDB 数据库之间不存在浏览器级跨库事务，因此恢复点作为回滚依据保留。'),
+    p('边界：归档仍不含 jackyun-sync-v2 中的 v5Resources/v5Outbox/v5Conflicts、设备同步设置、独立 QuizWise/Supabase 历史、focus_sessions、reader_books、云端未下载记录或云端 backup_center_versions。按钮和状态文本已列明这些排除项，不称其为完整设备镜像。当前机器矩阵重新扫描到 591 个源文件、756 个存储调用点、259 个 localStorage 键模式和 31 个 IndexedDB 调用点；189 行仍属 v2/v4 候选。3.57.0 的离线归档测试将验证跨账号拒绝、重复操作 ID 幂等、冲突事务回滚及快照/outbox 读回；全量 IDB 归档、独立业务表 v5 迁移、staging/生产认证验收、跨浏览器与实体手机仍未完成。'),
   ] }],
 });
 

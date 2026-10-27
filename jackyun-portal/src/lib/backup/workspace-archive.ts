@@ -2,6 +2,7 @@ import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './page
 import { canonicalJson } from '../sync/hash.ts';
 import { resourceTargetsForStorageKeys } from '../sync/resource-model.ts';
 import { scheduleHasContent, SCHEDULE_STORAGE_KEY } from '../sync/schedule-safety.ts';
+import type { OfflineWorkspaceArchiveData } from '../offline/workspace.ts';
 
 const ARCHIVE_FORMAT = 'jackyun-v5-workspace';
 
@@ -11,6 +12,7 @@ export type V5WorkspaceArchive = {
   exportedAt: string;
   recordCount: number;
   records: Array<{ key: string; value: string; sha256: string }>;
+  offlineWorkspace?: OfflineWorkspaceArchiveData;
   sha256: string;
 };
 
@@ -18,6 +20,7 @@ type WorkspaceArchiveStorage = {
   keys: () => string[];
   getItem: (key: string) => string | null;
   setItem: (key: string, value: string) => void;
+  removeItem?: (key: string) => void;
   flush: () => Promise<void>;
 };
 
@@ -27,6 +30,7 @@ type ApplyWorkspaceArchiveOptions = {
   storage: WorkspaceArchiveStorage;
   saveRecoveryPoint: (owner: string, page: BackupPage, values: Record<string, string>) => Promise<void>;
   queueV5Targets: (targets: ReturnType<typeof resourceTargetsForStorageKeys>) => Promise<void>;
+  restoreOfflineWorkspace?: (owner: string, data: OfflineWorkspaceArchiveData) => Promise<unknown>;
 };
 
 function bytesToHex(bytes: Uint8Array): string {
@@ -42,12 +46,13 @@ function archiveBody(archive: Omit<V5WorkspaceArchive, 'sha256'>): string {
   return canonicalJson(archive);
 }
 
-export async function createV5WorkspaceArchive(values: Record<string, string>, exportedAt = new Date().toISOString()): Promise<V5WorkspaceArchive> {
+export async function createV5WorkspaceArchive(values: Record<string, string>, exportedAt = new Date().toISOString(), offlineWorkspace?: OfflineWorkspaceArchiveData): Promise<V5WorkspaceArchive> {
   const records = await Promise.all(Object.entries(values)
     .filter(([key, value]) => isBackupableLegacyKey(key) && typeof value === 'string')
     .sort(([left], [right]) => left.localeCompare(right))
     .map(async ([key, value]) => ({ key, value, sha256: await sha256(value) })));
-  const body: Omit<V5WorkspaceArchive, 'sha256'> = { format: ARCHIVE_FORMAT, version: 5, exportedAt, recordCount: records.length, records };
+  const body: Omit<V5WorkspaceArchive, 'sha256'> = { format: ARCHIVE_FORMAT, version: 5, exportedAt, recordCount: records.length, records,
+    ...(offlineWorkspace ? { offlineWorkspace } : {}) };
   return { ...body, sha256: await sha256(archiveBody(body)) };
 }
 
@@ -80,12 +85,19 @@ export async function parseV5WorkspaceArchive(text: string): Promise<V5Workspace
       if (!scheduleHasContent(schedule)) throw new Error('拒绝从空 Schedule 归档覆盖本机数据。');
     }
   }
+  if (archive.offlineWorkspace !== undefined) {
+    const data = archive.offlineWorkspace;
+    if (!data || typeof data !== 'object' || typeof data.ownerId !== 'string' || !Array.isArray(data.snapshots) || !Array.isArray(data.outbox)) {
+      throw new Error('离线工作区归档格式无效。');
+    }
+  }
   const { sha256: checksum, ...body } = archive as V5WorkspaceArchive;
   if (await sha256(archiveBody(body)) !== checksum) throw new Error('归档整体 SHA-256 校验失败。');
   return archive as V5WorkspaceArchive;
 }
 
-export async function applyV5WorkspaceArchive({ archive, owner, storage, saveRecoveryPoint, queueV5Targets }: ApplyWorkspaceArchiveOptions): Promise<string[]> {
+export async function applyV5WorkspaceArchive({ archive, owner, storage, saveRecoveryPoint, queueV5Targets, restoreOfflineWorkspace }: ApplyWorkspaceArchiveOptions): Promise<string[]> {
+  if (archive.offlineWorkspace && archive.offlineWorkspace.ownerId !== owner) throw new Error('归档中的离线队列属于其他账号，已拒绝导入。');
   const current = new Map<string, string>();
   for (const key of storage.keys()) {
     if (!isBackupableLegacyKey(key)) continue;
@@ -94,7 +106,7 @@ export async function applyV5WorkspaceArchive({ archive, owner, storage, saveRec
   }
 
   const changed = archive.records.filter((record) => current.get(record.key) !== record.value);
-  if (!changed.length) return [];
+  if (!changed.length && !archive.offlineWorkspace) return [];
 
   const beforeByPage = new Map<BackupPage, Record<string, string>>();
   for (const [key, value] of current) {
@@ -105,8 +117,23 @@ export async function applyV5WorkspaceArchive({ archive, owner, storage, saveRec
   }
   for (const [page, values] of beforeByPage) await saveRecoveryPoint(owner, page, values);
 
-  for (const record of changed) storage.setItem(record.key, record.value);
-  await storage.flush();
+  try {
+    for (const record of changed) storage.setItem(record.key, record.value);
+    await storage.flush();
+    if (archive.offlineWorkspace) {
+      if (!restoreOfflineWorkspace) throw new Error('当前版本无法安全恢复离线队列。');
+      await restoreOfflineWorkspace(owner, archive.offlineWorkspace);
+    }
+  } catch (error) {
+    const changedKeys = new Set(changed.map(record => record.key));
+    for (const key of changedKeys) {
+      const previous = current.get(key);
+      if (previous === undefined) storage.removeItem?.(key);
+      else storage.setItem(key, previous);
+    }
+    await storage.flush().catch(() => undefined);
+    throw error;
+  }
   await queueV5Targets(resourceTargetsForStorageKeys(changed.map((record) => record.key)));
   return changed.map((record) => record.key);
 }
