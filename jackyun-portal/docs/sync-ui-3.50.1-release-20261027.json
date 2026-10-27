@@ -1,0 +1,36 @@
+{
+  "version": "3.50.1",
+  "sourceCommit": "5b2b01fe3b344b5ce499edf11919b4e4a8f7d083",
+  "productionDeployment": {
+    "id": "dpl_43csEDFn6aUYkDJHsz54go21j8q9",
+    "domain": "jackyun.top",
+    "state": "READY",
+    "sourceMatchesMain": true
+  },
+  "verification": {
+    "productionBuild": "PASS",
+    "typeScript": "PASS",
+    "focusedESLint": "PASS",
+    "syncRegressionTestsPassed": 268,
+    "navigationQueueRegressionTestsPassed": 3,
+    "statusBrowserViewportsPassed": [390, 1440],
+    "fixedControlDimensionsVerified": true,
+    "escapeAndOutsideDismissVerified": true,
+    "realConflictsRemainAccessible": true,
+    "docxPagesRenderedAndInspected": 2
+  },
+  "dataSafety": {
+    "businessDataCleared": false,
+    "pendingOperationsCleared": false,
+    "databaseSchemaChanged": false,
+    "backendRedeployed": false,
+    "legacyAnalyticsRecordsDeleted": false
+  },
+  "remainingAcceptance": [
+    "Physical phone and PWA: user currently has no phone available",
+    "Latest all-user migration and backup restore reconciliation",
+    "Independent historical business API paths",
+    "Writing archive removal tombstone review finding"
+  ],
+  "wholeV5ProjectComplete": false
+}
