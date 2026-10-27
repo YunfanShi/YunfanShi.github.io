@@ -46,6 +46,30 @@ try {
     await context.close();
   }
 
+  const lateRestoreContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  await lateRestoreContext.addInitScript(() => {
+    localStorage.setItem('quizwise_version_preference', 'react');
+    localStorage.setItem('quizwise_current_questions', JSON.stringify([
+      { type: 'multiple_choice', questionText: 'Cloud-restored active question?', options: [{ label: 'A', text: 'Yes' }, { label: 'B', text: 'No' }], correctAnswer: 'A) Yes' },
+    ]));
+    localStorage.removeItem('quizwise_current_progress');
+  });
+  const lateRestorePage = await lateRestoreContext.newPage();
+  lateRestorePage.on('pageerror', error => errors.push(error.message));
+  await lateRestorePage.goto(`${base}/quiz`);
+  await lateRestorePage.getByRole('button', { name: 'Custom' }).waitFor();
+  await lateRestorePage.evaluate(() => {
+    localStorage.setItem('quizwise_current_progress', JSON.stringify({
+      sessionId: 'late-cloud-session', startedAt: '2026-10-28T09:00:00.000Z', subjectName: 'Cloud subject',
+      currentIndex: 0, questionIds: ['late-cloud-question'], answers: [{ questionIndex: 0, answer: '', isCorrect: null }],
+    }));
+    window.dispatchEvent(new Event('jackyun-cloud-state-applied'));
+  });
+  await lateRestorePage.getByText('Cloud-restored active question?', { exact: true }).waitFor();
+  assert.equal(await lateRestorePage.getByText('1 / 1', { exact: true }).count(), 1, 'late cloud progress restores over an idle legacy question cache');
+  console.log('PASS QuizWise late cloud progress hydration does not get masked by an existing question cache');
+  await lateRestoreContext.close();
+
   const flowContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
   await flowContext.addInitScript(() => {
     localStorage.setItem('quizwise_version_preference', 'react');

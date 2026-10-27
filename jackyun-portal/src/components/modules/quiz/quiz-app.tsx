@@ -99,12 +99,12 @@ export default function QuizApp() {
   const [inputText, setInputText] = useState('');
   const [draftAnswers, setDraftAnswers] = useState<Record<number, string>>({});
   const quizStartedAtRef = useRef<string | null>(null);
-  const restoredProgressRef = useRef(false);
+  const progressRestoreHandledRef = useRef(false);
 
   // Restore in-progress quiz on mount
   useEffect(() => {
     const restore = async () => {
-      if (restoredProgressRef.current) return;
+      if (progressRestoreHandledRef.current) return;
       let saved = getCurrentQuestionsSync();
       if (!saved.length) saved = await getCurrentQuestions();
       if (!saved.length) return;
@@ -114,7 +114,7 @@ export default function QuizApp() {
         ...q,
         type: normalizeQuestionType(q.type),
       }));
-      restoredProgressRef.current = true;
+      progressRestoreHandledRef.current = Boolean(progress);
       queueMicrotask(() => {
         setQuestions(normalized);
         if (progress?.subjectName) {
@@ -146,6 +146,7 @@ export default function QuizApp() {
 
   // Analyze questions
   const handleAnalyze = useCallback(async (rawText: string) => {
+    progressRestoreHandledRef.current = true;
     setSubjectName('');
     setSessionId(null);
     setUserAnswers([]);
@@ -187,6 +188,7 @@ export default function QuizApp() {
   }, []);
 
   const handleImport = useCallback(async (json: string) => {
+    progressRestoreHandledRef.current = true;
     try {
       const imported = parseQuizQuestions(json);
       await clearCurrentQuizProgress();
@@ -224,6 +226,7 @@ export default function QuizApp() {
 
   // Start quiz with subject
   const handleStartQuiz = useCallback(async (subject: string) => {
+    progressRestoreHandledRef.current = true;
     const startedAt = new Date().toISOString();
     quizStartedAtRef.current = startedAt;
     saveCurrentSession({ id: `local-${crypto.randomUUID()}`, startedAt });
