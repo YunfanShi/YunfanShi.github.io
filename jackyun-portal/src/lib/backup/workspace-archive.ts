@@ -132,11 +132,6 @@ export async function applyV5WorkspaceArchive({ archive, owner, storage, saveRec
     for (const record of changed) storage.setItem(record.key, record.value);
     await storage.flush();
     assertContextCurrent?.();
-    if (archive.offlineWorkspace) {
-      if (!restoreOfflineWorkspace) throw new Error('当前版本无法安全恢复离线队列。');
-      await restoreOfflineWorkspace(owner, archive.offlineWorkspace);
-      assertContextCurrent?.();
-    }
     if (archive.syncState) {
       if (!restoreSyncState) throw new Error('当前版本无法安全恢复尚未同步的操作。');
       await restoreSyncState(owner, archive.syncState);
@@ -144,6 +139,11 @@ export async function applyV5WorkspaceArchive({ archive, owner, storage, saveRec
     }
     await queueV5Targets(resourceTargetsForStorageKeys(changed.map((record) => record.key)));
     assertContextCurrent?.();
+    if (archive.offlineWorkspace) {
+      if (!restoreOfflineWorkspace) throw new Error('当前版本无法安全恢复离线队列。');
+      await restoreOfflineWorkspace(owner, archive.offlineWorkspace);
+      assertContextCurrent?.();
+    }
   } catch (error) {
     try { assertContextCurrent?.(); } catch { throw error; }
     const changedKeys = new Set(changed.map(record => record.key));

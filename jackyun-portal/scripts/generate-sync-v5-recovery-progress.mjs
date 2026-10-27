@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 const require = createRequire(import.meta.url);
 const bundledModules = process.env.CODEX_NODE_MODULES;
 const { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, WidthType } = require(bundledModules ? resolve(bundledModules, 'docx') : 'docx');
-const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.58.0-20261028.docx');
+const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.58.1-20261028.docx');
 const p = (text, options = {}) => new Paragraph({ text, ...options });
 const h = (text, level = HeadingLevel.HEADING_1) => new Paragraph({ text, heading: level, keepNext: true });
 const cell = text => new TableCell({ children: [p(text)], width: { size: 25, type: WidthType.PERCENTAGE } });
@@ -22,7 +22,7 @@ const doc = new Document({
   },
   sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } } }, children: [
     new Paragraph({ text: 'JackYun 全量资源同步与数据恢复实施记录', style: 'Title' }),
-    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档、3.57.1 存储键映射回归及 3.58.0 同步待办归档。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
+    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档、3.57.1 存储键映射回归、3.58.0 同步待办归档及 3.58.1 多设备恢复缺陷修复。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
     p('结论：本记录确认了现有 Schedule v5 客户端的空缓存保护、哈希校验、原子游标与按页订阅测试，并针对日志中可恢复网络错误造成的噪音进行修复。它不表示全账号资源已迁入 v5，也不表示生产账号、staging 迁移或真实双设备验收已通过。'),
     h('1. 当前工作范围'),
     p('3.52.3 已通过 PR #168 合入并部署生产；本地当前在基于最新 main 的隔离分支推进 3.52.4。当前修改没有接触 Supabase 分支或生产数据。3.52.1 将主动取消降为 debug；网络断开、408、425、429、500、502、503、504 记为 warn，不附加重复错误正文；401、403、409、其他非恢复类 HTTP 错误仍保留 error 诊断。3.52.2 修复删除最后一条 CUE 时空集合保护吞掉 tombstone 的 P2 缺陷。3.52.3 再修复放弃或完成最后一个 CUE 学习草稿时空 map 吞掉 tombstone 的 P2 缺陷。两类已同步记录都以当前 revision/hash 写入 v5 outbox；存在未解决冲突时阻止该资源删除并提示用户。所有请求日志仅保留 origin 与 pathname，避免把 ID 查询参数完整写进日志。'),
@@ -76,10 +76,10 @@ const doc = new Document({
     p('余下 18 项包含运行时模板或未解析变量，测试继续将其视为待办，不猜测 key 值。该回归证明静态代码映射函数可覆盖清单的具体键，不证明每个资源已由用户页面启动、服务端回执或云端哈希读回，也不证明按页懒迁移已完成所有历史数据。v4 运行时仍不得在迁移计数、哈希和设备更新验证通过前退役。'),
     h('11. 3.58.0 同步待办归档与恢复'),
     p('本机 v5 归档新增账号隔离的 jackyun-sync-v2 Outbox/Conflicts 内容，涵盖遗留待同步操作、遗留冲突、v5 操作和 v5 冲突。归档整体 SHA-256 覆盖这些数据；解析时检查账号归属、稳定 ID、资源 scope、允许同步的 legacy key、revision、日期及 JSON 可规范化。设备会话、认证资料、同步游标、分片缓存和设备设置不会导出。'),
-    p('恢复先在目标账号同步 IndexedDB 的单个 readwrite 事务内读取当前队列、持久化队列/冲突恢复点，再合并归档记录。操作按 ID 幂等；遗留操作的本机 sequence/retry 顺序优先保留；同 ID 但业务内容不同会 abort，既不覆盖当前队列也不创建不完整恢复点。恢复点最多保留 10 份。工作区导入固定仓库账号和 v5 目标数据库；异步过程中切换账号会终止流程且绝不通过全局存储句柄回滚到新账号。离线队列以原 sequence 为主、创建时间为回退排序，避免恢复后同一对象的状态操作倒序。成功后界面触发后台同步重试。'),
+    p('恢复先在目标账号同步 IndexedDB 的单个 readwrite 事务内读取当前队列、持久化队列/冲突恢复点，再合并归档记录。操作按 ID 幂等；遗留操作的本机 sequence/retry 顺序优先保留；同 ID 但业务内容不同会 abort，既不覆盖当前队列也不创建不完整恢复点。恢复点最多保留 10 份。工作区导入固定仓库账号和 v5 目标数据库；异步过程中切换账号会终止流程且绝不通过全局存储句柄回滚到新账号。离线队列以原 sequence 为主、创建时间为回退排序，避免恢复后同一对象的状态操作倒序。v5 恢复目标逐域记录 generation，只确认已处理的同代目标，旧同步轮次不得清理并发新增的目标；缺失后端能力的域保留重试。'),
     p('工作区、离线工作区和同步数据库是多个独立存储，浏览器没有跨库原子事务。本地页面在 IndexedDB flush 后才排入 v5 恢复目标；离线和同步数据库各自保留事务恢复点。归档不包含独立 QuizWise IndexedDB 历史、独立 Supabase 业务表或未下载云端数据，因此仍不能称为完整设备镜像。后续需逐项纳入其余业务 IDB/表格，并完成真实 authenticated business read/write 与跨设备验收。'),
     h('12. 3.58.0 验证与未完成门槛'),
-    p('本机验证：workspace archive 与 update history 定向测试 11/11；TypeScript --noEmit、定向 ESLint 通过；完整 test:sync 309/309 通过。大于 1 MB Schedule 归档、哈希/损坏检查、IndexedDB 落盘失败保护、账号切换隔离、离线重放顺序、离线快照/操作和 v4/v5 待办/冲突归档均有测试覆盖。'),
+    p('本机验证：workspace archive 与 update history 定向测试 12/12；QuizWise 存储/恢复测试覆盖 tombstone 与题集 ID 一致性；TypeScript --noEmit、定向 ESLint 通过；完整 test:sync 313/313 通过。大于 1 MB Schedule 归档、哈希/损坏检查、IndexedDB 落盘失败保护、账号切换隔离、离线重放顺序、恢复目标代次、未支持能力保留及 v4/v5 待办/冲突归档均有测试覆盖。'),
     p('GitHub Actions run 40589643193（PR #169 测试头 3084408）：生产构建、Type/lint、Existing data safety regressions 通过；Run production UI flows 失败。日志中的失败分布在 IELTS dashboard、旧 iframe/theme 页面、quick-task-ui、study-guide、music-player、answer-sheet-legacy、cue-route-draft、cue-search 和 review-queue。当前改动触及备份归档/outbox，而失败断言来自上述独立页面；这次运行不能证明它们是本次回归，也不能证明它们属于既有基线。需要以同一脚本在目标基线复跑后分类；同步数据安全测试不得跳过。'),
     p('真实 v5 E2E 仍未完成：当前本机阶段的恢复归档尚未覆盖独立 QuizWise IndexedDB/Supabase 业务表、焦点/阅读业务副作用或云端未下载数据；staging/生产仍需最新迁移、受限账号读写与 receipt/SHA/RLS 证据；还需两个独立真实浏览器双向修改、离线重试、冲突回滚与生产部署 SHA 验收。没有实体手机，因此不得标记手机验收通过。'),
   ] }],

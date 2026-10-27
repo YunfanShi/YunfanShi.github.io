@@ -271,7 +271,7 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     const written=new Set<SyncV5Scope>();
     for(const scope of scopes)if(await push(scope,authority.writingCollections))written.add(scope);
     for(const target of uniqueTargets)if(written.has(target.scope))await pull(target);
-    return {enabled:true,authoritativeSchedule:authority.authoritativeSchedule,writingCollectionsEnabled:authority.writingCollections,conflicts:await getV5Conflicts(e.databaseScope)};
+    return {enabled:true,authoritativeSchedule:authority.authoritativeSchedule,writingCollectionsEnabled:authority.writingCollections,processedTargets:uniqueTargets,conflicts:await getV5Conflicts(e.databaseScope)};
   }
   async function resolveConflict(operationId:string,choice:'local'|'remote',expected?:V5ResourceConflict){
     let guard:import('./outbox.ts').V5ResolutionGuard|undefined;

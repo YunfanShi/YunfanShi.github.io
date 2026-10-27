@@ -555,9 +555,10 @@ const V5_RESTORE_TARGETS='v5RestoreTargets';
 const targetKey=(target:SyncV5ResourceTarget)=>`${target.scope}\0${target.field}`;
 const validRestoreTarget=(target:unknown):target is SyncV5ResourceTarget=>Boolean(target&&typeof target==='object'
   &&'scope'in target&&'field'in target&&typeof target.scope==='string'&&SYNC_V5_SCOPES.includes(target.scope as SyncV5Scope)
-  &&typeof target.field==='string'&&resourceFieldsForScope(target.scope as SyncV5Scope).includes(target.field));
+  &&typeof target.field==='string'&&resourceFieldsForScope(target.scope as SyncV5Scope).includes(target.field)
+  &&(!('generation'in target)||typeof target.generation==='string'&&target.generation.length<=128));
 export async function queueV5RestoreTargets(targets:readonly SyncV5ResourceTarget[],scope?:string):Promise<void>{
-  const additions=[...new Map(targets.filter(validRestoreTarget).map(target=>[targetKey(target),target])).values()];
+  const additions=[...new Map(targets.filter(validRestoreTarget).map(target=>[targetKey(target),{...target,generation:crypto.randomUUID()}])).values()];
   if(!additions.length)return;
   const db=await openDatabase(scope);
   try{await new Promise<void>((resolve,reject)=>{
@@ -573,7 +574,7 @@ export async function getV5RestoreTargets(scope?:string):Promise<SyncV5ResourceT
 }
 /** Clear only targets whose v5 writes and conflict state are fully settled. */
 export async function acknowledgeV5RestoreTargets(targets:readonly SyncV5ResourceTarget[],scope?:string):Promise<SyncV5ResourceTarget[]>{
-  const requested=new Set(targets.map(targetKey)),db=await openDatabase(scope);
+  const requested=new Map(targets.map(target=>[targetKey(target),target.generation??''])),db=await openDatabase(scope);
   try{return await new Promise<SyncV5ResourceTarget[]>((resolve,reject)=>{
     const tx=db.transaction(['settings','v5Outbox','v5Conflicts'],'readwrite'),settings=tx.objectStore('settings'),outbox=tx.objectStore('v5Outbox'),conflicts=tx.objectStore('v5Conflicts');
     const setting=settings.get(V5_RESTORE_TARGETS),pending=outbox.getAll(),blocked=conflicts.getAll();let remaining:SyncV5ResourceTarget[]=[];let seen=0,failed=false;
@@ -581,7 +582,7 @@ export async function acknowledgeV5RestoreTargets(targets:readonly SyncV5Resourc
       const active=new Set<string>();
       for(const row of pending.result as V5ResourceOperation[]){const colon=row.recordId.indexOf(':');if(colon>0)active.add(`${row.scope}\0${row.recordId.slice(0,colon)}`);}
       for(const row of blocked.result as V5ResourceConflict[]){const colon=row.recordId.indexOf(':');if(colon>0)active.add(`${row.scope}\0${row.recordId.slice(0,colon)}`);}
-      remaining=existing.filter(target=>!(requested.has(targetKey(target))&&!active.has(targetKey(target))));
+      remaining=existing.filter(target=>!(requested.has(targetKey(target))&&(target.generation??'')===requested.get(targetKey(target))&&!active.has(targetKey(target))));
       if(remaining.length)settings.put({key:V5_RESTORE_TARGETS,value:remaining});else settings.delete(V5_RESTORE_TARGETS);
     };
     for(const request of [setting,pending,blocked]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}

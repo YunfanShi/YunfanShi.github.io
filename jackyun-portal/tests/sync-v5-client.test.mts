@@ -651,7 +651,9 @@ test('backup restore targets persist per account until their v5 records and conf
   assert.ok(targets.some(row=>row.scope==='cue'&&row.field==='cues'));
   assert.ok(!targets.some(row=>row.field==='eruda-console'));
   await queueV5RestoreTargets(targets,databaseScope);
-  assert.deepEqual(await getV5RestoreTargets(databaseScope),targets);
+  const queuedTargets=await getV5RestoreTargets(databaseScope);
+  assert.deepEqual(queuedTargets.map(({scope,field})=>({scope,field})),targets);
+  assert.ok(queuedTargets.every(row=>typeof row.generation==='string'&&row.generation));
   const pendingTarget=targets.find(row=>row.field==='legacyIELTS')!,conflictTarget=targets.find(row=>row.field==='cues')!;
   const pendingId=crypto.randomUUID(),conflictId=crypto.randomUUID(),db=await openDatabase(databaseScope);
   try{await new Promise<void>((resolve,reject)=>{
@@ -660,11 +662,23 @@ test('backup restore targets persist per account until their v5 records and conf
     tx.objectStore('v5Conflicts').put({operationId:conflictId,scope:conflictTarget.scope,recordId:`${conflictTarget.field}:conflict`,baseRevision:0,baseHash:null,localValue:{id:'local'},localDeleted:false,remoteValue:{id:'remote'},remoteDeleted:false,remoteRevision:1,remoteHash:'a'.repeat(64),createdAt:new Date().toISOString()});
     tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
   });}finally{db.close();}
-  assert.deepEqual(await acknowledgeV5RestoreTargets(targets,databaseScope),[conflictTarget,pendingTarget].sort((a,b)=>`${a.scope}\0${a.field}`.localeCompare(`${b.scope}\0${b.field}`)),'pending writes and actionable conflicts keep their resource fields queued');
+  const queuedPending=queuedTargets.find(row=>row.field===pendingTarget.field)!,queuedConflict=queuedTargets.find(row=>row.field===conflictTarget.field)!;
+  assert.deepEqual(await acknowledgeV5RestoreTargets(queuedTargets,databaseScope),[queuedConflict,queuedPending].sort((a,b)=>`${a.scope}\0${a.field}`.localeCompare(`${b.scope}\0${b.field}`)),'pending writes and actionable conflicts keep their resource fields queued');
   const cleanup=await openDatabase(databaseScope);
   try{await new Promise<void>((resolve,reject)=>{const tx=cleanup.transaction(['v5Outbox','v5Conflicts'],'readwrite');tx.objectStore('v5Outbox').delete(pendingId);tx.objectStore('v5Conflicts').delete(conflictId);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{cleanup.close();}
-  assert.deepEqual(await acknowledgeV5RestoreTargets(targets,databaseScope),[]);
+  assert.deepEqual(await acknowledgeV5RestoreTargets(queuedTargets,databaseScope),[]);
   assert.deepEqual(await getV5RestoreTargets(databaseScope),[]);
+});
+
+test('requeued restore target generation survives acknowledgment of an older in-flight generation',async()=>{
+  const databaseScope=id(),target=resourceTargetsForStorageKeys(['jackyun_ielts_goal_v1']).find(row=>row.field==='legacyIELTS')!;
+  await queueV5RestoreTargets([target],databaseScope);
+  const inFlight=(await getV5RestoreTargets(databaseScope))[0];
+  await queueV5RestoreTargets([target],databaseScope);
+  const latest=(await getV5RestoreTargets(databaseScope))[0];
+  assert.notEqual(latest.generation,inFlight.generation);
+  assert.deepEqual(await acknowledgeV5RestoreTargets([inFlight],databaseScope),[latest]);
+  assert.deepEqual(await getV5RestoreTargets(databaseScope),[latest]);
 });
 
 test('new writing subscriptions wait for the backend capability instead of sending unknown fields to an older server',async()=>{
@@ -680,6 +694,7 @@ test('new writing subscriptions wait for the backend capability instead of sendi
   },deviceId:async()=>crypto.randomUUID(),uuid:()=>crypto.randomUUID(),readSchedule:()=>null,projectSchedule:async()=>{},setAuthority:()=>{}});
   const result=await engine.synchronize(resourceFieldsForPath('/ielts-writing'));
   assert.equal(result.writingCollectionsEnabled,false);
+  assert.deepEqual(result.processedTargets,[],'unsupported resource targets must remain queued for a later backend capability');
   assert.deepEqual(requests,['/api/sync/v5']);
   assert.deepEqual((await getV5Outbox('workspace',databaseScope)).map(row=>row.id),[pendingId],'capability withdrawal must preserve pending writing operations without an unsafe fallback');
 });

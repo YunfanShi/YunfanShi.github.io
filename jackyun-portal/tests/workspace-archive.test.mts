@@ -191,6 +191,29 @@ test('offline archive restore collision rolls back snapshots and operation rows'
   } finally { db.close(); }
 });
 
+test('sync archive collision is detected before offline operations become eligible for replay', async () => {
+  indexedDB = new IDBFactory();
+  Object.assign(window, { localStorage: new StorageMock() });
+  const owner = 'archive-cross-store-conflict';
+  await getSyncArchiveData(owner);
+  const conflict = { id: '00400000-0000-4000-8000-000000000020', scope: 'workspace' as const, recordId: 'legacyQuiz:collision',
+    baseRevision: 0, baseHash: null, value: { local: true }, deleted: false, clientUpdatedAt: '2026-10-28T10:00:00.000Z' };
+  const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open(`jackyun-sync-v2:${owner}`); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+  try { await new Promise<void>((resolve, reject) => { const tx = db.transaction('v5Outbox', 'readwrite'); tx.objectStore('v5Outbox').put(conflict);
+    tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); }); } finally { db.close(); }
+  const offlineWorkspace = { ownerId: owner, snapshots: [], outbox: [{ id: '00400000-0000-4000-8000-000000000021', userId: owner,
+    kind: 'task.complete', payload: { taskId: 'task-a' }, createdAt: '2026-10-28T10:01:00.000Z' }] };
+  const archivedSync = await getSyncArchiveData(owner);
+  archivedSync.v5Outbox[0] = { ...conflict, value: { remoteArchive: true } };
+  const archive = await createV5WorkspaceArchive({}, '2026-10-28T10:02:00.000Z', offlineWorkspace, archivedSync);
+  let offlineRestoreCalled = false;
+  await assert.rejects(applyV5WorkspaceArchive({ archive, owner, storage: { keys: () => [], getItem: () => null, setItem: () => {}, flush: async () => {} }, saveRecoveryPoint: async () => {},
+    queueV5Targets: async () => {}, restoreSyncState: restoreSyncArchiveData,
+    restoreOfflineWorkspace: async (...args) => { offlineRestoreCalled = true; return restoreOfflineWorkspaceArchiveData(...args); } }), /内容与本机不同/);
+  assert.equal(offlineRestoreCalled, false);
+  assert.deepEqual(await exportOfflineWorkspaceArchiveData(owner), { ownerId: owner, snapshots: [], outbox: [] });
+});
+
 test('portable archive preserves v4 and v5 pending operations and conflicts with account isolation and recovery', async () => {
   indexedDB = new IDBFactory();
   Object.assign(window, { localStorage: new StorageMock() });

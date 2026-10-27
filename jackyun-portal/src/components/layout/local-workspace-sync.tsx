@@ -211,7 +211,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           const restoreTargets=await syncStore.getV5RestoreTargets(accountStore.databaseScope);
           const v5Result=await v5Sync.synchronize([...resourceFieldsForPath(routeForRun),...restoreTargets]);
           v5Enabled=v5Result.enabled;
-          if(v5Result.enabled&&restoreTargets.length)await syncStore.acknowledgeV5RestoreTargets(restoreTargets,accountStore.databaseScope);
+          if(v5Result.enabled&&v5Result.processedTargets?.length)await syncStore.acknowledgeV5RestoreTargets(v5Result.processedTargets,accountStore.databaseScope);
           await engine.synchronize();
           await flushLocalWrites();await engine.capture();
           await accountStore.setSetting('lastAutomaticPull',Date.now());

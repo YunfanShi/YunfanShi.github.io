@@ -13,6 +13,7 @@ import {
   clearCurrentQuestions,
   clearCurrentQuizProgress,
   getCurrentQuizProgress,
+  quizProgressMatchesQuestions,
   getCurrentSession,
   saveCurrentQuestions,
   saveCurrentQuizProgress,
@@ -100,46 +101,55 @@ export default function QuizApp() {
   const [draftAnswers, setDraftAnswers] = useState<Record<number, string>>({});
   const quizStartedAtRef = useRef<string | null>(null);
   const progressRestoreHandledRef = useRef(false);
+  const progressRestoreInFlightRef = useRef(false);
+  const progressRestoreEventVersionRef = useRef(0);
 
   // Restore in-progress quiz on mount
   useEffect(() => {
     const restore = async () => {
-      if (progressRestoreHandledRef.current) return;
-      let saved = getCurrentQuestionsSync();
-      if (!saved.length) saved = await getCurrentQuestions();
-      if (!saved.length) return;
-      const progress = getCurrentQuizProgress();
-      // Normalize types on restore
-      const normalized = saved.map(q => ({
-        ...q,
-        type: normalizeQuestionType(q.type),
-      }));
-      progressRestoreHandledRef.current = Boolean(progress);
-      queueMicrotask(() => {
-        setQuestions(normalized);
-        if (progress?.subjectName) {
-          const restoredAnswers = normalized.map((_, index) => progress.answers.find(answer => answer.questionIndex === index)
-            ?? { questionIndex: index, answer: '', isCorrect: null });
-          setUserAnswers(restoredAnswers);
-          setCurrentIndex(Math.min(progress.currentIndex, Math.max(0, normalized.length - 1)));
-          setSessionId(progress.sessionId);
-          setSubjectName(progress.subjectName);
-          setDbQuestions(normalized.map((question, index) => ({
-            id: progress.questionIds[index] ?? '', session_id: progress.sessionId ?? '',
-            question_text: question.questionText, question_type: question.type, options: question.options,
-            correct_answer: question.correctAnswer, user_answer: restoredAnswers[index].answer || null,
-            is_correct: restoredAnswers[index].isCorrect, explanation: question.explanation,
-            answered_at: restoredAnswers[index].answer ? progress.startedAt : null, order_index: index,
-          })));
-          quizStartedAtRef.current = progress.startedAt;
-          setView('quiz');
-        } else {
-          setView('subject');
-        }
-      });
+      if (progressRestoreHandledRef.current || progressRestoreInFlightRef.current) return;
+      progressRestoreInFlightRef.current = true;
+      const eventVersion = progressRestoreEventVersionRef.current;
+      try {
+        let saved = getCurrentQuestionsSync();
+        if (!saved.length) saved = await getCurrentQuestions();
+        if (!saved.length) return;
+        const progress = getCurrentQuizProgress();
+        const normalized = saved.map(q => ({ ...q, type: normalizeQuestionType(q.type) }));
+        if (progress && !quizProgressMatchesQuestions(progress, normalized)) return;
+        progressRestoreHandledRef.current = Boolean(progress);
+        queueMicrotask(() => {
+          setQuestions(normalized);
+          if (progress?.subjectName) {
+            const restoredAnswers = normalized.map((_, index) => progress.answers.find(answer => answer.questionIndex === index)
+              ?? { questionIndex: index, answer: '', isCorrect: null });
+            setUserAnswers(restoredAnswers);
+            setCurrentIndex(Math.min(progress.currentIndex, Math.max(0, normalized.length - 1)));
+            setSessionId(progress.sessionId);
+            setSubjectName(progress.subjectName);
+            setDbQuestions(normalized.map((question, index) => ({
+              id: progress.questionIds[index] ?? '', session_id: progress.sessionId ?? '',
+              question_text: question.questionText, question_type: question.type, options: question.options,
+              correct_answer: question.correctAnswer, user_answer: restoredAnswers[index].answer || null,
+              is_correct: restoredAnswers[index].isCorrect, explanation: question.explanation,
+              answered_at: restoredAnswers[index].answer ? progress.startedAt : null, order_index: index,
+            })));
+            quizStartedAtRef.current = progress.startedAt;
+            setView('quiz');
+          } else {
+            setView('subject');
+          }
+        });
+      } finally {
+        progressRestoreInFlightRef.current = false;
+        if (!progressRestoreHandledRef.current && eventVersion !== progressRestoreEventVersionRef.current) queueMicrotask(() => { void restore(); });
+      }
     };
-    const onCloudStateApplied = () => { void restore().catch(() => setProgressSaveError('本机 QuizWise 数据读取失败；请勿覆盖或清除现有恢复副本。')); };
-    onCloudStateApplied();
+    const onCloudStateApplied = () => {
+      progressRestoreEventVersionRef.current++;
+      void restore().catch(() => setProgressSaveError('本机 QuizWise 数据读取失败；请勿覆盖或清除现有恢复副本。'));
+    };
+    void restore().catch(() => setProgressSaveError('本机 QuizWise 数据读取失败；请勿覆盖或清除现有恢复副本。'));
     window.addEventListener(CLOUD_STATE_APPLIED_EVENT, onCloudStateApplied);
     return () => window.removeEventListener(CLOUD_STATE_APPLIED_EVENT, onCloudStateApplied);
   }, []);
@@ -260,7 +270,12 @@ export default function QuizApp() {
 
       // Use REAL question IDs from DB
       const questionIds = result.questionIds;
-      setDbQuestions(questions.map((q, i) => ({
+      const identifiedQuestions = questions.map((question, index) => ({ ...question, id: questionIds[index] || undefined }));
+      setQuestions(identifiedQuestions);
+      await saveCurrentQuestions(identifiedQuestions).catch(() => {
+        setProgressSaveError('云端会话已建立，但含稳定题目 ID 的本机题目副本未能保存；恢复前会等待一致副本。');
+      });
+      setDbQuestions(identifiedQuestions.map((q, i) => ({
         id: questionIds[i] || '',      // REAL UUID from DB
         session_id: result.sessionId,
         question_text: q.questionText,

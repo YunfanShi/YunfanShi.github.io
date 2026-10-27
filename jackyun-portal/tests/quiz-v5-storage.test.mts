@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {IDBFactory} from 'fake-indexeddb';
 import {getDocuments,getOutbox} from '../src/lib/sync/outbox.ts';
-import {initializeRepository,workspaceStorage} from '../src/lib/sync/repository.ts';
-import {appendLocalQuizHistory,clearCurrentQuizProgress,clearCurrentSession,clearOfflineAnswers,getCurrentQuestions,getCurrentQuizProgress,getCurrentSession,getLocalQuizHistory,getOfflineAnswers,getQuizSettings,getSelectedSubject,queueOfflineAnswer,saveCurrentQuestions,saveCurrentQuizProgress,saveCurrentSession,saveQuizSettings,saveSelectedSubject} from '../src/lib/quiz/storage.ts';
+import {applyRepositoryRecord,initializeRepository,workspaceStorage} from '../src/lib/sync/repository.ts';
+import {appendLocalQuizHistory,clearCurrentQuizProgress,clearCurrentSession,clearOfflineAnswers,getCurrentQuestions,getCurrentQuizProgress,getCurrentSession,getLocalQuizHistory,getOfflineAnswers,getQuizSettings,getSelectedSubject,queueOfflineAnswer,quizProgressMatchesQuestions,saveCurrentQuestions,saveCurrentQuizProgress,saveCurrentSession,saveQuizSettings,saveSelectedSubject} from '../src/lib/quiz/storage.ts';
 import {legacyWorkspaceFieldForKey,legacyWorkspaceRecordId} from '../src/lib/sync/resource-model.ts';
 
 class StorageMock {
@@ -89,6 +89,25 @@ test('QuizWise IndexedDB fallback restores into its durable legacyQuiz workspace
     const tx=db.transaction('quiz_data','readonly'),request=tx.objectStore('quiz_data').get('current_questions');
     request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
   });assert.deepEqual(cached?.value,changed);}finally{db.close();}
+});
+
+test('QuizWise tombstone blocks stale IndexedDB question cache resurrection',async()=>{
+  const userId='quiz-owner-deleted-cache',key='quizwise_current_questions';
+  await initializeRepository(userId);
+  await seedQuizCache('current_questions',[{id:'stale-question',questionText:'must stay deleted'}]);
+  await applyRepositoryRecord(key,null);
+  assert.deepEqual(await getCurrentQuestions(),[]);
+  assert.equal((await getDocuments()).find(row=>row.key===key)?.value,null);
+  assert.ok(!(await getOutbox()).some(row=>row.key===key&&!row.deleted),'stale cache fallback must not enqueue a resurrection write');
+});
+
+test('QuizWise progress is restored only with the question set named by its stable IDs',()=>{
+  const progress={sessionId:'session-a',startedAt:'2026-10-28T10:00:00.000Z',subjectName:'Math',currentIndex:0,
+    questionIds:['question-a','question-b'],answers:[]};
+  assert.equal(quizProgressMatchesQuestions(progress,[{id:'question-a',questionText:'a',type:'short_answer',options:null,correctAnswer:'a',explanation:''},
+    {id:'question-b',questionText:'b',type:'short_answer',options:null,correctAnswer:'b',explanation:''}]),true);
+  assert.equal(quizProgressMatchesQuestions(progress,[{id:'old-a',questionText:'old',type:'short_answer',options:null,correctAnswer:'old',explanation:''},
+    {id:'old-b',questionText:'old',type:'short_answer',options:null,correctAnswer:'old',explanation:''}]),false);
 });
 
 test('all QuizWise local business keys map to stable v5 records and remain in the account outbox',async()=>{

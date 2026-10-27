@@ -1,5 +1,6 @@
 'use client';
 import { workspaceStorage } from '../sync/repository.ts';
+import { getDocuments } from '../sync/outbox.ts';
 
 
 import type { AnalyzedQuestion, QuizSession, QuizSettings } from '@/types/quiz';
@@ -98,6 +99,16 @@ async function removeWorkspaceValue(key: string): Promise<void> {
 
 // Current questions (in-progress quiz)
 export async function getCurrentQuestions(): Promise<AnalyzedQuestion[]> {
+  const authoritative = (await getDocuments()).find(row => row.key === 'quizwise_current_questions');
+  if (authoritative) {
+    if (authoritative.value === null) return [];
+    try {
+      const value: unknown = JSON.parse(authoritative.value);
+      if (Array.isArray(value)) return value as AnalyzedQuestion[];
+    }
+    catch { throw new Error('同步的 QuizWise 题目格式损坏；已阻止旧缓存覆盖云端删除或恢复状态。'); }
+    throw new Error('同步的 QuizWise 题目不是数组；已阻止旧缓存覆盖云端状态。');
+  }
   const synced = lsGet<AnalyzedQuestion[]>('current_questions');
   if (synced) return synced;
   const cached = await getItem<AnalyzedQuestion[]>('current_questions');
@@ -143,6 +154,11 @@ export interface CurrentQuizProgress {
   currentIndex: number;
   questionIds: string[];
   answers: Array<{ questionIndex: number; answer: string; isCorrect: boolean | null }>;
+}
+
+export function quizProgressMatchesQuestions(progress: CurrentQuizProgress, questions: readonly AnalyzedQuestion[]): boolean {
+  return !progress.questionIds.length || progress.questionIds.length === questions.length
+    && progress.questionIds.every((id, index) => questions[index]?.id === id);
 }
 
 const CURRENT_PROGRESS_KEY = 'quizwise_current_progress';

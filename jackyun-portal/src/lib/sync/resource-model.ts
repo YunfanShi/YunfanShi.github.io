@@ -5,7 +5,7 @@ export const SYNC_V5_SCHEDULE_SCOPES = ['timetable','learning','cue','practice',
 export const SYNC_V5_SCOPES = [...SYNC_V5_SCHEDULE_SCOPES,'workspace'] as const;
 export const LEGACY_WORKSPACE_FIELDS = ['legacyTimetable','legacyLearning','legacyStudyPlan','legacyGoals','legacyCue','legacyIELTS','legacyQuiz','legacyExam','legacyPractice','legacyTimer','legacySettings','legacyMedia','legacyPersonalSites','writingEssays','writingErrorHistory','writingArchive'] as const;
 export type SyncV5Scope = typeof SYNC_V5_SCOPES[number];
-export type SyncV5ResourceTarget = {scope:SyncV5Scope;field:string};
+export type SyncV5ResourceTarget = {scope:SyncV5Scope;field:string;generation?:string};
 
 export interface ScheduleResource {
   scope: SyncV5Scope;
