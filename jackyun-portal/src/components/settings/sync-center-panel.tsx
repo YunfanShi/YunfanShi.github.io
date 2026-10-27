@@ -114,7 +114,7 @@ export default function SyncCenterPanel() {
     : detail.state === 'auth_required'?'等待重新登录，本机内容和队列保留'
     : detail.state === 'access_denied'?'账号或设备权限需要处理，已暂停上传'
     : detail.state === 'synced'
-    ? '数据已自动同步'
+    ? detail.progress?.startsWith('当前页面所需资源已核对')?'当前页面资源已核对；其他页面在打开时分别检查':'同步检查已完成'
     : detail.state === 'conflict' ? '有修改需要你选择；两份内容已保留'
     : detail.state === 'server_unavailable'
       ? '服务器或数据库暂时无法连接；修改仍保存在本机'

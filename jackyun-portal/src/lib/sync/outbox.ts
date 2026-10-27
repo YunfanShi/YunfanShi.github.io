@@ -6,7 +6,7 @@ import { reconcileAcknowledgment } from './acknowledgment.ts';
 import { canonicalJson } from './hash.ts';
 import { threeWayMerge } from './merge.ts';
 import { isSyncableStorageKey } from '../local-workspace.ts';
-import { legacyWorkspaceFieldForKey, legacyWorkspaceKeyFromRecordId, legacyWorkspaceRecordId, mergeScheduleResources, scheduleToResources, workspaceValueToStorage, type ScheduleResource, type SyncV5Scope } from './resource-model.ts';
+import { isEmptyScheduleCollection, legacyWorkspaceFieldForKey, legacyWorkspaceKeyFromRecordId, legacyWorkspaceRecordId, mergeScheduleResources, scheduleToResources, workspaceValueToStorage, type ScheduleResource, type SyncV5Scope } from './resource-model.ts';
 import {WRITING_COLLECTIONS} from './writing-resource-model.ts';
 import {commitWritingPage} from './writing-outbox.ts';
 
@@ -150,6 +150,21 @@ export async function queueV5ResourceOperation(operation:V5ResourceOperation,dbS
       const all=outbox.getAll();all.onsuccess=()=>{for(const row of all.result as V5ResourceOperation[])if(row.scope===operation.scope&&row.recordId===operation.recordId)outbox.delete(row.id);outbox.put(operation);};};
     tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??new Error('v5 local operation could not be queued'));});}finally{db.close();}
 }
+/** Persist a user-confirmed deletion against the current v5 base without relying on a non-empty Schedule projection. */
+export async function queueV5ResourceDeletion(scope:SyncV5Scope,recordId:string,id:string,dbScope?:string):Promise<boolean>{
+  const db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(['v5Resources','v5Outbox','v5Conflicts'],'readwrite'),resources=tx.objectStore('v5Resources'),outbox=tx.objectStore('v5Outbox'),conflicts=tx.objectStore('v5Conflicts');
+    const currentRequest=resources.get([scope,recordId]),allOutbox=outbox.getAll(),allConflicts=conflicts.getAll();let result=false,blocked=false,ready=0;
+    const finish=()=>{if(++ready!==3)return;const current=currentRequest.result as V5ResourceRecord|undefined;
+      if((allConflicts.result as V5ResourceConflict[]).some(row=>row.scope===scope&&row.recordId===recordId)){blocked=true;return;}
+      if(!current||current.deleted)return;
+      for(const row of allOutbox.result as V5ResourceOperation[])if(row.scope===scope&&row.recordId===recordId)outbox.delete(row.id);
+      outbox.put({id,scope,recordId,baseRevision:current.revision,baseHash:current.contentHash,value:null,deleted:true,clientUpdatedAt:new Date().toISOString()} satisfies V5ResourceOperation);result=true;
+    };
+    for(const request of [currentRequest,allOutbox,allConflicts]){request.onsuccess=finish;request.onerror=()=>reject(request.error);}
+    tx.oncomplete=()=>blocked?reject(new Error('该 Cue 存在尚未解决的同步冲突，请先处理冲突后再删除。')):resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??new Error('v5 deletion could not be queued'));
+  });}finally{db.close();}
+}
 /** Resource rows, visible Schedule document, and the page cursor commit together. */
 export async function commitV5ResourcePage(scope:SyncV5Scope,records:V5ResourceRecord[],cursor:V5ResourceCursor,dbScope?:string):Promise<string|null>{
   const cursorStoreName=cursor.field?'v5FieldCursors':'v5Cursors',db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{const tx=db.transaction(['v5Resources',cursorStoreName,'v5Outbox','v5Conflicts','documents'],'readwrite'),resources=tx.objectStore('v5Resources'),cursorStore=tx.objectStore(cursorStoreName),outbox=tx.objectStore('v5Outbox'),documents=tx.objectStore('documents');
@@ -165,7 +180,7 @@ export async function commitV5ResourcePage(scope:SyncV5Scope,records:V5ResourceR
         const base=(raw?JSON.parse(raw):null)??{};if(typeof base!=='object'||Array.isArray(base))throw Error('Schedule local document invalid');
       if(finishingBaseline&&cursor.field){
         const pendingIds=new Set(pendingRows.map(row=>row.recordId)),blockedIds=new Set(conflictRows.map(row=>row.recordId));
-        for(const local of scheduleToResources(base).filter(item=>item.scope===scope&&item.field===cursor.field)){
+        for(const local of scheduleToResources(base).filter(item=>item.scope===scope&&item.field===cursor.field&&!isEmptyScheduleCollection(cursor.field!,base[cursor.field!]))) {
           if(pendingIds.has(local.recordId)||blockedIds.has(local.recordId))continue;
           const remote=rows.get(local.recordId);
           if(remote&&!remote.deleted&&canonicalJson(remote.value)===canonicalJson(local.value))continue;

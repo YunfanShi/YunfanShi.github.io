@@ -55,7 +55,8 @@ export default function SyncStatusIndicator({ signedIn }: { signedIn: boolean })
     };
   }, [detailsOpen]);
   const local=useLocalSaveState();
-  const [,label]=local==='saving'?['save','正在保存到本机']:local==='storage_error'?['warning','本机写入需要检查']:LABELS[detail.state];
+  const [,baseLabel]=local==='saving'?['save','正在保存到本机']:local==='storage_error'?['warning','本机写入需要检查']:LABELS[detail.state];
+  const label=detail.state==='synced'&&detail.progress?.startsWith('当前页面所需资源已核对')?'本页已核对':baseLabel;
   const needsAttention=local==='storage_error'||local==='projection_degraded'||detail.conflicts>0||['conflict','error','access_denied','auth_required'].includes(detail.state);
   const detailStatus=local==='storage_error'?'本机保存尚未完成':local==='projection_degraded'?'本机内容已保存，旧缓存空间不足':detail.state==='auth_required'?'等待重新登录，本机队列已保留':detail.state==='access_denied'?'账号或设备权限需处理':detail.state==='server_unavailable'?'服务暂不可用，后台会继续重试':detail.state==='offline_pending'?'修改保留在本机，联网后继续同步':detail.state==='conflict'?'有修改需要确认，两份内容均已保留':detail.state==='error'?'同步遇到需要检查的问题，本机内容仍保留':detail.state==='syncing'?'正在同步':'数据已自动同步';
   const detailError=detail.state==='auth_required'?'登录状态已失效。':detail.state==='access_denied'?'当前账号或设备没有同步权限。':detail.state==='server_unavailable'?'网络或服务暂时不可用，修改仍在本机队列。':detail.state==='error'?'请查看完整客户端日志中的错误码、请求阶段和请求 ID。':undefined;

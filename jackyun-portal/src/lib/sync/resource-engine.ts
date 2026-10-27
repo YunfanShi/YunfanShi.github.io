@@ -1,7 +1,7 @@
 import {canonicalJson} from './hash.ts';
 import {WRITING_COLLECTIONS,writingCollectionForKey,writingItemId} from './writing-resource-model.ts';
 import {prepareWritingCollection,resolveWritingConflictRemotely} from './writing-outbox.ts';
-import {legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceFieldsForScope,scheduleToResources,workspaceStorageToResources,SYNC_V5_SCHEDULE_SCOPES,SYNC_V5_SCOPES,type SyncV5ResourceTarget,type SyncV5Scope} from './resource-model.ts';
+import {isEmptyScheduleCollection,legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceFieldsForScope,scheduleToResources,workspaceStorageToResources,SYNC_V5_SCHEDULE_SCOPES,SYNC_V5_SCOPES,type SyncV5ResourceTarget,type SyncV5Scope} from './resource-model.ts';
 import {acknowledgeV5Operations,acknowledgeV5WorkspaceOperations,commitV5ResourcePage,commitV5WorkspacePage,getConflicts,getOutbox,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,openDatabase,prepareV5WorkspaceAuthority,queueV5ResourceOperation,resolveV5ConflictLocally,resolveV5ConflictRemotely,resolveV5WorkspaceConflictRemotely,saveV5Conflicts,setV5Cursor,type V5ResourceConflict,type V5ResourceCursor,type V5ResourceOperation,type V5ResourceRecord} from './outbox.ts';
 
 type Descriptor={scope:SyncV5Scope;recordId:string;revision:number;contentHash:string;deleted:boolean;updatedAt:string;sequence?:number};
@@ -21,9 +21,10 @@ export function retainV5ScheduleAuthority(previouslyAuthoritative:boolean,scopes
 export function resourceFieldsForPath(pathname:string):SyncV5ResourceTarget[]{
   const path=pathname.length>1?pathname.replace(/\/+$/,''):pathname;
   if(path==='/schedule')return withWorkspace([
-    ...targets('timetable','timetable'),...targets('learning','manualTasks','completions','cancellations','reviewProgress'),
-    ...targets('cue','cues','cueGameAccount','cueCollectionUpdates','cueChangeHistory','cueSimilarityDecisions','cueStudyDraft','cueStudyDrafts'),
-    ...targets('settings','settings','cueScheduleRevision','dailyLearningAdvice','studyReports','schemaVersion'),
+    ...targets('timetable','timetable'),...targets('learning','manualTasks','completions','cancellations','reviewProgress','learningRecords','learningCatalog','learningReminders'),
+    ...targets('cue','cues','cueReviews','cueGameAccount','cueCollectionUpdates','cueChangeHistory','cueSimilarityDecisions','cueMemos','cueAnswerCards','cueStudyDraft','cueStudyDrafts'),
+    ...targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies'),...targets('timer','practiceSessions','practiceTimerConfig'),
+    ...targets('settings','settings','cueScheduleRevision','dailyLearningAdvice','studyReports','importedAt','schemaVersion'),
   ],'legacyTimetable','legacyLearning','legacyStudyPlan','legacyGoals','legacyCue');
   if(path==='/dashboard')return withWorkspace(targets('cue','cues','cueReviews','cueStudyDraft','cueStudyDrafts'),'legacyCue','legacyLearning');
   if(path==='/study'||path.startsWith('/study/'))return withWorkspace([
@@ -40,6 +41,8 @@ export function resourceFieldsForPath(pathname:string):SyncV5ResourceTarget[]{
   if(path==='/practice-timer'||path.startsWith('/practice-timer/'))return withWorkspace([...targets('timer','practiceSessions','practiceTimerConfig'),...targets('practice','timedPracticeRecords','practiceFrequencies')],'legacyTimer','legacyPractice');
   if(path==='/ielts'||path.startsWith('/ielts/'))return withWorkspace(targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies'),'legacyIELTS');
   if(path==='/ielts-writing')return targetsForWorkspace('writingEssays','writingErrorHistory','writingArchive');
+  if(path==='/definitions'||path.startsWith('/definitions/'))return targetsForWorkspace('legacyCue','legacyLearning');
+  if(path==='/properties'||path.startsWith('/properties/'))return targetsForWorkspace('legacyCue','legacyLearning');
   if(path==='/study-guide')return withWorkspace([...targets('learning','learningCatalog','manualTasks','learningRecords'),...targets('cue','cues','cueMemos')],'legacyStudyPlan','legacyLearning','legacyCue');
   if(path==='/quiz')return withWorkspace([...targets('cue','cues','cueReviews','cueAnswerCards'),...targets('learning','reviewProgress')],'legacyQuiz','legacyCue','legacyLearning');
   if(path==='/pomodoro')return withWorkspace([...targets('timer','practiceSessions','practiceTimerConfig'),...targets('learning','manualTasks','completions')],'legacyTimer','legacyLearning');
@@ -185,6 +188,9 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     // Missing storage/fields are not an explicit item deletion or an empty collection.
     if(field!=='__root'&&!Object.hasOwn(schedule,field))return;
     if(field==='__root'&&!Object.keys(schedule).length)return;
+    // An empty collection can be an unhydrated local cache, not an explicit delete-all intent.
+    // Individual removals remain inferable from a non-empty collection; bulk deletion must be explicit.
+    if(field!=='__root'&&isEmptyScheduleCollection(field,schedule[field]))return;
     const wanted=scheduleToResources(schedule).filter(row=>row.scope===scope&&row.field===field),remote=(await getV5Resources(scope,e.databaseScope)).filter(row=>row.recordId.slice(0,row.recordId.indexOf(':'))===field),byId=new Map(remote.map(row=>[row.recordId,row])),pending=await getV5Outbox(scope,e.databaseScope),conflicts=await getV5Conflicts(e.databaseScope);
     const blocked=new Set(conflicts.filter(row=>row.scope===scope&&row.recordId.slice(0,row.recordId.indexOf(':'))===field).map(row=>row.recordId)),pendingIds=new Set(pending.filter(row=>row.scope===scope&&row.recordId.slice(0,row.recordId.indexOf(':'))===field).map(row=>row.recordId));
     const wantedById=new Map(wanted.map(row=>[row.recordId,row]));

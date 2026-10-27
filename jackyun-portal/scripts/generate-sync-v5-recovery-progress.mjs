@@ -1,0 +1,57 @@
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
+import { writeFile } from 'node:fs/promises';
+
+const require = createRequire(import.meta.url);
+const bundledModules = process.env.CODEX_NODE_MODULES;
+const { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, WidthType } = require(bundledModules ? resolve(bundledModules, 'docx') : 'docx');
+const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.52.3-20261028.docx');
+const p = (text, options = {}) => new Paragraph({ text, ...options });
+const h = (text, level = HeadingLevel.HEADING_1) => new Paragraph({ text, heading: level, keepNext: true });
+const cell = text => new TableCell({ children: [p(text)], width: { size: 25, type: WidthType.PERCENTAGE } });
+const table = rows => new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: rows.map((row, index) => new TableRow({ tableHeader: index === 0, cantSplit: true, children: row.map(cell) })) });
+
+const doc = new Document({
+  styles: {
+    default: { document: { run: { font: 'Aptos', size: 22 }, paragraph: { spacing: { after: 150, line: 300 } } } },
+    paragraphStyles: [
+      { id: 'Title', name: 'Title', basedOn: 'Normal', next: 'Normal', run: { font: 'Aptos Display', size: 34, bold: true, color: '000000' }, paragraph: { spacing: { after: 180 } } },
+      { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', run: { font: 'Aptos Display', size: 28, bold: true, color: '000000' }, paragraph: { spacing: { before: 240, after: 140 } } },
+      { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', run: { font: 'Aptos Display', size: 24, bold: true, color: '000000' }, paragraph: { spacing: { before: 200, after: 120 } } },
+    ],
+  },
+  sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } } }, children: [
+    new Paragraph({ text: 'JackYun 全量资源同步与数据恢复实施记录', style: 'Title' }),
+    p('记录日期：2026 年 10 月 28 日。Portal 当前候选版本：3.52.3。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
+    p('结论：本记录确认了现有 Schedule v5 客户端的空缓存保护、哈希校验、原子游标与按页订阅测试，并针对日志中可恢复网络错误造成的噪音进行修复。它不表示全账号资源已迁入 v5，也不表示生产账号、staging 迁移或真实双设备验收已通过。'),
+    h('1. 当前工作范围'),
+    p('工作以 PR #168 的隔离分支为基础。当前修改没有接触 Supabase 分支或生产数据。版本从 3.52.0 升至 3.52.3：3.52.1 将主动取消降为 debug；网络断开、408、425、429、500、502、503、504 记为 warn，不附加重复错误正文；401、403、409、其他非恢复类 HTTP 错误仍保留 error 诊断。3.52.2 修复删除最后一条 CUE 时空集合保护吞掉 tombstone 的 P2 缺陷。3.52.3 再修复放弃或完成最后一个 CUE 学习草稿时空 map 吞掉 tombstone 的 P2 缺陷。两类已同步记录都以当前 revision/hash 写入 v5 outbox；存在未解决冲突时阻止该资源删除并提示用户。所有请求日志仅保留 origin 与 pathname，避免把 ID 查询参数完整写进日志。'),
+    p('这一调整不吞掉 fetch 异常、不更改重试策略，也不把远端失败伪装成同步成功。用户可见的同步状态仍取决于 outbox、回执、资源哈希及本地持久化结果。'),
+    h('2. 数据覆盖现状'),
+    p('仓库生成的同步清单包含 256 项存储键/调用点，其中 187 项仍标注为 v2/v4 候选，50 项为设备本地或其他本地用途。清单同时识别出 6 类独立 Supabase/API 业务所有者：离线任务与复习操作、QuizWise 云端历史、专注会话与番茄任务、阅读架与阅读进度、个人站点定义以及 IELTS 写作工作区。个人站点、写作和部分离线数据已经有 v5 交接或工作区映射；其余仍有独立 API、RLS、业务副作用或操作回执语义。'),
+    p('不能只把这些表或键名映射进 v5 就宣布迁移完成。Quiz 完成会产生复习项，专注会话要验证用户与任务关联，阅读进度以 book_id 为主键，离线 review attempt 会更新间隔、难度和下次复习时间。迁移必须保留这些事务边界、RLS 所有权、稳定 ID 和幂等回执。'),
+    table([
+      ['验收范围', '已有代码或证据', '尚未通过的条件'],
+      ['Schedule、CUE、任务与练习', 'v5 资源记录、页面订阅、SHA-256、冲突与 IndexedDB 原子提交测试。', '生产库迁移后的认证写入和真实账号重新读取哈希。'],
+      ['QuizWise、专注会话、阅读数据', '本地缓存和现有云 API 已盘点，部分客户端缓存映射到 workspace。', '独立表数据的 v5 事务适配、RLS、业务副作用、跨设备读回。'],
+      ['IELTS 写作、个人站点、离线工作区', '存在稳定资源 ID、v5 工作区投影或迁移交接代码。', '旧写入冻结、迁移计数/哈希核对及真实用户回执闭环。'],
+      ['导入与导出', '3.5 MB Schedule 的本地导入不再受 1 MB 前端限制。', '全设备 IndexedDB + localStorage 完整归档流式往返及中断恢复仍需完成。'],
+    ]),
+    h('3. 用户日志复核'),
+    p('提供的 2026-10-27 客户端日志含多次 v5 资源读取。某旧客户端请求曾将 100 个较长 CUE 记录 ID 放入约 8,967 字符的 GET URL，并收到 414；另有 v5 records 返回 503。当前分支已有基于编码后 URL 长度的分批读取逻辑及测试，验证请求 URL 不超过 3,500 字符。该历史日志不能证明当前生产 bundle 已部署这一实现，部署 SHA 与 Service Worker 缓存版本仍需核实。'),
+    p('同一批日志还记录到 /schedule 500、设置页 POST 500（最长约 152 秒）、通知快照 503（约 16–19 秒），以及 v5 capability/changes 查询耗时 16–28 秒。客户端日志只能证明请求结果和耗时，不能据此断定 Azure PostgreSQL、香港网络或 Vercel 函数是根因；需要对应请求 ID 的 Azure/Vercel 服务端日志和数据库指标。'),
+    p('Oct 27 日志里出现的 401 与会话过期、页面切换取消等属于不同故障类别。网络诊断调整仅压低可恢复失败的严重程度；认证过期、权限拒绝、哈希不一致、本机落盘失败和真实 CAS 冲突仍需明确处理。'),
+    h('4. 自动化验证'),
+    p('完整同步安全套件通过 291/291。回归验证：最后一条 CUE 删除和最后一个 CUE 学习草稿删除都以当前 v5 revision/hash 入队；空集合保护不丢待办、不推断额外删除；未解决冲突不消费冲突并保留本机数据。空集合恢复、长 ID 分页、失败基线续传、游标与资源记录同事务提交、远端冲突保护、按页资源选择及传输测量均在套件覆盖。合成 200 KB Schedule 测试中，单条 CUE 修改请求正文约 526 B，无变化同步正文为 0 B；这是模拟 API/IndexedDB 结果，不是生产实测。'),
+    p('新增网络失败分类测试通过 2 项，覆盖瞬态状态码与主动 AbortError。针对 PR #168 的浏览器 UI 回归，多个失败在 origin/main 基线可复现，归为已有历史失败；StudyGuide 状态测试在基线通过而当前分支的一次独立本地复测失败，但本地 standalone 认证夹具没有加载 iframe，测试环境无效，不能把它认定为新回归或通过。GitHub UI 流程需要在修复/对齐的 CI 夹具中再次对照。'),
+    h('5. 发布前门槛与依赖'),
+    p('4.0.0 发布前必须为每个用户业务数据所有者提供真实 v5 适配器或有证据的非同步说明；完成当前 staging 库快照、可重复迁移演练和恢复核验；以专用测试账号验证认证写入、receipt 查询、重复操作幂等、重新读取 SHA-256、RLS 隔离、离线重试及冲突回滚。不得创建 Supabase 分支。'),
+    p('通过 staging 后先在生产专用测试账号受控验证两个浏览器的双向更新、离线恢复、冲突和回滚，并记录 Vercel 部署 READY 对应 SHA、Azure Functions 健康版本与同步端点结果。真实手机当前不可用，手机验收必须标为未执行；桌面移动视口不等同于实体手机。'),
+    p('用户业务迁移计数、每资源哈希、待处理操作队列及回执必须核对后，才可退役运行时 v4 兼容。若服务端凭据、数据库权限、测试账号或服务端日志不可访问，应记录具体最小权限和阻碍，不能用合成测试或部署 READY 替代。'),
+    h('6. 本次代码变更清单'),
+    p('新增 src/lib/network-failure.ts 与 tests/network-failure.test.mts；更新 src/lib/logger.ts 对 fetch/XHR 的分类和 URL 脱敏；新增 queueV5ResourceDeletion 原子写入明确删除操作，并将 CUE 删除、学习草稿放弃/完成接入账号隔离的 v5 outbox；新增 Portal 3.52.3 版本记录。现有 docs/sync-v5-coverage-matrix-20261026.json 仍是覆盖盘点底表，尚待逐项转化为真实数据读写验收结果。'),
+  ] }],
+});
+
+await writeFile(out, await Packer.toBuffer(doc));
+process.stdout.write(`${out}\n`);

@@ -72,7 +72,7 @@ export default function DefinitionCardsApp() {
   function startReview() { if (!due.length) { setMessage('当前范围没有到期卡片。'); return; } setReview(due); setReviewDone(0); setReviewFlipped(false); setView('review'); }
   function chooseAnswer(id: string) { if (answer || !currentTest) return; const correct = id === currentTest.id; setAnswer(id); if (correct) setScore((value) => value + 1); else { setTest((items) => [...items, currentTest]); setTestMistakes((value) => value + 1); } setCards((items) => items.map((card) => card.id === currentTest.id ? scheduleDefinitionCard(card, correct ? 'good' : 'again') : card)); }
   function rate(id: ReviewRating) { if (!currentReview) return; setCards((items) => items.map((card) => card.id === currentReview.id ? scheduleDefinitionCard(card, id) : card)); setReview((items) => items.slice(1)); setReviewDone((value) => value + 1); setReviewFlipped(false); }
-  function fileInput(file?: File) { if (!file) return; if (file.size > 1_000_000) { setMessage('文件不能超过 1 MB。'); return; } const reader = new FileReader(); reader.onload = () => { const text = typeof reader.result === 'string' ? reader.result : ''; setSource(text); parseImport(text); }; reader.readAsText(file); }
+  function fileInput(file?: File) { if (!file) return; const reader = new FileReader(); reader.onload = () => { const text = typeof reader.result === 'string' ? reader.result : ''; setSource(text); parseImport(text); }; reader.readAsText(file); }
 
   if (!ready) return <div className="grid min-h-[55vh] place-items-center"><span className="material-icons-round animate-spin">progress_activity</span></div>;
   return <div className="mx-auto w-full max-w-6xl pb-12">
