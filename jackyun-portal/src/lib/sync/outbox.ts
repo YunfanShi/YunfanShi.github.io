@@ -6,7 +6,7 @@ import { reconcileAcknowledgment } from './acknowledgment.ts';
 import { canonicalJson } from './hash.ts';
 import { threeWayMerge } from './merge.ts';
 import { isSyncableStorageKey } from '../local-workspace.ts';
-import { legacyWorkspaceFieldForKey, legacyWorkspaceKeyFromRecordId, legacyWorkspaceRecordId, mergeScheduleResources, scheduleToResources, workspaceValueToStorage, type ScheduleResource, type SyncV5Scope } from './resource-model.ts';
+import { isEmptyScheduleCollection, legacyWorkspaceFieldForKey, legacyWorkspaceKeyFromRecordId, legacyWorkspaceRecordId, mergeScheduleResources, scheduleToResources, workspaceValueToStorage, type ScheduleResource, type SyncV5Scope } from './resource-model.ts';
 import {WRITING_COLLECTIONS} from './writing-resource-model.ts';
 import {commitWritingPage} from './writing-outbox.ts';
 
@@ -165,7 +165,7 @@ export async function commitV5ResourcePage(scope:SyncV5Scope,records:V5ResourceR
         const base=(raw?JSON.parse(raw):null)??{};if(typeof base!=='object'||Array.isArray(base))throw Error('Schedule local document invalid');
       if(finishingBaseline&&cursor.field){
         const pendingIds=new Set(pendingRows.map(row=>row.recordId)),blockedIds=new Set(conflictRows.map(row=>row.recordId));
-        for(const local of scheduleToResources(base).filter(item=>item.scope===scope&&item.field===cursor.field)){
+        for(const local of scheduleToResources(base).filter(item=>item.scope===scope&&item.field===cursor.field&&!isEmptyScheduleCollection(cursor.field!,base[cursor.field!]))) {
           if(pendingIds.has(local.recordId)||blockedIds.has(local.recordId))continue;
           const remote=rows.get(local.recordId);
           if(remote&&!remote.deleted&&canonicalJson(remote.value)===canonicalJson(local.value))continue;

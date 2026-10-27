@@ -9,8 +9,9 @@ import { BACKUP_PAGES, isBackupableLegacyKey, legacyBackupPage, type BackupPage 
 import { CLOUD_STATE_APPLIED_EVENT, storageValueToString } from '@/lib/local-workspace';
 import { getOutbox, getSetting, removeOperation, saveMetadata } from '@/lib/sync/outbox';
 import { listLocalBackups, localPageValues, saveLocalBackup, type LocalBackup } from '@/lib/backup/local';
-import { scheduleHasContent, SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
+import { SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
 import { inspectScheduleVersion, type BackupInspection } from '@/lib/backup/inspection';
+import { parseLocalPageBackup } from '@/lib/backup/local-import';
 
 const REASONS: Record<BackupVersion['reason'], string> = {
   automatic: '自动', baseline: '初始', before_restore: '恢复前', manual: '手动',
@@ -148,6 +149,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
       if (!isBackupableLegacyKey(key) || legacyBackupPage(key) !== item.page) throw new Error('本地备份包含不允许恢复的键。');
       workspaceStorage.setItem(key, value);
     }
+    await workspaceStorage.flush();
     window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys: Object.keys(item.values) } }));
     window.dispatchEvent(new Event('jackyun-sync-retry'));
     setMessage('本地页面已恢复到所选版本，原状态已先保存；联网后会按现有同步规则处理。');
@@ -171,20 +173,9 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   async function uploadLocal(file?: File) {
     if (!file) return;
     await run(async () => {
-      if (file.size > 1_000_000) throw new Error('本地页面文件不能超过 1 MB。');
-      const parsed = JSON.parse(await file.text()) as Partial<LocalBackup> & { version?: number };
-      if (parsed.version !== 1 || parsed.page !== page || !parsed.values || typeof parsed.values !== 'object'
-        || Array.isArray(parsed.values) || !Object.keys(parsed.values).length) throw new Error('文件不是当前页面的本地备份。');
-      for (const [key, value] of Object.entries(parsed.values)) {
-        if (typeof value !== 'string' || !isBackupableLegacyKey(key) || legacyBackupPage(key) !== page) throw new Error(`不允许导入的页面数据键：${key}`);
-        if (key === SCHEDULE_STORAGE_KEY) {
-          let schedule: unknown;
-          try { schedule = JSON.parse(value); } catch { throw new Error('Schedule JSON 格式错误。'); }
-          if (!scheduleHasContent(schedule)) throw new Error('拒绝导入空 Schedule。');
-        }
-      }
+      const values = parseLocalPageBackup(await file.text(), page);
       if (!(await siteConfirm('导入编辑后的页面 JSON？当前本地页面会先保存。'))) return;
-      await applyLocal({ id: -1, userId: localOwner, page, createdAt: new Date().toISOString(), values: parsed.values });
+      await applyLocal({ id: -1, userId: localOwner, page, createdAt: new Date().toISOString(), values });
     });
   }
 

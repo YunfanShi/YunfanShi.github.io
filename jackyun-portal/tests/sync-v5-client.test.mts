@@ -59,7 +59,7 @@ test('long review IDs use bounded encoded URLs and failed baselines resume commi
       const after=parsed.searchParams.get('after')!;firstAfter.push(after);
       if(after&&fail){fail=false;throw Error('interrupted after committed page');}
       const page=records.filter(row=>row.recordId>after).slice(0,100);
-      return Response.json({syncProtocol:5,records:page.map(({value,...row})=>row),head:103,next:page.length===100?page.at(-1)!.recordId:null});
+      return Response.json({syncProtocol:5,records:page.map(row=>Object.fromEntries(Object.entries(row).filter(([key])=>key!=='value'))),head:103,next:page.length===100?page.at(-1)!.recordId:null});
     }
     if(parsed.pathname.endsWith('/records')){urls.push(url);assert.ok(url.length<=3500);return Response.json({syncProtocol:5,records:records.filter(row=>parsed.searchParams.getAll('id').includes(row.recordId))});}
     if(parsed.pathname.endsWith('/changes'))return Response.json({syncProtocol:5,records:[],cursor:103,head:103,hasMore:false});
@@ -92,6 +92,73 @@ test('NULL or missing local Schedule fields rehydrate verified resources on an e
     await engine.synchronize([{scope:'cue',field:'cues'}]);
     assert.deepEqual(JSON.parse(raw!).cues,[value]);assert.equal(writes,0);assert.deepEqual(await getV5Outbox('cue',databaseScope),[]);
   }
+});
+
+test('empty local collections do not become cloud delete-all operations',async()=>{
+  const cases=[
+    {field:'cues',scope:'cue' as const,empty:[],values:[{id:'cloud-cue',prompt:'verified cloud item'}]},
+    {field:'completions',scope:'learning' as const,empty:{},values:{'task-1':{completed:true}}},
+  ];
+  for(const item of cases){
+    const databaseScope=id(),hash=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex');
+    const recordRows=item.field==='cues'
+      ? [{recordId:'cues:%24order',value:['cloud-cue']},{recordId:'cues:cloud-cue',value:item.values[0]}]
+      : [{recordId:'completions:%24keys',value:['task-1']},{recordId:'completions:task-1',value:{completed:true}}];
+    await commitV5ResourcePage(item.scope,recordRows.map(row=>({scope:item.scope,recordId:row.recordId,revision:1,contentHash:hash(row.value),deleted:false,updatedAt:'now',value:row.value})),
+      {scope:item.scope,field:item.field,mode:'changes',after:'',cursor:2,head:2},databaseScope);
+    const raw=JSON.stringify({schemaVersion:1,[item.field]:item.empty});await seed(databaseScope,raw);
+    let projected=raw,writes=0;
+    const engine=createV5ResourceSync({databaseScope,request:async(url,init)=>{
+      if(init?.method==='POST'){writes++;throw Error('empty local cache must not write to cloud');}
+      const parsed=new URL(url,'https://sync.test');
+      if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:[item.scope]});
+      if(parsed.pathname==='/api/sync/v5/changes')return Response.json({syncProtocol:5,records:[],cursor:2,head:2,hasMore:false});
+      throw Error(`Unexpected request ${parsed.pathname}`);
+    },deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>projected,projectSchedule:async value=>{if(value!==null)projected=value;},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
+    await engine.synchronize([{scope:item.scope,field:item.field}]);
+    const restored=JSON.parse(projected!);
+    assert.deepEqual(restored[item.field],item.field==='cues'?item.values:{'task-1':{completed:true}});
+    assert.equal(writes,0);assert.deepEqual(await getV5Outbox(item.scope,databaseScope),[]);
+  }
+});
+
+test('first v5 baseline treats an empty local collection as cache, not competing user intent',async()=>{
+  const databaseScope=id(),value={id:'cloud-cue',prompt:'verified cloud item'},hash=(item:unknown)=>createHash('sha256').update(canonicalJson(item)).digest('hex');
+  const records=[
+    {scope:'cue',recordId:'cues:%24order',revision:1,contentHash:hash(['cloud-cue']),deleted:false,updatedAt:'now',value:['cloud-cue']},
+    {scope:'cue',recordId:'cues:cloud-cue',revision:1,contentHash:hash(value),deleted:false,updatedAt:'now',value},
+  ];
+  const raw=JSON.stringify({schemaVersion:1,cues:[]});await seed(databaseScope,raw);let projected=raw,writes=0;
+  const engine=createV5ResourceSync({databaseScope,request:async(url,init)=>{
+    if(init?.method==='POST'){writes++;throw Error('baseline must not infer a write');}
+    const parsed=new URL(url,'https://sync.test');
+    if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:['cue']});
+    if(parsed.pathname==='/api/sync/v5/manifest')return Response.json({syncProtocol:5,records:records.map(row=>Object.fromEntries(Object.entries(row).filter(([key])=>key!=='value'))),next:null,head:2});
+    if(parsed.pathname==='/api/sync/v5/records')return Response.json({syncProtocol:5,records:parsed.searchParams.getAll('id').map(recordId=>records.find(row=>row.recordId===recordId))});
+    if(parsed.pathname==='/api/sync/v5/changes')return Response.json({syncProtocol:5,records:[],cursor:2,head:2,hasMore:false});
+    throw Error(`Unexpected request ${parsed.pathname}`);
+  },deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>projected,projectSchedule:async value=>{if(value!==null)projected=value;},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
+  await engine.synchronize([{scope:'cue',field:'cues'}]);
+  assert.deepEqual(JSON.parse(projected!).cues,[value]);assert.equal(writes,0);
+  assert.deepEqual(await getV5Outbox('cue',databaseScope),[]);assert.deepEqual(await getV5Conflicts(databaseScope),[]);
+});
+
+test('removing one item from a populated Schedule collection still queues only that item deletion',async()=>{
+  const databaseScope=id(),hash=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex');
+  const cloud=[{id:'keep',prompt:'keep'},{id:'remove',prompt:'remove'}],records=[
+    {recordId:'cues:%24order',value:['keep','remove']},...cloud.map(value=>({recordId:`cues:${value.id}`,value})),
+  ];
+  await commitV5ResourcePage('cue',records.map(row=>({scope:'cue' as const,recordId:row.recordId,revision:1,contentHash:hash(row.value),deleted:false,updatedAt:'now',value:row.value})),
+    {scope:'cue',field:'cues',mode:'changes',after:'',cursor:3,head:3},databaseScope);
+  const raw=JSON.stringify({schemaVersion:1,cues:[cloud[0]]});await seed(databaseScope,raw);
+  const engine=createV5ResourceSync({databaseScope,request:async url=>{
+    const parsed=new URL(url,'https://sync.test');
+    if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:['cue']});
+    throw Error('pause after local changes are captured');
+  },deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>raw,projectSchedule:async()=>{},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
+  await assert.rejects(engine.synchronize([{scope:'cue',field:'cues'}]),/pause after local changes/);
+  const queued=await getV5Outbox('cue',databaseScope);
+  assert.deepEqual(queued.filter(operation=>operation.deleted).map(operation=>operation.recordId),['cues:remove']);
 });
 
 test('v5 resource values, merged Schedule and page cursor commit in one IndexedDB transaction',async()=>{
@@ -515,12 +582,16 @@ test('page resource selection avoids unrelated CUE history and schedule scopes',
   assert.deepEqual(timetable.map(row=>row.field),['timetable','manualTasks','completions','cancellations','learningReminders','legacyTimetable','legacyLearning']);
   assert.ok(resourceFieldsForPath('/dashboard').some(row=>row.scope==='cue'&&row.field==='cueReviews'));
   assert.deepEqual(resourceFieldsForPath('/dashboard').filter(row=>['cueChangeHistory','cueCollectionUpdates','cueSimilarityDecisions','studyReports'].includes(row.field)),[]);
+  const scheduleFields=new Set(resourceFieldsForPath('/schedule').map(row=>row.field));
+  for(const field of ['cueReviews','learningRecords','learningCatalog','learningReminders','timedPracticeRecords','examDiagnoses','practiceFrequencies','practiceSessions','practiceTimerConfig','cueMemos','cueAnswerCards','importedAt'])assert.ok(scheduleFields.has(field),`Schedule page must subscribe to ${field}`);
   assert.ok(resourceFieldsForPath('/study/tasks').some(row=>row.field==='manualTasks'));
   assert.deepEqual(resourceFieldsForPath('/ielts').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyIELTS']);
   assert.deepEqual(resourceFieldsForPath('/studio').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyPersonalSites','legacyLearning']);
   assert.deepEqual(resourceFieldsForPath('/quiz').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyQuiz','legacyCue','legacyLearning']);
   assert.deepEqual(resourceFieldsForPath('/studyplan').map(row=>row.field),['legacyGoals','legacyStudyPlan','legacyTimetable','legacyLearning']);
   assert.ok(resourceFieldsForPath('/studyplan').some(row=>row.scope==='workspace'&&row.field==='legacyTimetable'));
+  assert.deepEqual(resourceFieldsForPath('/definitions').map(row=>row.field),['legacyCue','legacyLearning']);
+  assert.deepEqual(resourceFieldsForPath('/properties').map(row=>row.field),['legacyCue','legacyLearning']);
   assert.ok(resourceFieldsForPath('/cue/study').some(row=>row.field==='cueGameAccount'));
   assert.ok(resourceFieldsForPath('/settings/watch').some(row=>row.field==='settings'));
   assert.ok(!resourceFieldsForPath('/settings/watch').some(row=>row.field==='legacyMisc'),'settings pages must not subscribe to a generic catch-all scope');
@@ -553,7 +624,10 @@ test('every writable v5 field has a valid page target without loading all fields
   assert.ok(schedule.has('cueChangeHistory'));
   assert.ok(schedule.has('cueSimilarityDecisions'));
   assert.ok(schedule.has('studyReports'));
+  assert.ok(schedule.has('examDiagnoses'));
+  assert.ok(schedule.has('practiceSessions'));
+  assert.ok(schedule.has('learningRecords'));
   assert.ok(resourceFieldsForPath('/study').some(target=>target.scope==='timer'&&target.field==='practiceSessions'));
   assert.ok(resourceFieldsForPath('/activity').some(target=>target.scope==='practice'&&target.field==='practiceFrequencies'));
-  assert.ok(!schedule.has('examDiagnoses'),'schedule should not fetch unrelated practice history');
+  assert.ok(!resourceFieldsForPath('/review').some(target=>target.field==='examDiagnoses'),'review should not fetch unrelated practice history');
 });

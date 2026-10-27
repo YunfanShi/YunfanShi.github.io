@@ -50,6 +50,12 @@ const fields:ResourceField[]=[
 ];
 const configured=new Set(fields.map(item=>item.field));
 const SCHEDULE_STORAGE_KEY='jackyun_schedule_control_v1';
+export function isEmptyScheduleCollection(field:string,value:unknown):boolean{
+  const definition=fields.find(item=>item.field===field);
+  if(definition?.mode==='items')return Array.isArray(value)&&value.length===0;
+  if(definition?.mode==='map')return Boolean(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===0);
+  return false;
+}
 function base64UrlEncode(value:string):string{
   const bytes=new TextEncoder().encode(value),binary=Array.from(bytes,byte=>String.fromCharCode(byte)).join('');
   return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');

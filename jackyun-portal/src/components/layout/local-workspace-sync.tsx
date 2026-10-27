@@ -218,7 +218,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           failures=0;
           if(Date.now()-lastBackupCheck>=5*60_000){lastBackupCheck=Date.now();void runScheduledSync('backup',userId!,async()=>{await createDueBackupVersions();}).catch(()=>console.warn('[Backup] Cloud backup deferred'));}
           await publish(v5AuthoritySuspended?'server_unavailable':unresolved.length||v5Unresolved.length?'conflict':remaining.length||v5Remaining.length?'offline_pending':'synced',undefined,
-            v5AuthoritySuspended?'v5 Schedule 权限暂时不可用；为避免旧快照覆盖，已保留本地 v5 所有权并暂停该域回退。':unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':v5Unresolved.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':remaining.length||v5Remaining.length?'本机修改仍在队列中，将分批继续上传。':undefined);
+            v5AuthoritySuspended?'v5 Schedule 权限暂时不可用；为避免旧快照覆盖，已保留本地 v5 所有权并暂停该域回退。':unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':v5Unresolved.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':remaining.length||v5Remaining.length?'本机修改仍在队列中，将分批继续上传。':v5Result.enabled&&resourceFieldsForPath(routeForRun).length?'当前页面所需资源已核对；其他页面会在打开时分别检查。':'兼容同步检查已完成。');
           return true;
         };
         const completed=await runScheduledSync('workspace',userId!,work,manual);

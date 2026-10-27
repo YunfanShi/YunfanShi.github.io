@@ -283,7 +283,6 @@ export default function PropertyDecksApp() {
 
   function fileInput(file?: File) {
     if (!file) return;
-    if (file.size > 1_000_000) { setImportMessage('文件不能超过 1 MB。'); return; }
     const reader = new FileReader();
     reader.onload = () => {
       const text = typeof reader.result === 'string' ? reader.result : '';
