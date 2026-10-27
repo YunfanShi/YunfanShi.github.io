@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import {resourcesToSchedule,resourceMap,scheduleToResources,mergeScheduleResources,legacyWorkspaceFieldForKey,legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceScopeForRecordId,workspaceStorageToResources} from '../src/lib/sync/resource-model.ts';
+import {resourcesToSchedule,resourceMap,scheduleToResources,mergeScheduleResources,legacyWorkspaceFieldForKey,legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceScopeForRecordId,resourceTargetsForStorageKeys,SYNC_V5_SCHEDULE_SCOPES,workspaceStorageToResources} from '../src/lib/sync/resource-model.ts';
 
 test('Schedule fields round-trip as scoped records with stable entity identifiers',()=>{
   const input={schemaVersion:1,timetable:{version:1,courses:[]},manualTasks:[{id:'task-1',title:'Review'}],
@@ -117,6 +118,40 @@ test('dynamic key families keep stable per-key v5 identities across goal, timer 
   assert.deepEqual(traffic.map(legacyWorkspaceFieldForKey),['legacyLearning','legacyLearning']);
   assert.notEqual(legacyWorkspaceRecordId(traffic[0]),legacyWorkspaceRecordId(traffic[1]),'prefix-enumerated traffic records retain distinct key identity');
 });
+
+test('every concrete legacy inventory key has an explicit v5 record mapping',()=>{
+  const matrix=JSON.parse(readFileSync(new URL('../docs/sync-v5-coverage-matrix-20261028.json',import.meta.url),'utf8')) as {inventory_rows:Array<{key_or_pattern:string;should_cloud_sync:unknown;current_protocol:string}>};
+  const candidates=matrix.inventory_rows.filter(row=>row.should_cloud_sync===true&&/v2|v4/.test(row.current_protocol));
+  const concrete=candidates.filter(row=>!row.key_or_pattern.startsWith('?')&&!row.key_or_pattern.includes(String.fromCharCode(36)));
+  const schedule=concrete.filter(row=>row.key_or_pattern==='jackyun_schedule_control_v1');
+  assert.equal(candidates.length,189,'inventory candidate count is intentionally reviewed when the scanner changes');
+  assert.equal(concrete.length,171,'all static key names must be classified, not left as runtime guesses');
+  assert.equal(schedule.length,1);
+  assert.deepEqual([...new Set(resourceTargetsForStorageKeys([schedule[0].key_or_pattern]).map(target=>target.scope))].sort(),[...SYNC_V5_SCHEDULE_SCOPES].sort());
+  const workspace=concrete.filter(row=>row.key_or_pattern!=='jackyun_schedule_control_v1');
+  assert.equal(workspace.length,170);
+  for(const row of workspace){
+    const field=legacyWorkspaceFieldForKey(row.key_or_pattern);
+    assert.ok(field,`missing v5 owner field for ${row.key_or_pattern}`);
+    const recordId=legacyWorkspaceRecordId(row.key_or_pattern);
+    assert.ok(recordId,`missing stable v5 record ID for ${row.key_or_pattern}`);
+    assert.equal(legacyWorkspaceKeyFromRecordId(recordId),row.key_or_pattern);
+    assert.equal(resourceScopeForRecordId(recordId),'workspace');
+  }
+  const dynamic=candidates.filter(row=>row.key_or_pattern.startsWith('?')||row.key_or_pattern.includes(String.fromCharCode(36)));
+  assert.equal(dynamic.length,18,'dynamic key templates remain explicit migration work');
+  for(const row of dynamic){
+    const sampleKey=row.key_or_pattern.replace(/\$\{dynamic\}/g,'sample');
+    const field=legacyWorkspaceFieldForKey(sampleKey);
+    assert.ok(field,`missing v5 owner for dynamic family ${row.key_or_pattern} (${sampleKey})`);
+    const recordId=legacyWorkspaceRecordId(sampleKey);
+    assert.ok(recordId,`missing stable v5 record ID for ${sampleKey}`);
+    assert.equal(legacyWorkspaceKeyFromRecordId(recordId),sampleKey);
+    assert.equal(resourceScopeForRecordId(recordId),'workspace');
+  }
+  assert.equal(candidates.length-concrete.length,dynamic.length,'all non-concrete rows are explicitly sampled dynamic families');
+});
+
 test('device controls, browser-tab state and user-script configuration are excluded from cloud sync',()=>{
   for(const key of ['sync_position','sync_isInput','sme_v30_hijack','sme_v30_autoclose','jy_tr3000_profile_mac','jackyun-browser-ai-conversation-target','jackyun-browser-ai-recent-choice:openai:gpt','jackyun-savepoint-conversation-1','jackyun-continue-conversation-1'])
     assert.equal(legacyWorkspaceFieldForKey(key),null,key);

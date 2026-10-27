@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 const require = createRequire(import.meta.url);
 const bundledModules = process.env.CODEX_NODE_MODULES;
 const { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, WidthType } = require(bundledModules ? resolve(bundledModules, 'docx') : 'docx');
-const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.57.0-20261028.docx');
+const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.57.1-20261028.docx');
 const p = (text, options = {}) => new Paragraph({ text, ...options });
 const h = (text, level = HeadingLevel.HEADING_1) => new Paragraph({ text, heading: level, keepNext: true });
 const cell = text => new TableCell({ children: [p(text)], width: { size: 25, type: WidthType.PERCENTAGE } });
@@ -22,7 +22,7 @@ const doc = new Document({
   },
   sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } } }, children: [
     new Paragraph({ text: 'JackYun 全量资源同步与数据恢复实施记录', style: 'Title' }),
-    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；本次追加 3.56.0 本机 v5 全量归档。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
+    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档和 3.57.1 存储键映射回归。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
     p('结论：本记录确认了现有 Schedule v5 客户端的空缓存保护、哈希校验、原子游标与按页订阅测试，并针对日志中可恢复网络错误造成的噪音进行修复。它不表示全账号资源已迁入 v5，也不表示生产账号、staging 迁移或真实双设备验收已通过。'),
     h('1. 当前工作范围'),
     p('3.52.3 已通过 PR #168 合入并部署生产；本地当前在基于最新 main 的隔离分支推进 3.52.4。当前修改没有接触 Supabase 分支或生产数据。3.52.1 将主动取消降为 debug；网络断开、408、425、429、500、502、503、504 记为 warn，不附加重复错误正文；401、403、409、其他非恢复类 HTTP 错误仍保留 error 诊断。3.52.2 修复删除最后一条 CUE 时空集合保护吞掉 tombstone 的 P2 缺陷。3.52.3 再修复放弃或完成最后一个 CUE 学习草稿时空 map 吞掉 tombstone 的 P2 缺陷。两类已同步记录都以当前 revision/hash 写入 v5 outbox；存在未解决冲突时阻止该资源删除并提示用户。所有请求日志仅保留 origin 与 pathname，避免把 ID 查询参数完整写进日志。'),
@@ -71,6 +71,9 @@ const doc = new Document({
     p('恢复会在同一 IndexedDB readwrite transaction 中先将当前账号快照/outbox 写入 archiveRecoveryPoints，再合并归档内容。每账号最多保留最近 10 个恢复点。现有快照优先保留；同 operationId 且 payload/kind 相同的记录保持原有重试状态，不覆盖；同 ID 不同内容会 abort 整个离线数据库事务。新操作保留原 ID、追加本地 sequence，并在事务完成后发出本地队列事件。重复提交仍由服务端原 receipt/idempotency 语义处理。'),
     p('导入流程先保存 localStorage 页面恢复点，持久化工作区记录后再恢复离线数据库，最后才排入 v5 工作区目标。离线恢复失败会尝试恢复此次工作区写入前的 localStorage 值；IndexedDB 队列导入自身具备事务原子性。全局 localStorage 与多个独立 IndexedDB 数据库之间不存在浏览器级跨库事务，因此恢复点作为回滚依据保留。'),
     p('边界：归档仍不含 jackyun-sync-v2 中的 v5Resources/v5Outbox/v5Conflicts、设备同步设置、独立 QuizWise/Supabase 历史、focus_sessions、reader_books、云端未下载记录或云端 backup_center_versions。按钮和状态文本已列明这些排除项，不称其为完整设备镜像。当前机器矩阵重新扫描到 591 个源文件、756 个存储调用点、259 个 localStorage 键模式和 31 个 IndexedDB 调用点；189 行仍属 v2/v4 候选。3.57.0 的离线归档测试将验证跨账号拒绝、重复操作 ID 幂等、冲突事务回滚及快照/outbox 读回；全量 IDB 归档、独立业务表 v5 迁移、staging/生产认证验收、跨浏览器与实体手机仍未完成。'),
+    h('10. 3.57.1 静态存储键映射回归'),
+    p('同步模型测试现在读取机器生成的 docs/sync-v5-coverage-matrix-20261028.json，筛选 should_cloud_sync=true 且协议标为 v2/v4 的 189 行。测试确认其中 171 个静态具体键可分解为 170 个 workspace 键和 jackyun_schedule_control_v1 一个 Schedule 根键。170 个 workspace 键逐项断言 legacyWorkspaceFieldForKey 有域归属、legacyWorkspaceRecordId 可稳定生成、反向解析保留原键且资源 scope 为 workspace；Schedule 根键独立断言映射全部六个域。其余 18 个动态模板各生成代表性运行时键，回归验证域归属、稳定 ID、反向解析及 workspace scope。该键级覆盖仍不替代认证运行时真实数据抽样、独立业务 API 的副作用验证或迁移后计数/hash 核对。'),
+    p('余下 18 项包含运行时模板或未解析变量，测试继续将其视为待办，不猜测 key 值。该回归证明静态代码映射函数可覆盖清单的具体键，不证明每个资源已由用户页面启动、服务端回执或云端哈希读回，也不证明按页懒迁移已完成所有历史数据。v4 运行时仍不得在迁移计数、哈希和设备更新验证通过前退役。'),
   ] }],
 });
 
