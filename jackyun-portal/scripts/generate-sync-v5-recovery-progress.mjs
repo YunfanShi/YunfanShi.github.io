@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 const require = createRequire(import.meta.url);
 const bundledModules = process.env.CODEX_NODE_MODULES;
 const { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, WidthType } = require(bundledModules ? resolve(bundledModules, 'docx') : 'docx');
-const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.54.0-20261028.docx');
+const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.55.0-20261028.docx');
 const p = (text, options = {}) => new Paragraph({ text, ...options });
 const h = (text, level = HeadingLevel.HEADING_1) => new Paragraph({ text, heading: level, keepNext: true });
 const cell = text => new TableCell({ children: [p(text)], width: { size: 25, type: WidthType.PERCENTAGE } });
@@ -22,7 +22,7 @@ const doc = new Document({
   },
   sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } } }, children: [
     new Paragraph({ text: 'JackYun 全量资源同步与数据恢复实施记录', style: 'Title' }),
-    p('记录日期：2026 年 10 月 28 日。Portal 当前候选版本：3.54.0。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
+    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；本次追加 3.55.0 QuizWise 离线答案迁移验收。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
     p('结论：本记录确认了现有 Schedule v5 客户端的空缓存保护、哈希校验、原子游标与按页订阅测试，并针对日志中可恢复网络错误造成的噪音进行修复。它不表示全账号资源已迁入 v5，也不表示生产账号、staging 迁移或真实双设备验收已通过。'),
     h('1. 当前工作范围'),
     p('3.52.3 已通过 PR #168 合入并部署生产；本地当前在基于最新 main 的隔离分支推进 3.52.4。当前修改没有接触 Supabase 分支或生产数据。3.52.1 将主动取消降为 debug；网络断开、408、425、429、500、502、503、504 记为 warn，不附加重复错误正文；401、403、409、其他非恢复类 HTTP 错误仍保留 error 诊断。3.52.2 修复删除最后一条 CUE 时空集合保护吞掉 tombstone 的 P2 缺陷。3.52.3 再修复放弃或完成最后一个 CUE 学习草稿时空 map 吞掉 tombstone 的 P2 缺陷。两类已同步记录都以当前 revision/hash 写入 v5 outbox；存在未解决冲突时阻止该资源删除并提示用户。所有请求日志仅保留 origin 与 pathname，避免把 ID 查询参数完整写进日志。'),
@@ -57,7 +57,11 @@ const doc = new Document({
     p('通过 staging 后先在生产专用测试账号受控验证两个浏览器的双向更新、离线恢复、冲突和回滚，并记录 Vercel 部署 READY 对应 SHA、Azure Functions 健康版本与同步端点结果。真实手机当前不可用，手机验收必须标为未执行；桌面移动视口不等同于实体手机。'),
     p('用户业务迁移计数、每资源哈希、待处理操作队列及回执必须核对后，才可退役运行时 v4 兼容。若服务端凭据、数据库权限、测试账号或服务端日志不可访问，应记录具体最小权限和阻碍，不能用合成测试或部署 READY 替代。'),
     h('6. 本次代码变更清单'),
-    p('新增 applyLocalPageImport 与 v5RestoreTargets 账号隔离目标队列，将本机恢复点、完整仓库 flush、全目标 v5 核对和安全清理连接起来；新增恢复目标参与状态判断的防误报逻辑。Schedule 备份显式覆盖 Schedule 资源域，旧键按 workspace 字段路由。QuizWise 做题中进度现按 stable legacyQuiz 键恢复，并阻止未确认答案被静默清除。机器清单 docs/sync-v5-coverage-matrix-20261028.json 覆盖 257 个键模式、30 个 IndexedDB 调用点与独立 API 所有者；它仍是迁移底表，不代表每条记录均已 v5 验收。Portal 候选版本为 3.54.0；独立业务表迁移、数据恢复演练、真实跨浏览器生产验收和 v4 退役仍未完成，目标 4.0.0 未宣称完成。'),
+    p('新增 applyLocalPageImport 与 v5RestoreTargets 账号隔离目标队列，将本机恢复点、完整仓库 flush、全目标 v5 核对和安全清理连接起来；新增恢复目标参与状态判断的防误报逻辑。Schedule 备份显式覆盖 Schedule 资源域，旧键按 workspace 字段路由。QuizWise 做题中进度现按 stable legacyQuiz 键恢复，并阻止未确认答案被静默清除。机器清单 docs/sync-v5-coverage-matrix-20261028.json 覆盖 257 个键模式、30 个 IndexedDB 调用点与独立 API 所有者；它仍是迁移底表，不代表每条记录均已 v5 验收。3.54.0 时独立业务表迁移、数据恢复演练、真实跨浏览器生产验收和 v4 退役均未完成，目标 4.0.0 未宣称完成。'),
+    h('7. 3.55.0 QuizWise 离线答案迁移'),
+    p('重新检查后发现 quizwise.offline_answers 仅剩 IndexedDB schema 和三个旧导出函数，没有活跃调用点；但已安装客户端仍可能留有只存在本机的答案。此前矩阵把它分类为可忽略的无调用 store，可能漏掉历史用户数据。本次将其定义为一次性迁移输入，而不是继续保留一条静默失败的独立队列。'),
+    p('迁移读取全部旧答案及 IndexedDB 自动递增 ID，将每项稳定映射为 legacy:<old-id>，写入账号隔离键 quizwise_offline_answers，并在同一个 workspaceStorage IndexedDB flush 中写入 quizwise_offline_answers_migrated_v5 标记。两者同事务落盘成功后才清理旧 offline_answers store；flush 失败则旧记录保留。标记用于防止删除旧副本后，任何遗留行或清理失败再次把旧答案复活。新队列写入等待 v5 本机 flush；读取错误、无效数据、写入错误不再被吞掉。显式清空先持久化 workspace tombstone 和迁移标记，再清理旧 store。'),
+    p('自动化验证包括旧队列迁移、稳定 v5 workspace ID、v5 outbox 待回执保留、失败注入时旧副本不变、重试完成迁移，以及明确清空生成 tombstone。该本地与 outbox 路径测试不等价于 Azure/Supabase 已认证写入、服务端 receipt、SHA-256 回读或 RLS 验收；这些全账号发布门槛仍未通过。机器清单从 257 个增长至 259 个 localStorage 键模式，IndexedDB 调用点仍为 30；offline_answers 现归类为有明确 v5 目标的一次性迁移源，不再以“当前无调用”作为丢弃依据。'),
   ] }],
 });
 

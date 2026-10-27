@@ -74,7 +74,7 @@ test('machine-readable coverage matrix preserves unresolved and independent Inde
   assert.ok(credentialRows.length >= 4);
   for (const row of credentialRows) assert.match(row.data_class, /credential/i, `${row.key_or_pattern} must remain excluded as a credential`);
   assert.equal(matrix.inventory_rows.filter(row => String(row.current_protocol).startsWith('unresolved')).length, 0, 'every static key pattern has an explicit source disposition; runtime sampling remains a separate gate');
-  assert.ok(matrix.indexeddb_call_sites.some(row => row.database_or_store === 'offline_answers' && row.v5_mapping === null));
+  assert.ok(matrix.indexeddb_call_sites.some(row => row.database_or_store === 'offline_answers' && row.v5_mapping?.includes('quizwise_offline_answers') && row.should_cloud_sync === true));
   assert.ok(matrix.indexeddb_call_sites.some(row => row.source_file === 'src/lib/offline/workspace.ts' && row.database_or_store === 'outbox' && row.should_cloud_sync === true && row.migration.includes('atomically')));
   assert.ok(matrix.indexeddb_call_sites.some(row => row.source_file === 'src/lib/sync/outbox.ts' && row.database_or_store === 'outbox' && row.protocol === undefined && row.current_protocol === 'v4'));
   assert.ok(matrix.indexeddb_call_sites.some(row => row.database_or_store === 'jackyun-personal-sites' && row.should_cloud_sync === true && row.v5_mapping?.includes('legacyPersonalSites')));

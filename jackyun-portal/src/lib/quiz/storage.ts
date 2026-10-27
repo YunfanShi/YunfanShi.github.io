@@ -36,13 +36,14 @@ async function getStore(mode: IDBTransactionMode = 'readonly'): Promise<{
 }
 
 async function getOfflineStore(mode: IDBTransactionMode = 'readonly'): Promise<{
+  transaction: IDBTransaction;
   store: IDBObjectStore;
   db: IDBDatabase;
 }> {
   const db = await openDB();
   const tx = db.transaction('offline_answers', mode);
   const store = tx.objectStore('offline_answers');
-  return { store, db };
+  return { transaction: tx, store, db };
 }
 
 // Generic get/set
@@ -224,33 +225,108 @@ export interface OfflineAnswer {
   timestamp: string;
 }
 
-export async function queueOfflineAnswer(answer: OfflineAnswer): Promise<void> {
-  try {
-    const { store } = await getOfflineStore('readwrite');
-    store.add(answer);
-  } catch {
-    // Silently fail
+interface StoredOfflineAnswer extends OfflineAnswer {
+  id: string;
+}
+
+interface LegacyOfflineAnswer extends OfflineAnswer {
+  id: number;
+}
+
+const OFFLINE_ANSWERS_KEY = 'quizwise_offline_answers';
+const OFFLINE_ANSWERS_MIGRATED_KEY = 'quizwise_offline_answers_migrated_v5';
+let offlineAnswerMigration: Promise<void> | null = null;
+
+function offlineAnswerRows(value: string | null): StoredOfflineAnswer[] | null {
+  if (value === null) return null;
+  const parsed: unknown = JSON.parse(value);
+  if (!Array.isArray(parsed) || parsed.some((row) => !row || typeof row !== 'object'
+    || typeof row.id !== 'string' || typeof row.sessionId !== 'string'
+    || !Number.isInteger(row.questionIndex) || typeof row.answer !== 'string'
+    || typeof row.timestamp !== 'string')) {
+    throw new Error('QuizWise offline answers are malformed; the original queue was preserved.');
   }
+  return parsed as StoredOfflineAnswer[];
+}
+
+async function readLegacyOfflineAnswers(): Promise<LegacyOfflineAnswer[]> {
+  const { transaction, store, db } = await getOfflineStore();
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = store.getAll() as IDBRequest<LegacyOfflineAnswer[]>;
+      let rows: LegacyOfflineAnswer[] = [];
+      request.onsuccess = () => { rows = request.result ?? []; };
+      request.onerror = () => reject(request.error ?? new Error('QuizWise offline answer read failed.'));
+      transaction.oncomplete = () => resolve(rows);
+      transaction.onerror = () => reject(transaction.error ?? new Error('QuizWise offline answer read transaction failed.'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('QuizWise offline answer read transaction aborted.'));
+    });
+  } finally {
+    db.close();
+  }
+}
+
+async function clearLegacyOfflineAnswers(): Promise<void> {
+  const { transaction, store, db } = await getOfflineStore('readwrite');
+  try {
+    await new Promise<void>((resolve, reject) => {
+      store.clear();
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error('QuizWise legacy offline answer cleanup failed.'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('QuizWise legacy offline answer cleanup aborted.'));
+    });
+  } finally {
+    db.close();
+  }
+}
+
+async function migrateLegacyOfflineAnswers(): Promise<void> {
+  if (offlineAnswerMigration) return offlineAnswerMigration;
+  offlineAnswerMigration = (async () => {
+    if (workspaceStorage.getItem(OFFLINE_ANSWERS_MIGRATED_KEY) === '1') return;
+    const existing = offlineAnswerRows(workspaceStorage.getItem(OFFLINE_ANSWERS_KEY));
+    const legacyRows = await readLegacyOfflineAnswers();
+    if (existing === null && legacyRows.length > 0) {
+      const migrated = legacyRows.map(({ id, ...answer }) => ({ ...answer, id: `legacy:${id}` }));
+      workspaceStorage.setItem(OFFLINE_ANSWERS_KEY, JSON.stringify(migrated));
+    } else if (legacyRows.length > 0) {
+      const knownIds = new Set(existing?.map((row) => row.id) ?? []);
+      const additions = legacyRows.filter((row) => !knownIds.has(`legacy:${row.id}`));
+      if (additions.length > 0) {
+        workspaceStorage.setItem(OFFLINE_ANSWERS_KEY, JSON.stringify([
+          ...(existing ?? []),
+          ...additions.map(({ id, ...answer }) => ({ ...answer, id: `legacy:${id}` })),
+        ]));
+      }
+    }
+    workspaceStorage.setItem(OFFLINE_ANSWERS_MIGRATED_KEY, '1');
+    await workspaceStorage.flush();
+    if (legacyRows.length > 0) await clearLegacyOfflineAnswers();
+  })().finally(() => { offlineAnswerMigration = null; });
+  return offlineAnswerMigration;
+}
+
+export async function queueOfflineAnswer(answer: OfflineAnswer): Promise<void> {
+  await migrateLegacyOfflineAnswers();
+  const current = offlineAnswerRows(workspaceStorage.getItem(OFFLINE_ANSWERS_KEY)) ?? [];
+  workspaceStorage.setItem(OFFLINE_ANSWERS_KEY, JSON.stringify([...current, { ...answer, id: crypto.randomUUID() }]));
+  await workspaceStorage.flush();
 }
 
 export async function getOfflineAnswers(): Promise<OfflineAnswer[]> {
-  try {
-    const { store } = await getOfflineStore();
-    return new Promise((resolve) => {
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result ?? []);
-      request.onerror = () => resolve([]);
-    });
-  } catch {
-    return [];
-  }
+  await migrateLegacyOfflineAnswers();
+  return (offlineAnswerRows(workspaceStorage.getItem(OFFLINE_ANSWERS_KEY)) ?? []).map((row) => ({
+    questionIndex: row.questionIndex,
+    sessionId: row.sessionId,
+    answer: row.answer,
+    timestamp: row.timestamp,
+  }));
 }
 
 export async function clearOfflineAnswers(): Promise<void> {
-  try {
-    const { store } = await getOfflineStore('readwrite');
-    store.clear();
-  } catch {
-    // Silently fail
-  }
+  await migrateLegacyOfflineAnswers();
+  workspaceStorage.removeItem(OFFLINE_ANSWERS_KEY);
+  workspaceStorage.setItem(OFFLINE_ANSWERS_MIGRATED_KEY, '1');
+  await workspaceStorage.flush();
+  await clearLegacyOfflineAnswers();
 }

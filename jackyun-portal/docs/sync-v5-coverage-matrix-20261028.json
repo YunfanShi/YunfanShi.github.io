@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-27T20:21:06.140Z",
+  "generated_at": "2026-10-27T20:27:55.283Z",
   "source_files_scanned": 590,
-  "storage_call_sites": 743,
+  "storage_call_sites": 753,
   "inventory_rows": [
     {
       "key_or_pattern": "? conflict.key",
@@ -4801,6 +4801,55 @@
       ]
     },
     {
+      "key_or_pattern": "quizwise_offline_answers",
+      "storage": "workspaceStorage (localStorage projection)",
+      "data_class": "workspace business key",
+      "current_protocol": "legacy v2/v4; v5 candidate may also bootstrap or sync",
+      "should_cloud_sync": true,
+      "v5_scope": "workspace",
+      "v5_record_id": "legacyQuiz:base64url(runtime key)",
+      "migration": "Bootstrap the exact legacy key with owner, revision, SHA-256 and tombstone; reconcile pending legacy outbox before v5 authority.",
+      "test_status": "inventory classification only; business round-trip not proven",
+      "unresolved_risk": "Key-level mapping does not split nested arrays/records; inspect value schema and credential content.",
+      "runtime_sampling_or_test_method": "Run the page-specific resource-model round-trip and authenticated v5 create/read/update/delete test; confirm the migration manifest contains the same stable record ID.",
+      "source_files": [
+        "src/lib/quiz/storage.ts"
+      ],
+      "operations": [
+        "getItem",
+        "removeItem",
+        "setItem"
+      ],
+      "call_sites": 7,
+      "page_or_module": [
+        "QuizWise"
+      ]
+    },
+    {
+      "key_or_pattern": "quizwise_offline_answers_migrated_v5",
+      "storage": "workspaceStorage (localStorage projection)",
+      "data_class": "workspace business key",
+      "current_protocol": "legacy v2/v4; v5 candidate may also bootstrap or sync",
+      "should_cloud_sync": true,
+      "v5_scope": "workspace",
+      "v5_record_id": "legacyQuiz:base64url(runtime key)",
+      "migration": "Bootstrap the exact legacy key with owner, revision, SHA-256 and tombstone; reconcile pending legacy outbox before v5 authority.",
+      "test_status": "inventory classification only; business round-trip not proven",
+      "unresolved_risk": "Key-level mapping does not split nested arrays/records; inspect value schema and credential content.",
+      "runtime_sampling_or_test_method": "Run the page-specific resource-model round-trip and authenticated v5 create/read/update/delete test; confirm the migration manifest contains the same stable record ID.",
+      "source_files": [
+        "src/lib/quiz/storage.ts"
+      ],
+      "operations": [
+        "getItem",
+        "setItem"
+      ],
+      "call_sites": 3,
+      "page_or_module": [
+        "QuizWise"
+      ]
+    },
+    {
       "key_or_pattern": "quizwise_settings",
       "storage": "localStorage",
       "data_class": "workspace business key",
@@ -6484,14 +6533,14 @@
       "kind": "store",
       "source_file": "src/lib/quiz/storage.ts",
       "line": 20,
-      "data_class": "stale/unreferenced store declaration",
-      "current_protocol": "no active callers found beyond schema declaration",
-      "should_cloud_sync": false,
-      "v5_mapping": null,
-      "migration": "Do not migrate absent records; verify no versioned old page still reads it before eventual cleanup.",
-      "test_status": "source ownership classified; behavior-specific acceptance required as noted",
-      "unresolved_risk": "Ensure local cache/recovery data remains available and is not mistaken for canonical state.",
-      "runtime_sampling_or_test_method": "Repository-wide caller scan plus browser IDB inspection in an isolated profile."
+      "data_class": "legacy QuizWise offline answer queue and migration source",
+      "current_protocol": "legacy IndexedDB queue; current callers absent",
+      "should_cloud_sync": true,
+      "v5_mapping": "one-time migration to quizwise_offline_answers in workspace/legacyQuiz; stable IDs preserve old queue identity",
+      "migration": "Read and validate all old rows, atomically persist the v5 workspace queue plus migration marker, then clear the legacy store. Keep the old queue if workspace persistence fails; the marker prevents a committed clear from resurrecting stale rows.",
+      "test_status": "local fallback migration and mirror behavior covered by tests/quiz-v5-storage.test.mts; authenticated server history and profile census remain pending",
+      "unresolved_risk": "Syncable business state is not yet proven to use v5 end-to-end.",
+      "runtime_sampling_or_test_method": "tests/quiz-v5-storage.test.mts verifies migration, v5 outbox retention, source preservation on persistence failure, and explicit tombstone clearing."
     },
     {
       "database_or_store": null,
