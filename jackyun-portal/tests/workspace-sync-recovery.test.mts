@@ -202,6 +202,7 @@ test('an uncompleted v5 restore target prevents false synced status and remains 
   assert.equal(tab.status.state,'offline_pending',JSON.stringify(tab.status));
   assert.equal(tab.status.pending,1,JSON.stringify(tab.status));
   assert.match(tab.status.progress,/恢复目标已保留并会继续重试/);
+  assert.equal(h.settings.has('lastSyncedAt'),false,'an unsettled restore must not stamp a completed sync');
   assert.deepEqual(h.restoreTargets,[{scope:'cue',field:'cueCards'}]);
   tab.stop();
 });
