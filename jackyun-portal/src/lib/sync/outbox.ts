@@ -162,7 +162,7 @@ export async function commitV5ResourcePage(scope:SyncV5Scope,records:V5ResourceR
       const finishingBaseline=Boolean(cursor.field&&cursor.mode==='changes'&&(!priorCursor?.result||priorCursor.result.mode==='baseline'));
       if(cursor.mode==='baseline'){cursorStore.put(cursor);return;}
       const raw=document.result?.value as string|null|undefined;
-      const base=raw?JSON.parse(raw):{};if(!base||typeof base!=='object'||Array.isArray(base))throw Error('Schedule local document invalid');
+        const base=(raw?JSON.parse(raw):null)??{};if(typeof base!=='object'||Array.isArray(base))throw Error('Schedule local document invalid');
       if(finishingBaseline&&cursor.field){
         const pendingIds=new Set(pendingRows.map(row=>row.recordId)),blockedIds=new Set(conflictRows.map(row=>row.recordId));
         for(const local of scheduleToResources(base).filter(item=>item.scope===scope&&item.field===cursor.field)){
@@ -183,7 +183,7 @@ export async function commitV5ResourcePage(scope:SyncV5Scope,records:V5ResourceR
       for(const op of pendingRows)rows.set(op.recordId,{scope,recordId:op.recordId,revision:op.baseRevision,contentHash:op.baseHash,deleted:op.deleted,updatedAt:op.clientUpdatedAt,value:op.value});
       for(const conflict of conflictRows)rows.set(conflict.recordId,{scope,recordId:conflict.recordId,revision:conflict.baseRevision,contentHash:conflict.baseHash,deleted:conflict.localDeleted,updatedAt:conflict.createdAt,value:conflict.localValue});
       const touched=new Set(records.map(row=>row.recordId.slice(0,row.recordId.indexOf(':'))));
-      if(finishingBaseline&&cursor.field)touched.add(cursor.field);
+        if(cursor.field)touched.add(cursor.field);
       const merged=mergeScheduleResources(base,parseScheduleResources([...rows.values()]),[...touched]);
       projected=JSON.stringify(merged);if(projected!==raw)documents.put({...document.result,key:SCHEDULE_DOCUMENT_KEY,value:projected,updatedAt:Date.now()});
       cursorStore.put(cursor);
@@ -271,14 +271,20 @@ export async function acknowledgeV5WorkspaceOperations(applied:Array<{operation:
     tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error??Error('v5 workspace receipt commit aborted'));};
   });}finally{db.close();}
 }
-export async function resolveV5WorkspaceConflictRemotely(operationId:string,dbScope?:string):Promise<{key:string;value:string|null}|null>{
+export type V5ResolutionGuard={conflict:V5ResourceConflict;key:string;value:string|null};
+function guardV5Resolution(tx:IDBTransaction,row:V5ResourceConflict,guard:V5ResolutionGuard|undefined,apply:()=>void,reject:(error:unknown)=>void){
+  if(!guard){apply();return;}
+  const found=tx.objectStore('documents').get(guard.key);
+  found.onsuccess=()=>{if(canonicalJson(row)!==canonicalJson(guard.conflict)||(found.result?.value??null)!==guard.value){tx.abort();reject(Error('冲突或本机内容已变化，选择未覆盖新修改。'));return;}apply();};
+}
+export async function resolveV5WorkspaceConflictRemotely(operationId:string,dbScope?:string,guard?:V5ResolutionGuard):Promise<{key:string;value:string|null}|null>{
   const db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{
     const tx=db.transaction(['v5Conflicts','documents','v5Outbox'],'readwrite'),conflicts=tx.objectStore('v5Conflicts'),documents=tx.objectStore('documents'),outbox=tx.objectStore('v5Outbox');
     let result:{key:string;value:string|null}|null=null;
     const found=conflicts.get(operationId);found.onsuccess=()=>{const row=found.result as V5ResourceConflict|undefined;if(!row)return;
       if(row.scope!=='workspace'){tx.abort();reject(Error('v5 conflict is not a workspace resource'));return;}
       const key=legacyWorkspaceKeyFromRecordId(row.recordId);if(!key){tx.abort();reject(Error('v5 workspace conflict key is invalid'));return;}
-      const value=row.remoteDeleted?null:workspaceValueToStorage(row.remoteValue);documents.put({key,value,updatedAt:Date.now()});conflicts.delete(operationId);outbox.delete(operationId);result={key,value};};
+      guardV5Resolution(tx,row,guard,()=>{const value=row.remoteDeleted?null:workspaceValueToStorage(row.remoteValue);documents.put({key,value,updatedAt:Date.now()});conflicts.delete(operationId);outbox.delete(operationId);result={key,value};},reject);};
     tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('v5 workspace conflict resolution aborted'));
   });}finally{db.close();}
 }
@@ -302,16 +308,17 @@ export async function acknowledgeV5Operations(applied:Array<{operation:V5Resourc
 export async function saveV5Conflicts(conflicts:V5ResourceConflict[],dbScope?:string):Promise<void>{
   const db=await openDatabase(dbScope);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction(['v5Conflicts','v5Outbox','v5Resources'],'readwrite'),store=tx.objectStore('v5Conflicts'),outbox=tx.objectStore('v5Outbox'),resources=tx.objectStore('v5Resources');for(const conflict of conflicts){store.put(conflict);outbox.delete(conflict.operationId);resources.put({scope:conflict.scope,recordId:conflict.recordId,revision:conflict.remoteRevision,contentHash:conflict.remoteHash,deleted:conflict.remoteDeleted,updatedAt:conflict.createdAt,value:conflict.remoteValue});}tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}finally{db.close();}
 }
-export async function resolveV5ConflictLocally(operationId:string,newId:string,dbScope?:string):Promise<V5ResourceOperation|null>{
-  const db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{const tx=db.transaction(['v5Conflicts','v5Resources','v5Outbox'],'readwrite'),conflicts=tx.objectStore('v5Conflicts'),resources=tx.objectStore('v5Resources'),outbox=tx.objectStore('v5Outbox');let result:V5ResourceOperation|null=null;
-    const found=conflicts.get(operationId);found.onsuccess=()=>{const conflict=found.result as V5ResourceConflict|undefined;if(!conflict)return;const current=resources.get([conflict.scope,conflict.recordId]);current.onsuccess=()=>{const base=current.result as V5ResourceRecord|undefined;result={id:newId,scope:conflict.scope,recordId:conflict.recordId,baseRevision:base?.revision??conflict.remoteRevision,baseHash:base?.contentHash??conflict.remoteHash,value:conflict.localValue,deleted:conflict.localDeleted,clientUpdatedAt:new Date().toISOString()};conflicts.delete(operationId);outbox.put(result!);};};
+export async function resolveV5ConflictLocally(operationId:string,newId:string,dbScope?:string,guard?:V5ResolutionGuard):Promise<V5ResourceOperation|null>{
+  const db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{const tx=db.transaction(['v5Conflicts','v5Resources','v5Outbox','documents'],'readwrite'),conflicts=tx.objectStore('v5Conflicts'),resources=tx.objectStore('v5Resources'),outbox=tx.objectStore('v5Outbox');let result:V5ResourceOperation|null=null;
+    const found=conflicts.get(operationId);found.onsuccess=()=>{const conflict=found.result as V5ResourceConflict|undefined;if(!conflict)return;guardV5Resolution(tx,conflict,guard,()=>{const current=resources.get([conflict.scope,conflict.recordId]);current.onsuccess=()=>{const base=current.result as V5ResourceRecord|undefined;result={id:newId,scope:conflict.scope,recordId:conflict.recordId,baseRevision:base?.revision??conflict.remoteRevision,baseHash:base?.contentHash??conflict.remoteHash,value:conflict.localValue,deleted:conflict.localDeleted,clientUpdatedAt:new Date().toISOString()};conflicts.delete(operationId);outbox.put(result!);};},reject);};
     tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}finally{db.close();}
 }
-export async function resolveV5ConflictRemotely(operationId:string,dbScope?:string):Promise<string|null>{
+export async function resolveV5ConflictRemotely(operationId:string,dbScope?:string,guard?:V5ResolutionGuard):Promise<string|null>{
   const db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{const tx=db.transaction(['v5Conflicts','v5Resources','v5Outbox','documents'],'readwrite'),conflicts=tx.objectStore('v5Conflicts'),resources=tx.objectStore('v5Resources'),outbox=tx.objectStore('v5Outbox'),documents=tx.objectStore('documents');let projected:string|null=null,done=0,failed=false;
     const conflict=conflicts.get(operationId);let all:IDBRequest<V5ResourceRecord[]>,document:IDBRequest<{key:string;value:string}|undefined>,pending:IDBRequest<V5ResourceOperation[]>,otherConflicts:IDBRequest<V5ResourceConflict[]>;
     conflict.onsuccess=()=>{const row=conflict.result as V5ResourceConflict|undefined;if(!row)return;all=resources.index('scope').getAll(row.scope);document=documents.get(SCHEDULE_DOCUMENT_KEY);pending=outbox.getAll();otherConflicts=conflicts.getAll();
       const finish=()=>{if(++done!==4||failed)return;try{const raw=document.result?.value??'{}',base=JSON.parse(raw) as Record<string,unknown>,touched=[row.recordId.slice(0,row.recordId.indexOf(':'))];
+        if(guard&&(canonicalJson(row)!==canonicalJson(guard.conflict)||(document.result?.value??null)!==guard.value))throw Error('冲突或本机内容已变化，选择未覆盖新修改。');
         const visible=new Map((all.result as V5ResourceRecord[]).map(item=>[item.recordId,item]));
         for(const op of pending.result as V5ResourceOperation[])if(op.scope===row.scope)visible.set(op.recordId,{scope:op.scope,recordId:op.recordId,revision:op.baseRevision,contentHash:op.baseHash,deleted:op.deleted,updatedAt:op.clientUpdatedAt,value:op.value});
         for(const pendingConflict of otherConflicts.result as V5ResourceConflict[])if(pendingConflict.operationId!==operationId&&pendingConflict.scope===row.scope)visible.set(pendingConflict.recordId,{scope:pendingConflict.scope,recordId:pendingConflict.recordId,revision:pendingConflict.baseRevision,contentHash:pendingConflict.baseHash,deleted:pendingConflict.localDeleted,updatedAt:pendingConflict.createdAt,value:pendingConflict.localValue});

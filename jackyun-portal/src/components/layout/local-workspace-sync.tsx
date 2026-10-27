@@ -8,6 +8,7 @@ import {runScheduledSync,createEditTrigger} from '@/lib/sync/scheduler';
 import {workspaceStorage,initializeRepository,flushLocalWrites,applyRepositoryRecord,projectCommittedRepositoryRecord,projectLegacyCloudBaseline,setV5ScheduleAuthority,setV5WorkspaceAuthorityKeys} from '@/lib/sync/repository';
 import {BEFORE_SLEEP_EVENT,LOCAL_SLEEP_SAVE_EVENT,WAKE_EVENT,isWorkspaceSleeping,type SleepRequest} from '@/lib/workspace-idle';
 import {createSyncRunGate} from '@/lib/sync/run-gate';
+import {runConflictBatch,type ConflictBatch} from '@/lib/sync/conflict-batch';
 import {announceSyncStatus as announce,getLatestSyncStatus} from '@/lib/sync/status';
 import {CLOUD_STATE_APPLIED_EVENT,MAX_SYNC_VALUE_CHARACTERS,isSyncableStorageKey} from '@/lib/local-workspace';
 import * as syncStore from '@/lib/sync/outbox';
@@ -164,6 +165,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       databaseScope:accountStore.databaseScope,isCurrent:()=>!cancelled&&!signingOut,uuid:()=>crypto.randomUUID()});
     let queuedResolution: SyncResolutionRequest | undefined;
     let queuedV5Resolution:{operationId:string;choice:'local'|'remote'}|undefined;
+    const queuedBatches:ConflictBatch[]=[];
     let activePathname=window.location.pathname,queuedRouteSync=false,routeRetryDelay=1_000;
     let routeRetryTimer:number|undefined;
     const scheduleRouteRetry=()=>{
@@ -188,6 +190,14 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         const work=async()=>{
           if(cancelled||signingOut)return false;
           try{await flushLocalWrites();}catch{/* Only the verified cloud replacement below may retire a legacy failure. */}
+          if(queuedBatches.length){
+            await flushLocalWrites();
+            if(!navigator.onLine)throw Error('当前离线，批量选择已保留，联网后继续。');
+            const batch=queuedBatches.shift()!;
+            const result=await runConflictBatch(batch,request=>engine.resolve(request.operationId,request.choice,request.review),
+              (conflict,choice)=>v5Sync.resolveConflict(conflict.operationId,choice,conflict));
+            if(result.failures.length)throw Error(`已处理 ${result.completed} 项，${result.failures.length} 项未完成并保留：${result.failures[0].message}`);
+          }
           if(navigator.onLine)await engine.refreshLegacyCloudBaselines();
           await flushLocalWrites();await engine.capture();
           if(!navigator.onLine){await publish('offline_pending');return false;}
@@ -272,6 +282,8 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     };
     const onResolve=(event:Event)=>{const detail=(event as CustomEvent<SyncResolutionRequest>).detail;if(detail?.operationId&&['local','remote','merged'].includes(detail.choice))void sync(true,false,detail);};
     const onResolveV5=(event:Event)=>{const detail=(event as CustomEvent<{operationId:string;choice:'local'|'remote'}>).detail;if(detail?.operationId&&['local','remote'].includes(detail.choice)){queuedV5Resolution=detail;void sync(true);}};
+    const onResolveBatch=(event:Event)=>{const batch=(event as CustomEvent<ConflictBatch>).detail;
+      if(batch?.id&&Array.isArray(batch.legacy)&&Array.isArray(batch.resources)&&!queuedBatches.some(row=>row.id===batch.id)){queuedBatches.push(batch);void sync(true);}};
     const onVisibility=()=>{if(document.visibilityState==='visible')void sync(false,false,undefined,queuedRouteSync?'route':'periodic');else void engine.capture();};
     const onLeave=()=>void engine.capture();
     const onSignOut=()=>{signingOut=true;};
@@ -283,7 +295,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const onDurable=(event:Event)=>{if((event as CustomEvent).detail?.state==='saved')channel?.postMessage({wake:true});};
     window.addEventListener('jackyun-local-durability',onDurable);
     const listeners:[string,EventListener][]=[['online',onOnline],['offline',onOffline],['focus',onWake],['pagehide',onLeave],
-      ['jackyun-local-durability',onEdit],['storage',onEdit],['jackyun-auth-recovered',onRetry],['jackyun-sync-retry',onRetry],['jackyun-sync-resolve',onResolve],['jackyun-sync-v5-resolve',onResolveV5],['jackyun-sync-edit',onEdit],['jackyun-sync-page-change',onRouteChange],['jackyun-signout-start',onSignOut],
+      ['jackyun-local-durability',onEdit],['storage',onEdit],['jackyun-auth-recovered',onRetry],['jackyun-sync-retry',onRetry],['jackyun-sync-resolve',onResolve],['jackyun-sync-v5-resolve',onResolveV5],['jackyun-sync-resolve-batch',onResolveBatch],['jackyun-sync-edit',onEdit],['jackyun-sync-page-change',onRouteChange],['jackyun-signout-start',onSignOut],
       ['jackyun-signout-cancel',onCancel],['jackyun-sync-before-signout',onBeforeSignOut],[BEFORE_SLEEP_EVENT,onSleep],[WAKE_EVENT,onWake]];
     for(const [name,listener]of listeners)window.addEventListener(name,listener);
     document.addEventListener('visibilitychange',onVisibility);

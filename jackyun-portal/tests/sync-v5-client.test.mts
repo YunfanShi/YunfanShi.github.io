@@ -44,6 +44,56 @@ async function seed(dbName:string,value:string){
   const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction('documents','readwrite');tx.objectStore('documents').put({key:'jackyun_schedule_control_v1',value,updatedAt:0});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{db.close();}
 }
 
+test('long review IDs use bounded encoded URLs and failed baselines resume committed pages',async()=>{
+  const databaseScope=id(),items=Array.from({length:103},(_,index)=>{
+    const value={id:`${String(index).padStart(3,'0')}-${'long-review-id:'.repeat(10)}`,prompt:'review'};
+    return {scope:'cue',recordId:`cueReviews:${encodeURIComponent(value.id)}`,revision:1,contentHash:createHash('sha256').update(canonicalJson(value)).digest('hex'),deleted:false,updatedAt:'now',value};
+  });
+  const order=items.map(row=>row.value.id);
+  const records=[{scope:'cue',recordId:'cueReviews:%24order',revision:1,contentHash:createHash('sha256').update(canonicalJson(order)).digest('hex'),deleted:false,updatedAt:'now',value:order},...items];
+  const firstAfter:string[]=[],urls:string[]=[];let fail=true,raw:string|null=null;
+  const engine=createV5ResourceSync({databaseScope,readSchedule:()=>raw,projectSchedule:async value=>{raw=value;},setAuthority:()=>{},deviceId:async()=>crypto.randomUUID(),uuid:()=>crypto.randomUUID(),request:async url=>{
+    const parsed=new URL(url,'https://test.invalid');
+    if(parsed.pathname==='/api/sync/v5')return Response.json({capabilities:{v5:true},scopes:['cue']});
+    if(parsed.pathname.endsWith('/manifest')){
+      const after=parsed.searchParams.get('after')!;firstAfter.push(after);
+      if(after&&fail){fail=false;throw Error('interrupted after committed page');}
+      const page=records.filter(row=>row.recordId>after).slice(0,100);
+      return Response.json({syncProtocol:5,records:page.map(({value,...row})=>row),head:103,next:page.length===100?page.at(-1)!.recordId:null});
+    }
+    if(parsed.pathname.endsWith('/records')){urls.push(url);assert.ok(url.length<=3500);return Response.json({syncProtocol:5,records:records.filter(row=>parsed.searchParams.getAll('id').includes(row.recordId))});}
+    if(parsed.pathname.endsWith('/changes'))return Response.json({syncProtocol:5,records:[],cursor:103,head:103,hasMore:false});
+    throw Error(`unexpected ${url}`);
+  }});
+  await assert.rejects(engine.synchronize([{scope:'cue',field:'cueReviews'}]),/interrupted/);
+  assert.equal((await getV5Cursor('cue',databaseScope,'cueReviews'))?.mode,'baseline');
+  await engine.synchronize([{scope:'cue',field:'cueReviews'}]);
+  assert.equal(firstAfter.filter(after=>after==='').length,1);
+  assert.ok(urls.length>2);assert.equal(JSON.parse(raw!).cueReviews.length,103);
+  assert.equal((await getV5Cursor('cue',databaseScope,'cueReviews'))?.cursor,103);
+});
+
+test('NULL or missing local Schedule fields rehydrate verified resources on an empty changes response without deleting cloud data',async()=>{
+  for(const cleared of [null,'null','{}']){
+    const databaseScope=id(),value={id:'cloud-cue',prompt:'latest confirmed cloud'};
+    await commitV5ResourcePage('cue',[
+      {scope:'cue',recordId:'cues:%24order',revision:1,contentHash:'a'.repeat(64),deleted:false,updatedAt:'now',value:['cloud-cue']},
+      {scope:'cue',recordId:'cues:cloud-cue',revision:1,contentHash:'b'.repeat(64),deleted:false,updatedAt:'now',value}
+    ],{scope:'cue',field:'cues',mode:'changes',after:'',cursor:2,head:2},databaseScope);
+    if(cleared!==null)await seed(databaseScope,cleared);
+    else {const db=await openDatabase(databaseScope);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction('documents','readwrite');tx.objectStore('documents').put({key:'jackyun_schedule_control_v1',value:null});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{db.close();}}
+    let raw=cleared,writes=0;
+    const engine=createV5ResourceSync({databaseScope,readSchedule:()=>raw,projectSchedule:async value=>{raw=value;},setAuthority:()=>{},deviceId:async()=>crypto.randomUUID(),uuid:()=>crypto.randomUUID(),request:async(url,init)=>{
+      if(init?.method==='POST')writes++;
+      if(url==='/api/sync/v5')return Response.json({capabilities:{v5:true},scopes:['cue']});
+      if(url.startsWith('/api/sync/v5/changes'))return Response.json({syncProtocol:5,records:[],cursor:2,head:2,hasMore:false});
+      throw Error(`unexpected ${url}`);
+    }});
+    await engine.synchronize([{scope:'cue',field:'cues'}]);
+    assert.deepEqual(JSON.parse(raw!).cues,[value]);assert.equal(writes,0);assert.deepEqual(await getV5Outbox('cue',databaseScope),[]);
+  }
+});
+
 test('v5 resource values, merged Schedule and page cursor commit in one IndexedDB transaction',async()=>{
   const dbName=id();await seed(dbName,JSON.stringify({schemaVersion:1,cues:[{id:'cue-1',prompt:'old'}],manualTasks:[{id:'task-1'}]}));
   const projected=await commitV5ResourcePage('cue',[{scope:'cue',recordId:'cues:$order',revision:1,contentHash:'c'.repeat(64),deleted:false,updatedAt:'2026-10-25T00:00:00Z',value:['cue-1']},{scope:'cue',recordId:'cues:cue-1',revision:2,contentHash:'a'.repeat(64),deleted:false,updatedAt:'2026-10-25T00:00:00Z',value:{id:'cue-1',prompt:'new'}}],
@@ -51,6 +101,27 @@ test('v5 resource values, merged Schedule and page cursor commit in one IndexedD
   assert.deepEqual(JSON.parse(projected!),{schemaVersion:1,cues:[{id:'cue-1',prompt:'new'}],manualTasks:[{id:'task-1'}]});
   assert.equal((await getV5Cursor('cue',dbName))?.cursor,8);
   assert.equal((await getV5Resources('cue',dbName)).find(row=>row.recordId==='cues:cue-1')?.revision,2);
+});
+
+test('batch conflict resolution transaction rejects a changed document without consuming conflict or intent',async()=>{
+  const databaseScope=id(),raw=JSON.stringify({cues:[{id:'cue',prompt:'new edit'}]});await seed(databaseScope,raw);
+  const conflict:V5ResourceConflict={operationId:crypto.randomUUID(),scope:'cue',recordId:'cues:cue',baseRevision:1,baseHash:'a'.repeat(64),localValue:{id:'cue',prompt:'reviewed'},localDeleted:false,remoteRevision:2,remoteHash:'b'.repeat(64),remoteValue:{id:'cue',prompt:'cloud'},remoteDeleted:false,createdAt:'now'};
+  const db=await openDatabase(databaseScope);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction('v5Conflicts','readwrite');tx.objectStore('v5Conflicts').put(conflict);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+  const guard={conflict,key:'jackyun_schedule_control_v1',value:'reviewed raw'};
+  await assert.rejects(resolveV5ConflictLocally(conflict.operationId,crypto.randomUUID(),databaseScope,guard),/已变化/);
+  await assert.rejects(resolveV5ConflictRemotely(conflict.operationId,databaseScope,guard),/已变化/);
+  assert.equal((await getV5Conflicts(databaseScope)).length,1);assert.deepEqual(await getV5Outbox('cue',databaseScope),[]);assert.equal((await getDocuments(databaseScope))[0].value,raw);
+});
+
+test('all cloud refreshes a newer server conflict instead of accepting the reviewed stale snapshot',async()=>{
+  const databaseScope=id(),local={id:'cue',prompt:'reviewed local'},latest={id:'cue',prompt:'new cloud'};
+  const raw=JSON.stringify({cues:[local]}),hash=createHash('sha256').update(canonicalJson(latest)).digest('hex');await seed(databaseScope,raw);
+  const conflict:V5ResourceConflict={operationId:crypto.randomUUID(),scope:'cue',recordId:'cues:cue',baseRevision:1,baseHash:'a'.repeat(64),localValue:local,localDeleted:false,remoteRevision:2,remoteHash:'b'.repeat(64),remoteValue:{id:'cue',prompt:'old cloud'},remoteDeleted:false,createdAt:'now'};
+  const db=await openDatabase(databaseScope);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction('v5Conflicts','readwrite');tx.objectStore('v5Conflicts').put(conflict);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+  const engine=createV5ResourceSync({databaseScope,readSchedule:()=>raw,projectSchedule:async()=>{throw Error('must not project old cloud');},setAuthority:()=>{},deviceId:async()=>crypto.randomUUID(),uuid:()=>crypto.randomUUID(),request:async()=>Response.json({syncProtocol:5,records:[{scope:'cue',recordId:'cues:cue',revision:3,contentHash:hash,deleted:false,updatedAt:'now',value:latest}]})});
+  await assert.rejects(engine.resolveConflict(conflict.operationId,'remote',conflict),/云端内容又有变化/);
+  const saved=(await getV5Conflicts(databaseScope))[0];assert.equal(saved.remoteRevision,3);assert.deepEqual(saved.remoteValue,latest);assert.deepEqual(saved.localValue,local);
+  assert.equal((await getDocuments(databaseScope))[0].value,raw);
 });
 
 test('v5 cursor does not advance when the Schedule document cannot be safely merged',async()=>{
@@ -431,6 +502,7 @@ test('v5 client downloads only changed records, queues a stable resource operati
   assert.ok(mutation.requestBytes<fullScheduleBytes/10,`single CUE request ${mutation.requestBytes} B should be under one tenth of ${fullScheduleBytes} B Schedule`);
   assert.ok(!warm.paths.includes('/api/sync/v5/records'),'warm unchanged sync must not request resource bodies');
   assert.ok(warm.responseBytes<initial.responseBytes,'warm sync should transfer less response data than baseline');
+  assert.equal(warm.requests,2,'unchanged sync checks authority and each subscribed field only once');
   console.log(JSON.stringify({kind:'v5-client-fixture',fullScheduleBytes,initial:{...initial,elapsedMs:Math.round(initialElapsedMs)},singleCueMutation:{...mutation,elapsedMs:Math.round(mutationElapsedMs)},unchangedWarmSync:{...warm,elapsedMs:Math.round(warmElapsedMs)}}));
 });
 

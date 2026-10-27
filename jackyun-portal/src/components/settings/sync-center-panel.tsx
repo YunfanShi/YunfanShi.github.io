@@ -11,6 +11,7 @@ import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { getConflicts, getOrCreateDeviceId, getOutbox,getSetting,getV5Conflicts,type V5ResourceConflict } from '@/lib/sync/outbox';
 import {BACKUP_PAGES,legacyBackupPage} from '@/lib/backup/pages';
 import SyncConflictReview from './sync-conflict-review';
+import {createConflictBatch} from '@/lib/sync/conflict-batch';
 import {listOfflineMutations} from '@/lib/offline/workspace';
 import {getLatestLaneStates,type LaneState} from '@/lib/sync/scheduler';
 import {useLocalSaveState,downloadLocalRecovery} from '@/components/layout/local-durability';
@@ -83,6 +84,15 @@ export default function SyncCenterPanel() {
     window.dispatchEvent(new CustomEvent('jackyun-sync-resolve',{detail:request}));
   }
 
+  async function resolveAll(choice:'local'|'remote'){
+    const count=reviews.length+v5Conflicts.length;
+    if(!count)return;
+    const batch=createConflictBatch(crypto.randomUUID(),choice,reviews,v5Conflicts);
+    if(!await siteConfirm(`对当前 ${count} 项冲突全部使用${choice==='remote'?'云端':'本机'}内容？另一侧的冲突内容将被替换，包括删除状态。确认后有新变化的项目会保留，需重新选择。`))return;
+    setDetail(current=>({...current,state:'syncing',error:undefined,progress:`正在处理 ${count} 项冲突选择…`}));
+    window.dispatchEvent(new CustomEvent('jackyun-sync-resolve-batch',{detail:batch}));
+  }
+
   const openDevices = useMemo(() => devices.filter((device) => !device.revokedAt), [devices]);
 
   async function rename(device: SyncDevice) {
@@ -128,6 +138,7 @@ export default function SyncCenterPanel() {
     })}</div>
     {blockedCount>0&&<p role="status" className="text-sm text-amber-700">{blockedCount} 项操作需要检查，原内容已保留，其他项目继续同步。请下载恢复副本后检查账号权限或操作内容。</p>}
     {detail.error ? <p className="rounded-lg bg-[#fce8e6] px-3 py-2 text-sm text-[#c5221f]">{detail.error}</p> : null}
+    {reviews.length+v5Conflicts.length>0&&<section aria-label="批量处理同步冲突" className="flex flex-wrap items-center gap-3 border-y border-amber-500/40 py-3"><h2 className="mr-auto text-sm font-semibold">{reviews.length+v5Conflicts.length} 项冲突</h2><button type="button" disabled={!signedIn||detail.state==='syncing'} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={()=>void resolveAll('remote')}><span aria-hidden="true" className="material-icons-round text-base">cloud_download</span>全部使用云端</button><button type="button" disabled={!signedIn||detail.state==='syncing'} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={()=>void resolveAll('local')}><span aria-hidden="true" className="material-icons-round text-base">computer</span>全部使用本地</button></section>}
     {reviews.length>0&&<div className="flex items-center justify-between gap-3"><h2 className="font-semibold">检查差异并决定合并结果</h2><button type="button" disabled={detail.state==='syncing'} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50" onClick={()=>{void refreshReview();window.dispatchEvent(new Event('jackyun-sync-retry'));}}>刷新对比</button></div>}
     {reviews.map(({conflict,raw,generation})=><SyncConflictReview key={`${conflict.operationId}:${generation}`} conflict={conflict} localRaw={raw} disabled={!signedIn||detail.state==='syncing'} onSubmit={submitResolution}/>)}
     {v5Conflicts.length>0&&<section aria-label="v5 资源冲突" className="space-y-3"><h2 className="font-semibold">资源修改需要确认</h2>{v5Conflicts.map(conflict=><article key={conflict.operationId} className="rounded-lg border border-amber-500/50 p-3"><p className="font-medium">{conflict.scope} · {conflict.recordId}</p><div className="mt-2 grid gap-2 sm:grid-cols-2"><pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words rounded bg-[var(--background)] p-2 text-xs">本机：{JSON.stringify(conflict.localDeleted?null:conflict.localValue,null,2)?.slice(0,1800)}</pre><pre className="max-h-36 overflow-auto whitespace-pre-wrap break-words rounded bg-[var(--background)] p-2 text-xs">云端：{JSON.stringify(conflict.remoteDeleted?null:conflict.remoteValue,null,2)?.slice(0,1800)}</pre></div><div className="mt-3 flex gap-2"><button type="button" disabled={!signedIn||detail.state==='syncing'} className="rounded border px-3 py-1.5 text-sm" onClick={()=>window.dispatchEvent(new CustomEvent('jackyun-sync-v5-resolve',{detail:{operationId:conflict.operationId,choice:'local'}}))}>保留本机并重试</button><button type="button" disabled={!signedIn||detail.state==='syncing'} className="rounded border px-3 py-1.5 text-sm" onClick={()=>window.dispatchEvent(new CustomEvent('jackyun-sync-v5-resolve',{detail:{operationId:conflict.operationId,choice:'remote'}}))}>使用云端版本</button></div></article>)}</section>}

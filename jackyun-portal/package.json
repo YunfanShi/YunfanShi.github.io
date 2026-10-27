@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.50.2",
+  "version": "3.51.0",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -48,7 +48,7 @@
     "check:companion-sources": "node scripts/sync-companion-hosted-sources.mjs --check",
     "check:study-guide": "node scripts/check-study-guide.mjs",
     "check:studyplan-import": "node scripts/check-studyplan-import.mjs",
-    "test:sync": "node --test azure/backend/tests/sync-v5.test.mjs azure/backend/tests/sync-writing.test.mjs tests/sync-v5-client.test.mts tests/sync-v5-resource-model.test.mts tests/sync-writing-resource-model.test.mts tests/sync-writing-outbox.test.mts tests/quiz-v5-storage.test.mts tests/personal-site-storage.test.mts tests/personal-site-route.test.mts tests/sync-v4-durability.test.mts tests/sync-diagnostics.test.mts tests/sync-engine.test.mts tests/workspace-sync-recovery.test.mts tests/sync-performance.test.mts tests/azure-sync-proxy.test.mjs tests/sync-stale-remote.test.mjs tests/azure-record-export.test.mts tests/azure-page-backup.test.mts tests/azure-page-restore.test.mts tests/azure-automatic-backup.test.mts tests/azure-real-login-diag.test.mjs tests/sync-v2.test.mts tests/sync-storage-inventory.test.mts tests/sync-remote-record.test.mts tests/workspace-idle.test.mts tests/service-notice.test.mts tests/announcements.test.mts tests/announcements-ui.test.mts tests/backup-center.test.mts tests/local-backup-performance.test.mts tests/sync-smart.test.mts tests/sync-reliability.test.mts tests/sync-service-error.test.mts tests/sync-review.test.mts tests/sync-protocol-recovery.test.mts tests/sync-legacy-cloud-baseline.test.mts",
+    "test:sync": "node --test azure/backend/tests/sync-v5.test.mjs azure/backend/tests/sync-writing.test.mjs tests/sync-v5-client.test.mts tests/sync-v5-resource-model.test.mts tests/sync-writing-resource-model.test.mts tests/sync-writing-outbox.test.mts tests/quiz-v5-storage.test.mts tests/personal-site-storage.test.mts tests/personal-site-route.test.mts tests/sync-v4-durability.test.mts tests/sync-diagnostics.test.mts tests/sync-engine.test.mts tests/workspace-sync-recovery.test.mts tests/sync-performance.test.mts tests/azure-sync-proxy.test.mjs tests/sync-stale-remote.test.mjs tests/azure-record-export.test.mts tests/azure-page-backup.test.mts tests/azure-page-restore.test.mts tests/azure-automatic-backup.test.mts tests/azure-real-login-diag.test.mjs tests/sync-v2.test.mts tests/sync-storage-inventory.test.mts tests/sync-remote-record.test.mts tests/workspace-idle.test.mts tests/service-notice.test.mts tests/announcements.test.mts tests/announcements-ui.test.mts tests/backup-center.test.mts tests/local-backup-performance.test.mts tests/sync-smart.test.mts tests/sync-reliability.test.mts tests/sync-service-error.test.mts tests/sync-review.test.mts tests/sync-protocol-recovery.test.mts tests/sync-legacy-cloud-baseline.test.mts tests/sync-conflict-batch.test.mts",
     "test:sync-storage-inventory": "node --test tests/sync-storage-inventory.test.mts",
     "test:sync-dynamic-keys": "node tests/sync-dynamic-keys.browser.mjs",
     "test:sync-personal-site-ui": "node tests/personal-site-migration.browser.mjs",
