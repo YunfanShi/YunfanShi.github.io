@@ -171,11 +171,16 @@ test('repair migration recreates the production sync RPC and preserves invoker s
 test('automatic sync excludes its timestamp ledger and preserves explicit conflict choices', async () => {
   assert.equal(isSyncableStorageKey('jackyun_sync_timestamps'), false);
   assert.equal(isSyncableStorageKey('jackyun-ai-config'), false);
+  for (const key of ['quizwise_ai_command','jackyun_ai_music_command','warden_ai_command','jackyun_pomodoro_launch','jackyun_schedule_output','enforcer_sessions'])
+    assert.equal(isSyncableStorageKey(key), false, `${key} must remain local-only`);
+  for (const key of ['llm_key','ds_key','deepseek_api_key','openaiApiKey','ai_key','warden_key','warden_ai_key','llm_config','jack_ai_config','ai_config']) assert.equal(isSyncableStorageKey(key), false, `${key} must never enter a cloud sync queue`);
   assert.equal(isSyncableStorageKey('jackyun_definition_learning_session_v1'), true);
   assert.equal(isSyncableStorageKey('jackyun-ai-token-price'), true);
   assert.equal(isSyncableStorageKey('jackyun_answer_sheet_draft_v1'), true);
   assert.equal(isSyncableStorageKey('jackyun_goal_data'), true);
   assert.equal(isSyncableStorageKey('jackyun_schedule_control_v1'), true);
+  for (const key of ['prog_2026-10-27_Biology','check_2026-10-27_Biology']) assert.equal(isSyncableStorageKey(key), true);
+  for (const key of ['jackyun_client_logs','prog_2026-10-27_api_key','check_2026-10-27_password','prog_2026-10-27_debug_log']) assert.equal(isSyncableStorageKey(key), false);
   const panel = await readFile(new URL('../src/components/settings/sync-center-panel.tsx', import.meta.url), 'utf8');
   assert.match(panel, /SyncConflictReview/);
   const review = await readFile(new URL('../src/components/settings/sync-conflict-review.tsx', import.meta.url), 'utf8');

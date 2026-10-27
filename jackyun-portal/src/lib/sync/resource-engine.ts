@@ -1,39 +1,55 @@
 import {canonicalJson} from './hash.ts';
-import {resourceFieldsForScope,scheduleToResources,SYNC_V5_SCOPES,type SyncV5ResourceTarget,type SyncV5Scope} from './resource-model.ts';
-import {acknowledgeV5Operations,commitV5ResourcePage,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,queueV5ResourceOperation,resolveV5ConflictLocally,resolveV5ConflictRemotely,saveV5Conflicts,setV5Cursor,type V5ResourceConflict,type V5ResourceCursor,type V5ResourceOperation,type V5ResourceRecord} from './outbox.ts';
+import {WRITING_COLLECTIONS,writingCollectionForKey} from './writing-resource-model.ts';
+import {prepareWritingCollection,resolveWritingConflictRemotely} from './writing-outbox.ts';
+import {legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceFieldsForScope,scheduleToResources,workspaceStorageToResources,SYNC_V5_SCHEDULE_SCOPES,SYNC_V5_SCOPES,type SyncV5ResourceTarget,type SyncV5Scope} from './resource-model.ts';
+import {acknowledgeV5Operations,acknowledgeV5WorkspaceOperations,commitV5ResourcePage,commitV5WorkspacePage,getConflicts,getOutbox,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,openDatabase,prepareV5WorkspaceAuthority,queueV5ResourceOperation,resolveV5ConflictLocally,resolveV5ConflictRemotely,resolveV5WorkspaceConflictRemotely,saveV5Conflicts,setV5Cursor,type V5ResourceConflict,type V5ResourceCursor,type V5ResourceOperation,type V5ResourceRecord} from './outbox.ts';
 
 type Descriptor={scope:SyncV5Scope;recordId:string;revision:number;contentHash:string;deleted:boolean;updatedAt:string;sequence?:number};
 type Result=Record<string,unknown>;
-type ResourceSyncEnvironment={request:(url:string,init?:RequestInit)=>Promise<Response>;deviceId:()=>Promise<string>;readSchedule:()=>string|null;projectSchedule:(value:string|null)=>Promise<void>;setAuthority:(scopes:readonly string[])=>void|Promise<void>;uuid:()=>string;databaseScope?:string;isCurrent?:()=>boolean};
+type WorkspaceDocument={key:string;value:string|null;writingProjection?:boolean};
+type ResourceSyncEnvironment={request:(url:string,init?:RequestInit)=>Promise<Response>;deviceId:()=>Promise<string>;readSchedule:()=>string|null;projectSchedule:(value:string|null)=>Promise<void>;readWorkspace?:()=>Promise<WorkspaceDocument[]>;flushLocalWrites?:()=>Promise<void>;projectWorkspaceRecord?:(key:string,value:string|null)=>Promise<void>;setAuthority:(scopes:readonly string[])=>void|Promise<void>;setWorkspaceAuthorityKeys?:(keys:readonly string[])=>void|Promise<void>;uuid:()=>string;databaseScope?:string;isCurrent?:()=>boolean};
 const parse=(raw:string|null)=>{if(!raw)return {};const value=JSON.parse(raw);if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Schedule 数据格式无效。');return value as Record<string,unknown>;};
 const equal=(a:unknown,b:unknown)=>canonicalJson(a)===canonicalJson(b);
 const digest=async(value:unknown)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(value)))),n=>n.toString(16).padStart(2,'0')).join('');
 
 const targets=(scope:SyncV5Scope,...fields:string[]):SyncV5ResourceTarget[]=>fields.map(field=>({scope,field}));
+const withWorkspace=(targets:SyncV5ResourceTarget[],...fields:string[])=>[...targets,...targetsForWorkspace(...fields)];
+const targetsForWorkspace=(...fields:string[]):SyncV5ResourceTarget[]=>targets('workspace',...fields);
+export function retainV5ScheduleAuthority(previouslyAuthoritative:boolean,scopes:readonly string[]):boolean{
+  return previouslyAuthoritative&&!SYNC_V5_SCHEDULE_SCOPES.every(scope=>scopes.includes(scope));
+}
 export function resourceFieldsForPath(pathname:string):SyncV5ResourceTarget[]{
   const path=pathname.length>1?pathname.replace(/\/+$/,''):pathname;
-  if(path==='/schedule')return [
+  if(path==='/schedule')return withWorkspace([
     ...targets('timetable','timetable'),...targets('learning','manualTasks','completions','cancellations','reviewProgress'),
     ...targets('cue','cues','cueGameAccount','cueCollectionUpdates','cueChangeHistory','cueSimilarityDecisions','cueStudyDraft','cueStudyDrafts'),
     ...targets('settings','settings','cueScheduleRevision','dailyLearningAdvice','studyReports','schemaVersion'),
-  ];
-  if(path==='/dashboard')return targets('cue','cues','cueReviews','cueStudyDraft','cueStudyDrafts');
-  if(path==='/study'||path.startsWith('/study/'))return [
+  ],'legacyTimetable','legacyLearning','legacyStudyPlan','legacyGoals','legacyCue');
+  if(path==='/dashboard')return withWorkspace(targets('cue','cues','cueReviews','cueStudyDraft','cueStudyDrafts'),'legacyCue','legacyLearning');
+  if(path==='/study'||path.startsWith('/study/'))return withWorkspace([
     ...targets('learning','manualTasks','completions','cancellations','reviewProgress','learningCatalog','learningReminders'),
     ...targets('cue','cues','cueReviews','cueAnswerCards','cueMemos'),...targets('timer','practiceSessions'),
-  ];
-  if(path==='/review'||path.startsWith('/review/')||path==='/cue'||path.startsWith('/cue/'))return [
+  ],'legacyLearning','legacyStudyPlan','legacyTimetable','legacyCue');
+  if(path==='/ai'||path.startsWith('/ai/'))return targetsForWorkspace('legacyLearning','legacySettings');
+  if(path==='/studio'||path.startsWith('/studio/'))return targetsForWorkspace('legacyPersonalSites','legacyLearning');
+  if(path==='/review'||path.startsWith('/review/')||path==='/cue'||path.startsWith('/cue/'))return withWorkspace([
     ...targets('cue','cues','cueReviews','cueGameAccount','cueMemos','cueAnswerCards','cueStudyDraft','cueStudyDrafts'),...targets('learning','reviewProgress'),
-  ];
-  if(path==='/timetable-hub'||path.startsWith('/timetable-hub/'))return [...targets('timetable','timetable'),...targets('learning','manualTasks','completions','cancellations','learningReminders')];
-  if(path==='/activity'||path.startsWith('/activity/'))return [...targets('learning','learningRecords'),...targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies')];
-  if(path==='/practice-timer'||path.startsWith('/practice-timer/'))return [...targets('timer','practiceSessions','practiceTimerConfig'),...targets('practice','timedPracticeRecords','practiceFrequencies')];
-  if(path==='/ielts'||path.startsWith('/ielts/'))return targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies');
-  if(path==='/study-guide')return [...targets('learning','learningCatalog','manualTasks','learningRecords'),...targets('cue','cues','cueMemos')];
-  if(path==='/quiz')return [...targets('cue','cues','cueReviews','cueAnswerCards'),...targets('learning','reviewProgress')];
-  if(path==='/pomodoro')return [...targets('timer','practiceSessions','practiceTimerConfig'),...targets('learning','manualTasks','completions')];
-  if(path==='/answer-sheet')return [...targets('practice','timedPracticeRecords','examDiagnoses'),...targets('learning','learningRecords','manualTasks')];
-  if(path==='/settings'||path.startsWith('/settings/'))return targets('settings','settings','schemaVersion','importedAt','dailyLearningAdvice','__root');
+  ],'legacyCue','legacyLearning');
+  if(path==='/timetable-hub'||path.startsWith('/timetable-hub/'))return withWorkspace([...targets('timetable','timetable'),...targets('learning','manualTasks','completions','cancellations','learningReminders')],'legacyTimetable','legacyLearning');
+  if(path==='/activity'||path.startsWith('/activity/'))return withWorkspace([...targets('learning','learningRecords'),...targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies')],'legacyLearning','legacyPractice');
+  if(path==='/practice-timer'||path.startsWith('/practice-timer/'))return withWorkspace([...targets('timer','practiceSessions','practiceTimerConfig'),...targets('practice','timedPracticeRecords','practiceFrequencies')],'legacyTimer','legacyPractice');
+  if(path==='/ielts'||path.startsWith('/ielts/'))return withWorkspace(targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies'),'legacyIELTS');
+  if(path==='/ielts-writing')return targetsForWorkspace('writingEssays','writingErrorHistory','writingArchive');
+  if(path==='/study-guide')return withWorkspace([...targets('learning','learningCatalog','manualTasks','learningRecords'),...targets('cue','cues','cueMemos')],'legacyStudyPlan','legacyLearning','legacyCue');
+  if(path==='/quiz')return withWorkspace([...targets('cue','cues','cueReviews','cueAnswerCards'),...targets('learning','reviewProgress')],'legacyQuiz','legacyCue','legacyLearning');
+  if(path==='/pomodoro')return withWorkspace([...targets('timer','practiceSessions','practiceTimerConfig'),...targets('learning','manualTasks','completions')],'legacyTimer','legacyLearning');
+  if(path==='/answer-sheet')return withWorkspace([...targets('practice','timedPracticeRecords','examDiagnoses'),...targets('learning','learningRecords','manualTasks')],'legacyPractice','legacyLearning');
+  if(path==='/settings'||path.startsWith('/settings/'))return withWorkspace(targets('settings','settings','schemaVersion','importedAt','dailyLearningAdvice','__root'),'legacySettings');
+  if(['/goal','/studyplan'].includes(path))return targetsForWorkspace('legacyGoals','legacyStudyPlan','legacyTimetable','legacyLearning');
+  if(['/countdown','/examcountdown','/igcountdown','/control/focus'].includes(path))return targetsForWorkspace('legacyTimer','legacyLearning');
+  if(['/music','/music-sync','/relax','/poem','/bilibili-sync','/vocab'].includes(path))return targetsForWorkspace('legacyMedia','legacySettings','legacyLearning');
+  if(['/mock-portal','/answer-sheet-sync'].includes(path))return targetsForWorkspace('legacyExam','legacyStudyPlan','legacyGoals','legacyLearning');
+  if(path==='/help')return targetsForWorkspace('legacySettings');
   return [];
 }
 
@@ -67,7 +83,7 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
       if(descriptor.deleted){records.push({...descriptor,value:null});continue;}
       const row=byId.get(descriptor.recordId);if(!row||row.revision!==descriptor.revision||row.contentHash!==descriptor.contentHash||row.deleted!==false)throw Error('v5 资源版本在读取期间变化。');
       if(await digest(row.value)!==descriptor.contentHash)throw Error('v5 资源 SHA-256 校验失败。');
-      records.push({...descriptor,value:row.value});
+      records.push({...descriptor,value:row.value,verifiedAt:new Date().toISOString()});
     }
     return records;
   }
@@ -76,6 +92,11 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     // A local edit may land while the page request is in flight. Queue it before
     // the page transaction so commitV5ResourcePage overlays it instead of clobbering it.
     await captureLocalChanges(target.scope,target.field);assertCurrent();
+    if(target.scope==='workspace'){
+      const projected=await commitV5WorkspacePage(records,{...cursor,field:target.field},e.databaseScope);
+      assertCurrent();for(const row of projected)await e.projectWorkspaceRecord?.(row.key,row.value);
+      return;
+    }
     const projected=await commitV5ResourcePage(target.scope,records,{...cursor,field:target.field},e.databaseScope);
     assertCurrent();if(projected!==null)await e.projectSchedule(projected);
   }
@@ -118,6 +139,25 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
   }
   async function captureLocalChanges(scope:SyncV5Scope,field:string){
     const cursor=await getV5Cursor(scope,e.databaseScope,field);if(!cursor||cursor.mode!=='changes')return;
+    if(scope==='workspace'){
+      await e.flushLocalWrites?.();assertCurrent();
+      const wanted=workspaceStorageToResources(await e.readWorkspace?.()??[]).filter(row=>row.field===field);
+      const remote=(await getV5Resources(scope,e.databaseScope)).filter(row=>row.recordId.slice(0,row.recordId.indexOf(':'))===field),byId=new Map(remote.map(row=>[row.recordId,row]));
+      const pending=await getV5Outbox(scope,e.databaseScope),conflicts=await getV5Conflicts(e.databaseScope);
+      const legacyPending=await getOutbox(e.databaseScope),legacyConflicts=await getConflicts(e.databaseScope);
+      const legacyBlocked=new Set([...legacyPending.map(row=>row.key),...legacyConflicts.map(row=>row.key)].map(legacyWorkspaceRecordId).filter((recordId):recordId is string=>Boolean(recordId)));
+      const blocked=new Set(conflicts.filter(row=>row.scope===scope&&row.recordId.startsWith(`${field}:`)).map(row=>row.recordId));
+      const pendingIds=new Set(pending.filter(row=>row.scope===scope&&row.recordId.startsWith(`${field}:`)).map(row=>row.recordId));
+      for(const local of wanted){
+        if(legacyBlocked.has(local.recordId)||blocked.has(local.recordId)||pendingIds.has(local.recordId))continue;
+        const base=byId.get(local.recordId),deleted=Boolean(local.deleted);
+        if(base&&base.deleted===deleted&&(deleted||equal(base.value,local.value)))continue;
+        if(!base&&deleted)continue;
+        assertCurrent();await queueV5ResourceOperation({id:e.uuid(),scope,recordId:local.recordId,baseRevision:base?.revision??0,baseHash:base?.contentHash??null,
+          value:local.value,deleted,clientUpdatedAt:new Date().toISOString()},e.databaseScope);
+      }
+      return;
+    }
     const schedule=parse(e.readSchedule()),wanted=scheduleToResources(schedule).filter(row=>row.scope===scope&&row.field===field),remote=(await getV5Resources(scope,e.databaseScope)).filter(row=>row.recordId.slice(0,row.recordId.indexOf(':'))===field),byId=new Map(remote.map(row=>[row.recordId,row])),pending=await getV5Outbox(scope,e.databaseScope),conflicts=await getV5Conflicts(e.databaseScope);
     const blocked=new Set(conflicts.filter(row=>row.scope===scope&&row.recordId.slice(0,row.recordId.indexOf(':'))===field).map(row=>row.recordId)),pendingIds=new Set(pending.filter(row=>row.scope===scope&&row.recordId.slice(0,row.recordId.indexOf(':'))===field).map(row=>row.recordId));
     const wantedById=new Map(wanted.map(row=>[row.recordId,row]));
@@ -132,6 +172,9 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
   }
   async function resolveReceipt(scope:SyncV5Scope,operation:V5ResourceOperation,result:Result){
     if(result.status==='applied'){
+      if(scope==='workspace'){
+        await acknowledgeV5WorkspaceOperations([{operation,revision:Number(result.revision),contentHash:String(result.contentHash),updatedAt:String(result.updatedAt??new Date().toISOString())}],e.databaseScope);return true;
+      }
       const projected=await acknowledgeV5Operations([{operation,revision:Number(result.revision),contentHash:String(result.contentHash),updatedAt:String(result.updatedAt??new Date().toISOString())}],e.databaseScope);
       assertCurrent();if(projected!==null)await e.projectSchedule(projected);return true;
     }
@@ -142,9 +185,9 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     }
     return false;
   }
-  async function push(scope:SyncV5Scope){
+  async function push(scope:SyncV5Scope,writingCollections:boolean){
     for(let batches=0;batches<20;batches++){
-      const queued=await getV5Outbox(scope,e.databaseScope),operations:V5ResourceOperation[]=[];
+      const queued=(await getV5Outbox(scope,e.databaseScope)).filter(operation=>writingCollections||!WRITING_COLLECTIONS.some(collection=>operation.recordId.startsWith(`${collection.field}:`))),operations:V5ResourceOperation[]=[];
       for(const operation of queued.slice(0,100)){const candidate=[...operations,operation],bytes=new TextEncoder().encode(JSON.stringify({scope,deviceId:'00000000-0000-4000-8000-000000000000',operations:candidate})).length;if(bytes>850_000&&operations.length)break;operations.push(operation);}
       if(!operations.length)return;
       const deviceId=await e.deviceId(),hashes=await Promise.all(operations.map(async operation=>({id:operation.id,requestHash:await digest(operation)})));
@@ -169,24 +212,46 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     const scopes=flags?.v5===true&&Array.isArray(capabilities.scopes)?capabilities.scopes.filter((scope):scope is SyncV5Scope=>SYNC_V5_SCOPES.includes(scope as SyncV5Scope)):[];
     await e.setAuthority(scopes);
     const enabled=flags?.v5===true&&scopes.length>0;
-    return {enabled,authoritativeSchedule:enabled&&SYNC_V5_SCOPES.every(scope=>scopes.includes(scope)),scopes};
+    return {enabled,authoritativeSchedule:enabled&&SYNC_V5_SCHEDULE_SCOPES.every(scope=>scopes.includes(scope)),scopes,
+      writingCollections:enabled&&flags?.writingCollections===true&&scopes.includes('workspace')};
   }
   async function synchronize(requestedScopes:readonly (SyncV5Scope|SyncV5ResourceTarget)[]){
     const authority=await refreshAuthority();if(!authority.enabled)return {enabled:false,authoritativeSchedule:false,conflicts:await getV5Conflicts(e.databaseScope)};
     const {scopes}=authority;
     // Snapshot current local edits before remote pages can replace their resource rows.
     const requestedTargets= requestedScopes.flatMap((item):SyncV5ResourceTarget[]=>typeof item==='string'?resourceFieldsForScope(item as SyncV5Scope).map(field=>({scope:item as SyncV5Scope,field})):[item]);
-    const uniqueTargets=[...new Map(requestedTargets.filter(item=>scopes.includes(item.scope)&&resourceFieldsForScope(item.scope).includes(item.field)).map(item=>[`${item.scope}\0${item.field}`,item])).values()];
+    const uniqueTargets=[...new Map(requestedTargets.filter(item=>scopes.includes(item.scope)&&resourceFieldsForScope(item.scope).includes(item.field)
+      &&(!WRITING_COLLECTIONS.some(collection=>collection.field===item.field)||authority.writingCollections)).map(item=>[`${item.scope}\0${item.field}`,item])).values()];
     for(const target of uniqueTargets)await captureLocalChanges(target.scope,target.field);
     for(const target of uniqueTargets)await pull(target);
+    const writingFields=uniqueTargets.filter(target=>target.scope==='workspace'&&WRITING_COLLECTIONS.some(row=>row.field===target.field)).map(target=>target.field);
+    for(const field of writingFields){
+      const db=await openDatabase(e.databaseScope);let preparation;
+      try{preparation=await prepareWritingCollection(db,field);}finally{db.close();}
+      assertCurrent();for(const row of preparation.updates)await e.projectWorkspaceRecord?.(row.key,row.value);
+    }
+    const workspaceFields=uniqueTargets.filter(target=>target.scope==='workspace').map(target=>target.field);
+    if(workspaceFields.length){const preparation=await prepareV5WorkspaceAuthority(workspaceFields,e.databaseScope);await e.setWorkspaceAuthorityKeys?.(preparation.authoritativeKeys);}
     for(const target of uniqueTargets)await captureLocalChanges(target.scope,target.field);
-    for(const scope of scopes)await push(scope);
+    for(const scope of scopes)await push(scope,authority.writingCollections);
     for(const target of uniqueTargets)await pull(target);
-    return {enabled:true,authoritativeSchedule:authority.authoritativeSchedule,conflicts:await getV5Conflicts(e.databaseScope)};
+    return {enabled:true,authoritativeSchedule:authority.authoritativeSchedule,writingCollectionsEnabled:authority.writingCollections,conflicts:await getV5Conflicts(e.databaseScope)};
   }
   async function resolveConflict(operationId:string,choice:'local'|'remote'){
     if(choice==='local')await resolveV5ConflictLocally(operationId,e.uuid(),e.databaseScope);
-    else {const projected=await resolveV5ConflictRemotely(operationId,e.databaseScope);if(projected!==null)await e.projectSchedule(projected);}
+    else {
+      const conflict=(await getV5Conflicts(e.databaseScope)).find(row=>row.operationId===operationId);
+      if(conflict?.scope==='workspace'){
+        const key=legacyWorkspaceKeyFromRecordId(conflict.recordId);
+        if(key&&writingCollectionForKey(key)){
+          await e.flushLocalWrites?.();
+          const projected=await resolveWritingConflictRemotely(openDatabase,operationId,e.databaseScope);
+          for(const row of projected)await e.projectWorkspaceRecord?.(row.key,row.value);
+        }else {
+          const projected=await resolveV5WorkspaceConflictRemotely(operationId,e.databaseScope);if(projected)await e.projectWorkspaceRecord?.(projected.key,projected.value);
+        }
+      }else {const projected=await resolveV5ConflictRemotely(operationId,e.databaseScope);if(projected!==null)await e.projectSchedule(projected);}
+    }
   }
   return {synchronize,resolveConflict,refreshAuthority};
 }

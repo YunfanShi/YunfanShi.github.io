@@ -1,0 +1,71 @@
+{
+  "ok": true,
+  "appliedAt": "2026-10-27T07:50:48.670Z",
+  "authConfigurationChanged": false,
+  "databases": [
+    {
+      "database": "jackyun_v5_stage_20261026",
+      "ok": true,
+      "workspaceConstraintsValidated": 4,
+      "existingRowsUnchanged": true,
+      "tableFingerprints": [
+        {
+          "table_name": "sync_v5_changes",
+          "row_count": "35",
+          "fingerprint": "d0a39e952e51de25330276894b65b0e7ef0b32948c96010e362d0f6a3e486b79",
+          "rows_unchanged": true
+        },
+        {
+          "table_name": "sync_v5_heads",
+          "row_count": "7",
+          "fingerprint": "6abfe40a11758a5cec8d8cf1565f8678b8e2408a41c05128c677f54e40180853",
+          "rows_unchanged": true
+        },
+        {
+          "table_name": "sync_v5_receipts",
+          "row_count": "42",
+          "fingerprint": "1fa2229811017836b31b8e531d2dd5442764a8393083c323df7d0355e8dca72d",
+          "rows_unchanged": true
+        },
+        {
+          "table_name": "sync_v5_records",
+          "row_count": "84",
+          "fingerprint": "088c145fb85e1177f6327ff06c072a967829adf302410dfd873165a85cd44d9d",
+          "rows_unchanged": true
+        }
+      ]
+    },
+    {
+      "database": "jackyun_migration_20261007",
+      "ok": true,
+      "workspaceConstraintsValidated": 4,
+      "existingRowsUnchanged": true,
+      "tableFingerprints": [
+        {
+          "table_name": "sync_v5_changes",
+          "row_count": "6",
+          "fingerprint": "f330873662028fe8ff55f7af63c6b6a5a9b414d2d48b3cdf88804af6aa95c78a",
+          "rows_unchanged": true
+        },
+        {
+          "table_name": "sync_v5_heads",
+          "row_count": "1",
+          "fingerprint": "7b51a6e5b7954fb0044942a846a71f8c0e7b740a409ea4753cf6d159cf26aa01",
+          "rows_unchanged": true
+        },
+        {
+          "table_name": "sync_v5_receipts",
+          "row_count": "8",
+          "fingerprint": "2ded439095928368ee64a0b9736a9d54114ff1381941186dfa843540e08d7816",
+          "rows_unchanged": true
+        },
+        {
+          "table_name": "sync_v5_records",
+          "row_count": "4",
+          "fingerprint": "f81636443670140ae9f3c7e0e59c6ef72ba9ec04e8b50aba723cab829b306932",
+          "rows_unchanged": true
+        }
+      ]
+    }
+  ]
+}

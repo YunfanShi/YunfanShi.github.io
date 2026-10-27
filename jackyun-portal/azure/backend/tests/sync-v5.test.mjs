@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {createHash,randomUUID} from 'node:crypto';
 import {handleSyncV5,readScheduleProjection,scheduleProjectionState,syncV5Rollout} from '../sync-v5.mjs';
+import {legacyWorkspaceRecordId} from '../../../src/lib/sync/resource-model.ts';
 import {createApiHandler} from '../server.mjs';
 import {canonicalJson} from '../../../src/lib/sync/hash.ts';
 import {readFile} from 'node:fs/promises';
@@ -10,24 +11,26 @@ import {estimateSqlParameterBytes} from '../database.mjs';
 
 const identity={sub:randomUUID()},url=(path,query='')=>new URL(`https://sync.test/api/sync/v5${path}${query}`);
 function database(){
-  const records=new Map(),receipts=new Map(),heads=new Map(),projectionHeads=new Set(),changes=[],queries=[],calls=[];let writes=0,projectionWrites=0;
-  return {records,receipts,heads,projectionHeads,changes,queries,calls,legacySchedule:null,get writes(){return writes;},get projectionWrites(){return projectionWrites;},async query(sql,params=[]){
+  const records=new Map(),receipts=new Map(),heads=new Map(),projectionHeads=new Set(),changes=[],v4Changes=[],queries=[],calls=[];let writes=0,projectionWrites=0;
+  return {records,receipts,heads,projectionHeads,changes,v4Changes,queries,calls,legacySchedule:null,legacyRows:[],get writes(){return writes;},get projectionWrites(){return projectionWrites;},async query(sql,params=[]){
     queries.push(sql.replace(/\s+/g,' ').trim());
     calls.push({sql:sql.replace(/\s+/g,' ').trim(),params});
     if(sql.includes("to_regclass('public.sync_v5_records')"))return {rows:[{ready:true}]};
     if(sql.startsWith('SELECT pg_advisory_xact_lock'))return {rows:[]};
     if(sql.includes('count(*)::integer AS count FROM public.sync_v5_receipts'))return {rows:[{count:0}]};
     if(sql.startsWith('SELECT storage_value,revision,content_hash,deleted_at,updated_at FROM public.legacy_sync_data'))return {rows:this.legacySchedule?[this.legacySchedule]:[]};
+    if(sql.replace(/\s+/g,' ').trim().startsWith('SELECT storage_key,storage_value,revision,deleted_at,updated_at FROM public.legacy_sync_data'))return {rows:this.legacyRows.filter(row=>row.user_id===params[0])};
     if(sql.startsWith('UPDATE public.legacy_sync_data SET revision=')){
       if(!this.legacySchedule)return {rows:[]};
       this.legacySchedule={...this.legacySchedule,revision:params[1],content_hash:params[2],deleted_at:null};
       return {rows:[{user_id:params[0]}]};
     }
+    if(sql.startsWith('SELECT revision FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE'))return {rows:this.legacyRows.filter(row=>row.user_id===params[0]&&row.storage_key===params[1]).map(row=>({revision:row.revision}))};
     if(sql.startsWith('SELECT revision,content_hash,updated_at FROM public.sync_v5_projection_heads'))return {rows:[]};
     if(sql.startsWith('SELECT 1 FROM public.sync_v5_projection_heads'))return {rows:projectionHeads.has(params[0])?[{}]:[]};
     if(sql.startsWith('SELECT scope FROM public.sync_v5_heads WHERE user_id=$1'))return {rows:[...heads.keys()].filter(key=>key.startsWith(`${params[0]}:`)).map(key=>({scope:key.slice(params[0].length+1)}))};
     if(sql.startsWith('SELECT sequence,retained_after FROM public.sync_v5_heads'))return {rows:heads.has(`${params[0]}:${params[1]}`)?[{sequence:heads.get(`${params[0]}:${params[1]}`),retained_after:0}]:[]};
-    if(sql.startsWith('SELECT scope,record_id,value,deleted_at FROM public.sync_v5_records'))return {rows:[...records.values()].filter(row=>row.user_id===params[0])};
+    if(sql.startsWith('SELECT scope,record_id,value,deleted_at FROM public.sync_v5_records'))return {rows:[...records.values()].filter(row=>row.user_id===params[0]&&(Array.isArray(params[1])?params[1].includes(row.scope):row.scope===params[1]))};
     if(sql.startsWith('SELECT scope,record_id,revision,content_hash,deleted_at,updated_at')&&sql.includes('FROM public.sync_v5_records')){
       const [user,scope,after,start,end]=params;return {rows:[...records.values()].filter(row=>row.user_id===user&&row.scope===scope&&row.record_id>after&&(!start||(row.record_id>=start&&row.record_id<end))).sort((a,b)=>a.record_id.localeCompare(b.record_id)).slice(0,101)};
     }
@@ -45,10 +48,14 @@ function database(){
     if(sql.startsWith('SELECT c.sequence,r.scope,r.record_id,r.revision,r.content_hash,r.deleted_at,r.updated_at')){
       const [user,scope,cursor,start,end]=params;return {rows:changes.filter(change=>change.user_id===user&&change.scope===scope&&change.sequence>cursor&&(!start||(change.record_id>=start&&change.record_id<end))).map(change=>({sequence:change.sequence,...records.get(change.record_id)})).slice(0,101)};
     }
+    if(sql.startsWith('INSERT INTO public.legacy_sync_data(user_id,storage_key,storage_value,revision,content_hash,deleted_at,updated_at)')){
+      const [user_id,storage_key,raw,revision,content_hash,deleted]=params,row={user_id,storage_key,storage_value:JSON.parse(raw),revision,content_hash,deleted_at:deleted?'now':null,updated_at:'now'};
+      const prior=this.legacyRows.findIndex(item=>item.user_id===user_id&&item.storage_key===storage_key);if(prior<0)this.legacyRows.push(row);else this.legacyRows[prior]=row;return {rows:[]};
+    }
     if(sql.startsWith('INSERT INTO public.legacy_sync_data'))return {rows:[]};
     if(sql.startsWith('INSERT INTO public.sync_v5_projection_heads')){projectionHeads.add(params[0]);projectionWrites++;return {rows:[]};}
-    if(sql.startsWith('INSERT INTO public.sync_change_heads'))return {rows:[{sequence:1}]};
-    if(sql.startsWith('INSERT INTO public.sync_change_log'))return {rows:[]};
+    if(sql.startsWith('INSERT INTO public.sync_change_heads'))return {rows:[{sequence:this.v4Changes.length+1}]};
+    if(sql.startsWith('INSERT INTO public.sync_change_log')){this.v4Changes.push({user_id:params[0],sequence:params[1],storage_key:params[2]});return {rows:[]};}
     if(sql.startsWith('WITH removed AS'))return {rows:[]};
     if(sql.includes('FROM public.web_sync_devices'))return {rows:[]};
     if(sql.includes('FROM public.sync_v5_receipts')){
@@ -58,13 +65,16 @@ function database(){
     if(sql.includes('FROM public.sync_v5_records')&&sql.includes('FOR UPDATE')){
       return {rows:records.has(params[2])?[records.get(params[2])]:[]};
     }
+    if(sql.startsWith('SELECT scope,record_id,revision,content_hash,value,deleted_at,updated_at')&&sql.includes('FROM public.sync_v5_records')){
+      return {rows:params[2].map(id=>records.get(id)).filter(row=>row?.user_id===params[0]&&row.scope===params[1])};
+    }
     if(sql.startsWith('INSERT INTO public.sync_v5_records')){
       const [user_id,scope,record_id,revision,content_hash,value,deleted]=params,now=new Date().toISOString();
-      const row={user_id,scope,record_id,revision,content_hash,value:JSON.parse(value),deleted_at:deleted?now:null,updated_at:now};
+      const row={user_id,scope,record_id,revision,content_hash,value:JSON.parse(value),deleted_at:deleted?now:null,updated_at:params[7]??now};
       records.set(record_id,row);writes++;return {rows:[row]};
     }
     if(sql.startsWith('INSERT INTO public.sync_v5_heads')){
-      const [user,scope]=params,key=`${user}:${scope}`,sequence=(heads.get(key)??0)+1;heads.set(key,sequence);return {rows:[{sequence}]};
+      const [user,scope]=params,key=`${user}:${scope}`,sequence=params.length>2?params[2]:(heads.get(key)??0)+1;heads.set(key,sequence);return {rows:[{sequence}]};
     }
     if(sql.startsWith('INSERT INTO public.sync_v5_changes')){
       changes.push({user_id:params[0],scope:params[1],sequence:params[2],record_id:params[3]});return {rows:[]};
@@ -78,6 +88,14 @@ function database(){
     }
     throw new Error(`Unexpected SQL: ${sql.slice(0,100)}`);
   }};
+}
+const rolloutKeys=['SYNC_V5_ENABLED','SYNC_V5_USERS','SYNC_V5_SCOPES','SYNC_V5_MODE','SYNC_V5_PERCENTAGE','SYNC_V5_PERCENTAGE_SALT','SYNC_V5_WRITE_PAUSE'];
+async function withRolloutEnv(values,run){
+  const previous=Object.fromEntries(rolloutKeys.map(key=>[key,process.env[key]]));
+  for(const key of rolloutKeys)delete process.env[key];
+  Object.assign(process.env,values);
+  try{return await run();}
+  finally{for(const key of rolloutKeys){if(previous[key]===undefined)delete process.env[key];else process.env[key]=previous[key];}}
 }
 const hash=value=>createHash('sha256').update(canonicalJson(value)).digest('hex');
 
@@ -102,6 +120,40 @@ test('v5 stays disabled without an explicit account rollout',()=>{
   try{assert.deepEqual(syncV5Rollout(identity),[]);}
   finally{[process.env.SYNC_V5_ENABLED,process.env.SYNC_V5_USERS,process.env.SYNC_V5_SCOPES]=previous;}
 });
+
+test('rollout modes are explicit, stable, and fail closed',async()=>withRolloutEnv({SYNC_V5_SCOPES:'cue'},async()=>{
+  assert.deepEqual(syncV5Rollout(identity),[]);
+  process.env.SYNC_V5_MODE='disabled';process.env.SYNC_V5_USERS=identity.sub;
+  assert.deepEqual(syncV5Rollout(identity),[]);
+  process.env.SYNC_V5_MODE='canary';
+  assert.deepEqual(syncV5Rollout(identity),['cue']);
+  assert.deepEqual(syncV5Rollout({sub:randomUUID()}),[]);
+  process.env.SYNC_V5_MODE='global';
+  assert.deepEqual(syncV5Rollout({sub:randomUUID()}),['cue']);
+  process.env.SYNC_V5_MODE='*';
+  assert.deepEqual(syncV5Rollout(identity),[]);
+  process.env.SYNC_V5_MODE='percentage';process.env.SYNC_V5_PERCENTAGE='not-a-number';
+  assert.deepEqual(syncV5Rollout(identity),[]);
+  process.env.SYNC_V5_PERCENTAGE='100';
+  assert.deepEqual(syncV5Rollout(identity),['cue']);
+  process.env.SYNC_V5_PERCENTAGE='0';
+  assert.deepEqual(syncV5Rollout(identity),[]);
+}));
+
+test('emergency pause blocks v5 mutations without blocking reads or receipts',async()=>withRolloutEnv({
+  SYNC_V5_MODE:'global',SYNC_V5_SCOPES:'cue',SYNC_V5_WRITE_PAUSE:'true',
+},async()=>{
+  const db=database(),root=await handleSyncV5(db,identity,'GET',url(''),null,['cue']);
+  assert.equal(root.writePaused,true);assert.equal(root.capabilities.writes,false);
+  const manifest=await handleSyncV5(db,identity,'GET',url('/manifest','?scope=cue'),null,['cue']);
+  assert.deepEqual(manifest.records,[]);
+  const receipts=await handleSyncV5(db,identity,'POST',url('/receipts'),{scope:'cue',operations:[{id:randomUUID(),requestHash:'a'.repeat(64)}]},['cue']);
+  assert.equal(receipts.receipts[0].state,'unknown');
+  await assert.rejects(handleSyncV5(db,identity,'POST',url('/operations'),{scope:'cue',deviceId:randomUUID(),operations:[{
+    id:randomUUID(),scope:'cue',recordId:'cues:cue-1',baseRevision:0,baseHash:null,value:{id:'cue-1'},deleted:false,clientUpdatedAt:new Date().toISOString(),
+  }]},['cue']),{status:503,code:'SYNC_V5_WRITES_PAUSED'});
+  assert.equal(db.writes,0);
+}));
 
 test('resource writes use CAS, idempotent receipts, and return actionable conflicts',async()=>{
   const db=database(),deviceId=randomUUID(),id=randomUUID(),value={id:'cue-1',prompt:'Recall'};
@@ -208,6 +260,50 @@ test('manifest and changes can page a single resource field without consuming an
   const changes=await handleSyncV5(db,identity,'GET',url('/changes','?scope=cue&field=cues&cursor=0'),null,['cue']);
   assert.deepEqual(changes.records.map(row=>row.recordId),['cues:cue-1']);assert.equal(changes.cursor,2);
   await assert.rejects(handleSyncV5(db,identity,'GET',url('/manifest','?scope=cue&field=timetable'),null,['cue']),{status:400,code:'INVALID_RESOURCE_FIELD'});
+});
+
+test('workspace bootstrap migrates eligible legacy keys with hashes, tombstones, ownership and idempotency',async()=>{
+  const db=database(),now='2026-10-26T00:00:00.000Z',foreignUser=randomUUID();
+  db.legacyRows=[
+    {user_id:identity.sub,storage_key:'jackyun_goal_data',storage_value:{goals:[{id:'goal-1'}]},revision:7,deleted_at:null,updated_at:now},
+    {user_id:identity.sub,storage_key:'jackyun_theme',storage_value:null,revision:3,deleted_at:now,updated_at:now},
+    {user_id:identity.sub,storage_key:'jackyun-ai-config',storage_value:{apiKey:'must-not-sync'},revision:5,deleted_at:null,updated_at:now},
+    {user_id:foreignUser,storage_key:'jackyun_goal_data',storage_value:{goals:[{id:'foreign'}]},revision:2,deleted_at:null,updated_at:now},
+  ];
+  const learning=await handleSyncV5(db,identity,'GET',url('/manifest','?scope=workspace&field=legacyGoals'),null,['workspace']);
+  const setting=await handleSyncV5(db,identity,'GET',url('/manifest','?scope=workspace&field=legacySettings'),null,['workspace']);
+  assert.equal(learning.records.length,1);assert.equal(learning.records[0].revision,7);
+  assert.equal(learning.records[0].contentHash,hash({goals:[{id:'goal-1'}]}));
+  assert.equal(setting.records.length,1);assert.equal(setting.records[0].revision,3);
+  assert.equal(setting.records[0].deleted,true);assert.equal(setting.records[0].contentHash,createHash('sha256').update('__deleted__').digest('hex'));
+  assert.equal(db.records.size,2,'credentials and rows belonging to other users are excluded');
+  const inserted=db.writes;
+  await handleSyncV5(db,identity,'GET',url('/manifest','?scope=workspace&field=legacyGoals'),null,['workspace']);
+  assert.equal(db.writes,inserted,'repeat bootstrap must not duplicate resources');
+
+  const recordId=legacyWorkspaceRecordId('jackyun_theme');
+  const operation={id:randomUUID(),scope:'workspace',recordId,baseRevision:3,baseHash:createHash('sha256').update('__deleted__').digest('hex'),
+    value:'dark',deleted:false,clientUpdatedAt:now};
+  const beforeProjectionWrites=db.projectionWrites;
+  const write=await handleSyncV5(db,identity,'POST',url('/operations'),{scope:'workspace',deviceId:randomUUID(),operations:[operation]},['workspace']);
+  assert.equal(write.applied[0].revision,4);
+  assert.equal(db.projectionWrites,beforeProjectionWrites,'workspace writes must not rebuild the Schedule projection');
+  assert.equal(db.legacySchedule,null,'workspace writes must not create a legacy Schedule row');
+  const legacy=db.legacyRows.find(row=>row.user_id===identity.sub&&row.storage_key==='jackyun_theme');
+  assert.equal(legacy.storage_value,'dark');assert.equal(legacy.revision,4);assert.equal(legacy.deleted_at,null);
+  assert.equal(legacy.content_hash,createHash('sha256').update(canonicalJson('dark')).digest('hex'));
+  assert.deepEqual(db.v4Changes.at(-1),{user_id:identity.sub,sequence:1,storage_key:'jackyun_theme'});
+});
+
+test('personal site workspace domain accepts stable UUID records and page-filtered manifests',async()=>{
+  const db=database(),siteId='9b775b2b-8a3f-4a6d-b2c7-0f8a89e14c31';
+  const key=`jackyun_personal_site_v1:${siteId}`,value={id:siteId,name:'Study',schemaVersion:1,theme:'light',blocks:[],updatedAt:'2026-10-27T00:00:00.000Z'};
+  db.legacyRows=[{user_id:identity.sub,storage_key:key,storage_value:value,revision:2,deleted_at:null,updated_at:value.updatedAt}];
+  const manifest=await handleSyncV5(db,identity,'GET',url('/manifest','?scope=workspace&field=legacyPersonalSites'),null,['workspace']);
+  assert.equal(manifest.records.length,1);
+  assert.equal(manifest.records[0].recordId,legacyWorkspaceRecordId(key));
+  const record=await handleSyncV5(db,identity,'GET',url('/records',`?scope=workspace&id=${encodeURIComponent(legacyWorkspaceRecordId(key))}`),null,['workspace']);
+  assert.deepEqual(record.records[0].value,value);
 });
 
 test('disabling the v5 write allowlist preserves the v4 projection bridge',async()=>{

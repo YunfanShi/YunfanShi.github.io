@@ -1,10 +1,13 @@
 import {createHash} from 'node:crypto';
 import {canonicalJson} from '../../src/lib/sync/hash.ts';
-import {mergeScheduleResources,resourceScopeForRecordId,scheduleToResources} from '../../src/lib/sync/resource-model.ts';
+import {LEGACY_WORKSPACE_FIELDS,SYNC_V5_SCHEDULE_SCOPES,legacyWorkspaceFieldForKey,legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,mergeScheduleResources,resourceScopeForRecordId,scheduleToResources} from '../../src/lib/sync/resource-model.ts';
 import {unsafeScheduleReplacement} from '../../src/lib/sync/schedule-safety.ts';
+import {WRITING_COLLECTIONS,writingCollectionForKey,writingItemId,writingMarkerKey,splitWritingCollection,replaceWritingCollectionItem} from '../../src/lib/sync/writing-resource-model.ts';
 import {ApiError} from './errors.mjs';
 
-export const SYNC_V5_SCOPES=new Set(['timetable','learning','cue','practice','timer','settings']);
+export const SYNC_V5_SCOPES=new Set([...SYNC_V5_SCHEDULE_SCOPES,'workspace']);
+const SCHEDULE_SCOPE_SET=new Set(SYNC_V5_SCHEDULE_SCOPES);
+const ROLLOUT_MODES=new Set(['disabled','test-users','canary','percentage','global']);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH=/^[a-f0-9]{64}$/i;
 const MAX_OPERATIONS=100,MAX_BODY_BYTES=1_000_000,MAX_RECORD_BYTES=900_000;
@@ -13,7 +16,8 @@ const json=value=>JSON.stringify(value??null);
 const digest=(value,deleted=false)=>createHash('sha256').update(deleted?'__deleted__':canonicalJson(value)).digest('hex');
 const integer=value=>{const n=Number(value);if(!Number.isSafeInteger(n)||n<0)fail(400,'INVALID_CURSOR');return n;};
 const validScope=value=>typeof value==='string'&&SYNC_V5_SCOPES.has(value);
-const validField=(field,scope)=>typeof field==='string'&&field.length<=64&&resourceScopeForRecordId(field==='__root'?'__root:value':`${field}:$value`)===scope;
+const validField=(field,scope)=>typeof field==='string'&&field.length<=64
+  &&(scope==='workspace'?LEGACY_WORKSPACE_FIELDS.includes(field):resourceScopeForRecordId(field==='__root'?'__root:value':`${field}:$value`)===scope);
 const descriptor=row=>({scope:row.scope,recordId:row.record_id,revision:Number(row.revision),contentHash:row.content_hash,
   deleted:Boolean(row.deleted_at),updatedAt:row.updated_at instanceof Date?row.updated_at.toISOString():row.updated_at,
   ...(row.sequence===undefined?{}:{sequence:Number(row.sequence)})});
@@ -21,12 +25,120 @@ const scheduleKey='jackyun_schedule_control_v1';
 const parseRecordId=recordId=>{const colon=recordId.indexOf(':');if(colon<1)throw new ApiError(503,'SYNC_V5_RECORD_CORRUPT');
   return {field:recordId.slice(0,colon),itemId:decodeURIComponent(recordId.slice(colon+1))};};
 const hashValue=value=>createHash('sha256').update(canonicalJson(value)).digest('hex');
+const hashLegacyValue=(value,deleted)=>createHash('sha256').update(deleted?'__deleted__':canonicalJson(value)).digest('hex');
+async function appendV4Change(client,userId,key){
+  const sequence=integer((await client.query(`INSERT INTO public.sync_change_heads(user_id,sequence) VALUES($1,1)
+    ON CONFLICT(user_id) DO UPDATE SET sequence=public.sync_change_heads.sequence+1 RETURNING sequence`,[userId])).rows[0]?.sequence);
+  await client.query('INSERT INTO public.sync_change_log(user_id,sequence,storage_key) VALUES($1,$2,$3)',[userId,sequence,key]);
+}
+async function appendV5WorkspaceChange(client,userId,recordId,value,deleted){
+  const revision=integer((await client.query(`SELECT revision FROM public.sync_v5_records WHERE user_id=$1 AND scope='workspace' AND record_id=$2 FOR UPDATE`,[userId,recordId])).rows[0]?.revision??0)+1;
+  const contentHash=digest(value,deleted);
+  await client.query(`INSERT INTO public.sync_v5_records(user_id,scope,record_id,revision,content_hash,value,deleted_at,updated_at)
+    VALUES($1,'workspace',$2,$3,$4,$5::jsonb,CASE WHEN $6 THEN now() ELSE NULL END,now())
+    ON CONFLICT(user_id,scope,record_id) DO UPDATE SET revision=excluded.revision,content_hash=excluded.content_hash,
+    value=excluded.value,deleted_at=excluded.deleted_at,updated_at=now()`,[userId,recordId,revision,contentHash,json(value),deleted]);
+  const sequence=integer((await client.query(`INSERT INTO public.sync_v5_heads(user_id,scope,sequence) VALUES($1,'workspace',1)
+    ON CONFLICT(user_id,scope) DO UPDATE SET sequence=public.sync_v5_heads.sequence+1 RETURNING sequence`,[userId])).rows[0]?.sequence);
+  await client.query(`INSERT INTO public.sync_v5_changes(user_id,scope,sequence,record_id) VALUES($1,'workspace',$2,$3)`,[userId,sequence,recordId]);
+  return {revision,contentHash,sequence};
+}
+/** Keep the v4 key projection and v4 change cursor in the same transaction as a v5 workspace write. */
+async function writeLegacyKeyProjection(client,userId,key,value,deleted){
+  const prior=(await client.query('SELECT revision FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE',[userId,key])).rows[0];
+  const revision=integer(prior?.revision??0)+1,contentHash=hashLegacyValue(value,deleted);
+  await client.query(`INSERT INTO public.legacy_sync_data(user_id,storage_key,storage_value,revision,content_hash,deleted_at,updated_at)
+    VALUES($1,$2,$3::jsonb,$4,$5,CASE WHEN $6 THEN now() ELSE NULL END,now())
+    ON CONFLICT(user_id,storage_key) DO UPDATE SET storage_value=excluded.storage_value,revision=excluded.revision,
+    content_hash=excluded.content_hash,deleted_at=excluded.deleted_at,updated_at=now()`,[userId,key,json(value),revision,contentHash,deleted]);
+  await appendV4Change(client,userId,key);
+  return {key,revision,contentHash};
+}
+const writingCollectionForLegacyKey=key=>WRITING_COLLECTIONS.find(collection=>collection.legacyKey===key);
+async function writingResourceRows(client,userId,collection){
+  return (await client.query(`SELECT record_id,revision,content_hash,value,deleted_at FROM public.sync_v5_records
+    WHERE user_id=$1 AND scope='workspace' AND record_id COLLATE "C">=$2 COLLATE "C" AND record_id COLLATE "C"<$3 COLLATE "C"`,
+    [userId,`${collection.field}:`,`${collection.field};`])).rows.filter(row=>{
+      const key=legacyWorkspaceKeyFromRecordId(row.record_id);return key&&writingItemId(collection,key)!==null;
+    });
+}
+function splitWritingSource(collection,value){
+  try{return splitWritingCollection(collection,value);}catch{fail(409,'WRITING_COLLECTION_CORRUPT');}
+}
+async function reconcileWritingSource(client,userId,collection,value,{initial=false}={}){
+  const wanted=splitWritingSource(collection,value),byKey=new Map(wanted.map(row=>[row.key,row]));
+  if(wanted.some(row=>Buffer.byteLength(json(row.value))>MAX_RECORD_BYTES))fail(413,'WRITING_ITEM_TOO_LARGE');
+  const current=await writingResourceRows(client,userId,collection),byId=new Map(current.map(row=>[row.record_id,row]));
+  // A missing migration marker must never make an old snapshot replace independent newer records.
+  if(initial&&current.some(row=>{
+    const item=byKey.get(legacyWorkspaceKeyFromRecordId(row.record_id));
+    return !row.deleted_at&&(!item||row.content_hash!==digest(item.value))||row.deleted_at&&item;
+  }))fail(409,'WRITING_MIGRATION_CONFLICT');
+  for(const item of wanted){
+    const recordId=legacyWorkspaceRecordId(item.key),existing=byId.get(recordId);
+    if(!existing||existing.deleted_at||existing.content_hash!==digest(item.value))await appendV5WorkspaceChange(client,userId,recordId,item.value,false);
+  }
+  for(const row of current)if(!row.deleted_at&&!byKey.has(legacyWorkspaceKeyFromRecordId(row.record_id))){
+    await appendV5WorkspaceChange(client,userId,row.record_id,null,true);
+  }
+}
+async function ensureWritingCollection(client,userId,collection){
+  const marker=legacyWorkspaceRecordId(writingMarkerKey(collection));
+  const existing=(await client.query(`SELECT value,deleted_at FROM public.sync_v5_records
+    WHERE user_id=$1 AND scope='workspace' AND record_id=$2`,[userId,marker])).rows[0];
+  if(existing&&!existing.deleted_at&&existing.value?.schemaVersion===1)return;
+  const source=(await client.query(`SELECT storage_value,deleted_at FROM public.legacy_sync_data
+    WHERE user_id=$1 AND storage_key=$2 FOR UPDATE`,[userId,collection.legacyKey])).rows[0];
+  await reconcileWritingSource(client,userId,collection,!source||source.deleted_at?[]:source.storage_value,{initial:true});
+  await appendV5WorkspaceChange(client,userId,marker,{schemaVersion:1,sourceKey:collection.legacyKey},false);
+}
+async function writeWorkspaceLegacyProjection(client,userId,recordId,value,deleted){
+  const key=legacyWorkspaceKeyFromRecordId(recordId);if(!key)return null;
+  const collection=writingCollectionForKey(key);
+  if(collection){
+    if(key===writingMarkerKey(collection))fail(403,'WRITING_BASELINE_READ_ONLY');
+    const source=(await client.query(`SELECT storage_value,deleted_at FROM public.legacy_sync_data
+      WHERE user_id=$1 AND storage_key=$2 FOR UPDATE`,[userId,collection.legacyKey])).rows[0];
+    let projection;
+    try{projection=replaceWritingCollectionItem(collection,!source||source.deleted_at?[]:source.storage_value,key,value,deleted);}
+    catch{fail(409,'WRITING_PROJECTION_INVALID');}
+    const result=await writeLegacyKeyProjection(client,userId,collection.legacyKey,projection,false);
+    // Old workspace clients still read the aggregate; new clients subscribe only to the item field.
+    await appendV5WorkspaceChange(client,userId,legacyWorkspaceRecordId(collection.legacyKey),projection,false);
+    return result;
+  }
+  const result=await writeLegacyKeyProjection(client,userId,key,value,deleted);
+  const aggregate=writingCollectionForLegacyKey(key);
+  if(aggregate)await reconcileWritingSource(client,userId,aggregate,deleted?[]:value);
+  return result;
+}
+/** Reflect an accepted legacy write into v5 only when this account already has workspace authority. */
+export async function reflectLegacyWorkspaceWrite(client,userId,key){
+  const recordId=legacyWorkspaceRecordId(key);if(!recordId)return false;
+  const head=(await client.query(`SELECT sequence FROM public.sync_v5_heads WHERE user_id=$1 AND scope='workspace' FOR UPDATE`,[userId])).rows[0];
+  if(!head)return false;
+  const row=(await client.query(`SELECT storage_value,deleted_at FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2 FOR UPDATE`,[userId,key])).rows[0];
+  if(!row)return false;
+  const deleted=Boolean(row.deleted_at),value=deleted?null:row.storage_value,contentHash=digest(value,deleted);
+  const collection=writingCollectionForLegacyKey(key);
+  if(collection){
+    if(!deleted){try{splitWritingCollection(collection,value);}catch{fail(400,'INVALID_WRITING_COLLECTION');}}
+    const marker=legacyWorkspaceRecordId(writingMarkerKey(collection));
+    const initialized=(await client.query(`SELECT value,deleted_at FROM public.sync_v5_records WHERE user_id=$1 AND scope='workspace' AND record_id=$2`,[userId,marker])).rows[0];
+    await reconcileWritingSource(client,userId,collection,deleted?[]:value,{initial:!initialized||Boolean(initialized.deleted_at)});
+    if(!initialized||initialized.deleted_at)await appendV5WorkspaceChange(client,userId,marker,{schemaVersion:1,sourceKey:key},false);
+  }
+  const current=(await client.query(`SELECT revision,content_hash,deleted_at FROM public.sync_v5_records WHERE user_id=$1 AND scope='workspace' AND record_id=$2 FOR UPDATE`,[userId,recordId])).rows[0];
+  if(current&&current.content_hash===contentHash&&Boolean(current.deleted_at)===deleted)return false;
+  await appendV5WorkspaceChange(client,userId,recordId,value,deleted);
+  return true;
+}
 async function readLegacySchedule(client,userId){
   return (await client.query('SELECT storage_value,revision,content_hash,deleted_at,updated_at FROM public.legacy_sync_data WHERE user_id=$1 AND storage_key=$2',[userId,scheduleKey])).rows[0]??null;
 }
 export async function readScheduleProjection(client,userId){
   const legacy=await readLegacySchedule(client,userId),head=(await client.query('SELECT revision,content_hash,updated_at FROM public.sync_v5_projection_heads WHERE user_id=$1',[userId])).rows[0];
-  const rows=(await client.query(`SELECT scope,record_id,value,deleted_at FROM public.sync_v5_records WHERE user_id=$1`,[userId])).rows;
+  const rows=(await client.query(`SELECT scope,record_id,value,deleted_at FROM public.sync_v5_records WHERE user_id=$1 AND scope=ANY($2::text[])`,[userId,SYNC_V5_SCHEDULE_SCOPES])).rows;
   const base=legacy&&!legacy.deleted_at&&legacy.storage_value&&typeof legacy.storage_value==='object'?legacy.storage_value:{};
   const projectionRecordCount=rows.length,projectionBytes=rows.reduce((total,row)=>total+Buffer.byteLength(json(row.value)),0);
   if(!rows.length)return {value:base,revision:integer(head?.revision??legacy?.revision??0),contentHash:head?.content_hash??legacy?.content_hash??null,legacy,projectionRecordCount,projectionBytes};
@@ -40,10 +152,12 @@ export async function scheduleProjectionState(client,userId,rolloutScopes=[]){
   const ready=(await client.query(`SELECT to_regclass('public.sync_v5_records') IS NOT NULL
     AND to_regclass('public.sync_v5_heads') IS NOT NULL AND to_regclass('public.sync_v5_projection_heads') IS NOT NULL AS ready`)).rows[0]?.ready===true;
   if(!ready)return null;
-  if(rolloutScopes.length)return [...new Set(rolloutScopes)];
+  const scheduledRollout=[...new Set(rolloutScopes.filter(scope=>SCHEDULE_SCOPE_SET.has(scope)))];
+  if(scheduledRollout.length)return scheduledRollout;
+  if(rolloutScopes.length&&!scheduledRollout.length)return null;
   const exists=(await client.query('SELECT 1 FROM public.sync_v5_projection_heads WHERE user_id=$1',[userId])).rows.length>0;
   if(!exists)return null;
-  return (await client.query('SELECT scope FROM public.sync_v5_heads WHERE user_id=$1 ORDER BY scope',[userId])).rows.map(row=>row.scope);
+  return (await client.query('SELECT scope FROM public.sync_v5_heads WHERE user_id=$1 AND scope=ANY($2::text[]) ORDER BY scope',[userId,SYNC_V5_SCHEDULE_SCOPES])).rows.map(row=>row.scope);
 }
 export async function writeProjectionHead(client,userId,revision,value,{recordV4Change=false}={}){
   const contentHash=hashValue(value);
@@ -74,23 +188,43 @@ async function bootstrapScopes(client,userId,scopes){
   const existing=(await client.query('SELECT scope FROM public.sync_v5_heads WHERE user_id=$1',[userId])).rows.map(row=>row.scope);
   const pending=scopes.filter(scope=>!existing.includes(scope));
   if(!pending.length)return null;
-  const current=await readScheduleProjection(client,userId);
-  const resources=scheduleToResources(current.value);
+  const schedulePending=pending.filter(scope=>SCHEDULE_SCOPE_SET.has(scope));
+  let current=null;
+  if(schedulePending.length)current=await readScheduleProjection(client,userId);
   for(const scope of pending){
     let sequence=0;
-    for(const resource of resources.filter(item=>item.scope===scope)){
-      const contentHash=hashValue(resource.value);
-      await client.query(`INSERT INTO public.sync_v5_records(user_id,scope,record_id,revision,content_hash,value,updated_at)
-        VALUES($1,$2,$3,1,$4,$5::jsonb,now()) ON CONFLICT(user_id,scope,record_id) DO NOTHING`,
-        [userId,scope,resource.recordId,contentHash,json(resource.value)]);
+    if(scope==='workspace'){
+      const legacy=(await client.query(`SELECT storage_key,storage_value,revision,deleted_at,updated_at
+        FROM public.legacy_sync_data WHERE user_id=$1 ORDER BY storage_key COLLATE "C"`,[userId])).rows;
+      for(const row of legacy){
+        const recordId=legacyWorkspaceRecordId(row.storage_key);
+        if(!recordId||legacyWorkspaceFieldForKey(row.storage_key)===null)continue;
+        const deleted=Boolean(row.deleted_at),value=deleted?null:row.storage_value;
+        const contentHash=digest(value,deleted),revision=Math.max(1,integer(row.revision??1));
+        await client.query(`INSERT INTO public.sync_v5_records(user_id,scope,record_id,revision,content_hash,value,deleted_at,updated_at)
+          VALUES($1,$2,$3,$4,$5,$6::jsonb,CASE WHEN $7 THEN COALESCE($8::timestamptz,now()) ELSE NULL END,COALESCE($8::timestamptz,now()))
+          ON CONFLICT(user_id,scope,record_id) DO NOTHING`,
+          [userId,scope,recordId,revision,contentHash,json(value),deleted,row.updated_at??null]);
+      }
+    }else{
+      const resources=scheduleToResources(current?.value??{});
+      for(const resource of resources.filter(item=>item.scope===scope)){
+        const contentHash=hashValue(resource.value);
+        await client.query(`INSERT INTO public.sync_v5_records(user_id,scope,record_id,revision,content_hash,value,updated_at)
+          VALUES($1,$2,$3,1,$4,$5::jsonb,now()) ON CONFLICT(user_id,scope,record_id) DO NOTHING`,
+          [userId,scope,resource.recordId,contentHash,json(resource.value)]);
+      }
     }
     await client.query(`INSERT INTO public.sync_v5_heads(user_id,scope,sequence,retained_after)
       VALUES($1,$2,$3,0) ON CONFLICT(user_id,scope) DO NOTHING`,[userId,scope,sequence]);
   }
-  if(!current.revision&&!current.contentHash)await writeProjectionHead(client,userId,0,current.value);
-  else await client.query(`INSERT INTO public.sync_v5_projection_heads(user_id,revision,content_hash,updated_at)
-    VALUES($1,$2,$3,now()) ON CONFLICT(user_id) DO NOTHING`,[userId,current.revision,current.contentHash]);
-  return readScheduleProjection(client,userId);
+  if(current){
+    if(!current.revision&&!current.contentHash)await writeProjectionHead(client,userId,0,current.value);
+    else await client.query(`INSERT INTO public.sync_v5_projection_heads(user_id,revision,content_hash,updated_at)
+      VALUES($1,$2,$3,now()) ON CONFLICT(user_id) DO NOTHING`,[userId,current.revision,current.contentHash]);
+    return readScheduleProjection(client,userId);
+  }
+  return null;
 }
 export async function replaceScheduleResources(client,userId,schedule,scopes){
   const desired=scheduleToResources(schedule).filter(resource=>scopes.includes(resource.scope));
@@ -113,11 +247,31 @@ export async function replaceScheduleResources(client,userId,schedule,scopes){
   }
 }
 
+export function syncV5RolloutMode() {
+  const configured=(process.env.SYNC_V5_MODE??'').trim().toLowerCase();
+  return configured||'test-users';
+}
+
+export function syncV5WritesPaused() {
+  return (process.env.SYNC_V5_WRITE_PAUSE??'').trim().toLowerCase()==='true';
+}
+
 export function syncV5Rollout(identity) {
   const enabledUsers=(process.env.SYNC_V5_USERS??'').split(',').map(value=>value.trim()).filter(Boolean);
   const scopes=(process.env.SYNC_V5_SCOPES??'').split(',').map(value=>value.trim()).filter(validScope);
-  if(!scopes.length)return [];
-  if(enabledUsers.includes(identity.sub))return [...new Set(scopes)];
+  const mode=syncV5RolloutMode();
+  if(!scopes.length||!ROLLOUT_MODES.has(mode))return [];
+  if(mode==='disabled')return [];
+  let enabled=enabledUsers.includes(identity.sub);
+  if(mode==='global')enabled=true;
+  if(mode==='percentage'){
+    const percentage=Number(process.env.SYNC_V5_PERCENTAGE);
+    if(!Number.isInteger(percentage)||percentage<0||percentage>100)return [];
+    const salt=process.env.SYNC_V5_PERCENTAGE_SALT||'jackyun-sync-v5';
+    const bucket=createHash('sha256').update(`${salt}:${identity.sub}`).digest().readUInt32BE(0)%100;
+    enabled=bucket<percentage;
+  }
+  if(enabled)return [...new Set(scopes)];
   return [];
 }
 
@@ -129,6 +283,18 @@ function validateOperation(operation,scope) {
     ||typeof operation.deleted!=='boolean'||(!operation.deleted&&!Object.hasOwn(operation,'value'))
     ||typeof operation.clientUpdatedAt!=='string'||!Number.isFinite(Date.parse(operation.clientUpdatedAt)))fail(400,'INVALID_V5_OPERATION');
   if(resourceScopeForRecordId(operation.recordId)!==scope)fail(400,'V5_RESOURCE_SCOPE_MISMATCH');
+  if(scope==='workspace'){
+    const key=legacyWorkspaceKeyFromRecordId(operation.recordId),collection=key&&writingCollectionForKey(key);
+    const aggregate=key&&writingCollectionForLegacyKey(key);
+    if(aggregate&&!operation.deleted){try{splitWritingCollection(aggregate,operation.value);}catch{fail(400,'INVALID_WRITING_COLLECTION');}}
+    if(collection){
+      if(key===writingMarkerKey(collection))fail(403,'WRITING_BASELINE_READ_ONLY');
+      if(!operation.deleted){
+        const id=writingItemId(collection,key);
+        if(!operation.value||Array.isArray(operation.value)||operation.value[collection.idField]!==id)fail(400,'WRITING_RECORD_ID_MISMATCH');
+      }
+    }
+  }
   if(Buffer.byteLength(json(operation.deleted?null:operation.value))>MAX_RECORD_BYTES)fail(413,'V5_RECORD_TOO_LARGE');
 }
 
@@ -138,12 +304,22 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
     AND to_regclass('public.sync_v5_heads') IS NOT NULL AND to_regclass('public.sync_v5_changes') IS NOT NULL
     AND to_regclass('public.sync_v5_receipts') IS NOT NULL AND to_regclass('public.sync_v5_projection_heads') IS NOT NULL AS ready`)).rows[0]?.ready===true;
   if(route==='/api/sync/v5'&&method==='GET'){
-    return {ok:true,syncProtocol:5,capabilities:{v5:schema&&available.length>0},scopes:schema?available:[],transferEncoding:'gzip'};
+    const writePaused=syncV5WritesPaused();
+    return {ok:true,syncProtocol:5,rolloutMode:syncV5RolloutMode(),capabilities:{v5:schema&&available.length>0,writes:!writePaused,writingCollections:schema&&available.includes('workspace')},
+      writePaused,scopes:schema?available:[],transferEncoding:'gzip'};
   }
   if(!schema)fail(503,'SYNC_V5_NOT_READY');
   const scope=url.searchParams.get('scope')??body?.scope;
   if(!validScope(scope)||!available.includes(scope))fail(404,'SYNC_V5_SCOPE_UNAVAILABLE');
   await bootstrapScopes(client,identity.sub,[scope]);
+  if(scope==='workspace'){
+    const keys=[...(url.searchParams.getAll('id')),...(Array.isArray(body?.operations)?body.operations.map(row=>row.recordId):[])];
+    for(const collection of WRITING_COLLECTIONS){
+      if(url.searchParams.get('field')===collection.field||keys.some(id=>typeof id==='string'&&id.startsWith(`${collection.field}:`))){
+        await ensureWritingCollection(client,identity.sub,collection);
+      }
+    }
+  }
   if(route==='/api/sync/v5/manifest'){
     if(method!=='GET')fail(405,'METHOD_NOT_ALLOWED');
     const after=url.searchParams.get('after')??'';
@@ -169,7 +345,6 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
     const cursor=integer(url.searchParams.get('cursor')??0);
     const field=url.searchParams.get('field');
     if(field!==null&&!validField(field,scope))fail(400,'INVALID_RESOURCE_FIELD');
-    const head=(await client.query('SELECT sequence,retained_after FROM public.sync_v5_heads WHERE user_id=$1 AND scope=$2',[identity.sub,scope])).rows[0];
     const filter=field===null?'':' AND r.record_id COLLATE "C">=$4 COLLATE "C" AND r.record_id COLLATE "C"<$5 COLLATE "C"';
     const params=field===null?[identity.sub,scope,cursor]:[identity.sub,scope,cursor,`${field}:`,`${field};`];
     const rows=(await client.query(`WITH state AS (
@@ -212,6 +387,7 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
   }
   if(route==='/api/sync/v5/operations'){
     if(method!=='POST')fail(405,'METHOD_NOT_ALLOWED');
+    if(syncV5WritesPaused())fail(503,'SYNC_V5_WRITES_PAUSED');
     if(!UUID.test(body?.deviceId??'')||!Array.isArray(body.operations)||body.operations.length<1||body.operations.length>MAX_OPERATIONS
       ||Buffer.byteLength(json(body))>MAX_BODY_BYTES)fail(400,'INVALID_V5_BODY');
     for(const operation of body.operations)validateOperation(operation,scope);
@@ -249,6 +425,7 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
         VALUES($1,$2,1) ON CONFLICT(user_id,scope) DO UPDATE SET sequence=public.sync_v5_heads.sequence+1
         RETURNING sequence`,[identity.sub,scope])).rows[0]?.sequence);
       await client.query('INSERT INTO public.sync_v5_changes(user_id,scope,sequence,record_id) VALUES($1,$2,$3,$4)',[identity.sub,scope,sequence,operation.recordId]);
+      if(scope==='workspace')await writeWorkspaceLegacyProjection(client,identity.sub,operation.recordId,value,operation.deleted);
       const result={status:'applied',operationId:operation.id,...descriptor(saved)};
       applied.push(result);
       newlyApplied.push(result);
@@ -257,7 +434,7 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
         VALUES($1,$2,$3,$4,$5::jsonb)`,[identity.sub,scope,operation.id,requestHash,json(result)]);
     }
     let projectionBuildMs=0,projectionRecordCount=0,projectionBytes=0,projectionStorageInsertBytes=0;
-    if(newlyApplied.length){
+    if(newlyApplied.length&&scope!=='workspace'){
       const started=performance.now(),projection=await readScheduleProjection(client,identity.sub);
       const head=await writeProjectionHead(client,identity.sub,projection.revision+1,projection.value,{recordV4Change:true});
       projectionBuildMs=Math.round(performance.now()-started);

@@ -16,7 +16,7 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS public.sync_v5_records (
   user_id uuid NOT NULL,
-  scope text NOT NULL CHECK(scope IN ('timetable','learning','cue','practice','timer','settings')),
+  scope text NOT NULL CHECK(scope IN ('timetable','learning','cue','practice','timer','settings','workspace')),
   record_id text NOT NULL CHECK(length(record_id) BETWEEN 1 AND 240),
   revision bigint NOT NULL CHECK(revision>0),
   content_hash text NOT NULL CHECK(content_hash ~ '^[a-f0-9]{64}$'),
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS public.sync_v5_records (
 );
 CREATE TABLE IF NOT EXISTS public.sync_v5_heads (
   user_id uuid NOT NULL,
-  scope text NOT NULL CHECK(scope IN ('timetable','learning','cue','practice','timer','settings')),
+  scope text NOT NULL CHECK(scope IN ('timetable','learning','cue','practice','timer','settings','workspace')),
   sequence bigint NOT NULL DEFAULT 0 CHECK(sequence>=0),
   retained_after bigint NOT NULL DEFAULT 0 CHECK(retained_after>=0 AND retained_after<=sequence),
   last_pruned_at timestamptz,
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS public.sync_v5_heads (
 );
 CREATE TABLE IF NOT EXISTS public.sync_v5_changes (
   user_id uuid NOT NULL,
-  scope text NOT NULL CHECK(scope IN ('timetable','learning','cue','practice','timer','settings')),
+  scope text NOT NULL CHECK(scope IN ('timetable','learning','cue','practice','timer','settings','workspace')),
   sequence bigint NOT NULL CHECK(sequence>0),
   record_id text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.sync_v5_changes (
 CREATE INDEX IF NOT EXISTS sync_v5_changes_expiry ON public.sync_v5_changes(created_at);
 CREATE TABLE IF NOT EXISTS public.sync_v5_receipts (
   user_id uuid NOT NULL,
-  scope text NOT NULL CHECK(scope IN ('timetable','learning','cue','practice','timer','settings')),
+  scope text NOT NULL CHECK(scope IN ('timetable','learning','cue','practice','timer','settings','workspace')),
   operation_id uuid NOT NULL,
   request_hash text NOT NULL CHECK(request_hash ~ '^[a-f0-9]{64}$'),
   result jsonb NOT NULL,

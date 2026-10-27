@@ -1,0 +1,1148 @@
+{
+  "capturedAt": "2026-10-27T06:57:16.877Z",
+  "environment": "isolated local browser",
+  "authenticatedAccount": false,
+  "learningValuesExported": false,
+  "scenarios": [
+    {
+      "source": "public/EM.html",
+      "fixture": "isolated synthetic browser profile; external network blocked",
+      "keys": [
+        {
+          "key": "temp_2026-10-27",
+          "operations": [
+            "getItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:dGVtcF8yMDI2LTEwLTI3"
+        },
+        {
+          "key": "blocks_2026-10-27",
+          "operations": [
+            "getItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:YmxvY2tzXzIwMjYtMTAtMjc"
+        },
+        {
+          "key": "llm_key",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": false,
+          "recordId": null
+        },
+        {
+          "key": "warden_chat_v23",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyLearning:d2FyZGVuX2NoYXRfdjIz"
+        },
+        {
+          "key": "prog_2026-02-06_Physics",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA2X1BoeXNpY3M"
+        },
+        {
+          "key": "prog_2026-02-07_Physics",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA3X1BoeXNpY3M"
+        },
+        {
+          "key": "prog_2026-02-08_Physics",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA4X1BoeXNpY3M"
+        },
+        {
+          "key": "prog_2026-02-09_Physics",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA5X1BoeXNpY3M"
+        },
+        {
+          "key": "prog_2026-02-10_Physics",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTEwX1BoeXNpY3M"
+        },
+        {
+          "key": "prog_2026-02-06_Chemistry",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA2X0NoZW1pc3RyeQ"
+        },
+        {
+          "key": "prog_2026-02-07_Chemistry",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA3X0NoZW1pc3RyeQ"
+        },
+        {
+          "key": "prog_2026-02-08_Chemistry",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA4X0NoZW1pc3RyeQ"
+        },
+        {
+          "key": "prog_2026-02-09_Chemistry",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA5X0NoZW1pc3RyeQ"
+        },
+        {
+          "key": "prog_2026-02-06_Biology",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA2X0Jpb2xvZ3k"
+        },
+        {
+          "key": "prog_2026-02-07_Biology",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA3X0Jpb2xvZ3k"
+        },
+        {
+          "key": "prog_2026-02-08_Biology",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA4X0Jpb2xvZ3k"
+        },
+        {
+          "key": "prog_2026-02-09_Biology",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA5X0Jpb2xvZ3k"
+        },
+        {
+          "key": "prog_2026-02-10_Biology",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTEwX0Jpb2xvZ3k"
+        },
+        {
+          "key": "prog_2026-02-06_Math",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA2X01hdGg"
+        },
+        {
+          "key": "prog_2026-02-07_Math",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA3X01hdGg"
+        },
+        {
+          "key": "prog_2026-02-08_Math",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA4X01hdGg"
+        },
+        {
+          "key": "prog_2026-02-09_Math",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA5X01hdGg"
+        },
+        {
+          "key": "prog_2026-02-06_Vocabulary",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTA2X1ZvY2FidWxhcnk"
+        },
+        {
+          "key": "prog_2026-02-15_Vocabulary",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTE1X1ZvY2FidWxhcnk"
+        },
+        {
+          "key": "prog_2026-02-20_Vocabulary",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTIwX1ZvY2FidWxhcnk"
+        },
+        {
+          "key": "prog_2026-02-27_Vocabulary",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTAyLTI3X1ZvY2FidWxhcnk"
+        },
+        {
+          "key": "ielts_2026-02-06",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0wMi0wNg"
+        },
+        {
+          "key": "ielts_2026-02-07",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0wMi0wNw"
+        },
+        {
+          "key": "ielts_2026-02-08",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0wMi0wOA"
+        },
+        {
+          "key": "ielts_2026-02-09",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0wMi0wOQ"
+        },
+        {
+          "key": "ielts_2026-02-10",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0wMi0xMA"
+        },
+        {
+          "key": "ielts_2026-02-11",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0wMi0xMQ"
+        },
+        {
+          "key": "check_2026-02-11_IGCSE MOCK",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0wMi0xMV9JR0NTRSBNT0NL"
+        },
+        {
+          "key": "ielts_2026-02-12",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0wMi0xMg"
+        },
+        {
+          "key": "check_2026-02-13_HANDAN",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0wMi0xM19IQU5EQU4"
+        },
+        {
+          "key": "check_2026-02-14_LUAN",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0wMi0xNF9MVUFO"
+        },
+        {
+          "key": "ielts_2026-02-15",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0wMi0xNQ"
+        },
+        {
+          "key": "check_2026-02-15_IGCSE MOCK",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0wMi0xNV9JR0NTRSBNT0NL"
+        },
+        {
+          "key": "check_2026-02-15_Vocabulary",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0wMi0xNV9Wb2NhYnVsYXJ5"
+        },
+        {
+          "key": "check_2026-02-17_CHINESE NEWYEAR",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0wMi0xN19DSElORVNFIE5FV1lFQVI"
+        },
+        {
+          "key": "ielts_2026-02-20",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0wMi0yMA"
+        },
+        {
+          "key": "check_2026-02-20_IGCSE MOCK",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0wMi0yMF9JR0NTRSBNT0NL"
+        },
+        {
+          "key": "check_2026-02-20_Vocabulary",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0wMi0yMF9Wb2NhYnVsYXJ5"
+        },
+        {
+          "key": "ielts_2026-02-27",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0wMi0yNw"
+        },
+        {
+          "key": "check_2026-02-27_IGCSE MOCK",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0wMi0yN19JR0NTRSBNT0NL"
+        },
+        {
+          "key": "check_2026-02-27_Vocabulary",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0wMi0yN19Wb2NhYnVsYXJ5"
+        },
+        {
+          "key": "jackyun_user_display_name",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacySettings:amFja3l1bl91c2VyX2Rpc3BsYXlfbmFtZQ"
+        },
+        {
+          "key": "prog_2026-10-27_Algebra audit fixture",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:cHJvZ18yMDI2LTEwLTI3X0FsZ2VicmEgYXVkaXQgZml4dHVyZQ"
+        },
+        {
+          "key": "check_2026-10-27_Algebra audit fixture",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2hlY2tfMjAyNi0xMC0yN19BbGdlYnJhIGF1ZGl0IGZpeHR1cmU"
+        },
+        {
+          "key": "ielts_2026-10-27",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:aWVsdHNfMjAyNi0xMC0yNw"
+        },
+        {
+          "key": "jackyun-ai-config",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": false,
+          "recordId": null
+        }
+      ]
+    },
+    {
+      "source": "public/Pomodoro.html",
+      "fixture": "isolated synthetic browser profile; external network blocked",
+      "keys": [
+        {
+          "key": "jackyun_theme",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacySettings:amFja3l1bl90aGVtZQ"
+        },
+        {
+          "key": "jackyun_pomodoro_workspace_v1",
+          "operations": [
+            "getItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimer:amFja3l1bl9wb21vZG9yb193b3Jrc3BhY2VfdjE"
+        },
+        {
+          "key": "jackyun_pomodoro_history_2026-09",
+          "operations": [
+            "getItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimer:amFja3l1bl9wb21vZG9yb19oaXN0b3J5XzIwMjYtMDk"
+        },
+        {
+          "key": "jackyun_pomodoro_history_2026-10",
+          "operations": [
+            "getItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimer:amFja3l1bl9wb21vZG9yb19oaXN0b3J5XzIwMjYtMTA"
+        },
+        {
+          "key": "pomodoro_launch_preset",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimer:cG9tb2Rvcm9fbGF1bmNoX3ByZXNldA"
+        },
+        {
+          "key": "jackyun_pomodoro_launch",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": false,
+          "recordId": null
+        }
+      ]
+    },
+    {
+      "source": "public/TimetableHub.html",
+      "fixture": "isolated synthetic browser profile; external network blocked",
+      "keys": [
+        {
+          "key": "jackyun_theme",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacySettings:amFja3l1bl90aGVtZQ"
+        },
+        {
+          "key": "th2_temp_mode",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:dGgyX3RlbXBfbW9kZQ"
+        },
+        {
+          "key": "th2_day_range",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:dGgyX2RheV9yYW5nZQ"
+        },
+        {
+          "key": "th2_plans",
+          "operations": [
+            "getItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:dGgyX3BsYW5z"
+        },
+        {
+          "key": "th2_active_plan_id",
+          "operations": [
+            "getItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:dGgyX2FjdGl2ZV9wbGFuX2lk"
+        },
+        {
+          "key": "th2_plansmvqc23nnbmo8m",
+          "operations": [
+            "getItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:dGgyX3BsYW5zbXZxYzIzbm5ibW84bQ"
+        },
+        {
+          "key": "th2_ai_preview_mvqc23nnbmo8m",
+          "operations": [
+            "getItem",
+            "removeItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:dGgyX2FpX3ByZXZpZXdfbXZxYzIzbm5ibW84bQ"
+        },
+        {
+          "key": "jack_timetable_plan",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:amFja190aW1ldGFibGVfcGxhbg"
+        },
+        {
+          "key": "jack_timetable_plan_2026-11-02",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:amFja190aW1ldGFibGVfcGxhbl8yMDI2LTExLTAy"
+        },
+        {
+          "key": "jack_timetable_plan_2026-10-27",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:amFja190aW1ldGFibGVfcGxhbl8yMDI2LTEwLTI3"
+        },
+        {
+          "key": "jack_timetable_plan_2026-10-28",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:amFja190aW1ldGFibGVfcGxhbl8yMDI2LTEwLTI4"
+        },
+        {
+          "key": "jack_timetable_plan_2026-10-29",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:amFja190aW1ldGFibGVfcGxhbl8yMDI2LTEwLTI5"
+        },
+        {
+          "key": "jack_timetable_plan_2026-10-30",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:amFja190aW1ldGFibGVfcGxhbl8yMDI2LTEwLTMw"
+        },
+        {
+          "key": "jack_timetable_plan_2026-10-31",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:amFja190aW1ldGFibGVfcGxhbl8yMDI2LTEwLTMx"
+        },
+        {
+          "key": "jack_timetable_plan_2026-11-01",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:amFja190aW1ldGFibGVfcGxhbl8yMDI2LTExLTAx"
+        },
+        {
+          "key": "w3_schedule",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:dzNfc2NoZWR1bGU"
+        },
+        {
+          "key": "w3_week_plan",
+          "operations": [
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyTimetable:dzNfd2Vla19wbGFu"
+        },
+        {
+          "key": "jackyun_control_events",
+          "operations": [
+            "getItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyLearning:amFja3l1bl9jb250cm9sX2V2ZW50cw"
+        }
+      ]
+    },
+    {
+      "source": "public/Studyplan.html",
+      "fixture": "isolated synthetic browser profile; external network blocked",
+      "keys": [
+        {
+          "key": "jackyun_theme",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacySettings:amFja3l1bl90aGVtZQ"
+        },
+        {
+          "key": "caie_syllabus_v3",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2FpZV9zeWxsYWJ1c192Mw"
+        },
+        {
+          "key": "caie_progress_v2_1",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2FpZV9wcm9ncmVzc192Ml8x"
+        },
+        {
+          "key": "caie_settings_v2_1",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2FpZV9zZXR0aW5nc192Ml8x"
+        },
+        {
+          "key": "caie_mock_v2_1",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2FpZV9tb2NrX3YyXzE"
+        },
+        {
+          "key": "caie_schedule_current",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2FpZV9zY2hlZHVsZV9jdXJyZW50"
+        },
+        {
+          "key": "caie_custom_tasks",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2FpZV9jdXN0b21fdGFza3M"
+        },
+        {
+          "key": "caie_studyplan_config",
+          "operations": [
+            "getItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyStudyPlan:Y2FpZV9zdHVkeXBsYW5fY29uZmln"
+        },
+        {
+          "key": "jackyun_traffic_Mathematics|Synthetic audit unit",
+          "operations": [
+            "getItem",
+            "setItem"
+          ],
+          "cloudEligible": true,
+          "recordId": "legacyLearning:amFja3l1bl90cmFmZmljX01hdGhlbWF0aWNzfFN5bnRoZXRpYyBhdWRpdCB1bml0"
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "pattern": "backup-restore:${dynamic}:${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "src/components/settings/backup-center-panel.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "check__${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/EM.html"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "check_${dynamic}_${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/EM.html"
+      ],
+      "observedKeys": [
+        "check_2026-02-11_IGCSE MOCK",
+        "check_2026-02-13_HANDAN",
+        "check_2026-02-14_LUAN",
+        "check_2026-02-15_IGCSE MOCK",
+        "check_2026-02-15_Vocabulary",
+        "check_2026-02-17_CHINESE NEWYEAR",
+        "check_2026-02-20_IGCSE MOCK",
+        "check_2026-02-20_Vocabulary",
+        "check_2026-02-27_IGCSE MOCK",
+        "check_2026-02-27_Vocabulary",
+        "check_2026-10-27_Algebra audit fixture"
+      ],
+      "writeObserved": true,
+      "readObserved": true,
+      "deleteObserved": false,
+      "status": "synthetic-browser-writer-observed"
+    },
+    {
+      "pattern": "ielts_${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/EM.html"
+      ],
+      "observedKeys": [
+        "ielts_2026-02-06",
+        "ielts_2026-02-07",
+        "ielts_2026-02-08",
+        "ielts_2026-02-09",
+        "ielts_2026-02-10",
+        "ielts_2026-02-11",
+        "ielts_2026-02-12",
+        "ielts_2026-02-15",
+        "ielts_2026-02-20",
+        "ielts_2026-02-27",
+        "ielts_2026-10-27"
+      ],
+      "writeObserved": true,
+      "readObserved": true,
+      "deleteObserved": false,
+      "status": "synthetic-browser-writer-observed"
+    },
+    {
+      "pattern": "jack_timetable_plan_${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/Control.html",
+        "public/TimetableHub.html"
+      ],
+      "observedKeys": [
+        "jack_timetable_plan_2026-11-02",
+        "jack_timetable_plan_2026-10-27",
+        "jack_timetable_plan_2026-10-28",
+        "jack_timetable_plan_2026-10-29",
+        "jack_timetable_plan_2026-10-30",
+        "jack_timetable_plan_2026-10-31",
+        "jack_timetable_plan_2026-11-01"
+      ],
+      "writeObserved": true,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "synthetic-browser-writer-observed"
+    },
+    {
+      "pattern": "jackyun_chunk_recovery:${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "src/components/layout/deployment-recovery.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun_debug_error_notice_muted:v1:${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "public/shared/error-notices.js"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun_debug_unsaved_edit:practice-timer:${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "src/components/modules/schedule/practice-timer-frame.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun_novel_position_v2:${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "src/components/modules/ielts/novel-workbench.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun_pomodoro_history_${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/Pomodoro.html"
+      ],
+      "observedKeys": [
+        "jackyun_pomodoro_history_2026-09",
+        "jackyun_pomodoro_history_2026-10"
+      ],
+      "writeObserved": true,
+      "readObserved": true,
+      "deleteObserved": false,
+      "status": "synthetic-browser-writer-observed"
+    },
+    {
+      "pattern": "jackyun_practice_recovery_${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/practice-timer.js"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun_settings_${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "src/components/settings/cloud-preferences-panel.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun_traffic_${dynamic}|${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/Studyplan.html"
+      ],
+      "observedKeys": [
+        "jackyun_traffic_Mathematics|Synthetic audit unit"
+      ],
+      "writeObserved": true,
+      "readObserved": true,
+      "deleteObserved": false,
+      "status": "synthetic-browser-writer-observed"
+    },
+    {
+      "pattern": "jackyun_traffic_${dynamic}|单位",
+      "cloudEligible": true,
+      "sources": [
+        "src/lib/ai-tools.ts"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun-browser-ai-recent-choice:${dynamic}:${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "src/components/modules/browser-ai-bridge.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun-continue-${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "src/components/modules/ai-chat-fab.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun-savepoint-${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "src/components/modules/ai-chat-fab.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun-site-tasks:${dynamic}:${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "src/components/modules/personal-site-studio.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun:notification-broadcast:v1:${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "src/lib/notification-client.ts"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun:notification-broadcast:v1:${dynamic}:lease",
+      "cloudEligible": false,
+      "sources": [
+        "src/lib/notification-client.ts"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jackyun:seiue-course-review:v1:${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "src/components/modules/schedule/seiue-schedule-sync.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "jy_tr3000_${dynamic}",
+      "cloudEligible": false,
+      "sources": [
+        "public/userscripts/tr3000-manager.user.js"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "prog__${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/EM.html"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "prog_${dynamic}_${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/EM.html"
+      ],
+      "observedKeys": [
+        "prog_2026-02-06_Physics",
+        "prog_2026-02-07_Physics",
+        "prog_2026-02-08_Physics",
+        "prog_2026-02-09_Physics",
+        "prog_2026-02-10_Physics",
+        "prog_2026-02-06_Chemistry",
+        "prog_2026-02-07_Chemistry",
+        "prog_2026-02-08_Chemistry",
+        "prog_2026-02-09_Chemistry",
+        "prog_2026-02-06_Biology",
+        "prog_2026-02-07_Biology",
+        "prog_2026-02-08_Biology",
+        "prog_2026-02-09_Biology",
+        "prog_2026-02-10_Biology",
+        "prog_2026-02-06_Math",
+        "prog_2026-02-07_Math",
+        "prog_2026-02-08_Math",
+        "prog_2026-02-09_Math",
+        "prog_2026-02-06_Vocabulary",
+        "prog_2026-02-15_Vocabulary",
+        "prog_2026-02-20_Vocabulary",
+        "prog_2026-02-27_Vocabulary",
+        "prog_2026-10-27_Algebra audit fixture"
+      ],
+      "writeObserved": true,
+      "readObserved": true,
+      "deleteObserved": false,
+      "status": "synthetic-browser-writer-observed"
+    },
+    {
+      "pattern": "quizwise_${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "src/lib/quiz/storage.ts"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "site_notification_dismissed:${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "src/components/modules/site-announcements.tsx"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "th2_ai_preview_${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/TimetableHub.html"
+      ],
+      "observedKeys": [
+        "th2_ai_preview_mvqc23nnbmo8m"
+      ],
+      "writeObserved": true,
+      "readObserved": true,
+      "deleteObserved": true,
+      "status": "synthetic-browser-writer-observed"
+    },
+    {
+      "pattern": "th2_plans${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/Control.html",
+        "public/Goal.html",
+        "public/TimetableHub.html"
+      ],
+      "observedKeys": [
+        "th2_plansmvqc23nnbmo8m"
+      ],
+      "writeObserved": true,
+      "readObserved": true,
+      "deleteObserved": false,
+      "status": "synthetic-browser-writer-observed"
+    },
+    {
+      "pattern": "th2_plans${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "src/lib/ai-tools.ts"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    },
+    {
+      "pattern": "warden_sch_plan_${dynamic}",
+      "cloudEligible": true,
+      "sources": [
+        "public/MockPortal.html"
+      ],
+      "observedKeys": [],
+      "writeObserved": false,
+      "readObserved": false,
+      "deleteObserved": false,
+      "status": "pending"
+    }
+  ],
+  "unmapped": [],
+  "productionWritesPerformed": false
+}

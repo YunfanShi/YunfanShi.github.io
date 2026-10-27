@@ -92,7 +92,7 @@ function harness() {
     const exports: Record<string, any> = {};
     const modules: Record<string, unknown> = {
       'react/jsx-runtime':{jsx:(component:unknown)=>typeof component==='function'?(component as ()=>unknown)():null,jsxs:(component:unknown)=>typeof component==='function'?(component as ()=>unknown)():null},'./local-durability':{default:()=>null},'next/navigation':{usePathname:()=>pathname},
-      '@/lib/sync/repository':{workspaceStorage:storage,initializeRepository:async()=>{},flushLocalWrites:async()=>{},applyRepositoryRecord:async(key:string,value:string|null)=>{if(value===null)storage.removeItem(key);else storage.setItem(key,value);},projectCommittedRepositoryRecord:async()=>{},setV5ScheduleAuthority:()=>{}},
+      '@/lib/sync/repository':{workspaceStorage:storage,initializeRepository:async()=>{},flushLocalWrites:async()=>{},applyRepositoryRecord:async(key:string,value:string|null)=>{if(value===null)storage.removeItem(key);else storage.setItem(key,value);},projectCommittedRepositoryRecord:async()=>{},setV5ScheduleAuthority:()=>{},setV5WorkspaceAuthorityKeys:()=>{}},
       '@/lib/sync/scheduler':{runScheduledSync:async(lane:string,userId:string,work:()=>Promise<void|boolean>)=>nav.locks.request('shared:'+lane+userId,{},async lock=>lock?await work():false),createEditTrigger:()=>({trigger:()=>{},dispose:()=>{}})},
       react: { useEffect: (effect: () => (() => void) | undefined) => effects.push(effect), useRef:(value:string)=>routePathRef??(routePathRef={current:value}) },
       '@/lib/sync/engine':{createWorkspaceSync},

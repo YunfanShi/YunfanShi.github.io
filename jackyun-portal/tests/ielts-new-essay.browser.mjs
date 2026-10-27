@@ -3,12 +3,13 @@ import {createRequire} from 'node:module';
 import {mkdtemp,readFile,writeFile,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {createServer} from 'node:http';
 const require=createRequire(import.meta.url),{webpack}=require('next/dist/compiled/webpack/webpack');
 const {chromium}=require(process.env.JACKYUN_PLAYWRIGHT_PATH||'playwright');
 const root=process.cwd(),temp=await mkdtemp(path.join(tmpdir(),'ielts-new-essay-'));
 const out=process.env.JACKYUN_SCREENSHOT_DIR||'../docs/ielts-focus-3.27.0/verification';await mkdir(out,{recursive:true});
-await writeFile(temp+'/entry.tsx',`import React from 'react';import {createRoot} from 'react-dom/client';import Workbench from '${root}/src/components/modules/ielts/writing-workbench';createRoot(document.getElementById('root')!).render(<Workbench/>);`);
+await writeFile(temp+'/entry.tsx',`import React from 'react';import {createRoot} from 'react-dom/client';import Workbench from '${pathToFileURL(path.join(root,'src/components/modules/ielts/writing-workbench.tsx')).href}';createRoot(document.getElementById('root')!).render(<Workbench/>);`);
 await writeFile(temp+'/ai.ts','export function callAiApi(){return new Promise(()=>{});}');
 await writeFile(temp+'/link.tsx','export default function Link({children,...props}){return <a {...props}>{children}</a>;}');
 await writeFile(temp+'/dialog.ts','export async function siteConfirm(){return false;}');
@@ -24,7 +25,7 @@ const final={id:'final',essayId:'final',title:'A final essay',task:'task2',quest
 const results=[];
 try{for(const [width,lang] of [[1440,'en'],[390,'zh']]){
  const ctx=await browser.newContext({viewport:{width,height:1000}}),p=await ctx.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));
- await p.goto(base);await p.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(b=>!b.disabled&&b.textContent.includes('New essay')));await p.evaluate(({old,final,lang,key})=>{localStorage.clear();localStorage.setItem(key,JSON.stringify(old));localStorage.setItem('jackyun_ielts_writing_archive_v1',JSON.stringify([final]));localStorage.setItem('jackyun_ielts_writing_language',lang);localStorage.setItem('jackyun_ielts_writing_stage_v1','2');},{old,final,lang,key});await p.reload();
+ await p.addInitScript(({old,final,lang,key})=>{localStorage.clear();localStorage.setItem(key,JSON.stringify(old));localStorage.setItem('jackyun_ielts_writing_archive_v1',JSON.stringify([final]));localStorage.setItem('jackyun_ielts_writing_language',lang);localStorage.setItem('jackyun_ielts_writing_stage_v1','2');},{old,final,lang,key});await p.goto(base);await p.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(b=>!b.disabled&&b.textContent.includes('New essay')));
  const button=(en,zh)=>p.getByRole('button',{name:lang==='en'?en:zh,exact:true});const create=button('New essay','新建文章');const editor=p.getByRole('textbox',{name:lang==='en'?'Your essay':'你的作文',exact:true});
  const read=()=>p.evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
  const panel=p.locator('[data-writing-external-ai]');await panel.waitFor();

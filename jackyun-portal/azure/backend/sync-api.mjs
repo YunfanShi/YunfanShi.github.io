@@ -7,7 +7,9 @@ import { ApiError } from './errors.mjs';
 import { applyRecordDelta } from '../../src/lib/sync/delta.ts';
 import { decodeSyncUpload, compressSyncPart } from '../../src/lib/sync/compression.ts';
 import { handleSyncV4 } from './sync-v4.mjs';
-import { handleSyncV5,syncV5Rollout } from './sync-v5.mjs';
+import { handleSyncV5,reflectLegacyWorkspaceWrite,syncV5Rollout } from './sync-v5.mjs';
+import {writingCollectionForKey} from '../../src/lib/sync/writing-resource-model.ts';
+import {legacyWorkspaceRecordId} from '../../src/lib/sync/resource-model.ts';
 import {readScheduleProjection,scheduleProjectionState,replaceScheduleResources,writeProjectionHead} from './sync-v5.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -39,9 +41,12 @@ async function applyBody(client, identity, body, large = false, originalOperatio
   if (body?.syncProtocol !== 3 && body?.requireCurrentVersion !== true) fail(426, 'SYNC_UPGRADE_REQUIRED');
   if (!body || !UUID.test(body.deviceId ?? '') || json(body).length > (large ? MAX_LARGE_SYNC_BYTES : 1_000_000)) fail(400, 'INVALID_BODY');
   if (!Array.isArray(body.operations) || body.operations.length > 100 || !body.operations.every(op => validOperation(op, large))) fail(400, 'INVALID_OPERATIONS');
+  if(body.operations.some(op=>writingCollectionForKey(op.key)))fail(409,'WRITING_V5_REQUIRED');
   if (new Set(body.operations.map(op => op.key)).size !== body.operations.length) fail(400, 'DUPLICATE_KEYS');
   if (new Set(body.operations.map(op => op.id)).size !== body.operations.length) fail(400, 'DUPLICATE_OPERATION_IDS');
   if (Object.hasOwn(body, 'requireCurrentVersion') && typeof body.requireCurrentVersion !== 'boolean') fail(400, 'INVALID_BODY');
+  if(body.operations.some(op=>op.key===SCHEDULE_STORAGE_KEY||legacyWorkspaceRecordId(op.key)))
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[identity.sub]);
   // Restores must not use last-write-wins across a newer change. This check runs
   // in the same transaction and user write lock as the following mutation,
   // including when the request has been reassembled from large-value chunks.
@@ -101,6 +106,7 @@ async function applyBody(client, identity, body, large = false, originalOperatio
       result = await applyOperation(client,op,body.deviceId);
       await client.query('INSERT INTO public.sync_v3_receipts(user_id,operation_id,request_hash) VALUES($1,$2,$3)',[identity.sub,op.id,requestHash]);
     }
+    if(!prior&&result.status==='applied')await reflectLegacyWorkspaceWrite(client,identity.sub,incoming.key);
     if (result.status === 'remote' || result.status === 'conflict') {
       const row = (await client.query('SELECT * FROM public.list_web_sync_records(NULL,$1)',[op.key])).rows[0];
       if (!row && Number(result.revision) !== 0) fail(503,'SYNC_REMOTE_UNAVAILABLE');

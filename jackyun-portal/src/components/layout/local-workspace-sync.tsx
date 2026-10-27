@@ -6,7 +6,7 @@ import LocalDurabilityNotice from './local-durability';
 import {fetchAuthenticatedSync as fetchSyncWithTimeout} from '@/lib/sync/session-transport';
 import {shouldPauseSync} from '@/lib/sync/retry-policy';
 import {runScheduledSync,createEditTrigger} from '@/lib/sync/scheduler';
-import {workspaceStorage,initializeRepository,flushLocalWrites,applyRepositoryRecord,projectCommittedRepositoryRecord,setV5ScheduleAuthority} from '@/lib/sync/repository';
+import {workspaceStorage,initializeRepository,flushLocalWrites,applyRepositoryRecord,projectCommittedRepositoryRecord,setV5ScheduleAuthority,setV5WorkspaceAuthorityKeys} from '@/lib/sync/repository';
 import {BEFORE_SLEEP_EVENT,LOCAL_SLEEP_SAVE_EVENT,WAKE_EVENT,isWorkspaceSleeping,type SleepRequest} from '@/lib/workspace-idle';
 import {createSyncRunGate} from '@/lib/sync/run-gate';
 import {announceSyncStatus as announce,getLatestSyncStatus} from '@/lib/sync/status';
@@ -14,8 +14,8 @@ import {CLOUD_STATE_APPLIED_EVENT,MAX_SYNC_VALUE_CHARACTERS,isSyncableStorageKey
 import * as syncStore from '@/lib/sync/outbox';
 import {getSetting,getV5Conflicts,getV5Outbox} from '@/lib/sync/outbox';
 import {createWorkspaceSync} from '@/lib/sync/engine';
-import {createV5ResourceSync,resourceFieldsForPath} from '@/lib/sync/resource-engine';
-import {SYNC_V5_SCOPES} from '@/lib/sync/resource-model';
+import {createV5ResourceSync,resourceFieldsForPath,retainV5ScheduleAuthority} from '@/lib/sync/resource-engine';
+import {SYNC_V5_SCHEDULE_SCOPES} from '@/lib/sync/resource-model';
 import {isBackupableLegacyKey,legacyBackupPage,type BackupPage} from '@/lib/backup/pages';
 import {localPageValues,saveLocalBackup} from '@/lib/backup/local';
 import {backupIsDue,recordBackupChange,type PendingBackup} from '@/lib/backup/cadence';
@@ -135,8 +135,11 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         pending:totalPending,conflicts:totalConflicts,lastSyncedAt,error,progress:progress??(v5Conflicts.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':undefined),consecutiveFailures:failures});
     };
     let requestReason='periodic';
-    let v5Enabled=false,v5Authority=false;
-    const storedV5Authority=accountStore.getSetting<boolean>('v5ScheduleAuthority').then(enabled=>{if(enabled){setV5ScheduleAuthority(SYNC_V5_SCOPES);v5Enabled=true;v5Authority=true;}return Boolean(enabled);});
+    let v5Enabled=false,v5Authority=false,v5AuthoritySuspended=false,v5WorkspaceKeys=new Set<string>();
+    const storedV5Authority=Promise.all([accountStore.getSetting<boolean>('v5ScheduleAuthority'),accountStore.getSetting<string[]>('v5WorkspaceAuthorityKeys')]).then(([enabled,keys])=>{
+      if(enabled){setV5ScheduleAuthority(SYNC_V5_SCHEDULE_SCOPES);v5Enabled=true;v5Authority=true;}
+      v5WorkspaceKeys=new Set(Array.isArray(keys)?keys:[]);setV5WorkspaceAuthorityKeys([...v5WorkspaceKeys]);return Boolean(enabled);
+    });
     const engine=createWorkspaceSync({store:accountStore,snapshot:()=>localSnapshot(true),read:key=>workspaceStorage.getItem(key),
       write:async(key,value,expected)=>{if(cancelled||signingOut)throw new DOMException('Sync cancelled','AbortError');await applyRepositoryRecord(key,value,expected);},
       backup:async key=>{if(isBackupableLegacyKey(key))await saveLocalBackup(userId,legacyBackupPage(key),localPageValues(localSnapshot(true),legacyBackupPage(key)));},
@@ -144,11 +147,21 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       request:(url,init)=>fetchSyncWithTimeout(url,{...init,headers:{...init?.headers,'X-Sync-Reason':requestReason,'X-Sync-Account':userId},signal:controller.signal},false),
       progress:progress=>{if(!cancelled){const current=getLatestSyncStatus();announce({...current??{state:'syncing',pending:0,conflicts:0,lastSyncedAt:null},progress});}},
       usesV5Schedule:()=>v5Authority,
+      usesV5WorkspaceKey:key=>v5WorkspaceKeys.has(key),
       deviceId:accountStore.getOrCreateDeviceId,device:deviceDescription,cancelled:()=>cancelled||signingOut||syncStore.isSyncLeaseLost?.(`recovery:${userId}:workspace`)===true,now:Date.now,uuid:()=>crypto.randomUUID(),
     });
     const v5Sync=createV5ResourceSync({request:(url,init)=>fetchSyncWithTimeout(url,{...init,headers:{...init?.headers,'X-Sync-Reason':requestReason,'X-Sync-Account':userId},signal:controller.signal},false),deviceId:accountStore.getOrCreateDeviceId,
       readSchedule:()=>workspaceStorage.getItem('jackyun_schedule_control_v1'),projectSchedule:value=>{if(cancelled||signingOut)throw new DOMException('Sync cancelled','AbortError');return projectCommittedRepositoryRecord('jackyun_schedule_control_v1',value);},
-      setAuthority:async scopes=>{if(cancelled||signingOut)return;setV5ScheduleAuthority(scopes);v5Enabled=scopes.length>0;v5Authority=SYNC_V5_SCOPES.every(scope=>scopes.includes(scope));await accountStore.setSetting('v5ScheduleAuthority',v5Authority);},databaseScope:accountStore.databaseScope,isCurrent:()=>!cancelled&&!signingOut,uuid:()=>crypto.randomUUID()});
+      readWorkspace:()=>syncStore.getDocuments(accountStore.databaseScope),flushLocalWrites,projectWorkspaceRecord:(key,value)=>{if(cancelled||signingOut)throw new DOMException('Sync cancelled','AbortError');return projectCommittedRepositoryRecord(key,value);},
+      setAuthority:async scopes=>{
+        if(cancelled||signingOut)return;
+        v5Enabled=scopes.length>0;
+        if(retainV5ScheduleAuthority(v5Authority,scopes)){v5AuthoritySuspended=true;return;}
+        v5AuthoritySuspended=false;setV5ScheduleAuthority(scopes);v5Authority=SYNC_V5_SCHEDULE_SCOPES.every(scope=>scopes.includes(scope));
+        await accountStore.setSetting('v5ScheduleAuthority',v5Authority);
+      },
+      setWorkspaceAuthorityKeys:async keys=>{if(cancelled||signingOut)return;v5WorkspaceKeys=new Set(keys);setV5WorkspaceAuthorityKeys(keys);await accountStore.setSetting('v5WorkspaceAuthorityKeys',[...new Set(keys)].sort());},
+      databaseScope:accountStore.databaseScope,isCurrent:()=>!cancelled&&!signingOut,uuid:()=>crypto.randomUUID()});
     let queuedResolution: SyncResolutionRequest | undefined;
     let queuedV5Resolution:{operationId:string;choice:'local'|'remote'}|undefined;
     let activePathname=window.location.pathname,queuedRouteSync=false,routeRetryDelay=1_000;
@@ -183,18 +196,17 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
           if(queuedResolution){const choice=queuedResolution;await engine.resolve(choice.operationId,choice.choice,choice.review);if(queuedResolution===choice)queuedResolution=undefined;await engine.flush();}
           if(queuedV5Resolution){const choice=queuedV5Resolution;await v5Sync.resolveConflict(choice.operationId,choice.choice);if(queuedV5Resolution===choice)queuedV5Resolution=undefined;}
-          await v5Sync.refreshAuthority?.();
-          await engine.synchronize();
           const v5Result=await v5Sync.synchronize(resourceFieldsForPath(routeForRun));
-          v5Enabled=v5Result.enabled;v5Authority=v5Result.authoritativeSchedule;
+          v5Enabled=v5Result.enabled;
+          await engine.synchronize();
           await flushLocalWrites();await engine.capture();
           await accountStore.setSetting('lastAutomaticPull',Date.now());
           const [remaining,unresolved,v5Remaining,v5Unresolved]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),v5Enabled?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),v5Enabled?getV5Conflicts(accountStore.databaseScope):Promise.resolve([])]);
           if(!remaining.length&&!unresolved.length&&!v5Remaining.length&&!v5Unresolved.length)await accountStore.setSetting('lastSyncedAt',new Date().toISOString());
           failures=0;
           if(Date.now()-lastBackupCheck>=5*60_000){lastBackupCheck=Date.now();void runScheduledSync('backup',userId!,async()=>{await createDueBackupVersions();}).catch(()=>console.warn('[Backup] Cloud backup deferred'));}
-          await publish(unresolved.length||v5Unresolved.length?'conflict':remaining.length||v5Remaining.length?'offline_pending':'synced',undefined,
-            unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':v5Unresolved.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':remaining.length||v5Remaining.length?'本机修改仍在队列中，将分批继续上传。':undefined);
+          await publish(v5AuthoritySuspended?'server_unavailable':unresolved.length||v5Unresolved.length?'conflict':remaining.length||v5Remaining.length?'offline_pending':'synced',undefined,
+            v5AuthoritySuspended?'v5 Schedule 权限暂时不可用；为避免旧快照覆盖，已保留本地 v5 所有权并暂停该域回退。':unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':v5Unresolved.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':remaining.length||v5Remaining.length?'本机修改仍在队列中，将分批继续上传。':undefined);
           return true;
         };
         const completed=await runScheduledSync('workspace',userId!,work,manual);

@@ -1,4 +1,9 @@
-export const SYNC_V5_SCOPES = ['timetable','learning','cue','practice','timer','settings'] as const;
+import {isSyncableStorageKey} from '../local-workspace.ts';
+import {isWritingProjectionKey,splitWritingCollection,writingCollectionForKey,writingItemKey,WRITING_COLLECTIONS} from './writing-resource-model.ts';
+
+export const SYNC_V5_SCHEDULE_SCOPES = ['timetable','learning','cue','practice','timer','settings'] as const;
+export const SYNC_V5_SCOPES = [...SYNC_V5_SCHEDULE_SCOPES,'workspace'] as const;
+export const LEGACY_WORKSPACE_FIELDS = ['legacyTimetable','legacyLearning','legacyStudyPlan','legacyGoals','legacyCue','legacyIELTS','legacyQuiz','legacyExam','legacyPractice','legacyTimer','legacySettings','legacyMedia','legacyPersonalSites','writingEssays','writingErrorHistory','writingArchive'] as const;
 export type SyncV5Scope = typeof SYNC_V5_SCOPES[number];
 export type SyncV5ResourceTarget = {scope:SyncV5Scope;field:string};
 
@@ -8,6 +13,7 @@ export interface ScheduleResource {
   field: string;
   itemId: string;
   value: unknown;
+  deleted?: boolean;
 }
 
 type ResourceField = { field:string; scope:SyncV5Scope; mode:'items'|'map'|'value'; idField?:string };
@@ -43,13 +49,83 @@ const fields:ResourceField[]=[
   {field:'schemaVersion',scope:'settings',mode:'value'},
 ];
 const configured=new Set(fields.map(item=>item.field));
+const SCHEDULE_STORAGE_KEY='jackyun_schedule_control_v1';
+function base64UrlEncode(value:string):string{
+  const bytes=new TextEncoder().encode(value),binary=Array.from(bytes,byte=>String.fromCharCode(byte)).join('');
+  return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function base64UrlDecode(value:string):string{
+  const base64=value.replace(/-/g,'+').replace(/_/g,'/'),binary=atob(base64+'='.repeat((4-base64.length%4)%4));
+  return new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(binary,char=>char.charCodeAt(0)));
+}
+export function legacyWorkspaceFieldForKey(key:string):typeof LEGACY_WORKSPACE_FIELDS[number]|null{
+  if(!isSyncableStorageKey(key)||key===SCHEDULE_STORAGE_KEY)return null;
+  const projection=WRITING_COLLECTIONS.find(collection=>collection.legacyKey===key);if(projection)return projection.field;
+  const writing=writingCollectionForKey(key);if(writing)return writing.field;
+  if(/^jackyun_personal_site_v1:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key))return 'legacyPersonalSites';
+  if(/^(temp_|blocks_|check_|prog_)/i.test(key))return 'legacyStudyPlan';
+  if(/^ielts_\d{4}-\d{2}-\d{2}$/i.test(key))return 'legacyStudyPlan';
+  if(/^(jackyun_traffic_|jackyun_schedule_questions_v1$|jackyun-site-tasks:|warden_chat_v23$|jack_chat_history$)/i.test(key))return 'legacyLearning';
+  if(/^jackyun_practice_recovery_/i.test(key))return 'legacyPractice';
+  if(/^warden_sch_plan_/i.test(key))return 'legacyStudyPlan';
+  if(/^(jackyun_hide_homepage_ai$|jackyun-ai-(pro-model|safety-mode|thinking-level|token-price|fab-position|active-conversation)$|jack_lang_chat$|warden_gacha_cfg$)/i.test(key))return 'legacySettings';
+  if(/^warden_ai_daily_target$/i.test(key))return 'legacyGoals';
+  if(/(music|song|bili|poem|relax|voice|water|v45|^w10_|^mps_)/i.test(key))return 'legacyMedia';
+  if(/^(jack_timetable_plan|w3_|th2_|timetable)/i.test(key))return 'legacyTimetable';
+  if(/ielts/i.test(key))return 'legacyIELTS';
+  if(/(quizwise|^qw_)/i.test(key))return 'legacyQuiz';
+  if(/(igcse|answer.?sheet|mock.?portal|control_history|exam)/i.test(key))return 'legacyExam';
+  if(/(pomodoro|timer|countdown|^cd_v|gt_timers|^thc$|^ths$|focus)/i.test(key))return 'legacyTimer';
+  if(/(studyguide|studyplan|^caie_)/i.test(key))return 'legacyStudyPlan';
+  if(/(goal|fixed_blocks|daily_plan|warden_gt_|^gt_)/i.test(key))return 'legacyGoals';
+  if(/control_events/i.test(key))return 'legacyLearning';
+  if(/(cue|lexiflow|vocab|definition_cards|property_decks)/i.test(key))return 'legacyCue';
+  if(/(learning|manualtasks|reviewprogress|jackyun-ai-workspace-chats|jackyun-ai-conversations)/i.test(key))return 'legacyLearning';
+  if(/(settings|theme|language|sidebar|preference|profile|interface|display|font|nav|notification|tts|^ai_|^llm_|^warden_ai_(provider|custom)|^jackyun_workspace_idle|fullscreen|beta_active|personal_site_active)/i.test(key))return 'legacySettings';
+  return null;
+}
+export function legacyWorkspaceRecordId(key:string):string|null{
+  const field=legacyWorkspaceFieldForKey(key);return field?`${field}:${base64UrlEncode(key)}`:null;
+}
+export function legacyWorkspaceKeyFromRecordId(recordId:string):string|null{
+  const colon=recordId.indexOf(':');if(colon<1)return null;
+  const field=recordId.slice(0,colon),encoded=recordId.slice(colon+1);
+  if(!(LEGACY_WORKSPACE_FIELDS as readonly string[]).includes(field)||!/^[A-Za-z0-9_-]{1,216}$/.test(encoded))return null;
+  try{const key=base64UrlDecode(encoded);return legacyWorkspaceFieldForKey(key)===field&&legacyWorkspaceRecordId(key)===recordId?key:null;}catch{return null;}
+}
+function storageValue(raw:string):unknown{
+  try{return JSON.parse(raw);}catch{return raw;}
+}
+export function workspaceValueToStorage(value:unknown):string|null{
+  if(value===null)return null;
+  return typeof value==='string'?value:JSON.stringify(value)??'null';
+}
+export function workspaceStorageToResources(rows:readonly {key:string;value:string|null;writingProjection?:boolean}[]):ScheduleResource[]{
+  return rows.flatMap<ScheduleResource>(({key,value,writingProjection})=>{
+    const collection=WRITING_COLLECTIONS.find(row=>row.legacyKey===key);
+    if(writingProjection&&isWritingProjectionKey(key)){
+      if(!collection||value===null)return [];
+      const parsed=storageValue(value);
+      return splitWritingCollection(collection,parsed).map(item=>{
+        const itemRecordId=legacyWorkspaceRecordId(writingItemKey(collection,item.id));
+        if(!itemRecordId)throw new Error('IELTS 写作资源键无效。');
+        return {scope:'workspace' as const,field:collection.field,recordId:itemRecordId,itemId:item.id,value:item.value};
+      });
+    }
+    if(writingCollectionForKey(key)||isWritingProjectionKey(key))return [];
+    const recordId=legacyWorkspaceRecordId(key);if(!recordId)return [];
+    return [{scope:'workspace',field:recordId.slice(0,recordId.indexOf(':')),recordId,itemId:recordId.slice(recordId.indexOf(':')+1),value:value===null?null:storageValue(value),deleted:value===null}];
+  });
+}
 export function resourceScopeForRecordId(recordId:string):SyncV5Scope|null{
   const colon=recordId.indexOf(':');if(colon<1)return null;
   const field=recordId.slice(0,colon);
+  if(legacyWorkspaceKeyFromRecordId(recordId))return 'workspace';
   if(field==='__root')return recordId==='__root:value'?'settings':null;
   return fields.find(item=>item.field===field)?.scope??null;
 }
 export function resourceFieldsForScope(scope:SyncV5Scope):string[]{
+  if(scope==='workspace')return [...LEGACY_WORKSPACE_FIELDS];
   return [...new Set(fields.filter(item=>item.scope===scope).map(item=>item.field).concat(scope==='settings'?['__root']:[]))];
 }
 const record=(field:ResourceField,itemId:string,value:unknown):ScheduleResource=>({

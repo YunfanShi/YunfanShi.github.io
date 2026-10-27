@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-10-27T08:07:40.925Z",
+  "environment": "production",
+  "realLoginVerified": true,
+  "capabilitiesVerified": true,
+  "scopes": [
+    "timetable",
+    "learning",
+    "cue",
+    "practice",
+    "timer",
+    "settings",
+    "workspace"
+  ],
+  "rolloutMode": "global",
+  "writePaused": false,
+  "scope": "cue",
+  "trace": [
+    {
+      "method": "GET",
+      "path": "/api/sync/v5",
+      "status": 200,
+      "requestId": "0e1ce19c-28a3-4327-8439-4f4d271b875b",
+      "durationMs": 3815,
+      "requestBytes": 0
+    }
+  ],
+  "writesPerformed": false,
+  "testSessionRevoked": true,
+  "ok": true
+}

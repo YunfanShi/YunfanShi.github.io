@@ -2,6 +2,7 @@ import { canonicalJson } from './hash.ts';
 import { createRecordDelta } from './delta.ts';
 import { mergeWorkspaceValues } from './merge-policy.ts';
 import { storageValueToString, isSyncableStorageKey } from '../local-workspace.ts';
+import {writingCollectionForKey} from './writing-resource-model.ts';
 import { operationMatchesStorage } from './acknowledgment.ts';
 import { isServerUnavailable } from './service-error.ts';
 import { retryAfterMilliseconds } from './retry-policy.ts';
@@ -43,6 +44,7 @@ export interface SyncEnvironment {
   uuid(): string;
   wait?(milliseconds: number): Promise<void>;
   usesV5Schedule?:()=>boolean;
+  usesV5WorkspaceKey?:(key:string)=>boolean;
 }
 
 const parse = (value: string | null | undefined): unknown => {
@@ -96,6 +98,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   let captured=false;
   let compressedUploads=false;
   let v4:boolean|undefined;
+  const v5OwnsKey=(key:string)=>Boolean(writingCollectionForKey(key)||(e.usesV5Schedule?.()&&key==='jackyun_schedule_control_v1')||e.usesV5WorkspaceKey?.(key));
   async function negotiate() {
     if(v4!==undefined||!store.getSetting)return;
     try{
@@ -250,7 +253,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
   async function capture() {
     if(e.cancelled())return;
     const snapshot = e.snapshot();
-    const changed=[...new Set([...Object.keys(observed),...Object.keys(snapshot)])].filter(key=>(!e.usesV5Schedule?.()||key!=='jackyun_schedule_control_v1')&&(!captured || observed[key]!==snapshot[key]));
+    const changed=[...new Set([...Object.keys(observed),...Object.keys(snapshot)])].filter(key=>!v5OwnsKey(key)&&(!captured || observed[key]!==snapshot[key]));
     if (!captured) for (const legacy of await store.getOutbox()) if (legacy.sequence === undefined) await store.replaceOperation(legacy,{...legacy,id:e.uuid(),sequence:0});
     if(!changed.length){captured=true;return;}
     const metadata = new Map((await store.getMetadata()).map(r=>[r.key,r]));
@@ -342,7 +345,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
         validate(descriptor);
         if (byteOrder(descriptor.key,previous) <= 0) throw Error('同步游标无效。');
         previous = descriptor.key; scanned++;
-        if(e.usesV5Schedule?.()&&descriptor.key==='jackyun_schedule_control_v1')continue;
+        if(v5OwnsKey(descriptor.key))continue;
         const conflict=conflicts.get(descriptor.key);
         if(conflict && !conflict.remoteLarge && conflict.remoteRevision===descriptor.revision
           && conflict.remoteHash===descriptor.contentHash && conflict.remoteDeleted===descriptor.deleted) {
@@ -395,7 +398,7 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
         if(page.syncProtocol!==4||!Array.isArray(page.records)||page.records.length>100)throw Error('增量同步页面无效。');
         if(!deferred)await store.setSetting!('v4StagedPage',page);
       }
-      const descriptors=(page.records as SyncRecord[]).filter(descriptor=>!e.usesV5Schedule?.()||descriptor.key!=='jackyun_schedule_control_v1');
+      const descriptors=(page.records as SyncRecord[]).filter(descriptor=>!v5OwnsKey(descriptor.key));
       for(const descriptor of descriptors)validate(descriptor);
       const metadata=new Map((await store.getMetadata()).map(row=>[row.key,row]));
       const toRead=descriptors.filter(descriptor=>{
@@ -441,11 +444,13 @@ export function createWorkspaceSync(environment: SyncEnvironment) {
       await capture();
       const submission=await store.getSubmission();
       if(recoveryOnly&&!submission)break;
+      if(submission?.operations.some(operation=>writingCollectionForKey(operation.key)))throw Object.assign(
+        Error('写作资源存在旧协议冻结提交，已保留原操作；请先核对回执，不能自动降级上传。'),{status:409,code:'WRITING_SUBMISSION_REQUIRES_REVIEW'});
       const blocked = new Set((await store.getConflicts()).map(c=>c.key));
       const rejected=await store.getSetting?.<Array<{operationId:string;key:string;code:string}>>('rejectedOperations')??[];
       const rejectedIds=new Set(rejected.map(row=>row.operationId));
       const batchLimit=await store.getSetting?.<number>('syncBatchLimit')??10;
-      const operations = submission?.operations ?? (await store.getOutbox()).filter(op=>!blocked.has(op.key)&&!rejectedIds.has(op.id) && (attempts.get(op.key) ?? 0) < 2).slice(0,batchLimit);
+      const operations = submission?.operations ?? (await store.getOutbox()).filter(op=>!v5OwnsKey(op.key)&&!blocked.has(op.key)&&!rejectedIds.has(op.id) && (attempts.get(op.key) ?? 0) < 2).slice(0,batchLimit);
       if (!operations.length || e.cancelled()) break;
       const wire: Array<Record<string,unknown>> = []; const sent: SyncOperation[] = [];
       for (const operation of operations) {
