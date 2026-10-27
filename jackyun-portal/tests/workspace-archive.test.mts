@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { IDBFactory } from 'fake-indexeddb';
 import { applyV5WorkspaceArchive, createV5WorkspaceArchive, parseV5WorkspaceArchive } from '../src/lib/backup/workspace-archive.ts';
-import { exportOfflineWorkspaceArchiveData, restoreOfflineWorkspaceArchiveData } from '../src/lib/offline/workspace.ts';
+import { exportOfflineWorkspaceArchiveData, listOfflineMutations, restoreOfflineWorkspaceArchiveData } from '../src/lib/offline/workspace.ts';
 import { initializeRepository, workspaceStorage } from '../src/lib/sync/repository.ts';
 import { getSyncArchiveData, restoreSyncArchiveData } from '../src/lib/sync/outbox.ts';
 
@@ -97,6 +97,33 @@ test('failed workspace IndexedDB flush never queues remote restore targets and l
   assert.equal(queued, false);
 });
 
+test('account switch during archive flush never rolls imported data into the newly active account', async () => {
+  const archive = await createV5WorkspaceArchive({ quizwise_history: JSON.stringify([{ id: 'from-account-a' }]) });
+  let activeOwner = 'account-a';
+  const valuesByOwner = new Map<string, Map<string, string>>([
+    ['account-a', new Map([['quizwise_history', JSON.stringify([{ id: 'before' }])]])],
+    ['account-b', new Map()],
+  ]);
+  let queued = false;
+  await assert.rejects(applyV5WorkspaceArchive({
+    archive,
+    owner: 'account-a',
+    storage: {
+      keys: () => [...valuesByOwner.get(activeOwner)!.keys()],
+      getItem: key => valuesByOwner.get(activeOwner)!.get(key) ?? null,
+      setItem: (key, value) => valuesByOwner.get(activeOwner)!.set(key, value),
+      removeItem: key => valuesByOwner.get(activeOwner)!.delete(key),
+      flush: async () => { activeOwner = 'account-b'; },
+    },
+    saveRecoveryPoint: async () => {},
+    queueV5Targets: async () => { queued = true; },
+    assertContextCurrent: () => { if (activeOwner !== 'account-a') throw new Error('account switched'); },
+  }), /account switched/);
+  assert.equal(valuesByOwner.get('account-b')!.has('quizwise_history'), false);
+  assert.equal(valuesByOwner.get('account-a')!.get('quizwise_history'), JSON.stringify([{ id: 'from-account-a' }]));
+  assert.equal(queued, false);
+});
+
 test('v5 workspace archive rejects an empty Schedule instead of replacing local data', async () => {
   const archive = await createV5WorkspaceArchive({ jackyun_schedule_control_v1: JSON.stringify({ cues: [] }) });
   await assert.rejects(parseV5WorkspaceArchive(JSON.stringify(archive)), /拒绝从空 Schedule 归档覆盖本机数据/);
@@ -109,17 +136,20 @@ test('portable archive includes account-owned offline snapshots and retries and 
   const offlineWorkspace = {
     ownerId: owner,
     snapshots: [{ id: `${owner}:tasks`, userId: owner, scope: 'tasks' as const, value: { plans: [], inboxTasks: [{ id: 'task-a' }] }, updatedAt: '2026-10-28T10:00:00.000Z' }],
-    outbox: [{ id: '00400000-0000-4000-8000-000000000001', userId: owner, kind: 'task.create', payload: { title: 'offline task' }, createdAt: '2026-10-28T10:01:00.000Z', attemptCount: 2, nextAttemptAt: '2026-10-28T10:05:00.000Z' }],
+    outbox: [
+      { id: '00400000-0000-4000-8000-000000000001', userId: owner, kind: 'task.complete', payload: { taskId: 'task-a' }, createdAt: '2026-10-28T10:02:00.000Z', sequence: 2, attemptCount: 2, nextAttemptAt: '2026-10-28T10:05:00.000Z' },
+      { id: '00400000-0000-4000-8000-000000000002', userId: owner, kind: 'task.uncomplete', payload: { taskId: 'task-a' }, createdAt: '2026-10-28T10:01:00.000Z', sequence: 1 },
+    ],
   };
   const archive = await createV5WorkspaceArchive({}, '2026-10-28T10:02:00.000Z', offlineWorkspace);
   const parsed = await parseV5WorkspaceArchive(JSON.stringify(archive));
   await restoreOfflineWorkspaceArchiveData(owner, parsed.offlineWorkspace!);
   const restored = await exportOfflineWorkspaceArchiveData(owner);
   assert.deepEqual(restored.snapshots, offlineWorkspace.snapshots);
-  assert.equal(restored.outbox.length, 1);
-  assert.equal(restored.outbox[0].id, offlineWorkspace.outbox[0].id);
-  assert.equal(restored.outbox[0].attemptCount, 2);
-  assert.equal(restored.outbox[0].sequence, 1);
+  assert.equal(restored.outbox.length, 2);
+  assert.equal(restored.outbox.find(row => row.id === offlineWorkspace.outbox[0].id)?.attemptCount, 2);
+  assert.equal(restored.outbox.find(row => row.id === offlineWorkspace.outbox[0].id)?.sequence, 2);
+  assert.deepEqual((await listOfflineMutations(owner)).map(row => row.kind), ['task.uncomplete', 'task.complete']);
   const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open('jackyun-offline-workspace'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
   try {
     const checkpoints = await new Promise<unknown[]>((resolve, reject) => {

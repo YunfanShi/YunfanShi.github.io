@@ -118,7 +118,12 @@ export async function restoreOfflineWorkspaceArchiveData(ownerId: string, archiv
           const currentSnapshots = (snapshotRead.result as SnapshotRow[]).filter(row => row.userId === ownerId);
           const currentOperations = (operationRead.result as OfflineMutation[]).filter(row => row.userId === ownerId);
           const currentById = new Map(currentOperations.map(row => [row.id, row]));
-          for (const operation of archive.outbox) {
+          const orderedOperations = [...archive.outbox].sort((left, right) => {
+            const bothSequenced = Number.isSafeInteger(left.sequence) && Number.isSafeInteger(right.sequence);
+            if (bothSequenced && left.sequence !== right.sequence) return left.sequence! - right.sequence!;
+            return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
+          });
+          for (const operation of orderedOperations) {
             const existing = currentById.get(operation.id);
             if (existing && (existing.kind !== operation.kind || canonicalJson(existing.payload) !== canonicalJson(operation.payload))) {
               throw new Error('离线操作 ID 与本机内容冲突，已拒绝导入。');
@@ -141,7 +146,7 @@ export async function restoreOfflineWorkspaceArchiveData(ownerId: string, archiv
           const savedSequence = Number(sequenceRead.result?.value ?? 0);
           if (!Number.isSafeInteger(savedSequence) || savedSequence < 0) throw new Error('本机离线操作序号损坏，已停止恢复。');
           let sequence = Math.max(savedSequence, ...currentOperations.map(row => Number.isSafeInteger(row.sequence) && (row.sequence ?? 0) > 0 ? row.sequence! : 0));
-          for (const operation of archive.outbox) {
+          for (const operation of orderedOperations) {
             const existing = currentById.get(operation.id);
             if (existing) continue;
             sequence++;

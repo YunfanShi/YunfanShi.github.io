@@ -34,6 +34,7 @@ type ApplyWorkspaceArchiveOptions = {
   queueV5Targets: (targets: ReturnType<typeof resourceTargetsForStorageKeys>) => Promise<void>;
   restoreOfflineWorkspace?: (owner: string, data: OfflineWorkspaceArchiveData) => Promise<unknown>;
   restoreSyncState?: (owner: string, data: SyncArchiveData) => Promise<unknown>;
+  assertContextCurrent?: () => void;
 };
 
 function bytesToHex(bytes: Uint8Array): string {
@@ -100,7 +101,8 @@ export async function parseV5WorkspaceArchive(text: string): Promise<V5Workspace
   return archive as V5WorkspaceArchive;
 }
 
-export async function applyV5WorkspaceArchive({ archive, owner, storage, saveRecoveryPoint, queueV5Targets, restoreOfflineWorkspace, restoreSyncState }: ApplyWorkspaceArchiveOptions): Promise<string[]> {
+export async function applyV5WorkspaceArchive({ archive, owner, storage, saveRecoveryPoint, queueV5Targets, restoreOfflineWorkspace, restoreSyncState, assertContextCurrent }: ApplyWorkspaceArchiveOptions): Promise<string[]> {
+  assertContextCurrent?.();
   if (archive.offlineWorkspace && archive.offlineWorkspace.ownerId !== owner) throw new Error('归档中的离线队列属于其他账号，已拒绝导入。');
   if (archive.syncState) validateSyncArchiveData(archive.syncState, owner);
   const current = new Map<string, string>();
@@ -120,20 +122,30 @@ export async function applyV5WorkspaceArchive({ archive, owner, storage, saveRec
     values[key] = value;
     beforeByPage.set(page, values);
   }
-  for (const [page, values] of beforeByPage) await saveRecoveryPoint(owner, page, values);
+  for (const [page, values] of beforeByPage) {
+    assertContextCurrent?.();
+    await saveRecoveryPoint(owner, page, values);
+    assertContextCurrent?.();
+  }
 
   try {
     for (const record of changed) storage.setItem(record.key, record.value);
     await storage.flush();
+    assertContextCurrent?.();
     if (archive.offlineWorkspace) {
       if (!restoreOfflineWorkspace) throw new Error('当前版本无法安全恢复离线队列。');
       await restoreOfflineWorkspace(owner, archive.offlineWorkspace);
+      assertContextCurrent?.();
     }
     if (archive.syncState) {
       if (!restoreSyncState) throw new Error('当前版本无法安全恢复尚未同步的操作。');
       await restoreSyncState(owner, archive.syncState);
+      assertContextCurrent?.();
     }
+    await queueV5Targets(resourceTargetsForStorageKeys(changed.map((record) => record.key)));
+    assertContextCurrent?.();
   } catch (error) {
+    try { assertContextCurrent?.(); } catch { throw error; }
     const changedKeys = new Set(changed.map(record => record.key));
     for (const key of changedKeys) {
       const previous = current.get(key);
@@ -143,6 +155,5 @@ export async function applyV5WorkspaceArchive({ archive, owner, storage, saveRec
     await storage.flush().catch(() => undefined);
     throw error;
   }
-  await queueV5Targets(resourceTargetsForStorageKeys(changed.map((record) => record.key)));
   return changed.map((record) => record.key);
 }

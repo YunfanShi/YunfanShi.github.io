@@ -1,5 +1,5 @@
 'use client';
-import { workspaceStorage } from '@/lib/sync/repository';
+import { captureRepositoryContext, workspaceStorage } from '@/lib/sync/repository';
 
 
 import { siteConfirm } from '@/lib/site-dialog';
@@ -196,24 +196,29 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
     if (!file) return;
     await run(async () => {
       const archive = await parseV5WorkspaceArchive(await file.text());
+      const repository = await captureRepositoryContext();
+      if (repository.owner !== (localOwner === 'guest' ? null : localOwner)) throw new Error('本机账号已变化，请刷新备份中心后重试。');
       const pending = archive.syncState ? archive.syncState.legacyOutbox.length + archive.syncState.v5Outbox.length : 0;
       const conflicts = archive.syncState ? archive.syncState.legacyConflicts.length + archive.syncState.v5Conflicts.length : 0;
       if (!(await siteConfirm(`完整性校验通过，共 ${archive.recordCount} 条工作区记录、${pending} 个待同步操作和 ${conflicts} 个冲突。合并到当前账号？导入会先保存恢复点，不会因归档缺少某键而删除本机数据。`))) return;
+      repository.assertCurrent();
       const keys = await applyV5WorkspaceArchive({
         archive,
         owner: localOwner,
         storage: {
-          keys: () => Object.keys(workspaceStorage.snapshot()),
-          getItem: key => workspaceStorage.getItem(key),
-          setItem: (key, value) => workspaceStorage.setItem(key, value),
-          removeItem: key => workspaceStorage.removeItem(key),
-          flush: () => workspaceStorage.flush(),
+          keys: () => { repository.assertCurrent(); return Object.keys(workspaceStorage.snapshot()); },
+          getItem: key => { repository.assertCurrent(); return workspaceStorage.getItem(key); },
+          setItem: (key, value) => { repository.assertCurrent(); workspaceStorage.setItem(key, value); },
+          removeItem: key => { repository.assertCurrent(); workspaceStorage.removeItem(key); },
+          flush: async () => { await workspaceStorage.flush(); repository.assertCurrent(); },
         },
         saveRecoveryPoint: saveLocalBackup,
-        queueV5Targets: queueV5RestoreTargets,
+        queueV5Targets: targets => queueV5RestoreTargets(targets, repository.databaseScope),
         restoreOfflineWorkspace: restoreOfflineWorkspaceArchiveData,
         restoreSyncState: restoreSyncArchiveData,
+        assertContextCurrent: repository.assertCurrent,
       });
+      repository.assertCurrent();
       if (keys.length) window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys } }));
       if (keys.length || archive.offlineWorkspace || archive.syncState) {
         window.dispatchEvent(new Event('jackyun-sync-retry'));
