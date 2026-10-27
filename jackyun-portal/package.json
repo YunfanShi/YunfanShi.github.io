@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.52.0",
+  "version": "3.52.2",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -29,6 +29,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:network-access": "node --test tests/network-access.test.mts",
+    "test:network-failure": "node --test tests/network-failure.test.mts",
     "test:security": "node --test tests/llm-endpoint.test.mts tests/private-key-check.test.mjs",
     "test:tr3000": "node --test tests/tr3000-manager.test.mts",
     "test:safeguard": "node --test tests/safeguard-rules.test.mjs",

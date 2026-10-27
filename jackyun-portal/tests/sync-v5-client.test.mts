@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {IDBFactory,IDBObjectStore} from 'fake-indexeddb';
-import {accountSyncStore,acknowledgeV5Operations,acknowledgeV5WorkspaceOperations,commitV5ResourcePage,commitV5WorkspacePage,getDocuments,getOutbox,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,openDatabase,prepareV5WorkspaceAuthority,resolveV5ConflictLocally,resolveV5ConflictRemotely,setV5Cursor,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
+import {accountSyncStore,acknowledgeV5Operations,acknowledgeV5WorkspaceOperations,commitV5ResourcePage,commitV5WorkspacePage,getDocuments,getOutbox,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,openDatabase,prepareV5WorkspaceAuthority,queueV5ResourceDeletion,resolveV5ConflictLocally,resolveV5ConflictRemotely,setV5Cursor,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
 import {createV5ResourceSync,resourceFieldsForPath,retainV5ScheduleAuthority} from '../src/lib/sync/resource-engine.ts';
 import {legacyWorkspaceRecordId,resourceFieldsForScope} from '../src/lib/sync/resource-model.ts';
 import {canonicalJson} from '../src/lib/sync/hash.ts';
@@ -141,6 +141,35 @@ test('first v5 baseline treats an empty local collection as cache, not competing
   await engine.synchronize([{scope:'cue',field:'cues'}]);
   assert.deepEqual(JSON.parse(projected!).cues,[value]);assert.equal(writes,0);
   assert.deepEqual(await getV5Outbox('cue',databaseScope),[]);assert.deepEqual(await getV5Conflicts(databaseScope),[]);
+});
+
+test('confirmed deletion of the last Cue queues an atomic tombstone while empty-cache capture stays protected',async()=>{
+  const databaseScope=id(),cue={id:'last-cue',prompt:'delete me'},hash=createHash('sha256').update(canonicalJson(cue)).digest('hex');
+  await commitV5ResourcePage('cue',[{scope:'cue',recordId:'cues:last-cue',revision:7,contentHash:hash,deleted:false,updatedAt:'now',value:cue}],
+    {scope:'cue',field:'cues',mode:'changes',after:'',cursor:12,head:12},databaseScope);
+  const queued=await queueV5ResourceDeletion('cue','cues:last-cue',crypto.randomUUID(),databaseScope);
+  assert.equal(queued,true);
+  const operation=(await getV5Outbox('cue',databaseScope))[0];
+  assert.equal(operation.deleted,true);assert.equal(operation.value,null);assert.equal(operation.baseRevision,7);assert.equal(operation.baseHash,hash);
+  assert.equal((await getV5Resources('cue',databaseScope)).find(row=>row.recordId==='cues:last-cue')?.deleted,false,'the confirmed base remains intact until the server receipt');
+
+  const raw=JSON.stringify({schemaVersion:1,cues:[]});await seed(databaseScope,raw);
+  const engine=createV5ResourceSync({databaseScope,readSchedule:()=>raw,projectSchedule:async()=>{},setAuthority:()=>{},deviceId:async()=>crypto.randomUUID(),uuid:()=>crypto.randomUUID(),request:async()=>{
+    throw Error('stop after local change capture');
+  }});
+  await assert.rejects(engine.synchronize([{scope:'cue',field:'cues'}]),/stop after local change capture/);
+  assert.deepEqual((await getV5Outbox('cue',databaseScope)).map(row=>({recordId:row.recordId,deleted:row.deleted})),[{recordId:'cues:last-cue',deleted:true}],
+    'an empty Schedule projection must not erase explicit deletion intent or infer additional deletions');
+});
+
+test('confirmed Cue deletion does not discard an unresolved conflict',async()=>{
+  const databaseScope=id(),operationId=crypto.randomUUID(),recordId='cues:conflicted';
+  const db=await openDatabase(databaseScope);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction(['v5Resources','v5Conflicts'],'readwrite');
+    tx.objectStore('v5Resources').put({scope:'cue',recordId,revision:2,contentHash:'b'.repeat(64),deleted:false,updatedAt:'now',value:{id:'conflicted'}});
+    tx.objectStore('v5Conflicts').put({operationId,scope:'cue',recordId,baseRevision:1,baseHash:'a'.repeat(64),localValue:{id:'conflicted'},localDeleted:false,remoteValue:{id:'conflicted'},remoteDeleted:false,remoteRevision:2,remoteHash:'b'.repeat(64),createdAt:'now'} satisfies V5ResourceConflict);
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+  await assert.rejects(queueV5ResourceDeletion('cue',recordId,crypto.randomUUID(),databaseScope),/请先处理冲突/);
+  assert.deepEqual(await getV5Outbox('cue',databaseScope),[]);assert.equal((await getV5Conflicts(databaseScope)).length,1);
 });
 
 test('removing one item from a populated Schedule collection still queues only that item deletion',async()=>{

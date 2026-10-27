@@ -1,6 +1,7 @@
 'use client';
 
 import { DIAGNOSTIC_EVENT, redactDiagnostic, type DiagnosticEvent } from './diagnostic-events.ts';
+import { classifyFetchFailure, classifyHttpFailure } from './network-failure.ts';
 
 
 /**
@@ -297,17 +298,18 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
     try {
       const response = await _origFetch(...args);
       const duration = Math.round(performance.now() - startTime);
+      const failureKind = response.ok ? null : classifyHttpFailure(response.status);
 
       const resEntry = makeEntry(
-        response.ok ? 'info' : 'error',
+        response.ok ? 'info' : failureKind === 'recoverable' ? 'warn' : 'error',
         'Network',
-        `${method} ${url} → ${response.status} ${response.statusText} (${duration}ms)`,
+        `${method} ${safeUrl(url)} → ${response.status} ${response.statusText} (${duration}ms)`,
         { status: response.status, ok: response.ok, duration },
-        { url, method, status: response.status, duration },
+        { url: safeUrl(url), method, status: response.status, duration },
       );
       pushEntry(resEntry);
 
-      if (!response.ok && safeUrl(url).startsWith(window.location.origin)) {
+      if (!response.ok && failureKind === 'actionable' && safeUrl(url).startsWith(window.location.origin)) {
         void response.clone().text().then((body) => {
           let value: unknown = body.slice(0, 12_000);
           try { value = JSON.parse(body); } catch { /* Non-JSON error body remains readable. */ }
@@ -318,9 +320,11 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
     } catch (err) {
       const duration = Math.round(performance.now() - startTime);
       const errMsg = err instanceof Error ? err.message : String(err);
-      const errEntry = makeEntry('error', 'Network', `${method} ${url} → FAILED: ${errMsg} (${duration}ms)`,
+      const failureKind = classifyFetchFailure(err);
+      const level = failureKind === 'actionable' ? 'error' : failureKind === 'cancelled' ? 'debug' : 'warn';
+      const errEntry = makeEntry(level, 'Network', `${method} ${safeUrl(url)} → FAILED: ${errMsg} (${duration}ms)`,
         { error: errMsg, duration },
-        { url, method, duration },
+        { url: safeUrl(url), method, duration },
       );
       pushEntry(errEntry);
       throw err;
@@ -351,25 +355,26 @@ if (typeof window !== 'undefined' && !(window as unknown as Record<string, unkno
 
     this.addEventListener('loadend', () => {
       const duration = Math.round(performance.now() - (_this.__startTime || 0));
+      const failureKind = _this.status === 0 ? 'recoverable' : classifyHttpFailure(_this.status);
       const entry = makeEntry(
-        _this.status >= 400 ? 'error' : 'info',
+        _this.status >= 400 ? failureKind === 'recoverable' ? 'warn' : 'error' : 'info',
         'XHR',
-        `${method} ${url} → ${_this.status} ${_this.statusText} (${duration}ms)`,
+        `${method} ${safeUrl(url)} → ${_this.status} ${_this.statusText} (${duration}ms)`,
         {
           status: _this.status,
           statusText: _this.statusText,
           responseType: _this.responseType,
           duration,
         },
-        { url, method, status: _this.status, duration },
+        { url: safeUrl(url), method, status: _this.status, duration },
       );
       pushEntry(entry);
     });
 
     this.addEventListener('error', () => {
       const duration = Math.round(performance.now() - (_this.__startTime || 0));
-      const entry = makeEntry('error', 'XHR', `${method} ${url} → NETWORK ERROR (${duration}ms)`,
-        undefined, { url, method, duration },
+      const entry = makeEntry('warn', 'XHR', `${method} ${safeUrl(url)} → NETWORK ERROR (${duration}ms)`,
+        undefined, { url: safeUrl(url), method, duration },
       );
       pushEntry(entry);
     });
