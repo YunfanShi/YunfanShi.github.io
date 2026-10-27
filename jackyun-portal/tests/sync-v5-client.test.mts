@@ -98,12 +98,15 @@ test('empty local collections do not become cloud delete-all operations',async()
   const cases=[
     {field:'cues',scope:'cue' as const,empty:[],values:[{id:'cloud-cue',prompt:'verified cloud item'}]},
     {field:'completions',scope:'learning' as const,empty:{},values:{'task-1':{completed:true}}},
+    {field:'cueStudyDrafts',scope:'cue' as const,empty:{},values:{'subject-1':{id:'draft-1',task:{key:'task-1'}}}},
   ];
   for(const item of cases){
     const databaseScope=id(),hash=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex');
     const recordRows=item.field==='cues'
       ? [{recordId:'cues:%24order',value:['cloud-cue']},{recordId:'cues:cloud-cue',value:item.values[0]}]
-      : [{recordId:'completions:%24keys',value:['task-1']},{recordId:'completions:task-1',value:{completed:true}}];
+      : item.field==='completions'
+        ? [{recordId:'completions:%24keys',value:['task-1']},{recordId:'completions:task-1',value:{completed:true}}]
+        : [{recordId:'cueStudyDrafts:%24keys',value:['subject-1']},{recordId:'cueStudyDrafts:subject-1',value:{id:'draft-1',task:{key:'task-1'}}}];
     await commitV5ResourcePage(item.scope,recordRows.map(row=>({scope:item.scope,recordId:row.recordId,revision:1,contentHash:hash(row.value),deleted:false,updatedAt:'now',value:row.value})),
       {scope:item.scope,field:item.field,mode:'changes',after:'',cursor:2,head:2},databaseScope);
     const raw=JSON.stringify({schemaVersion:1,[item.field]:item.empty});await seed(databaseScope,raw);
@@ -117,9 +120,24 @@ test('empty local collections do not become cloud delete-all operations',async()
     },deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>projected,projectSchedule:async value=>{if(value!==null)projected=value;},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
     await engine.synchronize([{scope:item.scope,field:item.field}]);
     const restored=JSON.parse(projected!);
-    assert.deepEqual(restored[item.field],item.field==='cues'?item.values:{'task-1':{completed:true}});
+    assert.deepEqual(restored[item.field],item.values);
     assert.equal(writes,0);assert.deepEqual(await getV5Outbox(item.scope,databaseScope),[]);
   }
+});
+
+test('confirmed removal of the last CUE study draft remains queued with an empty draft map',async()=>{
+  const databaseScope=id(),recordId='cueStudyDrafts:subject-1',draft={id:'draft-1',task:{key:'task-1'}},hash=createHash('sha256').update(canonicalJson(draft)).digest('hex');
+  await commitV5ResourcePage('cue',[{scope:'cue',recordId,revision:4,contentHash:hash,deleted:false,updatedAt:'now',value:draft}],
+    {scope:'cue',field:'cueStudyDrafts',mode:'changes',after:'',cursor:8,head:8},databaseScope);
+  assert.equal(await queueV5ResourceDeletion('cue',recordId,crypto.randomUUID(),databaseScope),true);
+  const raw=JSON.stringify({schemaVersion:1,cueStudyDrafts:{}});await seed(databaseScope,raw);
+  const engine=createV5ResourceSync({databaseScope,readSchedule:()=>raw,projectSchedule:async()=>{},setAuthority:()=>{},deviceId:async()=>crypto.randomUUID(),uuid:()=>crypto.randomUUID(),request:async url=>{
+    const parsed=new URL(url,'https://sync.test');
+    if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:['cue']});
+    throw Error('stop after explicit draft intent is preserved');
+  }});
+  await assert.rejects(engine.synchronize([{scope:'cue',field:'cueStudyDrafts'}]),/stop after explicit draft intent/);
+  const queued=await getV5Outbox('cue',databaseScope);assert.equal(queued.length,1);assert.equal(queued[0].recordId,recordId);assert.equal(queued[0].deleted,true);
 });
 
 test('first v5 baseline treats an empty local collection as cache, not competing user intent',async()=>{

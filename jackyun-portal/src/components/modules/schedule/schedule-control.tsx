@@ -78,6 +78,7 @@ import {
   completeLearningSession,
   completeLearningSubtask,
   cuesForLearningTask,
+  cueDraftKey,
   createEmptyScheduleState,
   addCalendarDays,
   dateFromKey,
@@ -1758,6 +1759,10 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     setNotice('任务已取消。');
   };
   const navigateDate = (offset: number) => { const date = new Date(selected); date.setDate(date.getDate() + offset); setSelectedDate(dateKey(date)); };
+  const queueCueStudyDraftRemoval = async (draft: CueStudyDraft) => {
+    const context = await captureRepositoryContext();
+    return queueV5ResourceDeletion('cue', `cueStudyDrafts:${encodeURIComponent(cueDraftKey(draft))}`, crypto.randomUUID(), context.databaseScope);
+  };
   const submitReview = async (task: LearningTask, details: ReviewDetails, evidence: LearningSessionEvidence) => {
     const completedAt = new Date();
     const subjectName = evidence.subjectName?.trim() || task.subjectName || '';
@@ -1767,7 +1772,10 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
     const status = deriveLearningStatus(evidence.cueIds, evidence.assessments);
     let updated = completeLearningSession(state, task, details, evidence, completedAt);
     const activeDraft = Object.values(allCueStudyDrafts(updated)).find(draft => draft.task.key === task.key);
-    if (activeDraft) updated = removeCueStudyDraft(updated, activeDraft);
+    if (activeDraft) {
+      try { await queueCueStudyDraftRemoval(activeDraft); updated = removeCueStudyDraft(updated, activeDraft); }
+      catch (error) { await siteAlert(error instanceof Error ? error.message : '学习草稿删除尚未同步，已保留本机进度。'); }
+    }
     if (updateMaterials) updated = { ...updated, learningCatalog: updateSubjectMaterialProgress(updated.learningCatalog, subjectName, progressChanges) };
     const saved = await localWriter(STORAGE_KEY).write(scheduleBaseRef.current, updated) as ScheduleControlState;
     scheduleBaseRef.current = saved;
@@ -1942,7 +1950,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       {view === 'cue' && !questionBankError && <>
         <button data-cue-shop-open type="button" onClick={() => setStandaloneShopOpen(true)} className="mt-4 min-h-11 rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white">✦ CUE 星空商店</button>
         {universeEnabled && <button type="button" onClick={() => setStarSummary('album')} className="mt-4 rounded-xl border border-[var(--card-border)] px-4 py-2 text-sm">✦ 我的星空收藏</button>}
-        <div className="mt-4">      <CueStudyDashboard cues={state.cues} reviews={state.cueReviews} drafts={cueDrafts} onStart={startSpecialCueStudy} onResume={(draft) => setCueStudyTask(draft.task)} onDiscard={async (draft) => { if (!(await siteConfirm(`确定放弃 ${draft.task.subjectName || '未分类'} 的这次 Cue 学习进度吗？`))) return; setState((current) => removeCueStudyDraft(current, draft)); setNotice('该学科未完成的 Cue 学习进度已放弃。'); }} /></div>
+        <div className="mt-4">      <CueStudyDashboard cues={state.cues} reviews={state.cueReviews} drafts={cueDrafts} onStart={startSpecialCueStudy} onResume={(draft) => setCueStudyTask(draft.task)} onDiscard={async (draft) => { if (!(await siteConfirm(`确定放弃 ${draft.task.subjectName || '未分类'} 的这次 Cue 学习进度吗？`))) return; try { await queueCueStudyDraftRemoval(draft); } catch (error) { await siteAlert(error instanceof Error ? error.message : '删除未保存，学习进度仍保留。'); return; } setState((current) => removeCueStudyDraft(current, draft)); setNotice('该学科未完成的 Cue 学习进度已放弃。'); }} /></div>
         <LearningWorkspace cues={state.cues} reviews={state.cueReviews} bank={{ ...questionBank, drafts: Object.fromEntries(Object.entries(questionBank.drafts).map(([id, draft]) => [id, reconcileStudyDraft(draft, state.cues, questionBank.questions)])) }} catalog={state.learningCatalog} onStart={startUnifiedStudy} onResume={resumeUnifiedStudy} onDiscard={(id) => { const drafts = { ...questionBank.drafts }; delete drafts[id]; commitQuestionBank({ ...questionBank, drafts }); }} onManage={() => setView('questions')} />
       </>}
       {view === 'questions' && !questionBankError && <QuestionBankManager bank={questionBank} catalog={state.learningCatalog} cues={state.cues} onChange={changeQuestionBank} onCatalog={() => setCatalogDialog(true)} />}
