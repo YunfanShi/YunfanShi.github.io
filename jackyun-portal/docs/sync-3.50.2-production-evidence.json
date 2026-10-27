@@ -1,0 +1,34 @@
+{
+  "capturedAt": "2026-10-27T10:47:38.284Z",
+  "portalVersion": "3.50.2",
+  "codeCommit": "3ae26df9259aaf86df1dfe474d6739dd873ddba4",
+  "productionDomain": "https://jackyun.top",
+  "deploymentId": "dpl_4xoUE18AvVuJt2oYTmHvY8qbBrtD",
+  "deploymentState": "READY",
+  "portalHealthHttp": 200,
+  "azureHealth": {"http": 200, "version": "3.12.0", "syncProtocol": 5, "transferEncoding": "gzip"},
+  "localVerification": {"syncTestsPassed": 277, "syncTestsFailed": 0, "productionBuild": "PASS", "changedSourceLint": "PASS"},
+  "productionBrowser": {
+    "dedicatedTestAccount": true,
+    "realUiLogin": "PASS",
+    "writingDraftLocalSave": "PASS",
+    "secondIndependentDesktopReceivedDraft": "PASS",
+    "pageJsErrors": 0,
+    "v5OperationsHttp": 200,
+    "v5ReceiptsHttp": 200,
+    "v5RecordsHttp": 200,
+    "v5ChangesHttp": 200,
+    "transientLegacyV2Read503Observed": true,
+    "subsequentRequestsRecovered": true,
+    "uiWidthsVerified": [1440, 390],
+    "syncControlWidth": 40,
+    "floatingRecoveryRemoved": true,
+    "physicalPhoneTested": false
+  },
+  "limitations": [
+    "Browser transfer verified one direction between independent desktop contexts, not physical devices.",
+    "Cloud-first migration safety verified with IndexedDB regression tests; the user's existing browser profile was not inspected or modified directly.",
+    "Complete offline/conflict, all-module acceptance, latest all-user migration and backup restore reconciliation remain incomplete.",
+    "No claim of complete v5 acceptance or GitHub CI success."
+  ]
+}
