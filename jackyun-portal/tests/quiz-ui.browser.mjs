@@ -25,6 +25,7 @@ try {
     await page.keyboard.press('Escape');
     await dialog.waitFor({ state: 'hidden' });
     await page.getByRole('heading', { name: /QuizWise/ }).waitFor();
+    await page.waitForFunction(() => localStorage.getItem('quizwise_version_preference') === 'react');
     assert.equal(await page.evaluate(() => localStorage.getItem('quizwise_version_preference')), 'react', 'dismissing the initial choice explicitly keeps the React version');
 
     await page.evaluate(() => localStorage.setItem('quizwise_version_preference', 'html'));
@@ -71,6 +72,10 @@ try {
   assert.notEqual(selectedBackground, idleBackground, 'selected option must have visible feedback');
   await flowPage.getByRole('button', { name: '确认答案' }).click();
   await flowPage.getByRole('button', { name: '下一题' }).click();
+  await flowPage.waitForFunction(() => JSON.parse(localStorage.getItem('quizwise_current_progress') || 'null')?.currentIndex === 1);
+  await flowPage.reload();
+  await flowPage.getByText('Which number is odd?', { exact: true }).waitFor();
+  assert.equal(await flowPage.getByText('2 / 2', { exact: true }).count(), 1, 'reloading mid-quiz restores the active question and progress');
   await flowPage.locator('[data-quiz-option]').nth(1).click();
   await flowPage.getByRole('button', { name: '确认答案' }).click();
   await flowPage.getByRole('button', { name: /Complete Quiz/ }).click();
@@ -79,7 +84,7 @@ try {
   assert.equal(localHistory.length, 1, 'completed guest quiz must be recorded locally');
   assert.equal(localHistory[0].subject_name, 'UI regression');
   assert.equal(localHistory[0].correct_count, 1);
-  assert.equal(await flowPage.evaluate(() => localStorage.getItem('quizwise_current_questions')), 'null', 'completed quiz clears only its existing current-question record');
+  assert.equal(await flowPage.evaluate(() => localStorage.getItem('quizwise_current_questions')), null, 'completed quiz clears its current-question recovery record');
   console.log('PASS QuizWise React import, subject selection, answer confirmation, navigation and local result history on mobile');
   await flowContext.close();
 

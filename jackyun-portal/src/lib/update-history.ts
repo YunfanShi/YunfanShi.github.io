@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
+  { version: '3.54.0', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: 'QuizWise 答题进度可恢复', summary: '做题中的题目、答案、当前位置和会话会先持久保存到本机 v5 工作区，重新打开后可继续。', categories: ['稳定性', '学习体验'], accent: 'blue', featured: false, highlights: ['答题快照进入账号隔离的稳定 v5 记录；本机持久化失败时明确阻止继续误认为已保存。', '断网时保留未确认答案，完成测验前重新核对云端写入，未确认时不清除本地进度。', '这是 QuizWise 本地恢复与工作区接入，不代表云端测验历史、复习副作用或全账号数据已经完成 v5 迁移。'] },
   { version: '3.53.1', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '恢复核对状态准确显示', summary: '未完成的 v5 恢复目标会阻止同步器报告“已同步”，并继续触发后台核对。', categories: ['稳定性', '平台体验'], accent: 'blue', featured: true, highlights: ['持久恢复目标计入待处理数，30 秒短路不会跳过它们。', 'v5 暂不可用时明确显示本机已保存、云端资源仍待核对；目标继续保留。', '仅待办、冲突与恢复目标均结清后更新最近同步时间；该时间不代表全账号所有页面均已核对。'] },
   { version: '3.53.0', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '恢复数据后核对全部相关 v5 资源', summary: '页面备份恢复会持久保存涉及的 v5 资源目标，按资源范围核对云端并保留未完成目标。', categories: ['稳定性', '平台体验'], accent: 'blue', featured: false, highlights: ['Schedule 恢复会覆盖其 v5 资源域；workspace 键按所有者字段映射，不受当前页面限制。', '恢复目标仅在 v5 无待办写入或冲突后清除；断网、权限未开通和冲突状态继续保留。'] },
   { version: '3.52.4', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '大文件本机恢复先留恢复点', summary: '本机 JSON 导入先保存可读的 IndexedDB 恢复版本，再等待导入写入持久化后报告成功。', categories: ['稳定性'], accent: 'blue', featured: false, highlights: ['本机 Schedule 导入无 1 MB 应用限制，恢复点写入失败时不改当前内容。', '页面仓库 flush 失败时不报告导入成功，已保存恢复点可用于回退。'] },

@@ -60,15 +60,18 @@ async function getItem<T>(key: string): Promise<T | null> {
 }
 
 async function setItem(key: string, value: unknown): Promise<void> {
+  const { store, db } = await getStore('readwrite');
   try {
-    const { store } = await getStore('readwrite');
     return new Promise((resolve, reject) => {
+      const transaction = store.transaction;
       const request = store.put({ key, value });
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(request.error ?? new Error('QuizWise IndexedDB write failed.'));
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error('QuizWise IndexedDB transaction failed.'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('QuizWise IndexedDB transaction aborted.'));
     });
-  } catch {
-    // Silently fail - localStorage fallback
+  } finally {
+    db.close();
   }
 }
 
@@ -97,6 +100,7 @@ export async function getCurrentQuestions(): Promise<AnalyzedQuestion[]> {
   const cached = await getItem<AnalyzedQuestion[]>('current_questions');
   if (cached) {
     lsSet('current_questions', cached);
+    await workspaceStorage.flush();
     return cached;
   }
   return [];
@@ -107,17 +111,15 @@ export function getCurrentQuestionsSync(): AnalyzedQuestion[] {
 }
 
 export async function saveCurrentQuestions(questions: AnalyzedQuestion[]): Promise<void> {
+  lsSet('current_questions', questions);
+  await workspaceStorage.flush();
   await setItem('current_questions', questions);
-  lsSet('current_questions', questions);
 }
 
-export function saveCurrentQuestionsSync(questions: AnalyzedQuestion[]): void {
-  lsSet('current_questions', questions);
-}
-
-export function clearCurrentQuestions(): void {
-  lsSet('current_questions', null);
-  setItem('current_questions', null).catch(() => {});
+export async function clearCurrentQuestions(): Promise<void> {
+  workspaceStorage.removeItem('quizwise_current_questions');
+  await workspaceStorage.flush();
+  await setItem('current_questions', null);
 }
 
 // Current session
@@ -131,6 +133,51 @@ export function saveCurrentSession(session: { id: string; startedAt: string }): 
 
 export function clearCurrentSession(): void {
   lsSet('current_session', null);
+}
+
+export interface CurrentQuizProgress {
+  sessionId: string | null;
+  startedAt: string;
+  subjectName: string;
+  currentIndex: number;
+  questionIds: string[];
+  answers: Array<{ questionIndex: number; answer: string; isCorrect: boolean | null }>;
+}
+
+const CURRENT_PROGRESS_KEY = 'quizwise_current_progress';
+
+export function getCurrentQuizProgress(): CurrentQuizProgress | null {
+  try {
+    const raw = workspaceStorage.getItem(CURRENT_PROGRESS_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<CurrentQuizProgress>;
+    if (typeof value.startedAt !== 'string' || typeof value.subjectName !== 'string'
+      || !Number.isInteger(value.currentIndex) || !Array.isArray(value.questionIds) || !Array.isArray(value.answers)) return null;
+    return {
+      sessionId: typeof value.sessionId === 'string' ? value.sessionId : null,
+      startedAt: value.startedAt,
+      subjectName: value.subjectName,
+      currentIndex: Math.max(0, value.currentIndex!),
+      questionIds: value.questionIds.filter((id): id is string => typeof id === 'string'),
+      answers: value.answers.flatMap((answer, questionIndex) => {
+        if (!answer || typeof answer !== 'object' || typeof answer.answer !== 'string') return [];
+        return [{ questionIndex: Number.isInteger(answer.questionIndex) ? answer.questionIndex : questionIndex,
+          answer: answer.answer, isCorrect: typeof answer.isCorrect === 'boolean' ? answer.isCorrect : null }];
+      }),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveCurrentQuizProgress(progress: CurrentQuizProgress): Promise<void> {
+  workspaceStorage.setItem(CURRENT_PROGRESS_KEY, JSON.stringify(progress));
+  await workspaceStorage.flush();
+}
+
+export async function clearCurrentQuizProgress(): Promise<void> {
+  workspaceStorage.removeItem(CURRENT_PROGRESS_KEY);
+  await workspaceStorage.flush();
 }
 
 // Quiz settings (local cache)

@@ -3,7 +3,7 @@ import test from 'node:test';
 import {IDBFactory} from 'fake-indexeddb';
 import {getDocuments,getOutbox} from '../src/lib/sync/outbox.ts';
 import {initializeRepository,workspaceStorage} from '../src/lib/sync/repository.ts';
-import {appendLocalQuizHistory,getCurrentQuestions,getCurrentSession,getLocalQuizHistory,getQuizSettings,getSelectedSubject,saveCurrentQuestions,saveCurrentSession,saveQuizSettings,saveSelectedSubject} from '../src/lib/quiz/storage.ts';
+import {appendLocalQuizHistory,clearCurrentQuizProgress,getCurrentQuestions,getCurrentQuizProgress,getCurrentSession,getLocalQuizHistory,getQuizSettings,getSelectedSubject,saveCurrentQuestions,saveCurrentQuizProgress,saveCurrentSession,saveQuizSettings,saveSelectedSubject} from '../src/lib/quiz/storage.ts';
 import {legacyWorkspaceFieldForKey,legacyWorkspaceRecordId} from '../src/lib/sync/resource-model.ts';
 
 class StorageMock {
@@ -92,4 +92,24 @@ test('all QuizWise local business keys map to stable v5 records and remain in th
     assert.ok(documents.some(row=>row.key===key),`${key} must be present in the durable account workspace`);
     assert.ok(outbox.some(row=>row.key===key),`${key} must stay queued until the remote receipt is confirmed`);
   }
+});
+
+test('active QuizWise answers are restored from the durable v5 workspace row and explicit completion queues a tombstone',async()=>{
+  const userId='quiz-owner-progress';
+  await initializeRepository(userId);
+  const progress={sessionId:'session-remote',startedAt:'2026-10-28T09:00:00.000Z',subjectName:'Mathematics',
+    currentIndex:1,questionIds:['question-a','question-b'],answers:[
+      {questionIndex:0,answer:'A',isCorrect:true},{questionIndex:1,answer:'working shown',isCorrect:null},
+    ]};
+
+  await saveCurrentQuizProgress(progress);
+  assert.deepEqual(getCurrentQuizProgress(),progress);
+  const recordId=legacyWorkspaceRecordId('quizwise_current_progress')!;
+  assert.equal(legacyWorkspaceFieldForKey('quizwise_current_progress'),'legacyQuiz');
+  assert.ok((await getDocuments()).some(row=>row.key==='quizwise_current_progress'&&row.value===JSON.stringify(progress)));
+  assert.ok((await getOutbox()).some(row=>row.key==='quizwise_current_progress'&&row.id));
+
+  await clearCurrentQuizProgress();
+  assert.equal(getCurrentQuizProgress(),null);
+  assert.ok((await getOutbox()).some(row=>row.key==='quizwise_current_progress'&&row.deleted),`explicit clear must queue a v5 tombstone for ${recordId}`);
 });

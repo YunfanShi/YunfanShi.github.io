@@ -1,5 +1,6 @@
 'use client';
 import { workspaceStorage } from '@/lib/sync/repository';
+import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
 
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -7,10 +8,14 @@ import { AnalyzedQuestion, QuizQuestion, QuestionOption, QuestionType } from '@/
 import { analyzeQuestions, gradeAnswer, checkMultipleChoice } from '@/lib/quiz/question-analyzer';
 import { parseQuizQuestions } from '@/lib/quiz/question-import';
 import {
-  saveCurrentQuestionsSync,
+  getCurrentQuestions,
   getCurrentQuestionsSync,
   clearCurrentQuestions,
+  clearCurrentQuizProgress,
+  getCurrentQuizProgress,
   getCurrentSession,
+  saveCurrentQuestions,
+  saveCurrentQuizProgress,
   saveCurrentSession,
   clearCurrentSession,
   getQuizSettings,
@@ -88,25 +93,55 @@ export default function QuizApp() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [subjectName, setSubjectName] = useState<string>('');
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
+  const [serverAnswerPending, setServerAnswerPending] = useState(false);
   const [settings, setSettings] = useState(() => getQuizSettings());
   const [inputText, setInputText] = useState('');
   const [draftAnswers, setDraftAnswers] = useState<Record<number, string>>({});
   const quizStartedAtRef = useRef<string | null>(null);
+  const restoredProgressRef = useRef(false);
 
   // Restore in-progress quiz on mount
   useEffect(() => {
-    const saved = getCurrentQuestionsSync();
-    if (saved.length > 0) {
+    const restore = async () => {
+      if (restoredProgressRef.current) return;
+      let saved = getCurrentQuestionsSync();
+      if (!saved.length) saved = await getCurrentQuestions();
+      if (!saved.length) return;
+      const progress = getCurrentQuizProgress();
       // Normalize types on restore
       const normalized = saved.map(q => ({
         ...q,
         type: normalizeQuestionType(q.type),
       }));
+      restoredProgressRef.current = true;
       queueMicrotask(() => {
         setQuestions(normalized);
-        setView('subject');
+        if (progress?.subjectName) {
+          const restoredAnswers = normalized.map((_, index) => progress.answers.find(answer => answer.questionIndex === index)
+            ?? { questionIndex: index, answer: '', isCorrect: null });
+          setUserAnswers(restoredAnswers);
+          setCurrentIndex(Math.min(progress.currentIndex, Math.max(0, normalized.length - 1)));
+          setSessionId(progress.sessionId);
+          setSubjectName(progress.subjectName);
+          setDbQuestions(normalized.map((question, index) => ({
+            id: progress.questionIds[index] ?? '', session_id: progress.sessionId ?? '',
+            question_text: question.questionText, question_type: question.type, options: question.options,
+            correct_answer: question.correctAnswer, user_answer: restoredAnswers[index].answer || null,
+            is_correct: restoredAnswers[index].isCorrect, explanation: question.explanation,
+            answered_at: restoredAnswers[index].answer ? progress.startedAt : null, order_index: index,
+          })));
+          quizStartedAtRef.current = progress.startedAt;
+          setView('quiz');
+        } else {
+          setView('subject');
+        }
       });
-    }
+    };
+    const onCloudStateApplied = () => { void restore().catch(() => setProgressSaveError('本机 QuizWise 数据读取失败；请勿覆盖或清除现有恢复副本。')); };
+    onCloudStateApplied();
+    window.addEventListener(CLOUD_STATE_APPLIED_EVENT, onCloudStateApplied);
+    return () => window.removeEventListener(CLOUD_STATE_APPLIED_EVENT, onCloudStateApplied);
   }, []);
 
   // Analyze questions
@@ -117,6 +152,7 @@ export default function QuizApp() {
     setCurrentIndex(0);
     setAnalyzeError(null);
     setView('analyzing');
+    setProgressSaveError(null);
     setInputText(rawText);
 
     const result = await analyzeQuestions(rawText);
@@ -132,20 +168,34 @@ export default function QuizApp() {
       type: normalizeQuestionType(q.type),
     }));
 
+    try {
+      await clearCurrentQuizProgress();
+    } catch {
+      setAnalyzeError('旧测验恢复记录未能安全清理；为避免覆盖尚未确认的答题进度，本次新测验没有替换本机数据。');
+      setView('input');
+      return;
+    }
+    try {
+      await saveCurrentQuestions(normalized);
+    } catch {
+      setAnalyzeError('题目未能持久保存到本机；请重试或先导出内容。');
+      setView('input');
+      return;
+    }
     setQuestions(normalized);
-    saveCurrentQuestionsSync(normalized);
     setView('subject');
   }, []);
 
-  const handleImport = useCallback((json: string) => {
+  const handleImport = useCallback(async (json: string) => {
     try {
       const imported = parseQuizQuestions(json);
+      await clearCurrentQuizProgress();
+      await saveCurrentQuestions(imported);
       setQuestions(imported);
       setDraftAnswers({});
       setUserAnswers([]);
       setSessionId(null);
       setAnalyzeError(null);
-      saveCurrentQuestionsSync(imported);
       setView('subject');
     } catch (error) {
       setAnalyzeError(error instanceof Error ? error.message : 'JSON 导入失败。');
@@ -178,10 +228,19 @@ export default function QuizApp() {
     quizStartedAtRef.current = startedAt;
     saveCurrentSession({ id: `local-${crypto.randomUUID()}`, startedAt });
     setSubjectName(subject);
-    setUserAnswers(questions.map(() => ({ questionIndex: 0, answer: '', isCorrect: null })));
+    setSessionId(null);
     setDraftAnswers({});
     setCurrentIndex(0);
     setView('quiz');
+    const blankAnswers = questions.map((_, questionIndex) => ({ questionIndex, answer: '', isCorrect: null }));
+    setUserAnswers(blankAnswers);
+    try {
+      await saveCurrentQuizProgress({ sessionId: null, startedAt, subjectName: subject,
+        currentIndex: 0, questionIds: [], answers: blankAnswers });
+      setProgressSaveError(null);
+    } catch {
+      setProgressSaveError('本机答题进度未能安全保存；请先导出题目，暂勿关闭页面。');
+    }
 
     // Create session in DB — now returns real question IDs
     const result = signedIn ? await createSession(subject, questions).catch(() => ({ error: 'local-only' })) : { error: 'local-only' };
@@ -204,6 +263,15 @@ export default function QuizApp() {
         answered_at: null,
         order_index: i,
       })));
+      try {
+        await saveCurrentQuizProgress({ sessionId: result.sessionId, startedAt, subjectName: subject,
+          currentIndex: 0, questionIds, answers: blankAnswers });
+        setProgressSaveError(null);
+      } catch {
+        setProgressSaveError('本机答题进度未能安全保存；请先导出题目，暂勿关闭页面。');
+      }
+    } else if (signedIn) {
+      setServerAnswerPending(true);
     }
   }, [questions, signedIn]);
 
@@ -226,11 +294,6 @@ export default function QuizApp() {
       isCorrect = checkMultipleChoice(answer, questionData.correctAnswer);
       
       // Update immediately
-      setUserAnswers(prev => {
-        const updated = [...prev];
-        updated[questionIndex] = { questionIndex, answer, isCorrect };
-        return updated;
-      });
     } else {
       // Subjective questions (Essay/Fill-blank): AI grading on demand
       // Mark as grading in progress, then update with result
@@ -261,19 +324,29 @@ export default function QuizApp() {
       }
 
       // Update with grading result
-      setUserAnswers(prev => {
-        const updated = [...prev];
-        updated[questionIndex] = { questionIndex, answer, isCorrect, isGrading: false };
-        return updated;
-      });
+    }
+
+    const answerSnapshot = questions.map((_, index) => userAnswers[index] ?? { questionIndex: index, answer: '', isCorrect: null });
+    answerSnapshot[questionIndex] = { questionIndex, answer, isCorrect };
+    try {
+      const current = getCurrentSession();
+      await saveCurrentQuizProgress({ sessionId, startedAt: current?.startedAt ?? new Date().toISOString(),
+        subjectName, currentIndex: questionIndex, questionIds: dbQuestions.map(question => question.id), answers: answerSnapshot });
+      setUserAnswers(answerSnapshot);
+      setProgressSaveError(null);
+    } catch {
+      setUserAnswers(answerSnapshot);
+      setProgressSaveError('本机答题进度未能安全保存；答案尚未确认，请先导出题目。');
+      return;
     }
 
     // Save to DB — now uses real question ID
     const qId = dbQuestions[questionIndex]?.id;
     if (sessionId && qId) {
-      saveAnswer(sessionId, qId, answer, isCorrect ?? false);
+      const result = await saveAnswer(sessionId, qId, answer, isCorrect ?? false).catch(() => ({ error: '网络暂不可用' }));
+      setServerAnswerPending('error' in result);
     }
-  }, [sessionId, dbQuestions]);
+  }, [sessionId, dbQuestions, questions, userAnswers, subjectName]);
 
   // Navigate to next question
   const handleNext = useCallback(() => {
@@ -286,6 +359,19 @@ export default function QuizApp() {
   const handleJumpToQuestion = useCallback((index: number) => {
     setCurrentIndex(index);
   }, []);
+
+  useEffect(() => {
+    if (view !== 'quiz' || !questions.length) return;
+    const startedAt = quizStartedAtRef.current ?? getCurrentSession()?.startedAt;
+    if (!startedAt) return;
+    void saveCurrentQuizProgress({ sessionId, startedAt, subjectName, currentIndex,
+      questionIds: dbQuestions.map(question => question.id),
+      answers: questions.map((_, questionIndex) => ({
+        questionIndex, answer: userAnswers[questionIndex]?.answer ?? '',
+        isCorrect: userAnswers[questionIndex]?.isCorrect ?? null,
+      })) }).then(() => setProgressSaveError(null))
+      .catch(() => setProgressSaveError('本机答题进度未能安全保存；请先导出题目，暂勿关闭页面。'));
+  }, [currentIndex, dbQuestions, questions, sessionId, subjectName, userAnswers, view]);
 
   useEffect(() => {
     if (view !== 'quiz') return;
@@ -316,7 +402,22 @@ export default function QuizApp() {
   // Complete quiz
   const handleComplete = useCallback(async () => {
     if (signedIn && sessionId) {
-      await completeSession(sessionId);
+      const pendingWrites = await Promise.all(userAnswers.map(async (answer, index) => {
+        const questionId = dbQuestions[index]?.id;
+        if (!answer.answer || !questionId) return false;
+        const result = await saveAnswer(sessionId, questionId, answer.answer, answer.isCorrect ?? false).catch(() => ({ error: '网络暂不可用' }));
+        return 'error' in result;
+      }));
+      if (pendingWrites.some(Boolean)) {
+        setServerAnswerPending(true);
+        setProgressSaveError('本机答题进度已保留；部分云端答案未确认，联网后再次完成测验即可重试。');
+        return;
+      }
+      const completion = await completeSession(sessionId);
+      if ('error' in completion) {
+        setProgressSaveError('本机答题进度已保留；云端测验完成尚未确认，请稍后重试。');
+        return;
+      }
     }
     const completedAt = new Date().toISOString();
     const startedAt = quizStartedAtRef.current ?? getCurrentSession()?.startedAt ?? completedAt;
@@ -330,15 +431,29 @@ export default function QuizApp() {
       accuracy: questions.length ? Math.round(userAnswers.filter((answer) => answer.isCorrect === true).length / questions.length * 100) : 0,
       duration_seconds: elapsedSeconds(startedAt, completedAt),
     });
-    clearCurrentQuestions();
+    try {
+      await clearCurrentQuizProgress();
+      setProgressSaveError(null);
+      setServerAnswerPending(false);
+    } catch {
+      setProgressSaveError('测验结果已生成，但本机恢复进度未能清理；请勿重复导入同一测验。');
+    }
+    await clearCurrentQuestions();
     clearCurrentSession();
     quizStartedAtRef.current = null;
     setView('results');
-  }, [questions.length, sessionId, signedIn, subjectName, userAnswers]);
+  }, [dbQuestions, questions.length, sessionId, signedIn, subjectName, userAnswers]);
 
   // Finish and go back
-  const handleFinishReview = useCallback(() => {
-    clearCurrentQuestions();
+  const handleFinishReview = useCallback(async () => {
+    try {
+      await clearCurrentQuizProgress();
+      setProgressSaveError(null);
+    } catch {
+      setProgressSaveError('本机答题恢复进度未能清理；请稍后重试。');
+      return;
+    }
+    await clearCurrentQuestions();
     clearCurrentSession();
     setQuestions([]);
     setUserAnswers([]);
@@ -355,10 +470,11 @@ export default function QuizApp() {
 
   // Retry same questions
   const handleRetry = useCallback(() => {
-    setUserAnswers(questions.map(() => ({ questionIndex: 0, answer: '', isCorrect: null })));
+    setUserAnswers(questions.map((_, questionIndex) => ({ questionIndex, answer: '', isCorrect: null })));
     setDraftAnswers({});
     setCurrentIndex(0);
     setSessionId(null);
+    void clearCurrentQuizProgress().catch(() => setProgressSaveError('旧测验恢复记录未能清理；新测验进度尚未保存。'));
     setView('subject');
   }, [questions]);
 
@@ -403,6 +519,11 @@ export default function QuizApp() {
       </div>
 
       {/* Main Content */}
+      {(progressSaveError || serverAnswerPending) && <p role="status" className="mb-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+        {progressSaveError ?? (sessionId
+          ? '答题进度已保存在本机；云端答案仍有未确认操作，再次完成测验时会重试。'
+          : '答题进度已保存在本机；云端测验会话尚未建立。')}
+      </p>}
       <div className="flex-1 overflow-y-auto">
         {/* Question Input View */}
         {(view === 'input' || view === 'analyzing') && (
@@ -421,7 +542,7 @@ export default function QuizApp() {
           <SubjectSelector
             questions={questions}
             onStart={handleStartQuiz}
-            onCancel={() => { setView('input'); clearCurrentQuestions(); }}
+            onCancel={() => { setView('input'); void clearCurrentQuestions().catch(() => setProgressSaveError('题目未能从本机恢复队列清除。')); void clearCurrentQuizProgress().catch(() => setProgressSaveError('本机测验恢复记录未能清理。')); }}
           />
         )}
 
