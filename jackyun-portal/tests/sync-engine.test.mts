@@ -5,6 +5,7 @@ import {checksum,device,key,remote,server} from './sync-engine-fixture.mts';
 import {createRecordDelta,applyRecordDelta} from '../src/lib/sync/delta.ts';
 import {threeWayMerge} from '../src/lib/sync/merge.ts';
 import {splitSyncBody} from '../src/lib/sync/transfer.ts';
+import {WRITING_COLLECTIONS,writingItemKey} from '../src/lib/sync/writing-resource-model.ts';
 
 test('concurrent field edits preserve insertion anchors on either device',()=>{
  const base=[{id:'a',x:0},{id:'b',x:0}];
@@ -36,6 +37,34 @@ test('v3 fallback does not replace a Schedule owned by v5',async()=>{
   };
   await d.engine.pull();assert.deepEqual(d.value,local);assert.equal(scheduleBodyReads,0);assert.equal((await d.store.getOutbox()).length,0);
 });
+test('a v5-owned workspace key keeps its legacy intent queued until v5 ownership is removed',async()=>{
+  const workspaceKey='jackyun_ielts_progress_v1',cloud=server(),d=device(cloud),value={completed:['task-1']};
+  d.store.getSetting=async()=>null;
+  d.values.set(workspaceKey,JSON.stringify(value));
+  await d.engine.capture();
+  const [queued]=await d.store.getOutbox();assert.equal(queued?.key,workspaceKey);
+  let v4Writes=0;
+  d.environment.usesV5WorkspaceKey=key=>key===workspaceKey;
+  d.environment.request=async(url,init)=>{
+    if(url==='/api/sync/v4'&&!init?.method)return Response.json({ok:true,syncProtocol:4,capabilities:{v4:true},transferEncoding:'gzip'});
+    if(url==='/api/sync/v4'&&init?.method==='POST'){
+      v4Writes++;
+      const body=JSON.parse(String(init.body)),operation=body.operations[0];
+      return Response.json({ok:true,applied:[{operationId:operation.id,key:workspaceKey,revision:1,contentHash:checksum(value),updatedAt:'2026-10-20T00:00:00Z'}],conflicts:[],remote:[]});
+    }
+    throw new Error(`Unexpected request ${url}`);
+  };
+
+  await d.engine.flush();
+  assert.equal(v4Writes,0);
+  assert.deepEqual(await d.store.getOutbox(),[queued]);
+  assert.deepEqual(JSON.parse(d.values.get(workspaceKey)!),value);
+
+  d.environment.usesV5WorkspaceKey=()=>false;
+  await d.engine.flush();
+  assert.equal(v4Writes,1);
+  assert.equal((await d.store.getOutbox()).length,0);
+});
 test('same field changes persist both copies across restart and stop automatic writes',async()=>{
   const base=remote({cues:[{id:'a',text:'base'}]}),cloud=server(base),d=device(cloud,base);
   d.set({cues:[{id:'a',text:'local'}]});cloud.cloud=remote({cues:[{id:'a',text:'remote'},{id:'b',text:'unique'}]},2);
@@ -44,6 +73,32 @@ test('same field changes persist both copies across restart and stop automatic w
   assert.equal((conflicts[0].remoteValue as Page).cues[0].text,'remote');
   await d.engine.resolve(conflicts[0].operationId,'local');await d.engine.flush();
   assert.deepEqual((cloud.cloud!.value as Page).cues,[{id:'a',text:'local'},{id:'b',text:'unique'}]);assert.ok(d.backups>0);
+});
+
+test('writing item intent never falls back through v4 even when account-level v5 flags are absent',async()=>{
+  const d=device(server()),writingKey=writingItemKey(WRITING_COLLECTIONS[0],'essay-a'),value={id:'essay-a',body:'local'};
+  d.values.set(writingKey,JSON.stringify(value));
+  await d.engine.capture();assert.deepEqual(await d.store.getOutbox(),[],'legacy capture must not manufacture a writing upload');
+  const operation={id:crypto.randomUUID(),key:writingKey,value,deleted:false,baseRevision:0,baseHash:null,baseValue:null,clientUpdatedAt:new Date().toISOString()};
+  await d.store.queueOperation(operation);
+  d.environment.usesV5WorkspaceKey=()=>false;
+  const requests:string[]=[];
+  d.environment.request=async(url,init)=>{requests.push(url);assert.equal(url,'/api/sync/v4');assert.notEqual(init?.method,'POST');return Response.json({ok:true,syncProtocol:4,capabilities:{v4:true}});};
+  await d.engine.flush();
+  assert.ok(requests.every(url=>url==='/api/sync/v4'),'only optional cached capability negotiation is allowed');
+  assert.equal((await d.store.getOutbox())[0].id,operation.id);
+  assert.equal(d.values.get(writingKey),JSON.stringify(value));
+});
+
+test('an unexpected frozen writing submission is preserved for receipt review instead of being reposted to an old backend',async()=>{
+  const d=device(server()),writingKey=writingItemKey(WRITING_COLLECTIONS[0],'essay-a');
+  const operation={id:crypto.randomUUID(),key:writingKey,value:{id:'essay-a'},deleted:false,baseRevision:0,baseHash:null,baseValue:null,clientUpdatedAt:new Date().toISOString()};
+  await d.store.queueOperation(operation);
+  await d.store.saveSubmission({body:'immutable frozen body',operations:[operation],protocol:4,compressed:false});
+  d.environment.request=async(url,init)=>{assert.equal(url,'/api/sync/v4');assert.notEqual(init?.method,'POST');return Response.json({ok:true,syncProtocol:4,capabilities:{v4:true}});};
+  await assert.rejects(d.engine.flush(),{code:'WRITING_SUBMISSION_REQUIRES_REVIEW'});
+  assert.equal((await d.store.getSubmission())?.body,'immutable frozen body');
+  assert.equal((await d.store.getOutbox())[0].id,operation.id);
 });
 test('resolve rechecks a newer cloud version and refuses to overwrite it',async()=>{
   const base=remote({cues:[{id:'a',text:'base'}]}),cloud=server(base),d=device(cloud,base);

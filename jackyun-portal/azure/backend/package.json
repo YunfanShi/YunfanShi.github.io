@@ -1,6 +1,6 @@
 {
   "name": "jackyun-azure-sync-api",
-  "version": "3.9.1",
+  "version": "3.12.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:v5:staging": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-v5-staging-runtime-keyvault.ps1"
   },
   "dependencies": {
     "@azure/functions": "4.16.5",

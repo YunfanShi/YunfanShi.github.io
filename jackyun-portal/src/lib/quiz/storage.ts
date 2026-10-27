@@ -1,8 +1,8 @@
 'use client';
-import { workspaceStorage } from '@/lib/sync/repository';
+import { workspaceStorage } from '../sync/repository.ts';
 
 
-import { AnalyzedQuestion, QuizSession, QuizSettings } from '@/types/quiz';
+import type { AnalyzedQuestion, QuizSession, QuizSettings } from '@/types/quiz';
 
 const DB_NAME = 'quizwise';
 const DB_VERSION = 1;
@@ -92,8 +92,14 @@ function lsSet(key: string, value: unknown): void {
 
 // Current questions (in-progress quiz)
 export async function getCurrentQuestions(): Promise<AnalyzedQuestion[]> {
-  const data = await getItem<AnalyzedQuestion[]>('current_questions');
-  return data ?? lsGet<AnalyzedQuestion[]>('current_questions') ?? [];
+  const synced = lsGet<AnalyzedQuestion[]>('current_questions');
+  if (synced) return synced;
+  const cached = await getItem<AnalyzedQuestion[]>('current_questions');
+  if (cached) {
+    lsSet('current_questions', cached);
+    return cached;
+  }
+  return [];
 }
 
 export function getCurrentQuestionsSync(): AnalyzedQuestion[] {

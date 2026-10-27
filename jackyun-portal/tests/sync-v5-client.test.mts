@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {IDBFactory} from 'fake-indexeddb';
-import {accountSyncStore,acknowledgeV5Operations,commitV5ResourcePage,getV5Conflicts,getV5Cursor,getV5Resources,openDatabase,resolveV5ConflictRemotely,setV5Cursor,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
-import {createV5ResourceSync,resourceFieldsForPath} from '../src/lib/sync/resource-engine.ts';
-import {resourceFieldsForScope} from '../src/lib/sync/resource-model.ts';
+import {IDBFactory,IDBObjectStore} from 'fake-indexeddb';
+import {accountSyncStore,acknowledgeV5Operations,acknowledgeV5WorkspaceOperations,commitV5ResourcePage,commitV5WorkspacePage,getDocuments,getOutbox,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,openDatabase,prepareV5WorkspaceAuthority,resolveV5ConflictLocally,resolveV5ConflictRemotely,setV5Cursor,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
+import {createV5ResourceSync,resourceFieldsForPath,retainV5ScheduleAuthority} from '../src/lib/sync/resource-engine.ts';
+import {legacyWorkspaceRecordId,resourceFieldsForScope} from '../src/lib/sync/resource-model.ts';
 import {canonicalJson} from '../src/lib/sync/hash.ts';
 import {SYNC_V5_SCOPES} from '../src/lib/sync/resource-model.ts';
+import {WRITING_COLLECTIONS,writingItemKey} from '../src/lib/sync/writing-resource-model.ts';
 import {createHash} from 'node:crypto';
 
 Object.assign(globalThis,{indexedDB:new IDBFactory()});
@@ -30,6 +31,201 @@ test('v5 cursor does not advance when the Schedule document cannot be safely mer
     {scope:'cue',mode:'changes',after:'',cursor:1,head:1},dbName));
   assert.equal(await getV5Cursor('cue',dbName),null);
   assert.deepEqual(await getV5Resources('cue',dbName),[]);
+});
+
+test('v5 workspace baseline preserves a local document with an unacknowledged legacy outbox operation',async()=>{
+  const dbName=id(),key='jackyun_definition_cards_v1',localValue=JSON.stringify({cards:[{id:'local-card'}]}),recordId=legacyWorkspaceRecordId(key)!;
+  const field=recordId.slice(0,recordId.indexOf(':')),db=await openDatabase(dbName),operationId=crypto.randomUUID();
+  try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction(['documents','outbox'],'readwrite');
+    tx.objectStore('documents').put({key,value:localValue,updatedAt:1});
+    tx.objectStore('outbox').put({id:operationId,key,baseRevision:1,baseHash:'a'.repeat(64),baseValue:{cards:[{id:'base-card'}]},baseDeleted:false,
+      value:{cards:[{id:'local-card'}]},deleted:false,clientUpdatedAt:'2026-10-26T00:00:00.000Z',sequence:1});
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });}finally{db.close();}
+
+  const projected=await commitV5WorkspacePage([{scope:'workspace',recordId,revision:2,contentHash:'b'.repeat(64),deleted:false,updatedAt:'now',value:{cards:[{id:'remote-card'}]}}],
+    {scope:'workspace',field,mode:'changes',after:'',cursor:2,head:2},dbName);
+  const check=await openDatabase(dbName);try{const state=await new Promise<{document?:{value:string|null};operations:Array<{id:string}>}>((resolve,reject)=>{
+    const tx=check.transaction(['documents','outbox'],'readonly'),document=tx.objectStore('documents').get(key),outbox=tx.objectStore('outbox').getAll();
+    let row:{document?:{value:string|null};operations:SyncOperation[]};document.onsuccess=()=>{row={document:document.result,operations:[]};};outbox.onsuccess=()=>{row={...row!,operations:outbox.result};};
+    tx.oncomplete=()=>resolve(row!);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });
+    assert.deepEqual(projected,[]);
+    assert.equal(state.document?.value,localValue);
+    assert.deepEqual(state.operations.map(operation=>operation.id),[operationId]);
+    assert.equal((await getV5Cursor('workspace',dbName,field))?.cursor,2);
+  }finally{check.close();}
+});
+
+test('late workspace receipts preserve a newer resource, visible edit and replacement pending intent',async()=>{
+  const dbName=id(),key='jackyun_ielts_writing_draft_v1',recordId=legacyWorkspaceRecordId(key)!;
+  const sent={id:crypto.randomUUID(),scope:'workspace' as const,recordId,baseRevision:1,baseHash:'a'.repeat(64),value:{draft:'uploaded'},deleted:false,clientUpdatedAt:'old'};
+  const newerRemote={draft:'newer from another device'},newerLocal={draft:'newer local edit'};
+  const pending={...sent,value:newerLocal,clientUpdatedAt:'new'};
+  const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction(['documents','v5Resources','v5Outbox'],'readwrite');
+    tx.objectStore('documents').put({key,value:JSON.stringify(newerLocal),updatedAt:3});
+    tx.objectStore('v5Resources').put({scope:'workspace',recordId,revision:3,contentHash:'c'.repeat(64),deleted:false,value:newerRemote,updatedAt:'new'});
+    tx.objectStore('v5Outbox').put(pending);
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+  });}finally{db.close();}
+  await acknowledgeV5WorkspaceOperations([{operation:sent,revision:2,contentHash:'b'.repeat(64),updatedAt:'old'}],dbName);
+  assert.equal((await getV5Resources('workspace',dbName))[0].revision,3);
+  assert.deepEqual((await getV5Resources('workspace',dbName))[0].value,newerRemote);
+  assert.deepEqual(await getV5Outbox('workspace',dbName),[pending]);
+  assert.equal((await getDocuments(dbName))[0].value,JSON.stringify(newerLocal));
+});
+
+test('a failed workspace receipt transaction keeps the prior baseline and queued operation for retry',async()=>{
+  const dbName=id(),key='jackyun_ielts_writing_draft_v1',recordId=legacyWorkspaceRecordId(key)!;
+  const base={draft:'baseline'},value={draft:'pending edit'};
+  const operation={id:crypto.randomUUID(),scope:'workspace' as const,recordId,baseRevision:1,baseHash:'a'.repeat(64),value,deleted:false,clientUpdatedAt:'now'};
+  const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction(['documents','v5Resources','v5Outbox'],'readwrite');
+    tx.objectStore('documents').put({key,value:JSON.stringify(value),updatedAt:1});
+    tx.objectStore('v5Resources').put({scope:'workspace',recordId,revision:1,contentHash:'a'.repeat(64),deleted:false,value:base,updatedAt:'before'});
+    tx.objectStore('v5Outbox').put(operation);
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+  });}finally{db.close();}
+  const applied=[{operation,revision:2,contentHash:'b'.repeat(64),updatedAt:'after'}];
+  const originalDelete=IDBObjectStore.prototype.delete;
+  IDBObjectStore.prototype.delete=function(keyValue:IDBValidKey|IDBKeyRange){
+    if(this.name==='v5Outbox'&&keyValue===operation.id)throw Error('Injected workspace receipt delete failure');
+    return originalDelete.call(this,keyValue);
+  };
+  try{await assert.rejects(acknowledgeV5WorkspaceOperations(applied,dbName),/Injected workspace receipt delete failure/);}
+  finally{IDBObjectStore.prototype.delete=originalDelete;}
+  assert.equal((await getV5Resources('workspace',dbName))[0].revision,1);
+  assert.deepEqual((await getV5Resources('workspace',dbName))[0].value,base);
+  assert.deepEqual(await getV5Outbox('workspace',dbName),[operation]);
+  assert.equal((await getDocuments(dbName))[0].value,JSON.stringify(value));
+  await acknowledgeV5WorkspaceOperations(applied,dbName);
+  assert.equal((await getV5Resources('workspace',dbName))[0].revision,2);
+  assert.deepEqual(await getV5Outbox('workspace',dbName),[]);
+});
+
+test('a workspace baseline conflict preserves structured local data and atomically retries a failed conflict save',async()=>{
+  const dbName=id(),key='jackyun_ielts_writing_draft_v1',recordId=legacyWorkspaceRecordId(key)!,field=recordId.split(':')[0];
+  const local={draft:'local essay',paragraphs:[{id:'p1',text:'local paragraph'}]},remote={draft:'remote essay'};
+  const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction('documents','readwrite');tx.objectStore('documents').put({key,value:JSON.stringify(local),updatedAt:1});
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+  });}finally{db.close();}
+  const records=[{scope:'workspace' as const,recordId,revision:2,contentHash:'b'.repeat(64),deleted:false,updatedAt:'now',value:remote}];
+  const cursor={scope:'workspace' as const,field,mode:'changes' as const,after:'',cursor:2,head:2};
+  const originalPut=IDBObjectStore.prototype.put;
+  IDBObjectStore.prototype.put=function(...args:Parameters<typeof originalPut>){
+    if(this.name==='v5Conflicts')throw Error('Injected workspace conflict save failure');
+    return originalPut.apply(this,args);
+  };
+  try{await assert.rejects(commitV5WorkspacePage(records,cursor,dbName),/Injected workspace conflict save failure/);}
+  finally{IDBObjectStore.prototype.put=originalPut;}
+  assert.deepEqual(await getV5Resources('workspace',dbName),[]);
+  assert.equal(await getV5Cursor('workspace',dbName,field),null);
+  assert.deepEqual(await getV5Conflicts(dbName),[]);
+  assert.equal((await getDocuments(dbName))[0].value,JSON.stringify(local));
+  await commitV5WorkspacePage(records,cursor,dbName);
+  const [conflict]=await getV5Conflicts(dbName);
+  assert.deepEqual(conflict.localValue,local);
+  const resolution=await resolveV5ConflictLocally(conflict.operationId,crypto.randomUUID(),dbName);
+  assert.deepEqual(resolution?.value,local);
+  assert.equal((await getDocuments(dbName))[0].value,JSON.stringify(local));
+});
+
+test('workspace authority atomically migrates only safe v4 intents and blocks frozen or changed operations',async()=>{
+  const dbName=id(),safeKey='jackyun_definition_cards_v1',frozenKey='quizwise_history',changedKey='studyguide_progress';
+  const safeId=legacyWorkspaceRecordId(safeKey)!,frozenId=legacyWorkspaceRecordId(frozenKey)!,changedId=legacyWorkspaceRecordId(changedKey)!;
+  const safeField=safeId.slice(0,safeId.indexOf(':')),frozenField=frozenId.slice(0,frozenId.indexOf(':')),changedField=changedId.slice(0,changedId.indexOf(':'));
+  const safeBase={cards:[{id:'base'}]},safeValue={cards:[{id:'edited'}]},frozenBase={attempts:[]},frozenValue={attempts:[{id:'pending'}]},changedBase={units:[]},queuedValue={units:[{id:'queued'}]};
+  const safeHash='1'.repeat(64),frozenHash='2'.repeat(64),changedHash='3'.repeat(64),safeOp=crypto.randomUUID(),frozenOp=crypto.randomUUID(),changedOp=crypto.randomUUID();
+  for(const [field,cursor] of [[safeField,1],[frozenField,2],[changedField,3]] as const)
+    await setV5Cursor('workspace',{scope:'workspace',field,mode:'changes',after:'',cursor,head:cursor},dbName,field);
+  const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction(['documents','outbox','settings','v5Resources'],'readwrite');
+    for(const [key,value] of [[safeKey,safeValue],[frozenKey,frozenValue],[changedKey,{units:[{id:'newer-local'}]}]] as const)tx.objectStore('documents').put({key,value:JSON.stringify(value),updatedAt:1});
+    const add=(id:string,key:string,baseRevision:number,baseHash:string,baseValue:unknown,value:unknown)=>tx.objectStore('outbox').put({id,key,baseRevision,baseHash,baseValue,baseDeleted:false,value,deleted:false,clientUpdatedAt:'2026-10-27T00:00:00.000Z',sequence:1});
+    add(safeOp,safeKey,1,safeHash,safeBase,safeValue);add(frozenOp,frozenKey,1,frozenHash,frozenBase,frozenValue);add(changedOp,changedKey,1,changedHash,changedBase,queuedValue);
+    tx.objectStore('v5Resources').put({scope:'workspace',recordId:safeId,revision:1,contentHash:safeHash,deleted:false,updatedAt:'now',value:safeBase});
+    tx.objectStore('v5Resources').put({scope:'workspace',recordId:frozenId,revision:1,contentHash:frozenHash,deleted:false,updatedAt:'now',value:frozenBase});
+    tx.objectStore('v5Resources').put({scope:'workspace',recordId:changedId,revision:1,contentHash:changedHash,deleted:false,updatedAt:'now',value:changedBase});
+    tx.objectStore('settings').put({key:'syncSubmission',value:{body:'{}',operations:[{id:frozenOp,key:frozenKey}],compressed:false,protocol:4}});
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });}finally{db.close();}
+
+  const result=await prepareV5WorkspaceAuthority([safeField,frozenField,changedField],dbName);
+  assert.deepEqual(result.migratedOperationIds,[safeOp]);
+  assert.ok(result.authoritativeKeys.includes(safeKey));
+  assert.ok(!result.authoritativeKeys.includes(frozenKey));
+  assert.ok(!result.authoritativeKeys.includes(changedKey));
+  assert.deepEqual(result.deferredKeys.map(row=>[row.key,row.reason]).sort(),[[changedKey,'local-changed'],[frozenKey,'submission']].sort());
+  const verify=await openDatabase(dbName);try{const state=await new Promise<{legacy:SyncOperation[];v5:V5ResourceOperation[];settings?:{value:string[]}}>((resolve,reject)=>{
+    const tx=verify.transaction(['outbox','v5Outbox','settings'],'readonly'),legacy=tx.objectStore('outbox').getAll(),v5=tx.objectStore('v5Outbox').getAll(),settings=tx.objectStore('settings').get('v5WorkspaceAuthorityKeys');
+    let row:{legacy:SyncOperation[];v5:V5ResourceOperation[];settings?:{value:string[]}};legacy.onsuccess=()=>{row={legacy:legacy.result,v5:[],settings:undefined};};v5.onsuccess=()=>{row={...row!,v5:v5.result};};settings.onsuccess=()=>{row={...row!,settings:settings.result};};
+    tx.oncomplete=()=>resolve(row!);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });
+    assert.deepEqual(state.legacy.map(row=>row.id).sort(),[frozenOp,changedOp].sort());
+    assert.deepEqual(state.v5.map(row=>row.id),[safeOp]);
+    assert.ok(state.settings?.value.includes(safeKey));
+  }finally{verify.close();}
+});
+
+test('failed v4-to-v5 authority transaction rolls back both queues and leaves v4 intent retryable',async()=>{
+  const dbName=id(),key='jackyun_definition_cards_v1',recordId=legacyWorkspaceRecordId(key)!,field=recordId.slice(0,recordId.indexOf(':'));
+  const base={cards:[{id:'base'}]},value={cards:[{id:'edited'}]},baseHash=createHash('sha256').update(canonicalJson(base)).digest('hex'),operationId=crypto.randomUUID();
+  await setV5Cursor('workspace',{scope:'workspace',field,mode:'changes',after:'',cursor:1,head:1},dbName,field);
+  const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction(['documents','outbox','v5Resources'],'readwrite');
+    tx.objectStore('documents').put({key,value:JSON.stringify(value),updatedAt:1});
+    tx.objectStore('outbox').put({id:operationId,key,baseRevision:1,baseHash,baseValue:base,baseDeleted:false,value,deleted:false,clientUpdatedAt:'2026-10-27T00:00:00.000Z',sequence:1});
+    tx.objectStore('v5Resources').put({scope:'workspace',recordId,revision:1,contentHash:baseHash,deleted:false,updatedAt:'now',value:base});
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });}finally{db.close();}
+
+  const originalDelete=IDBObjectStore.prototype.delete;
+  IDBObjectStore.prototype.delete=function(keyValue:IDBValidKey|IDBKeyRange){
+    if(this.name==='outbox'&&keyValue===operationId)throw Error('Injected legacy outbox delete failure');
+    return originalDelete.call(this,keyValue);
+  };
+  try{await assert.rejects(prepareV5WorkspaceAuthority([field],dbName),/Injected legacy outbox delete failure/);}
+  finally{IDBObjectStore.prototype.delete=originalDelete;}
+
+  assert.deepEqual((await getOutbox(dbName)).map(row=>row.id),[operationId]);
+  assert.deepEqual(await getV5Outbox('workspace',dbName),[]);
+  const verify=await openDatabase(dbName);try{const settings=await new Promise<{value:string[]}|undefined>((resolve,reject)=>{
+    const tx=verify.transaction('settings','readonly'),request=tx.objectStore('settings').get('v5WorkspaceAuthorityKeys');
+    request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+  });assert.equal(settings,undefined);}finally{verify.close();}
+});
+
+test('workspace sync migrates one eligible legacy operation and confirms it once through the v5 receipt path',async()=>{
+  const dbName=id(),key='jackyun_definition_cards_v1',recordId=legacyWorkspaceRecordId(key)!,field=recordId.slice(0,recordId.indexOf(':'));
+  const base={cards:[{id:'base'}]},value={cards:[{id:'edited'}]},baseHash=createHash('sha256').update(canonicalJson(base)).digest('hex'),valueHash=createHash('sha256').update(canonicalJson(value)).digest('hex'),operationId=crypto.randomUUID();
+  await setV5Cursor('workspace',{scope:'workspace',field,mode:'changes',after:'',cursor:1,head:1},dbName,field);
+  const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction(['documents','outbox','v5Resources'],'readwrite');
+    tx.objectStore('documents').put({key,value:JSON.stringify(value),updatedAt:1});
+    tx.objectStore('outbox').put({id:operationId,key,baseRevision:1,baseHash,baseValue:base,baseDeleted:false,value,deleted:false,clientUpdatedAt:'2026-10-27T00:00:00.000Z',sequence:1});
+    tx.objectStore('v5Resources').put({scope:'workspace',recordId,revision:1,contentHash:baseHash,deleted:false,updatedAt:'now',value:base});
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });}finally{db.close();}
+  const sent:string[]=[],owned:string[]=[];
+  const engine=createV5ResourceSync({databaseScope:dbName,request:async(url,init)=>{
+    const parsed=new URL(url,'https://sync.test');
+    if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:SYNC_V5_SCOPES});
+    if(parsed.pathname==='/api/sync/v5/changes')return Response.json({syncProtocol:5,records:[],cursor:2,head:2,hasMore:false});
+    if(parsed.pathname==='/api/sync/v5/receipts')return Response.json({syncProtocol:5,receipts:[]});
+    if(parsed.pathname==='/api/sync/v5/operations'){
+      const body=JSON.parse(String(init?.body)) as {operations:Array<{id:string;value:unknown}>};
+      sent.push(...body.operations.map(operation=>operation.id));
+      return Response.json({syncProtocol:5,applied:body.operations.map(operation=>({operationId:operation.id,status:'applied',revision:2,contentHash:valueHash,updatedAt:'now'})),conflicts:[]});
+    }
+    throw Error(`Unexpected request ${parsed.pathname}`);
+  },deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>null,projectSchedule:async()=>{},readWorkspace:()=>getDocuments(dbName),projectWorkspaceRecord:async()=>{},setAuthority:()=>{},setWorkspaceAuthorityKeys:keys=>owned.push(...keys),uuid:()=>crypto.randomUUID()});
+  const result=await engine.synchronize([{scope:'workspace',field}]);
+  assert.equal(result.enabled,true);assert.deepEqual(sent,[operationId]);assert.ok(owned.includes(key));
+  assert.deepEqual(await getOutbox(dbName),[]);assert.deepEqual(await getV5Outbox('workspace',dbName),[]);
+  assert.equal((await getV5Resources('workspace',dbName)).find(row=>row.recordId===recordId)?.contentHash,valueHash);
 });
 
 test('resource-field cursors remain independent across page navigation',async()=>{
@@ -116,6 +312,13 @@ test('v5 capability withdrawal clears resource authority for the caller',async()
   const engine=createV5ResourceSync({databaseScope:dbName,request:async()=>Response.json({syncProtocol:5,capabilities:{v5:false},scopes:[]}),deviceId:async()=>'00000000-0000-4000-8000-000000000001',readSchedule:()=>null,projectSchedule:async()=>{},setAuthority:scopes=>{authorities.push([...scopes]);},uuid:()=>crypto.randomUUID()});
   assert.equal((await engine.synchronize([{scope:'cue',field:'cues'}])).enabled,false);
   assert.deepEqual(authorities,[[]]);
+});
+
+test('a withdrawn or partial rollout cannot silently hand an established Schedule back to v4',()=>{
+  assert.equal(retainV5ScheduleAuthority(true,[]),true);
+  assert.equal(retainV5ScheduleAuthority(true,['cue']),true);
+  assert.equal(retainV5ScheduleAuthority(true,SYNC_V5_SCOPES),false);
+  assert.equal(retainV5ScheduleAuthority(false,['cue']),false);
 });
 
 test('partial account rollout syncs only granted domains and retains v4 Schedule authority',async()=>{
@@ -209,17 +412,40 @@ test('page resource selection avoids unrelated CUE history and schedule scopes',
   assert.ok(review.some(row=>row.scope==='cue'&&row.field==='cueReviews'));
   assert.ok(!review.some(row=>row.field==='cueChangeHistory'||row.field==='cueCollectionUpdates'));
   const timetable=resourceFieldsForPath('/timetable-hub');
-  assert.deepEqual(timetable.map(row=>row.field),['timetable','manualTasks','completions','cancellations','learningReminders']);
+  assert.deepEqual(timetable.map(row=>row.field),['timetable','manualTasks','completions','cancellations','learningReminders','legacyTimetable','legacyLearning']);
   assert.ok(resourceFieldsForPath('/dashboard').some(row=>row.scope==='cue'&&row.field==='cueReviews'));
   assert.deepEqual(resourceFieldsForPath('/dashboard').filter(row=>['cueChangeHistory','cueCollectionUpdates','cueSimilarityDecisions','studyReports'].includes(row.field)),[]);
   assert.ok(resourceFieldsForPath('/study/tasks').some(row=>row.field==='manualTasks'));
+  assert.deepEqual(resourceFieldsForPath('/ielts').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyIELTS']);
+  assert.deepEqual(resourceFieldsForPath('/studio').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyPersonalSites','legacyLearning']);
+  assert.deepEqual(resourceFieldsForPath('/quiz').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyQuiz','legacyCue','legacyLearning']);
+  assert.deepEqual(resourceFieldsForPath('/studyplan').map(row=>row.field),['legacyGoals','legacyStudyPlan','legacyTimetable','legacyLearning']);
+  assert.ok(resourceFieldsForPath('/studyplan').some(row=>row.scope==='workspace'&&row.field==='legacyTimetable'));
   assert.ok(resourceFieldsForPath('/cue/study').some(row=>row.field==='cueGameAccount'));
   assert.ok(resourceFieldsForPath('/settings/watch').some(row=>row.field==='settings'));
+  assert.ok(!resourceFieldsForPath('/settings/watch').some(row=>row.field==='legacyMisc'),'settings pages must not subscribe to a generic catch-all scope');
   assert.deepEqual(resourceFieldsForPath('/reading'),[],'independent reader state is not misrepresented as Schedule data');
 });
 
+test('new writing subscriptions wait for the backend capability instead of sending unknown fields to an older server',async()=>{
+  const requests:string[]=[],databaseScope=id(),pendingId=crypto.randomUUID();
+  const db=await openDatabase(databaseScope);try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction('v5Outbox','readwrite');tx.objectStore('v5Outbox').put({id:pendingId,scope:'workspace',recordId:legacyWorkspaceRecordId(writingItemKey(WRITING_COLLECTIONS[0],'essay-a')),
+      baseRevision:0,baseHash:null,value:{id:'essay-a'},deleted:false,clientUpdatedAt:new Date().toISOString()});
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+  });}finally{db.close();}
+  const engine=createV5ResourceSync({databaseScope,request:async url=>{
+    requests.push(url);assert.equal(url,'/api/sync/v5');
+    return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:['workspace']});
+  },deviceId:async()=>crypto.randomUUID(),uuid:()=>crypto.randomUUID(),readSchedule:()=>null,projectSchedule:async()=>{},setAuthority:()=>{}});
+  const result=await engine.synchronize(resourceFieldsForPath('/ielts-writing'));
+  assert.equal(result.writingCollectionsEnabled,false);
+  assert.deepEqual(requests,['/api/sync/v5']);
+  assert.deepEqual((await getV5Outbox('workspace',databaseScope)).map(row=>row.id),[pendingId],'capability withdrawal must preserve pending writing operations without an unsafe fallback');
+});
+
 test('every writable v5 field has a valid page target without loading all fields on each page',()=>{
-  const paths=['/schedule','/dashboard','/study','/review','/cue','/timetable-hub','/activity','/practice-timer','/ielts','/study-guide','/quiz','/pomodoro','/answer-sheet','/settings'];
+  const paths=['/schedule','/dashboard','/study','/review','/cue','/timetable-hub','/activity','/practice-timer','/ielts','/ielts-writing','/study-guide','/quiz','/pomodoro','/answer-sheet','/mock-portal','/answer-sheet-sync','/settings','/music','/ai','/studio','/relax'];
   const targets=new Set(paths.flatMap(path=>resourceFieldsForPath(path).map(target=>`${target.scope}\0${target.field}`)));
   for(const scope of SYNC_V5_SCOPES)for(const field of resourceFieldsForScope(scope))assert.ok(targets.has(`${scope}\0${field}`),`${scope}/${field} must be writable through a page subscription`);
   const schedule=new Set(resourceFieldsForPath('/schedule').map(target=>target.field));

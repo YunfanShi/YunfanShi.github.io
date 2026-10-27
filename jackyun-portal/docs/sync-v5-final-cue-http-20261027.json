@@ -1,0 +1,121 @@
+{
+  "capturedAt": "2026-10-27T07:31:35.768Z",
+  "environment": "production",
+  "realLoginVerified": true,
+  "capabilitiesVerified": true,
+  "scopes": [
+    "cue"
+  ],
+  "scope": "cue",
+  "trace": [
+    {
+      "method": "GET",
+      "path": "/api/sync/v5",
+      "status": 200,
+      "requestId": "f3ccaa60-ff78-482f-8144-af8295d9a847",
+      "durationMs": 2063,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "4bbe2031-e7b6-4b8c-a886-ec3210cb000b",
+      "durationMs": 635,
+      "requestBytes": 524
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "b3183429-c7da-4c00-ab9c-0efe37daa670",
+      "durationMs": 219,
+      "requestBytes": 157
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "4892b34d-30a7-45a9-8c7a-ae6c85ee68c0",
+      "durationMs": 232,
+      "requestBytes": 524
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records?scope=cue&id=cues%3Av5-http-probe-8cfba59b-e1eb-44c3-87d0-18d785441fa9",
+      "status": 200,
+      "requestId": "2ce283d6-4bd9-46b0-a1c3-6c9b5628b0c0",
+      "durationMs": 754,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "fcbd8cb7-ae47-48d9-9024-9d4393858331",
+      "durationMs": 256,
+      "requestBytes": 586
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "4dd3adec-249f-4d46-93ca-c95b62e83034",
+      "durationMs": 239,
+      "requestBytes": 524
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 409,
+      "requestId": "e0dc8048-b224-4564-a613-d69508e3b755",
+      "durationMs": 217,
+      "requestBytes": 524
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records?scope=cue&id=cues%3Av5-http-probe-8cfba59b-e1eb-44c3-87d0-18d785441fa9",
+      "status": 200,
+      "requestId": "50401c37-3146-45ef-8003-8c2affb4146a",
+      "durationMs": 217,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "a93bfbf9-fe3d-43be-80e7-0a1bdbe1511f",
+      "durationMs": 270,
+      "requestBytes": 364
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records?scope=cue&id=cues%3Av5-http-probe-8cfba59b-e1eb-44c3-87d0-18d785441fa9",
+      "status": 200,
+      "requestId": "e9805fdb-65ce-4ead-b8aa-7a2b50792d63",
+      "durationMs": 206,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "31b9039a-5b34-4143-afea-999205c658ea",
+      "durationMs": 192,
+      "requestBytes": 157
+    }
+  ],
+  "writesPerformed": true,
+  "testRecordId": "cues:v5-http-probe-8cfba59b-e1eb-44c3-87d0-18d785441fa9",
+  "writeHashVerified": true,
+  "receiptVerified": true,
+  "idempotentRetryVerified": true,
+  "readBackHashVerified": true,
+  "updateVerified": true,
+  "staleWriteConflictVerified": true,
+  "operationIdReuseRejected": true,
+  "tombstoneVerified": true,
+  "testRecordCleanupVerified": true,
+  "testSessionRevoked": true,
+  "ok": true
+}

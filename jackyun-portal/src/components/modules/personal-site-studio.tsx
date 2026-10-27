@@ -1,12 +1,13 @@
 'use client';
-import { workspaceStorage } from '@/lib/sync/repository';
+import { captureRepositoryContext, workspaceStorage } from '@/lib/sync/repository';
 
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { callAiApi } from '@/lib/ai-config';
 import { parseAiJson } from '@/lib/ai-json';
-import { deleteLocalSite, listLocalSites, saveLocalSite } from '@/lib/personal-site-storage';
+import { deleteLocalSite, importLegacyCloudSites, listLocalSites, saveLocalSite } from '@/lib/personal-site-storage';
 import { validatePersonalSite, type PersonalSiteBlock, type PersonalSiteDefinition } from '@/lib/personal-site';
+import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
 
 const QUICK_PROMPTS = [
   { label: '⏳ 考试倒计时', prompt: '制作一个考试倒计时主页，包含备考任务、当前进度和常用学习链接。' },
@@ -55,8 +56,38 @@ export default function PersonalSiteStudio() {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const now = site ? new Date(site.updatedAt).getTime() : 0;
+  const activeSiteId = useRef<string | null>(null);
 
-  useEffect(() => { void listLocalSites().then((items) => { setSites(items); setSite(items[0] ?? null); }).catch(() => setStatus('无法读取本地网站。')); }, []);
+  useEffect(() => { activeSiteId.current = site?.id ?? null; }, [site?.id]);
+
+  useEffect(() => {
+    let disposed=false;
+    const importingOwners=new Set<string>();
+    const refresh = () => void (async()=>{
+      const context=await captureRepositoryContext();
+      const items=await listLocalSites();
+      context.assertCurrent();
+      if(disposed)return;
+      setSites(items);
+      setSite(items.find((item) => item.id === activeSiteId.current) ?? items[0] ?? null);
+      if(context.owner&&!importingOwners.has(context.owner)){
+        importingOwners.add(context.owner);
+        void importLegacyCloudSites().then(result=>{
+          if(disposed)return;
+          context.assertCurrent();
+          if(result.deferred)setStatus('本地修改已保留，部分旧版备份需要稍后核对。');
+          refresh();
+        }).catch(()=>{importingOwners.delete(context.owner!);});
+      }
+    })().catch(() => {if(!disposed)setStatus('无法读取当前账号的网站，请稍后重试。');});
+    refresh();
+    const onCloudStateApplied = (event: Event) => {
+      const keys = (event as CustomEvent<{ keys?: string[] }>).detail?.keys ?? [];
+      if (keys.some((key) => key.startsWith('jackyun_personal_site_v1:'))||(event as CustomEvent<{source?:string}>).detail?.source==='repository') refresh();
+    };
+    window.addEventListener(CLOUD_STATE_APPLIED_EVENT, onCloudStateApplied);
+    return () => {disposed=true;window.removeEventListener(CLOUD_STATE_APPLIED_EVENT, onCloudStateApplied);};
+  }, []);
 
   const persist = (next: PersonalSiteDefinition, message = '修改已保存到当前浏览器。') => {
     const updated = { ...next, updatedAt: new Date().toISOString() };
@@ -139,8 +170,14 @@ export default function PersonalSiteStudio() {
   };
 
   const createBlank = () => { const next = validatePersonalSite({ name: '新网站', theme: 'light', blocks: [] }); setSite(next); setPrompt(''); };
-  const saveCloud = async () => { if (!site) return; const response = await fetch('/api/personal-sites', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(site) }); setStatus(response.ok ? '已同步到云端。' : '云端同步失败，本地副本仍然安全。'); };
+  const saveCloud = async () => {
+    if(!site)return;
+    try{
+      await saveLocalSite(site);
+      setStatus('已保存到统一同步队列；云端确认以同步状态为准。');
+    }catch{setStatus('本地保存失败，请重试。');}
+  };
   const remove = async () => { if (!site) return; await deleteLocalSite(site.id); const remaining = sites.filter((item) => item.id !== site.id); setSites(remaining); setSite(remaining[0] ?? null); setStatus('已删除本地网站。'); };
 
-  return <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]"><aside className="space-y-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-bold text-[#7f56d9]">BETA</p><h1 className="text-xl font-semibold">AI 网站工作室</h1></div><button onClick={createBlank} className="rounded-lg border px-3 py-2 text-xs">新建</button></div><div className="flex flex-wrap gap-2">{QUICK_PROMPTS.map((item) => <button type="button" key={item.label} onClick={() => setPrompt(item.prompt)} className="rounded-full border border-[var(--card-border)] px-2.5 py-1.5 text-xs hover:border-[#7f56d9] hover:text-[#7f56d9]">{item.label}</button>)}</div><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={7} placeholder="告诉 AI 你想要什么，例如：制作一个深色考试倒计时主页，加入三项今日任务…" className="w-full rounded-xl border border-[var(--card-border)] bg-transparent p-3 text-sm leading-6" /><button disabled={loading || !prompt.trim()} onClick={generate} className="w-full rounded-xl bg-[#7f56d9] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{loading ? '生成中…' : site ? '让 AI 微调网站' : '生成网站'}</button>{status && <p role="status" className="text-xs leading-5 text-[var(--muted-foreground)]">{status}</p>}{site && <div><p className="mb-2 text-xs font-semibold">主题</p><div className="grid grid-cols-4 gap-1">{(['light', 'dark', 'blue', 'purple'] as const).map((theme) => <button type="button" key={theme} onClick={() => persist({ ...site, theme })} className={`rounded-lg border px-1 py-2 text-[10px] ${site.theme === theme ? 'border-[#7f56d9] bg-[#7f56d9]/10 text-[#7f56d9]' : 'border-[var(--card-border)]'}`}>{theme}</button>)}</div></div>}<div className="flex gap-2"><button disabled={!site} onClick={saveCloud} className="flex-1 rounded-lg border px-3 py-2 text-xs">云端备份</button><button disabled={!site} onClick={remove} className="rounded-lg border px-3 py-2 text-xs text-[#d92d20]">删除</button></div><div className="border-t border-[var(--card-border)] pt-4"><p className="text-xs font-semibold">本地网站</p><div className="mt-2 space-y-1">{sites.map((item) => <button key={item.id} onClick={() => setSite(item)} className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm ${site?.id === item.id ? 'bg-[#f4ebff] text-[#6941c6]' : 'hover:bg-black/5'}`}>{item.name}</button>)}</div></div></aside><section className={`min-h-[70vh] overflow-hidden rounded-2xl border border-[var(--card-border)] p-6 shadow-sm ${site ? palette[site.theme] : 'grid place-items-center bg-[var(--card)] text-[var(--muted-foreground)]'}`}>{site ? <div className="mx-auto max-w-4xl space-y-5">{site.blocks.map((block, index) => <div key={block.id} className="group relative rounded-2xl"><Block siteId={site.id} block={block} now={now} onProgress={(value) => updateBlock(index, (current) => current.type === 'progress' ? { ...current, value: Math.max(0, Math.min(100, value)) } : current)} /><div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100"><button type="button" disabled={index === 0} onClick={() => moveBlock(index, -1)} className="rounded bg-black/55 px-2 py-1 text-xs text-white disabled:opacity-30" aria-label="上移组件">↑</button><button type="button" disabled={index === site.blocks.length - 1} onClick={() => moveBlock(index, 1)} className="rounded bg-black/55 px-2 py-1 text-xs text-white disabled:opacity-30" aria-label="下移组件">↓</button><button type="button" onClick={() => persist({ ...site, blocks: site.blocks.filter((_, blockIndex) => blockIndex !== index) })} className="rounded bg-[#b42318] px-2 py-1 text-xs text-white" aria-label="删除组件">×</button></div></div>)}</div> : <p>描述你想要的网站，生成结果会实时显示在这里。</p>}</section></div>;
+  return <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]"><aside className="space-y-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-bold text-[#7f56d9]">BETA</p><h1 className="text-xl font-semibold">AI 网站工作室</h1></div><button onClick={createBlank} className="rounded-lg border px-3 py-2 text-xs">新建</button></div><div className="flex flex-wrap gap-2">{QUICK_PROMPTS.map((item) => <button type="button" key={item.label} onClick={() => setPrompt(item.prompt)} className="rounded-full border border-[var(--card-border)] px-2.5 py-1.5 text-xs hover:border-[#7f56d9] hover:text-[#7f56d9]">{item.label}</button>)}</div><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={7} placeholder="告诉 AI 你想要什么，例如：制作一个深色考试倒计时主页，加入三项今日任务…" className="w-full rounded-xl border border-[var(--card-border)] bg-transparent p-3 text-sm leading-6" /><button disabled={loading || !prompt.trim()} onClick={generate} className="w-full rounded-xl bg-[#7f56d9] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{loading ? '生成中…' : site ? '让 AI 微调网站' : '生成网站'}</button>{status && <p role="status" className="text-xs leading-5 text-[var(--muted-foreground)]">{status}</p>}{site && <div><p className="mb-2 text-xs font-semibold">主题</p><div className="grid grid-cols-4 gap-1">{(['light', 'dark', 'blue', 'purple'] as const).map((theme) => <button type="button" key={theme} onClick={() => persist({ ...site, theme })} className={`rounded-lg border px-1 py-2 text-[10px] ${site.theme === theme ? 'border-[#7f56d9] bg-[#7f56d9]/10 text-[#7f56d9]' : 'border-[var(--card-border)]'}`}>{theme}</button>)}</div></div>}<div className="flex gap-2"><button disabled={!site} onClick={saveCloud} className="flex-1 rounded-lg border px-3 py-2 text-xs">保存到同步队列</button><button disabled={!site} onClick={remove} className="rounded-lg border px-3 py-2 text-xs text-[#d92d20]">删除</button></div><div className="border-t border-[var(--card-border)] pt-4"><p className="text-xs font-semibold">本地网站</p><div className="mt-2 space-y-1">{sites.map((item) => <button key={item.id} onClick={() => setSite(item)} className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm ${site?.id === item.id ? 'bg-[#f4ebff] text-[#6941c6]' : 'hover:bg-black/5'}`}>{item.name}</button>)}</div></div></aside><section className={`min-h-[70vh] overflow-hidden rounded-2xl border border-[var(--card-border)] p-6 shadow-sm ${site ? palette[site.theme] : 'grid place-items-center bg-[var(--card)] text-[var(--muted-foreground)]'}`}>{site ? <div className="mx-auto max-w-4xl space-y-5">{site.blocks.map((block, index) => <div key={block.id} className="group relative rounded-2xl"><Block siteId={site.id} block={block} now={now} onProgress={(value) => updateBlock(index, (current) => current.type === 'progress' ? { ...current, value: Math.max(0, Math.min(100, value)) } : current)} /><div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100"><button type="button" disabled={index === 0} onClick={() => moveBlock(index, -1)} className="rounded bg-black/55 px-2 py-1 text-xs text-white disabled:opacity-30" aria-label="上移组件">↑</button><button type="button" disabled={index === site.blocks.length - 1} onClick={() => moveBlock(index, 1)} className="rounded bg-black/55 px-2 py-1 text-xs text-white disabled:opacity-30" aria-label="下移组件">↓</button><button type="button" onClick={() => persist({ ...site, blocks: site.blocks.filter((_, blockIndex) => blockIndex !== index) })} className="rounded bg-[#b42318] px-2 py-1 text-xs text-white" aria-label="删除组件">×</button></div></div>)}</div> : <p>描述你想要的网站，生成结果会实时显示在这里。</p>}</section></div>;
 }

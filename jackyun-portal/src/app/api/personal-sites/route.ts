@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { validatePersonalSite } from '@/lib/personal-site';
+import { getVerifiedUser } from '@/lib/supabase/verified-user';
 
 async function context() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getVerifiedUser(supabase);
   if (!user) return null;
   return { supabase, user };
 }
 
-export async function GET() {
+export async function GET(request:NextRequest) {
   const ctx = await context(); if (!ctx) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  const expected=request.headers.get('x-sync-account');
+  if(expected&&expected!==ctx.user.id)return NextResponse.json({error:'Account changed'},{status:409,headers:{'Cache-Control':'no-store'}});
   const { data, error } = await ctx.supabase.from('personal_sites').select('id, name, definition, updated_at').eq('user_id', ctx.user.id).order('updated_at', { ascending: false });
-  return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ sites: data ?? [] });
+  return error ? NextResponse.json({ error: 'Legacy site backup unavailable' }, { status: 503 }) : NextResponse.json({ ownerId:ctx.user.id,sites: data ?? [] },{headers:{'Cache-Control':'no-store'}});
 }
 
 export async function POST(request: NextRequest) {

@@ -6,7 +6,9 @@ import { reconcileAcknowledgment } from './acknowledgment.ts';
 import { canonicalJson } from './hash.ts';
 import { threeWayMerge } from './merge.ts';
 import { isSyncableStorageKey } from '../local-workspace.ts';
-import { mergeScheduleResources, scheduleToResources, type ScheduleResource, type SyncV5Scope } from './resource-model.ts';
+import { legacyWorkspaceFieldForKey, legacyWorkspaceKeyFromRecordId, legacyWorkspaceRecordId, mergeScheduleResources, scheduleToResources, workspaceValueToStorage, type ScheduleResource, type SyncV5Scope } from './resource-model.ts';
+import {WRITING_COLLECTIONS} from './writing-resource-model.ts';
+import {commitWritingPage} from './writing-outbox.ts';
 
 const DB_NAME = 'jackyun-sync-v2';
 const DB_VERSION = 4;
@@ -15,7 +17,7 @@ const activeLeases=new Map<string,{lost:boolean;until:number}>();
 export const isSyncLeaseLost=(key:string)=>{const lease=activeLeases.get(key);return Boolean(lease&&(lease.lost||lease.until<=Date.now()));};
 export type SyncMetadata = SyncRecord;
 
-export interface V5ResourceRecord {scope:SyncV5Scope;recordId:string;revision:number;contentHash:string|null;deleted:boolean;updatedAt:string;value:unknown}
+export interface V5ResourceRecord {scope:SyncV5Scope;recordId:string;revision:number;contentHash:string|null;deleted:boolean;updatedAt:string;value:unknown;verifiedAt?:string}
 export interface V5ResourceOperation {id:string;scope:SyncV5Scope;recordId:string;baseRevision:number;baseHash:string|null;value:unknown;deleted:boolean;clientUpdatedAt:string}
 export interface V5ResourceCursor {scope:SyncV5Scope;field?:string;mode:'baseline'|'changes';after:string;cursor:number;head:number}
 export interface V5ResourceConflict {operationId:string;scope:SyncV5Scope;recordId:string;baseRevision:number;baseHash:string|null;localValue:unknown;localDeleted:boolean;remoteValue:unknown;remoteDeleted:boolean;remoteRevision:number;remoteHash:string|null;createdAt:string}
@@ -77,6 +79,69 @@ export async function getV5Resources(scope:SyncV5Scope,dbScope?:string):Promise<
 export async function getV5Outbox(scope?:SyncV5Scope,dbScope?:string):Promise<V5ResourceOperation[]>{
   const rows=await storeRequest<V5ResourceOperation[]>('v5Outbox','readonly',store=>store.getAll(),dbScope);return rows.filter(row=>!scope||row.scope===scope);
 }
+export interface V5WorkspaceAuthorityPreparation {authoritativeKeys:string[];migratedOperationIds:string[];deferredKeys:Array<{key:string;reason:'baseline'|'submission'|'conflict'|'local-changed'|'base-mismatch'|'v5-operation'}>}
+/** Reconcile eligible legacy intents and persist per-key v5 authority in one account DB transaction. */
+export async function prepareV5WorkspaceAuthority(fields:readonly string[],dbScope?:string):Promise<V5WorkspaceAuthorityPreparation>{
+  const wanted=new Set(fields),db=await openDatabase(dbScope);
+  try{return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(['outbox','conflicts','documents','settings','v5Resources','v5Outbox','v5FieldCursors'],'readwrite');
+    const legacy=tx.objectStore('outbox'),legacyConflicts=tx.objectStore('conflicts'),documents=tx.objectStore('documents'),settings=tx.objectStore('settings'),resources=tx.objectStore('v5Resources'),v5Outbox=tx.objectStore('v5Outbox'),cursors=tx.objectStore('v5FieldCursors');
+    const requests=[legacy.getAll(),legacyConflicts.getAll(),documents.getAll(),settings.get('syncSubmission'),settings.get('v5WorkspaceAuthorityKeys'),resources.getAll(),v5Outbox.getAll(),cursors.getAll()];
+    let done=0,failed=false;
+    const finish=()=>{if(++done!==requests.length||failed)return;try{
+      const legacyRows=requests[0].result as SyncOperation[],conflictRows=requests[1].result as SyncConflict[],documentRows=requests[2].result as Array<{key:string;value:string|null}>,submission=requests[3].result?.value as SyncSubmission|undefined;
+      const oldAuthority=requests[4].result?.value as string[]|undefined,resourceRows=requests[5].result as V5ResourceRecord[],v5Pending=requests[6].result as V5ResourceOperation[],cursorRows=requests[7].result as V5ResourceCursor[];
+      const cursorByField=new Map(cursorRows.filter(row=>row.scope==='workspace').map(row=>[row.field,row]));
+      const resourceById=new Map(resourceRows.filter(row=>row.scope==='workspace').map(row=>[row.recordId,row]));
+      const documentByKey=new Map(documentRows.map(row=>[row.key,row]));
+      const blockedSubmissionKeys=new Set((submission?.operations??[]).map(row=>row.key));
+      const legacyConflictKeys=new Set(conflictRows.map(row=>row.key));
+      const pendingById=new Map(v5Pending.filter(row=>row.scope==='workspace').map(row=>[row.recordId,row]));
+      const deferred=new Map<string,V5WorkspaceAuthorityPreparation['deferredKeys'][number]['reason']>(),migrated:string[]=[],migratedKeys=new Set<string>();
+      for(const operation of legacyRows){
+        const field=legacyWorkspaceFieldForKey(operation.key);if(!field||!wanted.has(field)||WRITING_COLLECTIONS.some(row=>row.field===field))continue;
+        const cursor=cursorByField.get(field);
+        if(!cursor||cursor.mode!=='changes'){deferred.set(operation.key,'baseline');continue;}
+        if(blockedSubmissionKeys.has(operation.key)){deferred.set(operation.key,'submission');continue;}
+        if(legacyConflictKeys.has(operation.key)){deferred.set(operation.key,'conflict');continue;}
+        const recordId=legacyWorkspaceRecordId(operation.key)!;
+        const document=documentByKey.get(operation.key);
+        const current=document?.value===undefined?undefined:document.value===null?null:parseDocument(document.value);
+        if(!document||canonicalJson(current)!==canonicalJson(operation.deleted?null:operation.value)){deferred.set(operation.key,'local-changed');continue;}
+        const base=resourceById.get(recordId);
+        if((base?.revision??0)!==operation.baseRevision||(base?.contentHash??null)!==operation.baseHash){deferred.set(operation.key,'base-mismatch');continue;}
+        const existing=pendingById.get(recordId);
+        if(existing){
+          const sameOperation=existing.id===operation.id&&existing.baseRevision===operation.baseRevision&&existing.baseHash===operation.baseHash&&existing.deleted===operation.deleted&&canonicalJson(existing.value)===canonicalJson(operation.value);
+          if(!sameOperation){deferred.set(operation.key,'v5-operation');continue;}
+        }else{
+          v5Outbox.put({id:operation.id,scope:'workspace',recordId,baseRevision:operation.baseRevision,baseHash:operation.baseHash,
+            value:operation.deleted?null:operation.value,deleted:operation.deleted,clientUpdatedAt:operation.clientUpdatedAt});
+        }
+        legacy.delete(operation.id);migrated.push(operation.id);migratedKeys.add(operation.key);pendingById.set(recordId,{id:operation.id,scope:'workspace',recordId,baseRevision:operation.baseRevision,baseHash:operation.baseHash,
+          value:operation.deleted?null:operation.value,deleted:operation.deleted,clientUpdatedAt:operation.clientUpdatedAt});
+      }
+      const authority=new Set((Array.isArray(oldAuthority)?oldAuthority:[]).filter(key=>isSyncableStorageKey(key)&&Boolean(legacyWorkspaceFieldForKey(key))));
+      const candidates=new Set<string>();
+      for(const row of documentRows)if(isSyncableStorageKey(row.key)&&wanted.has(legacyWorkspaceFieldForKey(row.key)??'')&&!WRITING_COLLECTIONS.some(item=>item.field===legacyWorkspaceFieldForKey(row.key)))candidates.add(row.key);
+      for(const row of resourceRows)if(row.scope==='workspace'){const key=legacyWorkspaceKeyFromRecordId(row.recordId);if(key&&wanted.has(legacyWorkspaceFieldForKey(key)??'')&&!WRITING_COLLECTIONS.some(item=>item.field===legacyWorkspaceFieldForKey(key)))candidates.add(key);}
+      for(const operation of legacyRows){const field=legacyWorkspaceFieldForKey(operation.key);if(field&&wanted.has(field)&&!WRITING_COLLECTIONS.some(item=>item.field===field))candidates.add(operation.key);}
+      for(const key of candidates){
+        const field=legacyWorkspaceFieldForKey(key)!;
+        if(cursorByField.get(field)?.mode!=='changes'){deferred.set(key,'baseline');continue;}
+        if(legacyRows.some(row=>row.key===key&&!migratedKeys.has(row.key))){deferred.set(key,deferred.get(key)??'base-mismatch');continue;}
+        if(legacyConflictKeys.has(key)){deferred.set(key,'conflict');continue;}
+        if(blockedSubmissionKeys.has(key)){deferred.set(key,'submission');continue;}
+        authority.add(key);
+      }
+      const authoritativeKeys=[...authority].sort();settings.put({key:'v5WorkspaceAuthorityKeys',value:authoritativeKeys});
+      const result={authoritativeKeys,migratedOperationIds:migrated,deferredKeys:[...deferred].map(([key,reason])=>({key,reason}))};
+      tx.oncomplete=()=>resolve(result);
+    }catch(error){failed=true;tx.abort();reject(error);}};
+    for(const request of requests){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
+    tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error??Error('v4/v5 workspace ownership transaction aborted'));};
+  });}finally{db.close();}
+}
 export async function getV5Conflicts(dbScope?:string):Promise<V5ResourceConflict[]>{return storeRequest('v5Conflicts','readonly',store=>store.getAll(),dbScope);}
 export async function queueV5ResourceOperation(operation:V5ResourceOperation,dbScope?:string):Promise<void>{
   const db=await openDatabase(dbScope);try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction(['v5Resources','v5Outbox'],'readwrite'),resources=tx.objectStore('v5Resources'),outbox=tx.objectStore('v5Outbox');
@@ -125,6 +190,97 @@ export async function commitV5ResourcePage(scope:SyncV5Scope,records:V5ResourceR
     }catch(error){failed=true;tx.abort();reject(error);}};
     for(const request of [known,pending,conflicts,document,...(priorCursor?[priorCursor]:[])]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
     tx.oncomplete=()=>resolve(projected);tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error??new Error('v5 page commit aborted'));};});}finally{db.close();}
+}
+export async function commitV5WorkspacePage(records:V5ResourceRecord[],cursor:V5ResourceCursor,dbScope?:string):Promise<Array<{key:string;value:string|null}>>{
+  const field=cursor.field;
+  if(cursor.scope!=='workspace'||!field)throw Error('v5 workspace cursor is invalid');
+  if(WRITING_COLLECTIONS.some(row=>row.field===field))return commitWritingPage(openDatabase,records,cursor,dbScope);
+  const cursorStoreName='v5FieldCursors',db=await openDatabase(dbScope);
+  try{return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(['v5Resources',cursorStoreName,'outbox','v5Outbox','v5Conflicts','documents'],'readwrite');
+    const resources=tx.objectStore('v5Resources'),cursorStore=tx.objectStore(cursorStoreName),legacyOutbox=tx.objectStore('outbox'),outbox=tx.objectStore('v5Outbox'),conflicts=tx.objectStore('v5Conflicts'),documents=tx.objectStore('documents');
+    const known=resources.index('scope').getAll('workspace'),legacyPending=legacyOutbox.getAll(),pending=outbox.getAll(),blocked=conflicts.getAll(),docs=documents.getAll(),priorCursor=cursorStore.get(['workspace',field]);
+    const updates:Array<{key:string;value:string|null}>=[];let done=0,failed=false;
+    const finish=()=>{if(++done!==6||failed)return;try{
+      const knownRows=known.result as V5ResourceRecord[],rows=new Map(knownRows.map(row=>[row.recordId,row]));
+      for(const row of records){if(row.scope!=='workspace'||!row.recordId.startsWith(`${field}:`))throw Error('v5 workspace page field mismatch');rows.set(row.recordId,row);resources.put(row);}
+      if(cursor.mode==='baseline'){cursorStore.put(cursor);return;}
+      const finishingBaseline=!priorCursor.result||priorCursor.result.mode==='baseline';
+      const candidates=finishingBaseline?[...rows.values()].filter(row=>row.recordId.startsWith(`${field}:`)):records;
+      const localByKey=new Map((docs.result as Array<{key:string;value:string|null}>).map(row=>[row.key,row]));
+      const priorById=new Map(knownRows.map(row=>[row.recordId,row]));
+      const legacyPendingByKey=new Map((legacyPending.result as SyncOperation[]).map(row=>[row.key,row]));
+      const pendingIds=new Set((pending.result as V5ResourceOperation[]).map(row=>row.recordId));
+      const conflictIds=new Set((blocked.result as V5ResourceConflict[]).map(row=>row.recordId));
+      for(const remote of candidates){
+        const key=legacyWorkspaceKeyFromRecordId(remote.recordId);if(!key)throw Error('v5 workspace key is invalid');
+        if(pendingIds.has(remote.recordId)||conflictIds.has(remote.recordId))continue;
+        const local=localByKey.get(key),base=priorById.get(remote.recordId);
+        const legacyPending=legacyPendingByKey.get(key);
+        if(legacyPending){
+          // Keep the old-engine edit visible until its intent is explicitly migrated to v5.
+          // The cursor may advance because the v5 row is stored above; the next capture can
+          // then compare this preserved document with that row and queue a v5 operation.
+          if(!local){
+            const value=legacyPending.deleted?null:workspaceValueToStorage(legacyPending.value);
+            documents.put({key,value,updatedAt:Date.now()});updates.push({key,value});
+          }
+          continue;
+        }
+        const value=remote.deleted?null:workspaceValueToStorage(remote.value);
+        if(local&&local.value!==value){
+          const baseValue=base?(base.deleted?null:workspaceValueToStorage(base.value)):undefined;
+          const locallyChanged=base?local.value!==baseValue:local.value!==value;
+          if(locallyChanged){
+            const conflict:V5ResourceConflict={operationId:crypto.randomUUID(),scope:'workspace',recordId:remote.recordId,
+              baseRevision:base?.revision??0,baseHash:base?.contentHash??null,localValue:local.value===null?null:parseDocument(local.value),localDeleted:local.value===null,
+              remoteValue:remote.deleted?null:remote.value,remoteDeleted:remote.deleted,remoteRevision:remote.revision,remoteHash:remote.contentHash,
+              createdAt:new Date().toISOString()};
+            conflicts.put(conflict);continue;
+          }
+        }
+        if(!local&&value===null)continue;
+        documents.put({...local,key,value,updatedAt:Date.now()});updates.push({key,value});
+      }
+      cursorStore.put(cursor);
+    }catch(error){failed=true;tx.abort();reject(error);}};
+    for(const request of [known,legacyPending,pending,blocked,docs,priorCursor]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
+    tx.oncomplete=()=>resolve(updates);tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error??Error('v5 workspace page commit aborted'));};
+  });}finally{db.close();}
+}
+export async function acknowledgeV5WorkspaceOperations(applied:Array<{operation:V5ResourceOperation;revision:number;contentHash:string|null;updatedAt:string}>,dbScope?:string):Promise<void>{
+  if(applied.some(row=>row.operation.scope!=='workspace'))throw Error('v5 workspace receipt scope mismatch');
+  const db=await openDatabase(dbScope);try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction(['v5Resources','v5Outbox'],'readwrite'),resources=tx.objectStore('v5Resources'),outbox=tx.objectStore('v5Outbox');
+    const known=resources.index('scope').getAll('workspace'),pending=outbox.getAll();let done=0,failed=false;
+    const finish=()=>{if(++done!==2||failed)return;try{
+      const byId=new Map((known.result as V5ResourceRecord[]).map(row=>[row.recordId,row]));
+      const queuedById=new Map((pending.result as V5ResourceOperation[]).map(row=>[row.id,row]));
+      for(const row of applied){
+        const current=byId.get(row.operation.recordId),queued=queuedById.get(row.operation.id);
+        if(!current||current.revision<=row.revision){
+          const saved={scope:'workspace' as const,recordId:row.operation.recordId,revision:row.revision,contentHash:row.contentHash,
+            deleted:row.operation.deleted,updatedAt:row.updatedAt,value:row.operation.value,
+            ...(current?.revision===row.revision&&current.contentHash===row.contentHash&&current.verifiedAt?{verifiedAt:current.verifiedAt}:{})};
+          resources.put(saved);byId.set(saved.recordId,saved);
+        }
+        if(queued&&canonicalJson(queued)===canonicalJson(row.operation))outbox.delete(row.operation.id);
+      }
+    }catch(error){failed=true;tx.abort();reject(error);}};
+    for(const request of [known,pending]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error??Error('v5 workspace receipt commit aborted'));};
+  });}finally{db.close();}
+}
+export async function resolveV5WorkspaceConflictRemotely(operationId:string,dbScope?:string):Promise<{key:string;value:string|null}|null>{
+  const db=await openDatabase(dbScope);try{return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(['v5Conflicts','documents','v5Outbox'],'readwrite'),conflicts=tx.objectStore('v5Conflicts'),documents=tx.objectStore('documents'),outbox=tx.objectStore('v5Outbox');
+    let result:{key:string;value:string|null}|null=null;
+    const found=conflicts.get(operationId);found.onsuccess=()=>{const row=found.result as V5ResourceConflict|undefined;if(!row)return;
+      if(row.scope!=='workspace'){tx.abort();reject(Error('v5 conflict is not a workspace resource'));return;}
+      const key=legacyWorkspaceKeyFromRecordId(row.recordId);if(!key){tx.abort();reject(Error('v5 workspace conflict key is invalid'));return;}
+      const value=row.remoteDeleted?null:workspaceValueToStorage(row.remoteValue);documents.put({key,value,updatedAt:Date.now()});conflicts.delete(operationId);outbox.delete(operationId);result={key,value};};
+    tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('v5 workspace conflict resolution aborted'));
+  });}finally{db.close();}
 }
 export async function acknowledgeV5Operations(applied:Array<{operation:V5ResourceOperation;revision:number;contentHash:string|null;updatedAt:string}>,dbScope?:string):Promise<string|null>{
   const db=await openDatabase(dbScope);try{return await new Promise<string|null>((resolve,reject)=>{const tx=db.transaction(['v5Outbox','v5Resources','v5Conflicts','documents'],'readwrite'),outbox=tx.objectStore('v5Outbox'),resources=tx.objectStore('v5Resources'),conflicts=tx.objectStore('v5Conflicts'),documents=tx.objectStore('documents');
@@ -418,15 +574,18 @@ export async function projectionOwner(userId?:string):Promise<string|null>{
 
 const parseDocument=(value:string|null):unknown=>{if(value===null)return null;try{return JSON.parse(value);}catch{return value;}};
 /** The document and upload intent commit together; localStorage is only a projection. */
-export async function persistDocument(key:string,value:string|null,queue=true,expected?:string|null):Promise<boolean> {
+export async function persistDocument(key:string,value:string|null,queue=true,expected?:string|null,options?:{onlyIfMissing?:boolean;databaseScope?:string}):Promise<boolean> {
   if(!isSyncableStorageKey(key))throw Error('此键不属于同步数据。');
   if(!queue&&account&&isSyncLeaseLost(`recovery:${account}:workspace`))throw Error('同步租约已过期，本机内容保留。');
-  const db=await openDatabase();let applied=false;
+  const db=await openDatabase(options?.databaseScope);let applied=false;
   try{return await new Promise<boolean>((resolve,reject)=>{
     const tx=db.transaction(['documents','outbox','metadata','settings'],'readwrite');
     const docs=tx.objectStore('documents'),outbox=tx.objectStore('outbox'),settings=tx.objectStore('settings');
-    const current=docs.get(key),base=tx.objectStore('metadata').get(key),pending=outbox.getAll(),counter=settings.get('operationSequence');
-    let done=0;const write=()=>{if(++done!==4)return;try{
+    const current=docs.get(key),base=tx.objectStore('metadata').get(key),pending=outbox.getAll(),counter=settings.get('operationSequence'),authority=settings.get('v5WorkspaceAuthorityKeys');
+    let done=0;const write=()=>{if(++done!==5)return;try{
+      const writingProjection=Boolean(current.result?.writingProjection||(authority.result?.value as string[]|undefined)?.includes(key));
+      if(writingProjection)queue=false;
+      if(options?.onlyIfMissing&&(current.result||base.result))return;
       if(expected!==undefined&&current.result&&current.result.value!==expected){
         if(!queue)return;
         const merged=threeWayMerge(parseDocument(expected),parseDocument(value),parseDocument(current.result.value));
@@ -434,7 +593,7 @@ export async function persistDocument(key:string,value:string|null,queue=true,ex
         value=merged.merged===undefined?null:typeof merged.merged==='string'?merged.merged:JSON.stringify(merged.merged);
       }
       const previous=current.result?.value??null;
-      docs.put({...current.result,key,value,updatedAt:Date.now()});applied=true;
+      docs.put({...current.result,key,value,...(writingProjection?{writingProjection:true}:{}),updatedAt:Date.now()});applied=true;
       if(!queue||previous===value)return;
       const metadata=base.result as SyncRecord|undefined;
       const same=(metadata?.deleted??true)===(value===null)&&canonicalJson(metadata?.deleted?null:metadata?.value??null)===canonicalJson(parseDocument(value));
@@ -448,11 +607,11 @@ export async function persistDocument(key:string,value:string|null,queue=true,ex
       const compacted=compactSyncOperations([...matches,operation])[0];
       for(const row of matches)outbox.delete(row.id);outbox.put(compacted);settings.put({key:'operationSequence',value:sequence});
     }catch(error){tx.abort();reject(error);}};
-    current.onsuccess=write;base.onsuccess=write;pending.onsuccess=write;counter.onsuccess=write;
+    current.onsuccess=write;base.onsuccess=write;pending.onsuccess=write;counter.onsuccess=write;authority.onsuccess=write;
     tx.oncomplete=()=>resolve(applied);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('本机保存未完成，修改未确认。'));
   });}finally{db.close();}
 }
-export const getDocuments=()=>storeRequest<Array<{key:string;value:string|null;projectedValue?:string|null}>>('documents','readonly',store=>store.getAll());
+export const getDocuments=(scope?:string)=>storeRequest<Array<{key:string;value:string|null;projectedValue?:string|null;writingProjection?:boolean}>>('documents','readonly',store=>store.getAll(),scope);
 export async function markDocumentProjected(key:string,value:string|null):Promise<void>{
   const db=await openDatabase();try{await new Promise<void>((resolve,reject)=>{
     const tx=db.transaction('documents','readwrite'),store=tx.objectStore('documents'),read=store.get(key);

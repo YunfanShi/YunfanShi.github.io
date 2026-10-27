@@ -1,0 +1,72 @@
+{
+  "environment": "production Supabase source",
+  "capturedDate": "2026-10-27",
+  "project": "gdcwwlnzylrzrqhaaljq",
+  "readOnly": true,
+  "learningValuesExported": false,
+  "restoredBackupVerified": false,
+  "migrationVerified": false,
+  "liveReadOnlyVerification": {
+    "verifiedAtUtc": "2026-10-27T05:59:42Z",
+    "rowCountsReconciledWithFingerprintSnapshot": true,
+    "rowValuesExported": false,
+    "allInspectedTablesHaveRlsAndAtLeastOnePolicy": true,
+    "tablePolicyCounts": {
+      "study_plans": 4,
+      "study_tasks": 4,
+      "review_items": 1,
+      "review_attempts": 1,
+      "offline_mutation_receipts": 1,
+      "quiz_subjects": 1,
+      "quiz_sessions": 1,
+      "quiz_questions": 1,
+      "quiz_settings": 1,
+      "reader_books": 4,
+      "focus_sessions": 1,
+      "focus_tasks": 1
+    },
+    "tableOwnerCounts": {
+      "study_plans": 0,
+      "study_tasks": 1,
+      "review_items": 0,
+      "review_attempts": 0,
+      "offline_mutation_receipts": 1,
+      "quiz_subjects": 2,
+      "quiz_sessions": 2,
+      "quiz_questions": 2,
+      "quiz_settings": 0,
+      "reader_books": 1,
+      "focus_sessions": 0,
+      "focus_tasks": 0
+    }
+  },
+  "latestReadOnlyRecheck": {
+    "verifiedAtUtc": "2026-10-27T07:04:31Z",
+    "method": "single-snapshot row counts plus per-table SHA-256 of PostgreSQL JSONB row text; only aggregate counts and fingerprints returned",
+    "tablesVerified": 13,
+    "rowCountsMatchBaseline": true,
+    "sha256FingerprintsMatchBaseline": true,
+    "rowValuesExported": false,
+    "productionWritesPerformed": false,
+    "v5MigrationVerified": false,
+    "backupRestoreVerified": false
+  },
+  "fingerprintAlgorithm": "SHA256(UTF8(concatenate(sorted lowercase hex SHA256(UTF8(to_jsonb(row)::text)))))",
+  "fingerprintBoundary": "PostgreSQL jsonb text representation, not JavaScript canonical JSON. Row hashes are sorted; duplicate rows remain represented. All 13 aggregates ran in one SQL statement snapshot. This is a source baseline, not a v5 contentHash or backup.",
+  "missingTables": ["public.ielts_writing_workspaces"],
+  "tables": [
+    {"table":"study_plans","rows":0,"sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"table":"study_tasks","rows":1,"sha256":"3f8dc9ee04a5143fb23b26684c85f275762ab97adb85490561ce7cfa1f62fd87"},
+    {"table":"review_items","rows":0,"sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"table":"review_attempts","rows":0,"sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"table":"offline_mutation_receipts","rows":1,"sha256":"c85fb49f40940a8b4e1327bec180f6544a6e43421d5d35e256d589ec5a519e9b"},
+    {"table":"quiz_subjects","rows":5,"sha256":"cb3240ea88c0f4c68c9e035031c0c6740f55b10af442b4d6dfa61e4d12c42357"},
+    {"table":"quiz_sessions","rows":10,"sha256":"124c7ee15ec6c648b5d65155c90ca294ebf3a824d7783d9babc1cc0010d5f6ce"},
+    {"table":"quiz_questions","rows":119,"sha256":"630173145c71e827bcd748ab3ce0e283e78be3dfb4f78b6eafc71397cfc344a8"},
+    {"table":"quiz_settings","rows":0,"sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"table":"focus_tasks","rows":0,"sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"table":"focus_sessions","rows":0,"sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"table":"reader_books","rows":9,"sha256":"0e91d077e426fb3c8dea85e53acb752a7851ce2930aa0e4ee88a3246eb8aa7f4"},
+    {"table":"personal_sites","rows":1,"sha256":"037c43a133bd464892f7fc49843abe4e0d4271c44db4514e334cb632652797ae"}
+  ]
+}

@@ -1,0 +1,1139 @@
+{
+  "environment": "production Azure Functions HTTP",
+  "capturedAt": "2026-10-27T08:02:38.674Z",
+  "realBearerAuthentication": true,
+  "physicalPhoneTested": false,
+  "businessUiTested": false,
+  "scopes": [
+    {
+      "scope": "timetable",
+      "status": "PASS",
+      "crud": true,
+      "sha256": true,
+      "receipts": true,
+      "concurrentDuplicate": true,
+      "staleWriteConflict": true,
+      "operationIdReuseRejected": true,
+      "deletionRecovery": true,
+      "manifest": true,
+      "logicalBaselineRestored": true
+    },
+    {
+      "scope": "learning",
+      "status": "PASS",
+      "crud": true,
+      "sha256": true,
+      "receipts": true,
+      "concurrentDuplicate": true,
+      "staleWriteConflict": true,
+      "operationIdReuseRejected": true,
+      "deletionRecovery": true,
+      "manifest": true,
+      "logicalBaselineRestored": true
+    },
+    {
+      "scope": "cue",
+      "status": "PASS",
+      "crud": true,
+      "sha256": true,
+      "receipts": true,
+      "concurrentDuplicate": true,
+      "staleWriteConflict": true,
+      "operationIdReuseRejected": true,
+      "deletionRecovery": true,
+      "manifest": true,
+      "logicalBaselineRestored": true
+    },
+    {
+      "scope": "practice",
+      "status": "PASS",
+      "crud": true,
+      "sha256": true,
+      "receipts": true,
+      "concurrentDuplicate": true,
+      "staleWriteConflict": true,
+      "operationIdReuseRejected": true,
+      "deletionRecovery": true,
+      "manifest": true,
+      "logicalBaselineRestored": true
+    },
+    {
+      "scope": "timer",
+      "status": "PASS",
+      "crud": true,
+      "sha256": true,
+      "receipts": true,
+      "concurrentDuplicate": true,
+      "staleWriteConflict": true,
+      "operationIdReuseRejected": true,
+      "deletionRecovery": true,
+      "manifest": true,
+      "logicalBaselineRestored": true
+    },
+    {
+      "scope": "settings",
+      "status": "PASS",
+      "crud": true,
+      "sha256": true,
+      "receipts": true,
+      "concurrentDuplicate": true,
+      "staleWriteConflict": true,
+      "operationIdReuseRejected": true,
+      "deletionRecovery": true,
+      "manifest": true,
+      "logicalBaselineRestored": true
+    },
+    {
+      "scope": "workspace",
+      "status": "PASS",
+      "crud": true,
+      "sha256": true,
+      "receipts": true,
+      "concurrentDuplicate": true,
+      "staleWriteConflict": true,
+      "operationIdReuseRejected": true,
+      "deletionRecovery": true,
+      "manifest": true,
+      "logicalBaselineRestored": true
+    }
+  ],
+  "trace": [
+    {
+      "method": "GET",
+      "path": "/api/sync/v5",
+      "status": 200,
+      "requestId": "0ecbf4ab-bb3f-4bcc-9127-878a6905cf2e",
+      "durationMs": 4892,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5",
+      "status": 401,
+      "requestId": "b797fc6a-b8ca-4aab-8216-57995d0e835c",
+      "durationMs": 1124,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5",
+      "status": 403,
+      "requestId": "044b6a32-0fcb-4db6-aeaf-f49190fec4ae",
+      "durationMs": 169,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "411ba7b2-354e-465d-b469-3026742feeb6",
+      "durationMs": 211,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "05490b34-e28e-46ae-b526-73eeab646f9a",
+      "durationMs": 278,
+      "requestBytes": 485
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "bc4fc133-c679-42dd-b62d-2a108fb296d4",
+      "durationMs": 706,
+      "requestBytes": 485
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "3a778135-c67f-4f44-afec-f6c7b1bcfc2e",
+      "durationMs": 191,
+      "requestBytes": 163
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "88c5bf06-c761-4585-872f-304c49858322",
+      "durationMs": 212,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/manifest",
+      "status": 200,
+      "requestId": "6794e7c8-fd09-4cc5-9fbd-c1a6035d0a11",
+      "durationMs": 194,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "13c4320d-7e95-4f85-8d06-9d6cbae1c3a3",
+      "durationMs": 206,
+      "requestBytes": 547
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "9de21674-4792-41b4-ab38-04c5e938cd21",
+      "durationMs": 207,
+      "requestBytes": 485
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 409,
+      "requestId": "fe2fb1f9-3487-4b4e-8a46-4a452747a789",
+      "durationMs": 187,
+      "requestBytes": 485
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "9d8ce2a6-c993-4da2-bb1c-829ae70e0035",
+      "durationMs": 184,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "91664574-abbe-472e-8670-93ccf89676a5",
+      "durationMs": 217,
+      "requestBytes": 337
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "c355e72a-0788-4eed-bfe7-6cd0f526128b",
+      "durationMs": 184,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "3cbbe7d0-0c7d-448d-ae75-590417381be5",
+      "durationMs": 207,
+      "requestBytes": 163
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "4c1e6e97-9961-4277-872b-0c0987ef4dda",
+      "durationMs": 219,
+      "requestBytes": 547
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "06745003-dbe7-46f7-bbf5-615bd4a0d0b6",
+      "durationMs": 409,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "da316372-f132-464d-977d-6de36dc1c5d7",
+      "durationMs": 180,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "2d77723d-ec94-4cb8-a255-ada535ba4233",
+      "durationMs": 223,
+      "requestBytes": 337
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "33c7f589-430d-43da-87ae-70678598296f",
+      "durationMs": 181,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "4dc01851-0e7e-41c1-a872-99b6ced2e793",
+      "durationMs": 776,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "341196cd-e302-4454-a3df-ec01b14bc14f",
+      "durationMs": 264,
+      "requestBytes": 529
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "e638aab4-e293-4ee1-9f1d-4c89e6858da6",
+      "durationMs": 796,
+      "requestBytes": 529
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "1d0b670c-17d7-4ae9-a157-9de53bf0b87f",
+      "durationMs": 171,
+      "requestBytes": 162
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "e0b52b1b-fbc4-4e07-be72-23be634e6eca",
+      "durationMs": 192,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/manifest",
+      "status": 200,
+      "requestId": "c4019979-eb53-409b-8f31-4621408560a0",
+      "durationMs": 182,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "66cdde7c-a61e-45d7-988c-5d3db8275741",
+      "durationMs": 222,
+      "requestBytes": 591
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "692d1223-c26a-4094-8897-bebc8464dd77",
+      "durationMs": 201,
+      "requestBytes": 529
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 409,
+      "requestId": "3608602e-f2ee-43ec-aef7-8d2784ed066c",
+      "durationMs": 201,
+      "requestBytes": 529
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "b679e620-ca0d-4504-ba8f-107125c321a4",
+      "durationMs": 691,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "6c23e45c-a83c-48c6-9aa3-f8bfb26bd9a9",
+      "durationMs": 209,
+      "requestBytes": 381
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "451c0ccc-57de-48c8-9455-969067b5701e",
+      "durationMs": 188,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "a0b16b1f-debb-4c44-82cd-cd44a0abc491",
+      "durationMs": 199,
+      "requestBytes": 162
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "21368c30-a463-4c4c-b9b8-cc2e4c16ab5b",
+      "durationMs": 192,
+      "requestBytes": 591
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "408e0b4c-7ca5-4ca5-8663-6f39837e06b4",
+      "durationMs": 195,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "9ac2c367-9d4b-4cba-9799-0480a8da78c4",
+      "durationMs": 173,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "4c4ea482-e88b-4254-9f85-2e92ba088b39",
+      "durationMs": 462,
+      "requestBytes": 381
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "0b2a9bdf-80b3-42ef-be6f-80a1a6a4eebb",
+      "durationMs": 182,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "fb2924c0-2752-40c8-9b75-ea72469ac758",
+      "durationMs": 190,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "7401774b-0b64-430a-924f-31a7f3b75633",
+      "durationMs": 214,
+      "requestBytes": 512
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "ed3bdd45-fb3f-4df9-a9a5-9fcc478f84aa",
+      "durationMs": 215,
+      "requestBytes": 512
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "02f7fd0f-c4bc-4ead-ba27-203f977c4dfe",
+      "durationMs": 239,
+      "requestBytes": 157
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "3b281d18-5a1f-4e1f-a1a1-896226cb4241",
+      "durationMs": 177,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/manifest",
+      "status": 200,
+      "requestId": "913fc930-b528-4a36-86d3-147612926e00",
+      "durationMs": 198,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "c0d62905-40c0-48a3-94af-1b27bcd328a0",
+      "durationMs": 229,
+      "requestBytes": 574
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "a2cf4fa2-b4c5-4873-9154-3e36e348ee0e",
+      "durationMs": 921,
+      "requestBytes": 512
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 409,
+      "requestId": "5bc4a572-428b-4629-b68b-863e5b9bebb3",
+      "durationMs": 191,
+      "requestBytes": 512
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "a008d0e7-f7bb-445e-8293-9ff38a9a880d",
+      "durationMs": 178,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "104286ee-93ce-46fe-8a22-10cbe34f6703",
+      "durationMs": 205,
+      "requestBytes": 364
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "a702eb5e-8a46-4c25-9426-d62d3d8909b8",
+      "durationMs": 198,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "191c6250-0d12-40d2-ac97-68de9d500ed6",
+      "durationMs": 176,
+      "requestBytes": 157
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "f1ad458e-087f-49e9-9a79-155cd5a0e48c",
+      "durationMs": 222,
+      "requestBytes": 574
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "fdd60013-2c58-43b6-8ab1-06fcefc16ecc",
+      "durationMs": 412,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "18f86558-8cbc-495c-b8c2-fe8c265ea00a",
+      "durationMs": 193,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "7b7ca63e-75cb-4070-83fd-0bb31d1c8ffc",
+      "durationMs": 196,
+      "requestBytes": 364
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "45d0ce0a-eb26-4bcf-99c3-0a8fa2bc95c6",
+      "durationMs": 189,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "6e52b2ce-3612-42ee-b4cd-dd0e634a6f5f",
+      "durationMs": 196,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "3292e731-9ffe-48ff-8714-51f2843f48bd",
+      "durationMs": 211,
+      "requestBytes": 531
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "70e81d38-55af-47ca-93ea-5db0ef664a50",
+      "durationMs": 555,
+      "requestBytes": 531
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "dce6eeba-dbfa-4a47-b71d-23618e95fd41",
+      "durationMs": 172,
+      "requestBytes": 162
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "94416bfe-5bae-469c-a5a7-32e3b680a1c0",
+      "durationMs": 194,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/manifest",
+      "status": 200,
+      "requestId": "171ae038-a59c-48bf-8e3c-13018230f456",
+      "durationMs": 187,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "bd73a32a-622d-4d3e-99cc-95ecc0025a85",
+      "durationMs": 223,
+      "requestBytes": 593
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "95dcc48e-1e34-49c7-a932-eaf7bbcabe74",
+      "durationMs": 198,
+      "requestBytes": 531
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 409,
+      "requestId": "eea94d95-bdb2-4448-9424-bb2d879adf3c",
+      "durationMs": 187,
+      "requestBytes": 531
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "b9f00980-2c54-45c8-8b7d-f17ae7d3dbcc",
+      "durationMs": 182,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "ec305134-4864-428d-967f-1a6ad12533f0",
+      "durationMs": 215,
+      "requestBytes": 383
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "73b56c83-fa14-4d6a-85ab-810339c53e73",
+      "durationMs": 179,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "98826e01-afcf-4113-9265-1d2351e04d1f",
+      "durationMs": 181,
+      "requestBytes": 162
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "5c6afb60-0df3-4443-87ab-e160784c627f",
+      "durationMs": 225,
+      "requestBytes": 593
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "99d4efc1-416c-45ee-b158-8a1088ebd55f",
+      "durationMs": 194,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "4287da55-3cbe-4636-90af-b92c3abf6e29",
+      "durationMs": 183,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "00c89e1b-909f-4acf-9498-f56f6cd6b0b1",
+      "durationMs": 242,
+      "requestBytes": 383
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "f8e1e327-6bbc-4edc-9e1a-2aaf459b17cb",
+      "durationMs": 180,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "f792d6d2-5a72-4d0f-8220-fb2e9c6a660a",
+      "durationMs": 199,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "1cff8c6d-baf2-401c-beed-5448c386f941",
+      "durationMs": 206,
+      "requestBytes": 528
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "8d7366d7-4875-4aa3-b56f-1dd5cb7a1ed3",
+      "durationMs": 497,
+      "requestBytes": 528
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "bf7c8e4b-d778-4713-aa1f-3b0f6582a4f4",
+      "durationMs": 189,
+      "requestBytes": 159
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "b9a80896-c3d9-4550-b677-b3011e3550f3",
+      "durationMs": 488,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/manifest",
+      "status": 200,
+      "requestId": "2b63cf79-b501-4563-8fe3-024d38255eb5",
+      "durationMs": 188,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "6498f47e-fe84-4eed-8eba-df9bbb00edb3",
+      "durationMs": 201,
+      "requestBytes": 590
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "69fcb5a4-808a-430e-a6b8-19c2b4cc6116",
+      "durationMs": 195,
+      "requestBytes": 528
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 409,
+      "requestId": "81eb9c36-9117-4e9e-925b-e883c3fcb841",
+      "durationMs": 189,
+      "requestBytes": 528
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "ca45bde0-ba00-40ab-8545-289e93794535",
+      "durationMs": 190,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "e3a7b72e-5152-4f0f-9d3f-f1f46fe58313",
+      "durationMs": 202,
+      "requestBytes": 380
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "ef9ad490-5451-4f08-94ee-5490bd3bf3da",
+      "durationMs": 182,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "52aa7e33-07f1-4a51-bd67-35a3aa1cd3ca",
+      "durationMs": 185,
+      "requestBytes": 159
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "d4a92fb6-a3b3-4ea8-882f-53321120485b",
+      "durationMs": 205,
+      "requestBytes": 590
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "b39abc34-0583-4d27-a5c8-02a9893ad090",
+      "durationMs": 185,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "0b6436b6-1ae5-4777-8137-8b5c7ac20646",
+      "durationMs": 190,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "f3429c70-f987-490d-9760-7efac9b4297f",
+      "durationMs": 193,
+      "requestBytes": 380
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "d5d7b6e9-cc69-4445-8f65-4ff4d0671526",
+      "durationMs": 195,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "0f629f4a-d5b2-443c-b77b-1199f2e12d63",
+      "durationMs": 192,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "b737d2b4-9090-4625-8c9d-a55c214adc0e",
+      "durationMs": 216,
+      "requestBytes": 530
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "a93d93ea-07a5-4701-bf39-d0001da4a32a",
+      "durationMs": 217,
+      "requestBytes": 530
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "eda04cc8-1b1d-4ce0-82ab-a36cfb1e70af",
+      "durationMs": 171,
+      "requestBytes": 162
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "2d425b9c-eacb-4260-a9cb-de0133ec0a7c",
+      "durationMs": 181,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/manifest",
+      "status": 200,
+      "requestId": "92a9842e-6edb-410b-aa36-ea1b9a14ecf1",
+      "durationMs": 180,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "5a7e9857-3802-414f-91b1-7b52d3b5b796",
+      "durationMs": 221,
+      "requestBytes": 592
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "73d9475b-575e-40b9-86d5-4f38699e272e",
+      "durationMs": 192,
+      "requestBytes": 530
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 409,
+      "requestId": "9749b814-7fef-44b7-a4cf-35db10c9bbd8",
+      "durationMs": 193,
+      "requestBytes": 530
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "a37dee7d-c0c0-42ca-9dde-4f51ef179df7",
+      "durationMs": 186,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "010dc327-de52-4ab9-8bf7-a50b7bb22749",
+      "durationMs": 220,
+      "requestBytes": 382
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "3d18b3b9-3507-466c-9a83-947096e4811a",
+      "durationMs": 184,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "930e34f8-666c-4f17-9808-cb380564c452",
+      "durationMs": 195,
+      "requestBytes": 162
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "6c8b4f75-8547-4902-b77a-c4aafec96300",
+      "durationMs": 194,
+      "requestBytes": 592
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "0ee64eec-8565-424c-8de7-bf81e495f26c",
+      "durationMs": 193,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "aeefb32f-035a-4bb4-a628-a1435cf5f8c6",
+      "durationMs": 694,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "c751ec06-c7ea-4f31-bba3-f5c3be8c7489",
+      "durationMs": 219,
+      "requestBytes": 382
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "e96ef605-42dc-4fa7-8dc8-22fbee42f8bb",
+      "durationMs": 282,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "1a6a2fb5-2b78-4c82-9e64-282ec01de487",
+      "durationMs": 475,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "007b8cb5-122c-4c61-b715-1b5e6fe66f15",
+      "durationMs": 216,
+      "requestBytes": 563
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "7a2ec47e-e7f3-45d8-bac6-d28369430179",
+      "durationMs": 228,
+      "requestBytes": 563
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "631084fe-4822-40fb-9c2d-d3742ffccfc8",
+      "durationMs": 189,
+      "requestBytes": 163
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "6466ed50-edb6-480c-a2a6-e3af4a5d85d0",
+      "durationMs": 192,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/manifest",
+      "status": 200,
+      "requestId": "f486b221-34a5-4425-9190-ea34df209aa6",
+      "durationMs": 172,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "74f1e524-90a6-4e1f-9cd7-e2d1d8096adb",
+      "durationMs": 216,
+      "requestBytes": 625
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "771ccf48-8902-4c03-9edb-8730c2d9ee67",
+      "durationMs": 526,
+      "requestBytes": 563
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 409,
+      "requestId": "f060a37d-9e65-4bc3-91e3-a20f08793c6c",
+      "durationMs": 187,
+      "requestBytes": 563
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "35638c1f-6a5b-428c-858a-9ea53eef03b6",
+      "durationMs": 180,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "b330ce20-ca24-431e-8bf4-6caf5e6f16f1",
+      "durationMs": 202,
+      "requestBytes": 415
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "0622a758-b173-49c4-a3cd-aa6ff0fd455b",
+      "durationMs": 178,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/receipts",
+      "status": 200,
+      "requestId": "26f52903-a48f-45e4-8153-9b020260616e",
+      "durationMs": 189,
+      "requestBytes": 163
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "1839bef9-9d02-49b7-a739-5f6fc7652838",
+      "durationMs": 210,
+      "requestBytes": 625
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "82d2dcbd-e22d-4e57-9ae9-b28fc923c75b",
+      "durationMs": 188,
+      "requestBytes": 0
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "bd995cc1-1357-4253-bd96-a1bb06fbfe01",
+      "durationMs": 675,
+      "requestBytes": 0
+    },
+    {
+      "method": "POST",
+      "path": "/api/sync/v5/operations",
+      "status": 200,
+      "requestId": "da39f459-2cc0-4907-84e6-230f2fddcdd9",
+      "durationMs": 234,
+      "requestBytes": 415
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/v5/records",
+      "status": 200,
+      "requestId": "4b63471f-39d6-49e8-82ae-f42eef38a0a2",
+      "durationMs": 181,
+      "requestBytes": 0
+    }
+  ],
+  "invalidTokenRejected": true,
+  "accountMismatchRejected": true,
+  "testSessionRevoked": true,
+  "ok": true,
+  "cleanupFailures": []
+}

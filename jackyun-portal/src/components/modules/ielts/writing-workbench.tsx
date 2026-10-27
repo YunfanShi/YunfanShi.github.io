@@ -1,5 +1,7 @@
 'use client';
 import { workspaceStorage } from '@/lib/sync/repository';
+import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT } from '@/lib/local-workspace';
+import { getLatestSyncStatus } from '@/lib/sync/status';
 
 
 import { siteConfirm } from '@/lib/site-dialog';
@@ -108,9 +110,6 @@ function validWritingWorkspace(value: unknown): value is WritingWorkspace {
 function workspaceHasWork(workspace: WritingWorkspace) {
   return Boolean(workspace.draft.question.trim() || workspace.draft.essay.trim() || workspace.draft.originalEssay.trim() || workspace.feedback);
 }
-function matchesSavedFinal(workspace: WritingWorkspace, archive: WritingArchiveEntry[]) {
-  return archive.some((entry) => entry.essayId === workspace.id && entry.task === workspace.draft.task && entry.question === workspace.draft.question.trim() && entry.content === workspace.draft.essay.trim());
-}
 function upsertWritingWorkspace(workspaces: WritingWorkspace[], entry: WritingWorkspace) {
   const remaining = workspaces.filter((workspace) => workspace.id !== entry.id);
   return workspaceHasWork(entry) ? [entry, ...remaining] : remaining;
@@ -151,7 +150,6 @@ export default function WritingWorkbench() {
   const [repairPromptMode, setRepairPromptMode] = useState(false);
   const [responseFormat, setResponseFormat] = useState<'json' | 'markdown'>('json');
   const [markdownReport, setMarkdownReport] = useState('');
-  const [cloudSyncReady, setCloudSyncReady] = useState(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'local' | 'syncing' | 'synced' | 'error'>('local');
   const [externalFallbackMode, setExternalFallbackMode] = useState<ReviewMode | null>(null);
   const [archive, setArchive] = useState<WritingArchiveEntry[]>([]);
@@ -175,6 +173,8 @@ export default function WritingWorkbench() {
       const merged = persistLocalEditNow(localStorage,DRAFT_KEY,draftBase.current,next) as DraftState;
       saved=merged;draftBase.current=merged;
       writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, merged);
+      workspaceStorage.setItem(DRAFT_KEY,JSON.stringify(merged));
+      workspaceStorage.setItem(MIRROR_KEY,JSON.stringify(merged));
       if (keepSnapshot) {
         const existing = JSON.parse(workspaceStorage.getItem(SNAPSHOTS_KEY) || '[]') as DraftSnapshot[];
         const snapshots = [{ savedAt: new Date().toISOString(), draft: merged }, ...(Array.isArray(existing) ? existing : [])].slice(0, 5);
@@ -190,6 +190,7 @@ export default function WritingWorkbench() {
   function persistWritingWorkspaces(next: WritingWorkspace[]) {
     try {
       writeRedundantJson(localStorage, WORKSPACES_KEY, WORKSPACES_MIRROR_KEY, next);
+      const serialized=JSON.stringify(next);workspaceStorage.setItem(WORKSPACES_KEY,serialized);workspaceStorage.setItem(WORKSPACES_MIRROR_KEY,serialized);
       workspacesRef.current = next;
       setWorkspaces(next);
       setSaveState('saved');
@@ -211,56 +212,49 @@ export default function WritingWorkbench() {
     const activeWorkspace = storedWorkspaces.find((workspace) => workspace.id === (storedDraft?.essayId ?? storedWorkspaces[0]?.id));
     const activeDraft = storedDraft ?? activeWorkspace?.draft ?? defaultDraft;
     const restoredWorkspace: WritingWorkspace = activeWorkspace ? { ...activeWorkspace, draft: activeDraft } : { id: activeDraft.essayId, draft: activeDraft, feedback: null, feedbackSource: { essayId: '', essay: '' }, feedbackHistory: [], previousRuleKeys: [], resolved: [], stage: storedStage ?? (activeDraft.originalEssay ? 1 : 0), externalFallbackMode: null, externalReply: '', externalPanelOpen: true, savedAt: new Date().toISOString() };
-    const restoredWorkspaces = matchesSavedFinal(restoredWorkspace, storedArchive)
-      ? storedWorkspaces.filter((workspace) => workspace.id !== restoredWorkspace.id)
-      : upsertWritingWorkspace(storedWorkspaces, restoredWorkspace);
+    const restoredWorkspaces = upsertWritingWorkspace(storedWorkspaces, restoredWorkspace);
     workspacesRef.current = restoredWorkspaces;
     queueMicrotask(() => { setDraft(activeDraft); setWorkspaces(restoredWorkspaces); if (Array.isArray(storedHistory)) setHistory(storedHistory); setArchive(storedArchive); setFeedback(restoredWorkspace.feedback); setFeedbackSource(restoredWorkspace.feedbackSource); setFeedbackHistory(restoredWorkspace.feedbackHistory); setPreviousRuleKeys(restoredWorkspace.previousRuleKeys); setResolved(restoredWorkspace.resolved); setExternalFallbackMode(restoredWorkspace.externalFallbackMode); setExternalReply(restoredWorkspace.externalReply); setMarkdownReport(restoredWorkspace.markdownReport ?? ''); setExternalPanelOpen(restoredWorkspace.externalPanelOpen); setUiLanguage(storedLanguage); setWorkspaceLayout(storedLayout); setHighlightIssues(storedHighlights); setStageState(restoredWorkspace.stage); setGuidanceMode(storedGuidance); setHydrated(true); });
   }, []);
   useEffect(() => {
     if (!hydrated) return;
-    let cancelled = false;
-    void fetch('/api/ielts-writing/workspaces', { cache: 'no-store' }).then(async (response) => {
-      if (!response.ok) throw new Error('cloud unavailable');
-      const data = await response.json() as { workspace?: { workspaces?: WritingWorkspace[]; error_history?: ErrorHistoryEntry[]; archive?: WritingArchiveEntry[]; learning_settings?: Record<string, unknown> } | null };
-      if (cancelled) return;
-      const remote = data.workspace;
-      if (remote) {
-        const byId = new Map<string, WritingWorkspace>();
-        for (const item of [...(remote.workspaces ?? []), ...workspacesRef.current]) if (validWritingWorkspace(item) && (!byId.has(item.id) || item.savedAt >= byId.get(item.id)!.savedAt)) byId.set(item.id, item);
-        const merged = [...byId.values()].sort((a, b) => b.savedAt.localeCompare(a.savedAt)).slice(0, 40);
-        workspacesRef.current = merged; setWorkspaces(merged);
-        const historyById = new Map<string, Set<string>>();
-        for (const item of [...(remote.error_history ?? []), ...history]) if (item && typeof item.essayId === 'string' && Array.isArray(item.ruleKeys)) historyById.set(item.essayId, new Set([...(historyById.get(item.essayId) ?? []), ...item.ruleKeys]));
-        setHistory([...historyById].map(([essayId, keys]) => ({ essayId, ruleKeys: [...keys] })));
-        const archiveById = new Map<string, WritingArchiveEntry>();
-        for (const item of [...(remote.archive ?? []), ...archive]) if (isWritingArchiveEntry(item)) archiveById.set(item.id, item);
-        setArchive([...archiveById.values()].sort((a, b) => b.savedAt.localeCompare(a.savedAt)));
-        const prefs = remote.learning_settings ?? {};
-        if (prefs.uiLanguage === 'en' || prefs.uiLanguage === 'zh') setUiLanguage(prefs.uiLanguage);
-        if (prefs.workspaceLayout === 'split' || prefs.workspaceLayout === 'stacked') setWorkspaceLayout(prefs.workspaceLayout);
-        if (typeof prefs.highlightIssues === 'boolean') setHighlightIssues(prefs.highlightIssues);
-        if (prefs.guidanceMode === 'hint' || prefs.guidanceMode === 'correction') setGuidanceMode(prefs.guidanceMode);
-        if (prefs.responseFormat === 'json' || prefs.responseFormat === 'markdown') setResponseFormat(prefs.responseFormat);
-        const selected = merged.find((item) => item.id === draft.essayId) ?? (!draft.essay.trim() ? merged[0] : undefined);
-        if (selected) { setDraft(selected.draft); setFeedback(selected.feedback); setFeedbackSource(selected.feedbackSource); setFeedbackHistory(selected.feedbackHistory); setPreviousRuleKeys(selected.previousRuleKeys); setResolved(selected.resolved); setExternalFallbackMode(selected.externalFallbackMode); setExternalReply(selected.externalReply); setMarkdownReport(selected.markdownReport ?? ''); setExternalPanelOpen(selected.externalPanelOpen); setStageState(selected.stage); }
+    const updateStatus = (detail: {state?: string;pending?: number;conflicts?: number}) => {
+      if (detail.state === 'syncing') setCloudSyncStatus('syncing');
+      else if (detail.state === 'synced' && !detail.pending && !detail.conflicts) setCloudSyncStatus('synced');
+      else if (detail.state === 'guest') setCloudSyncStatus('local');
+      else if (detail.state) setCloudSyncStatus('error');
+    };
+    const initial = getLatestSyncStatus();
+    if (initial) updateStatus(initial);
+    const onStatus = (event: Event) => updateStatus((event as CustomEvent).detail ?? {});
+    const onCloudState = (event: Event) => {
+      const detail = (event as CustomEvent<{source?: string;keys?: string[]}>).detail;
+      if (detail?.source !== 'v5' && detail?.source !== 'cloud') return;
+      for (const key of detail.keys ?? []) {
+        const raw = workspaceStorage.getItem(key);
+        if (raw === null) continue;
+        try {
+          const value: unknown = JSON.parse(raw);
+          if (key === WORKSPACES_KEY && Array.isArray(value) && value.every(validWritingWorkspace)) {
+            const previous = workspacesRef.current;
+            workspacesRef.current = value; setWorkspaces(value);
+            const selected = value.find((item) => item.id === draft.essayId);
+            const previousActive = previous.find((item) => item.id === draft.essayId);
+            if (selected && previousActive && canonicalJson(draft) === canonicalJson(previousActive.draft)) {
+              setDraft(selected.draft); setFeedback(selected.feedback); setFeedbackSource(selected.feedbackSource);
+              setFeedbackHistory(selected.feedbackHistory); setPreviousRuleKeys(selected.previousRuleKeys); setResolved(selected.resolved);
+              setExternalFallbackMode(selected.externalFallbackMode); setExternalReply(selected.externalReply);
+              setMarkdownReport(selected.markdownReport ?? ''); setExternalPanelOpen(selected.externalPanelOpen); setStageState(selected.stage);
+            }
+          } else if (key === HISTORY_KEY && Array.isArray(value)) setHistory(value as ErrorHistoryEntry[]);
+          else if (key === ARCHIVE_KEY && Array.isArray(value)) setArchive(value.filter(isWritingArchiveEntry));
+        } catch { /* Keep the last usable editor state when a projection is malformed. */ }
       }
-      setCloudSyncReady(true); setCloudSyncStatus('synced');
-    }).catch(() => { if (!cancelled) { setCloudSyncReady(false); setCloudSyncStatus('local'); } });
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Initial cloud restore runs once after hydration; editor changes must not restart it.
-  }, [hydrated]);
-  useEffect(() => {
-    if (!hydrated || !cloudSyncReady) return;
-    const timer = window.setTimeout(() => {
-      setCloudSyncStatus('syncing');
-      const body = { workspaces, errorHistory: history, archive, learningSettings: { uiLanguage, workspaceLayout, highlightIssues, guidanceMode, responseFormat } };
-      void fetch('/api/ielts-writing/workspaces', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-        .then((response) => { if (!response.ok) throw new Error('cloud save failed'); setCloudSyncStatus('synced'); })
-        .catch(() => setCloudSyncStatus('error'));
-    }, 900);
-    return () => window.clearTimeout(timer);
-  }, [archive, cloudSyncReady, guidanceMode, highlightIssues, history, hydrated, responseFormat, uiLanguage, workspaces, workspaceLayout]);
+    };
+    window.addEventListener(LOCAL_SYNC_STATUS_EVENT, onStatus);
+    window.addEventListener(CLOUD_STATE_APPLIED_EVENT, onCloudState);
+    return () => { window.removeEventListener(LOCAL_SYNC_STATUS_EVENT, onStatus); window.removeEventListener(CLOUD_STATE_APPLIED_EVENT, onCloudState); };
+  }, [draft, hydrated]);
   useEffect(() => { if (!hydrated) return; try { workspaceStorage.setItem(RESPONSE_FORMAT_KEY, responseFormat); } catch { /* Cloud sync remains available when local storage is full. */ } }, [hydrated, responseFormat]);
   useEffect(() => {
     if (!hydrated) return;
@@ -277,19 +271,18 @@ export default function WritingWorkbench() {
   useEffect(() => {
     if (!hydrated) return;
     const current = currentWorkspaceSnapshot;
-    const next = matchesSavedFinal(current, archive)
-      ? workspacesRef.current.filter((workspace) => workspace.id !== current.id)
-      : upsertWritingWorkspace(workspacesRef.current, current);
+    const next = upsertWritingWorkspace(workspacesRef.current, current);
     try {
       writeRedundantJson(localStorage, WORKSPACES_KEY, WORKSPACES_MIRROR_KEY, next);
+      const serialized=JSON.stringify(next);workspaceStorage.setItem(WORKSPACES_KEY,serialized);workspaceStorage.setItem(WORKSPACES_MIRROR_KEY,serialized);
       if (canonicalJson(next) !== canonicalJson(workspacesRef.current)) setWorkspaces(next);
       workspacesRef.current = next;
     } catch (error) {
       queueMicrotask(() => { setSaveState('error'); setMessage(error instanceof Error ? error.message : '进行中的修订未能保存。'); });
     }
   }, [currentWorkspaceSnapshot, archive, hydrated]);
-  useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history) as ErrorHistoryEntry[];if(canonicalJson(merged)===canonicalJson(history))historyBase.current=merged;else queueMicrotask(()=>setHistory(current=>{historyBase.current=merged;return threeWayMerge(history,current,merged).merged as ErrorHistoryEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作历史未保存，原历史已保留。'));} }, [history, hydrated]);
-  useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(localStorage,ARCHIVE_KEY,archiveBase.current,archive) as WritingArchiveEntry[];if(canonicalJson(merged)===canonicalJson(archive))archiveBase.current=merged;else queueMicrotask(()=>setArchive(current=>{archiveBase.current=merged;return threeWayMerge(archive,current,merged).merged as WritingArchiveEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作归档未保存，原归档已保留。'));} }, [archive, hydrated]);
+  useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history) as ErrorHistoryEntry[];workspaceStorage.setItem(HISTORY_KEY,JSON.stringify(merged));if(canonicalJson(merged)===canonicalJson(history))historyBase.current=merged;else queueMicrotask(()=>setHistory(current=>{historyBase.current=merged;return threeWayMerge(history,current,merged).merged as ErrorHistoryEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作历史未保存，原历史已保留。'));} }, [history, hydrated]);
+  useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(localStorage,ARCHIVE_KEY,archiveBase.current,archive) as WritingArchiveEntry[];workspaceStorage.setItem(ARCHIVE_KEY,JSON.stringify(merged));if(canonicalJson(merged)===canonicalJson(archive))archiveBase.current=merged;else queueMicrotask(()=>setArchive(current=>{archiveBase.current=merged;return threeWayMerge(archive,current,merged).merged as WritingArchiveEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作归档未保存，原归档已保留。'));} }, [archive, hydrated]);
   useEffect(() => {
     if (!draft.timerStarted || draft.secondsLeft <= 0) return;
     const interval = window.setInterval(() => setDraft((current) => ({ ...current, secondsLeft: Math.max(0, current.secondsLeft - 1), timerStarted: current.secondsLeft > 1 })), 1000);
@@ -440,8 +433,7 @@ export default function WritingWorkbench() {
     // Keep the complete outgoing repair workspace before replacing it.
     let saved: DraftState;
     try {
-      const alreadyFinal = matchesSavedFinal(currentWorkspaceSnapshot, archive);
-      if (!alreadyFinal && !saveCurrentWritingWorkspace()) return;
+      if (!saveCurrentWritingWorkspace()) return;
       if (draft.question.trim() || draft.essay.trim() || draft.originalEssay.trim()) persistDraft(draft, true, true, true);
       const next = { ...defaultDraft, essayId: newEssayId(), task: draft.task, secondsLeft: draft.task === 'task2' ? 2400 : 1200 };
       saved = persistDraft(next, false, true, true);
@@ -476,7 +468,7 @@ export default function WritingWorkbench() {
   function archiveCurrentEssay() {
     if (draft.essay.trim().length < 80) { setMessage(uiLanguage === 'en' ? 'Write at least 80 characters before saving a final version.' : '至少写满 80 个字符后再保存最终稿。'); return; }
     const entry = createWritingArchiveEntry({ essayId: draft.essayId, title: archive.find((item) => item.essayId === draft.essayId)?.title, task: draft.task, question: draft.question, content: draft.essay, savedAt: new Date().toISOString(), bandEstimate: feedback?.bandEstimate });
-    setArchive((entries) => upsertWritingArchive(entries, entry)); persistWritingWorkspaces(workspacesRef.current.filter((workspace) => workspace.id !== draft.essayId)); setCurrentArchiveId(entry.id); void leaveFocusMode(); setView('reader'); setMessage(uiLanguage === 'en' ? 'Final version saved to your library.' : '最终稿已保存到文库。');
+    setArchive((entries) => upsertWritingArchive(entries, entry)); setCurrentArchiveId(entry.id); void leaveFocusMode(); setView('reader'); setMessage(uiLanguage === 'en' ? 'Final version saved to your library.' : '最终稿已保存到文库。');
   }
   function openArchivedEssay(entryId: string) { setCurrentArchiveId(entryId); setView('reader'); }
   async function deleteArchivedEssay(entry: WritingArchiveEntry) {

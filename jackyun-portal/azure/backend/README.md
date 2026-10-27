@@ -1,10 +1,12 @@
 # Azure 独立同步后台
 
-## 当前源码包 3.9.1
+## 当前源码包 3.11.3
 
 网站3.44.0新增v4能力协商、变化日志读取及回执查询。后端默认不声明v4；先以管理员运行`../sync-v4.sql`并核对运行角色权限，再设置`SYNC_V4_USERS`灰度账号或`SYNC_V4_ENABLED=true`。数据库未迁移时继续v3。部署与网络审批边界见仓库`docs/sync-reliability-3.44.0`。
 
-网站3.46.0接入默认关闭的v5资源同步客户端，按页面选择Schedule字段，并以独立字段游标保存分页增量进度。Azure接口支持manifest与changes按field过滤；head与对应记录在同一SQL语句快照读取，防止跨查询竞态。v5仍默认关闭；先在指定Azure迁移库以管理员运行`../sync-v5.sql`，再同时配置账号白名单`SYNC_V5_USERS`和资源范围`SYNC_V5_SCOPES`。所有设备对同一账号使用相同服务端资源策略。未启用或迁移未就绪时继续v4；v5写入失败不得自动转成旧版Schedule全量上传。服务端兼容桥将v5投影版本/hash同步到旧Schedule行元数据，避免重写整份正文，并使过期v4条件写入进入冲突路径。生产数据库迁移、认证读写、跨设备往返与回滚演练尚未完成，不得开放生产账号灰度。
+网站3.46.0接入v5资源同步客户端，按页面选择Schedule字段，并以独立字段游标保存分页增量进度。Azure接口支持manifest与changes按field过滤；head与对应记录在同一SQL语句快照读取，防止跨查询竞态。rollout 由`SYNC_V5_MODE`选择`disabled`、`test-users`、`canary`、`percentage`或`global`；省略该设置时保持旧的显式用户白名单行为。`percentage`使用固定盐和账号UUID的SHA-256分桶，需将`SYNC_V5_PERCENTAGE`设为0至100的整数；`*`不是有效模式，也不会启用所有用户。`SYNC_V5_SCOPES`仍限制可用资源域。`SYNC_V5_WRITE_PAUSE=true`会拒绝新v5 mutation并返回可重试503，但保留manifest、records和receipt查询，客户端必须保留本地Outbox。GET `/api/sync/v5`会返回当前账号看到的rollout模式、资源域和写入暂停状态。
+
+重要：Global只代表对所有账号开放当前配置的v5 scopes，不代表所有Portal同步数据已迁入v5。直到全部legacy key、IndexedDB/PWA数据和离线队列都有v5模型与迁移证明前，不得将生产模式设为`global`，不得停用v4/v3/v2。兼容桥仍维护旧Schedule投影；v5写入失败不得自动回退成旧Schedule快照上传。2026-10-26审计已验证生产数据库完整备份可恢复到隔离库，且v5 schema已存在；尚未完成真实认证v5写入、receipt/hash复读、手机电脑往返或全量旧数据迁移，因此目前只允许受控canary，不得扩大至全员。
 
 2026-10-24：针对生产 ACCOUNT_STATE_UNAVAILABLE，账号权威查询每次最多8秒，临时失败最多再读一次；同一已验证会话及签名有效期内的并发核验合并。401/403 不重试，不从其他用户或未验证资料恢复授权。网站3.40.2同步增加服务端 PostgREST GET/HEAD 的单次恢复重试，写入与 Auth 请求保留原策略。
 
@@ -27,6 +29,14 @@
 - Bearer令牌必须由指定Supabase项目验证：ES256/RS256使用该项目JWKS；旧HS256调用Auth的`/user`确认，不分发签名密钥。验证issuer、audience、角色、有效期、账号UUID与session_id，拒绝匿名及service_role；不使用可编辑metadata或请求里的user_id。
 - 本机验证使用受控测试签名，未验证真实线上签发令牌。JWT不是即时会话撤销检查；当前账号状态门禁来自迁移库profiles，切换前需追平资料，敏感操作的即时撤销策略仍需落实。
 - 连接显式配置可信CA并校验证书；连接池最多4条。登录拒绝超级用户、BYPASSRLS、建库、建角色、复制权限。每个事务在同一连接SET LOCAL普通执行角色和已验证身份，检查当前active资料；写操作按用户加事务锁，提交/回滚清除上下文。
+
+### 本机隔离 staging v5 runtime 验收
+
+`npm run test:v5:staging` 只连接 `jackyun_v5_stage_20261026`，固定使用 `jackyun_sync_login`，并验证登录角色无超级用户、RLS bypass、建库或建角色权限。脚本在事务内调用 v5 handler，检查 workspace 写入、同操作重试、回执、SHA-256 复读、删除标记及跨身份 RLS，最后始终 `ROLLBACK`。写入必须使用该隔离库中已存在且通过 `sync_identity_allowed()` 检查的专用 staging 测试账号；随机合成 UUID 只用于验证账号门禁会拒绝未知身份，不得拿来写入。
+
+密码不得放入命令行、环境文件、日志或聊天。推荐在已获该 Secret 读取权限的 Windows PowerShell 会话运行 `tests/run-v5-staging-runtime-keyvault.ps1`；它会自动查找常见 Windows Azure CLI 安装路径，在本机询问 staging 测试账号 UUID，从 Key Vault 进程内读取密码，不显示或保存密码，并在同一会话运行事务回滚测试。UUID 可从 Supabase Dashboard 的 Authentication → Users 中查看对应专用测试账号的 User ID；UUID 只在本机输入，不要发到聊天。若账号不存在或不活跃，测试会在执行写入前停止。禁止把生产 Function 的 `PGDATABASE` 带入此测试；集成脚本对服务器、数据库和登录名均有硬性断言。
+
+`run-v5-staging-runtime-keyvault.ps1 -TestSubject <website-user-uuid>` 可避免交互式 UUID 输入；Azure Object ID 不是网站 User ID。2026-10-27 的实际 P1 验收和生产 CUE HTTP 结果见 `docs/sync-v5-runtime-acceptance-20261027.docx`。扩展后的 staging v4/v5 兼容测试发现运行角色缺少 `auth` schema 的 `USAGE`，操作员已使用 `tests/repair-v5-staging-auth-usage.ps1` 在固定隔离库仅补此权限，没有授予 `auth.users` 读取权。此前通过结果仍有效；后续复测若从 Codex 网络执行主机运行，需该主机可路由到 staging PostgreSQL 5432。真实浏览器 Outbox、完整 Schedule 与跨设备验收仍需继续。
 - SQL权限由上级目录的`sync-runtime.sql`配置，脚本仅接受隔离迁移库。普通登录仅有连接和SET ROLE执行角色权限；不得使用迁移管理员作为运行登录。四个原同步函数已确认SECURITY INVOKER。唯一账号状态SECURITY DEFINER查询由无登录专用角色持有，只能通过行权限读取当前用户id、account_status、deleted_at三列；执行角色不能SET ROLE该owner。见sync-identity-owner.sql。
 - 普通请求正文最多1MB；上传每段正文250KB、解码120KB，总上传24MB；设备撤销、计划清空保护、冲突及删除规则沿用现有同步实现。CORS默认仅`https://jackyun.top`；CORS不替代令牌验证。错误日志只有请求ID和错误代码，不记录令牌、数据库错误详情或同步正文。
 

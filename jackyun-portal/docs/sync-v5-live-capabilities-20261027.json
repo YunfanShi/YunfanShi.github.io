@@ -1,0 +1,23 @@
+{
+  "capturedAt": "2026-10-27T07:29:30.808Z",
+  "environment": "production",
+  "realLoginVerified": true,
+  "capabilitiesVerified": true,
+  "scopes": [
+    "cue"
+  ],
+  "scope": "cue",
+  "trace": [
+    {
+      "method": "GET",
+      "path": "/api/sync/v5",
+      "status": 200,
+      "requestId": "13ddb9cc-b8cf-4056-a3ec-102cb41b8035",
+      "durationMs": 5323,
+      "requestBytes": 0
+    }
+  ],
+  "writesPerformed": false,
+  "testSessionRevoked": true,
+  "ok": true
+}

@@ -1,0 +1,41 @@
+{
+  "environment": "isolated component browser with synthetic authenticated-owner fixture",
+  "realAuthenticationTested": false,
+  "physicalDevicesTested": false,
+  "productionChanged": false,
+  "legacyApiMutationRequests": 0,
+  "scenarios": [
+    {
+      "width": 1280,
+      "offlineSource": false,
+      "localEditPreserved": true,
+      "legacyCopyPreserved": true,
+      "localSaveAvailable": true,
+      "pageErrors": []
+    },
+    {
+      "width": 1280,
+      "offlineSource": true,
+      "localEditPreserved": true,
+      "legacyCopyPreserved": false,
+      "localSaveAvailable": true,
+      "pageErrors": []
+    },
+    {
+      "width": 390,
+      "offlineSource": false,
+      "localEditPreserved": true,
+      "legacyCopyPreserved": true,
+      "localSaveAvailable": true,
+      "pageErrors": []
+    },
+    {
+      "width": 390,
+      "offlineSource": true,
+      "localEditPreserved": true,
+      "legacyCopyPreserved": false,
+      "localSaveAvailable": true,
+      "pageErrors": []
+    }
+  ]
+}

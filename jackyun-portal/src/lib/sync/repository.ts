@@ -1,16 +1,27 @@
 'use client';
 import { isSyncableStorageKey, CLOUD_STATE_APPLIED_EVENT } from '../local-workspace.ts';
 import { bindSyncUser, getDocuments, persistDocument, activateGuestRepository,evictDownloadCache,markDocumentProjected,projectionOwner } from './outbox.ts';
-import { SYNC_V5_SCOPES } from './resource-model.ts';
+import { SYNC_V5_SCHEDULE_SCOPES } from './resource-model.ts';
 
 const projection=()=>window.localStorage;
 const memory=new Map<string,string|null>();
 let tail:Promise<void>=Promise.resolve(),ready:Promise<void>|null=null,failed:unknown=null,pending=0;
 let currentOwner:string|null|undefined;
 let v5ScheduleAuthority=false;
+let v5WorkspaceAuthorityKeys=new Set<string>();
 let saveState:'saving'|'saved'|'storage_error'|'projection_degraded'='saving';
 export const getLocalSaveState=()=>saveState;
-export function setV5ScheduleAuthority(scopes:readonly string[]):void{v5ScheduleAuthority=SYNC_V5_SCOPES.every(scope=>scopes.includes(scope));}
+export function setV5ScheduleAuthority(scopes:readonly string[]):void{v5ScheduleAuthority=SYNC_V5_SCHEDULE_SCOPES.every(scope=>scopes.includes(scope));}
+export function setV5WorkspaceAuthorityKeys(keys:readonly string[]):void{v5WorkspaceAuthorityKeys=new Set(keys);}
+/** Long-running imports must retain their creating account, including after network waits. */
+export async function captureRepositoryContext(){
+  const initialization=ready??initializeRepository(currentOwner??null);
+  await initialization;
+  const owner=currentOwner??null;
+  if(initialization!==ready||await projectionOwner()!==(owner??'guest'))throw Error('账号已变化，请重新打开当前页面。');
+  return {owner,databaseScope:`jackyun-sync-v2:${owner??'guest'}`,
+    assertCurrent(){if(currentOwner!==owner||ready!==initialization)throw Error('账号已变化，导入已停止。');}};
+}
 const failures=new Map<string,{value:string|null;error:unknown;expected?:string|null}>();
 export const LOCAL_DURABILITY_EVENT='jackyun-local-durability';
 function status(state:'saving'|'saved'|'storage_error'|'projection_degraded') {
@@ -89,9 +100,10 @@ function enqueue(key:string,value:string|null,expected?:string|null) {
   tail=tail.catch(()=>{}).then(async()=>{
     if(repositoryReady)await repositoryReady;
     if(await projectionOwner()!==(owner??'guest'))throw Error('当前账号已在另一标签页切换，本机草稿保留。');
-    try{await persistDocument(key,value,!(key==='jackyun_schedule_control_v1'&&v5ScheduleAuthority),expected);}catch(error){
+    const queueLegacy=!(key==='jackyun_schedule_control_v1'&&v5ScheduleAuthority)&&!v5WorkspaceAuthorityKeys.has(key);
+    try{await persistDocument(key,value,queueLegacy,expected);}catch(error){
       if((error as {name?:string}).name!=='QuotaExceededError')throw error;
-      await evictDownloadCache();await persistDocument(key,value,true,expected);
+      await evictDownloadCache();await persistDocument(key,value,queueLegacy,expected);
     }
     const row=(await getDocuments()).find(row=>row.key===key);
     if(row){if(memory.get(key)===value)memory.set(key,row.value);await project(key,row.value);}
@@ -102,6 +114,18 @@ export async function flushLocalWrites():Promise<void>{
   await tail;
   if(failures.size&&ready){for(const [key,draft]of [...failures])enqueue(key,draft.value,draft.expected);await tail;}
   if(failed)throw failed;
+}
+/** Source imports never replace an existing row, including a concurrently committed tombstone. */
+export async function importRepositoryRecordIfMissing(key:string,value:string):Promise<boolean>{
+  const context=await captureRepositoryContext();
+  await flushLocalWrites();context.assertCurrent();
+  if(workspaceStorage.getItem(key)!==null)return false;
+  const applied=await persistDocument(key,value,!v5WorkspaceAuthorityKeys.has(key),undefined,{onlyIfMissing:true,databaseScope:context.databaseScope});
+  context.assertCurrent();
+  if(await projectionOwner()!==(context.owner??'guest'))throw Error('另一标签页已切换账号，导入保留在原账号仓库。');
+  context.assertCurrent();
+  if(applied){memory.set(key,value);await project(key,value);context.assertCurrent();window.dispatchEvent(new CustomEvent('jackyun-sync-edit'));}
+  return applied;
 }
 /** Legacy readers see pending drafts immediately; saved is announced only after IDB commit. */
 export const workspaceStorage={
