@@ -50,7 +50,7 @@ try {
   await lateRestoreContext.addInitScript(() => {
     localStorage.setItem('quizwise_version_preference', 'react');
     localStorage.setItem('quizwise_current_questions', JSON.stringify([
-      { type: 'multiple_choice', questionText: 'Cloud-restored active question?', options: [{ label: 'A', text: 'Yes' }, { label: 'B', text: 'No' }], correctAnswer: 'A) Yes' },
+      { id: 'late-cloud-question', type: 'multiple_choice', questionText: 'Cloud-restored active question?', options: [{ label: 'A', text: 'Yes' }, { label: 'B', text: 'No' }], correctAnswer: 'A) Yes' },
     ]));
     localStorage.removeItem('quizwise_current_progress');
   });
@@ -111,6 +111,37 @@ try {
   assert.equal(await flowPage.evaluate(() => localStorage.getItem('quizwise_current_questions')), null, 'completed quiz clears its current-question recovery record');
   console.log('PASS QuizWise React import, subject selection, answer confirmation, navigation and local result history on mobile');
   await flowContext.close();
+
+  const staleIdentityContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  await staleIdentityContext.addInitScript(() => {
+    localStorage.setItem('quizwise_version_preference', 'react');
+    localStorage.setItem('quizwise_current_questions', JSON.stringify([
+      { id: 'old-cloud-question-a', type: 'multiple_choice', questionText: 'Old cloud question?', options: [{ label: 'A', text: 'One' }, { label: 'B', text: 'Two' }], correctAnswer: 'A) One' },
+    ]));
+    localStorage.setItem('quizwise_current_progress', JSON.stringify({
+      sessionId: 'old-cloud-session', startedAt: '2026-10-28T08:00:00.000Z', subjectName: 'Old cloud subject',
+      currentIndex: 0, questionIds: ['old-cloud-question-a'], answers: [{ questionIndex: 0, answer: '', isCorrect: null }],
+    }));
+  });
+  const staleIdentityPage = await staleIdentityContext.newPage();
+  staleIdentityPage.on('pageerror', error => errors.push(error.message));
+  await staleIdentityPage.goto(`${base}/quiz`);
+  await staleIdentityPage.getByRole('heading', { name: /QuizWise/ }).waitFor();
+  await staleIdentityPage.getByRole('button', { name: '新建测验' }).click();
+  await staleIdentityPage.getByRole('button', { name: '导入 AI 生成的 JSON' }).click();
+  await staleIdentityPage.getByPlaceholder('粘贴 {"questions":[...]}').fill(JSON.stringify({ questions }));
+  await staleIdentityPage.getByRole('button', { name: '检查并导入' }).click();
+  await staleIdentityPage.getByRole('button', { name: 'Custom' }).click();
+  await staleIdentityPage.getByPlaceholder(/Chemistry Paper/).fill('Local-only identity reset');
+  await staleIdentityPage.getByRole('button', { name: 'Start Quiz' }).click();
+  await staleIdentityPage.waitForFunction(() => {
+    const progress = JSON.parse(localStorage.getItem('quizwise_current_progress') || 'null');
+    return progress?.subjectName === 'Local-only identity reset' && progress?.sessionId === null;
+  });
+  const resetProgress = await staleIdentityPage.evaluate(() => JSON.parse(localStorage.getItem('quizwise_current_progress') || 'null'));
+  assert.deepEqual(resetProgress.questionIds, [], 'a new local quiz must not inherit the previous cloud question IDs');
+  console.log('PASS QuizWise local-only quiz clears the previous cloud question identity');
+  await staleIdentityContext.close();
 
   const htmlContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
   await htmlContext.addInitScript(() => {

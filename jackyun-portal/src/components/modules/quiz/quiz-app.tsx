@@ -248,6 +248,7 @@ export default function QuizApp() {
     }
     setSubjectName(subject);
     setSessionId(null);
+    setDbQuestions([]);
     setDraftAnswers({});
     setCurrentIndex(0);
     setView('quiz');
