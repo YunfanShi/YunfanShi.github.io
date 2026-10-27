@@ -5,13 +5,13 @@ import { workspaceStorage } from '@/lib/sync/repository';
 import { siteConfirm } from '@/lib/site-dialog';
 import { useCallback, useEffect, useState } from 'react';
 import { cancelBackupRestore, createBackupVersion, downloadBackupVersion, inspectBackupVersion, listBackupVersions, restoreBackupVersion, type BackupVersion } from '@/actions/backup-center';
-import { BACKUP_PAGES, isBackupableLegacyKey, legacyBackupPage, type BackupPage } from '@/lib/backup/pages';
+import { BACKUP_PAGES, isBackupableLegacyKey, type BackupPage } from '@/lib/backup/pages';
 import { CLOUD_STATE_APPLIED_EVENT, storageValueToString } from '@/lib/local-workspace';
 import { getOutbox, getSetting, removeOperation, saveMetadata } from '@/lib/sync/outbox';
 import { listLocalBackups, localPageValues, saveLocalBackup, type LocalBackup } from '@/lib/backup/local';
 import { SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
 import { inspectScheduleVersion, type BackupInspection } from '@/lib/backup/inspection';
-import { parseLocalPageBackup } from '@/lib/backup/local-import';
+import { applyLocalPageImport, parseLocalPageBackup } from '@/lib/backup/local-import';
 
 const REASONS: Record<BackupVersion['reason'], string> = {
   automatic: '自动', baseline: '初始', before_restore: '恢复前', manual: '手动',
@@ -135,22 +135,20 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   }
 
   async function applyLocal(item: LocalBackup) {
-    const current: Record<string, string> = {};
-    for (let index = 0; index < workspaceStorage.length; index += 1) {
-      const key = workspaceStorage.key(index);
-      if (key && isBackupableLegacyKey(key) && legacyBackupPage(key) === item.page) {
-        const value = workspaceStorage.getItem(key);
-        if (value !== null) current[key] = value;
-      }
-    }
-    await saveLocalBackup(localOwner, item.page, localPageValues(current, item.page));
-    for (const key of Object.keys(current)) if (!(key in item.values)) workspaceStorage.removeItem(key);
-    for (const [key, value] of Object.entries(item.values)) {
-      if (!isBackupableLegacyKey(key) || legacyBackupPage(key) !== item.page) throw new Error('本地备份包含不允许恢复的键。');
-      workspaceStorage.setItem(key, value);
-    }
-    await workspaceStorage.flush();
-    window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys: Object.keys(item.values) } }));
+    const keys = await applyLocalPageImport({
+      page: item.page,
+      owner: localOwner,
+      values: item.values,
+      storage: {
+        keys: () => Array.from({ length: workspaceStorage.length }, (_, index) => workspaceStorage.key(index)).filter((key): key is string => key !== null),
+        getItem: key => workspaceStorage.getItem(key),
+        setItem: (key, value) => workspaceStorage.setItem(key, value),
+        removeItem: key => workspaceStorage.removeItem(key),
+        flush: () => workspaceStorage.flush(),
+      },
+      saveRecoveryPoint: saveLocalBackup,
+    });
+    window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys } }));
     window.dispatchEvent(new Event('jackyun-sync-retry'));
     setMessage('本地页面已恢复到所选版本，原状态已先保存；联网后会按现有同步规则处理。');
     await load();
