@@ -4,6 +4,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { applyV5WorkspaceArchive, createV5WorkspaceArchive, parseV5WorkspaceArchive } from '../src/lib/backup/workspace-archive.ts';
 import { exportOfflineWorkspaceArchiveData, restoreOfflineWorkspaceArchiveData } from '../src/lib/offline/workspace.ts';
 import { initializeRepository, workspaceStorage } from '../src/lib/sync/repository.ts';
+import { getSyncArchiveData, restoreSyncArchiveData } from '../src/lib/sync/outbox.ts';
 
 class StorageMock {
   private values = new Map<string, string>();
@@ -158,4 +159,41 @@ test('offline archive restore collision rolls back snapshots and operation rows'
     });
     assert.equal(checkpoints.length, 1);
   } finally { db.close(); }
+});
+
+test('portable archive preserves v4 and v5 pending operations and conflicts with account isolation and recovery', async () => {
+  indexedDB = new IDBFactory();
+  Object.assign(window, { localStorage: new StorageMock() });
+  const owner='sync-archive-owner';
+  await getSyncArchiveData(owner);
+  const operationId='00400000-0000-4000-8000-000000000011';
+  const legacyOperation={id:operationId,key:'quizwise_history',baseRevision:2,baseHash:'base-hash',baseValue:'old',value:'pending',deleted:false,clientUpdatedAt:'2026-10-28T10:00:00.000Z'};
+  const legacyConflict={operationId:'00400000-0000-4000-8000-000000000012',key:'quizwise_history',baseRevision:1,baseValue:'base',localValue:'local',localDeleted:false,remoteValue:'remote',remoteDeleted:false,remoteHash:'remote-hash',remoteRevision:2,createdAt:'2026-10-28T10:01:00.000Z'};
+  const v5Operation={id:'00400000-0000-4000-8000-000000000013',scope:'workspace' as const,recordId:'legacyQuiz:sample',baseRevision:3,baseHash:null,value:{pending:true},deleted:false,clientUpdatedAt:'2026-10-28T10:02:00.000Z'};
+  const v5Conflict={operationId:'00400000-0000-4000-8000-000000000014',scope:'workspace' as const,recordId:'legacyQuiz:sample',baseRevision:3,baseHash:null,localValue:{local:true},localDeleted:false,remoteValue:{remote:true},remoteDeleted:false,remoteRevision:4,remoteHash:'remote-hash',createdAt:'2026-10-28T10:03:00.000Z'};
+  const db=await new Promise<IDBDatabase>((resolve,reject)=>{const request=indexedDB.open(`jackyun-sync-v2:${owner}`);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+  try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction(['outbox','conflicts','v5Outbox','v5Conflicts'],'readwrite');
+    tx.objectStore('outbox').put(legacyOperation);tx.objectStore('conflicts').put(legacyConflict);tx.objectStore('v5Outbox').put(v5Operation);tx.objectStore('v5Conflicts').put(v5Conflict);
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});}finally{db.close();}
+
+  const snapshot=await getSyncArchiveData(owner);
+  assert.equal(snapshot.legacyOutbox.length,1);assert.equal(snapshot.legacyConflicts.length,1);
+  assert.equal(snapshot.v5Outbox.length,1);assert.equal(snapshot.v5Conflicts.length,1);
+  await assert.rejects(restoreSyncArchiveData('different-owner',snapshot),/缺少账号归属/);
+  const archive=await createV5WorkspaceArchive({},'2026-10-28T10:04:00.000Z',undefined,snapshot);
+  const parsed=await parseV5WorkspaceArchive(JSON.stringify(archive));
+  await new Promise<void>((resolve,reject)=>{const request=indexedDB.open(`jackyun-sync-v2:${owner}`);request.onsuccess=()=>{const database=request.result,tx=database.transaction(['outbox','conflicts','v5Outbox','v5Conflicts'],'readwrite');
+    for(const name of ['outbox','conflicts','v5Outbox','v5Conflicts'])tx.objectStore(name).clear();
+    tx.oncomplete=()=>{database.close();resolve();};tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);};request.onerror=()=>reject(request.error);});
+  const restored=await restoreSyncArchiveData(owner,parsed.syncState);
+  assert.deepEqual(restored,{legacyOperations:1,legacyConflicts:1,v5Operations:1,v5Conflicts:1});
+  assert.deepEqual(await getSyncArchiveData(owner),snapshot);
+  assert.deepEqual(await restoreSyncArchiveData(owner,parsed.syncState),{legacyOperations:0,legacyConflicts:0,v5Operations:0,v5Conflicts:0});
+  const changed=structuredClone(parsed.syncState!);changed.legacyOutbox[0].value='different payload';
+  await assert.rejects(restoreSyncArchiveData(owner,changed),/内容与本机不同/);
+  const recovered=await new Promise<unknown[]>((resolve,reject)=>{const request=indexedDB.open(`jackyun-sync-v2:${owner}`);request.onsuccess=()=>{
+    const database=request.result,tx=database.transaction('settings','readonly'),get=tx.objectStore('settings').getAll();get.onsuccess=()=>resolve(get.result);
+    tx.onerror=()=>reject(tx.error);tx.oncomplete=()=>database.close();};request.onerror=()=>reject(request.error);});
+  assert.equal((recovered as Array<{key:string}>).filter(row=>row.key.startsWith(`archiveRecovery:${owner}:`)).length,2);
+  assert.deepEqual(await getSyncArchiveData('unrelated-owner'),{ownerId:'unrelated-owner',legacyOutbox:[],legacyConflicts:[],v5Outbox:[],v5Conflicts:[]});
 });

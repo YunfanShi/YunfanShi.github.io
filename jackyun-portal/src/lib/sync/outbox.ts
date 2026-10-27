@@ -21,6 +21,7 @@ export interface V5ResourceRecord {scope:SyncV5Scope;recordId:string;revision:nu
 export interface V5ResourceOperation {id:string;scope:SyncV5Scope;recordId:string;baseRevision:number;baseHash:string|null;value:unknown;deleted:boolean;clientUpdatedAt:string}
 export interface V5ResourceCursor {scope:SyncV5Scope;field?:string;mode:'baseline'|'changes';after:string;cursor:number;head:number}
 export interface V5ResourceConflict {operationId:string;scope:SyncV5Scope;recordId:string;baseRevision:number;baseHash:string|null;localValue:unknown;localDeleted:boolean;remoteValue:unknown;remoteDeleted:boolean;remoteRevision:number;remoteHash:string|null;createdAt:string}
+export interface SyncArchiveData {ownerId:string;legacyOutbox:SyncOperation[];legacyConflicts:SyncConflict[];v5Outbox:V5ResourceOperation[];v5Conflicts:V5ResourceConflict[]}
 const SCHEDULE_DOCUMENT_KEY='jackyun_schedule_control_v1';
 const parseScheduleResources=(rows:V5ResourceRecord[]):ScheduleResource[]=>rows.filter(row=>!row.deleted).map(row=>{
   const colon=row.recordId.indexOf(':');if(colon<1)throw new Error('v5 resource id invalid');
@@ -78,6 +79,94 @@ export async function getV5Resources(scope:SyncV5Scope,dbScope?:string):Promise<
 }
 export async function getV5Outbox(scope?:SyncV5Scope,dbScope?:string):Promise<V5ResourceOperation[]>{
   const rows=await storeRequest<V5ResourceOperation[]>('v5Outbox','readonly',store=>store.getAll(),dbScope);return rows.filter(row=>!scope||row.scope===scope);
+}
+export async function getSyncArchiveData(ownerId:string):Promise<SyncArchiveData>{
+  if(!ownerId)throw Error('同步归档缺少账号归属。');
+  const db=await openDatabase(`${DB_NAME}:${ownerId}`);
+  try{return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(['outbox','conflicts','v5Outbox','v5Conflicts'],'readonly');
+    const legacyOutbox=tx.objectStore('outbox').getAll(),legacyConflicts=tx.objectStore('conflicts').getAll();
+    const v5Outbox=tx.objectStore('v5Outbox').getAll(),v5Conflicts=tx.objectStore('v5Conflicts').getAll();
+    tx.oncomplete=()=>resolve({ownerId,legacyOutbox:legacyOutbox.result,legacyConflicts:legacyConflicts.result,v5Outbox:v5Outbox.result,v5Conflicts:v5Conflicts.result});
+    tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('同步待办归档读取失败。'));
+  });}finally{db.close();}
+}
+export function validateSyncArchiveData(value:unknown,ownerId?:string):SyncArchiveData{
+  if(!value||typeof value!=='object'||Array.isArray(value))throw Error('同步待办归档格式无效。');
+  const data=value as Partial<SyncArchiveData>;
+  if(typeof data.ownerId!=='string'||!data.ownerId||(ownerId&&data.ownerId!==ownerId)
+    ||!Array.isArray(data.legacyOutbox)||!Array.isArray(data.legacyConflicts)||!Array.isArray(data.v5Outbox)||!Array.isArray(data.v5Conflicts))
+    throw Error('同步待办归档缺少账号归属或记录集合。');
+  const validId=(input:unknown)=>typeof input==='string'&&input.length>0&&input.length<=128;
+  const validHash=(input:unknown)=>input===null||typeof input==='string'&&input.length<=128;
+  const validDate=(input:unknown)=>typeof input==='string'&&Number.isFinite(Date.parse(input));
+  const validRecordId=(input:unknown)=>typeof input==='string'&&input.length>0&&input.length<=1024;
+  const unique=(rows:unknown[],getId:(row:Record<string,unknown>)=>unknown,label:string)=>{const ids=new Set<string>();for(const value of rows){const id=value&&typeof value==='object'?getId(value as Record<string,unknown>):'';if(typeof id!=='string'||!id||ids.has(id))throw Error(`${label}归档包含空或重复 ID。`);ids.add(id);}};
+  unique(data.legacyOutbox,row=>row.id,'旧队列');
+  for(const row of data.legacyOutbox){
+    if(!validId(row.id)||!isSyncableStorageKey(row.key)||!Number.isSafeInteger(row.baseRevision)||row.baseRevision<0||!validHash(row.baseHash)
+      ||typeof row.deleted!=='boolean'||!validDate(row.clientUpdatedAt)||(row.sequence!==undefined&&(!Number.isSafeInteger(row.sequence)||row.sequence<0)))throw Error('旧同步操作归档无效。');
+    canonicalJson(row.baseValue);canonicalJson(row.value);
+  }
+  unique(data.legacyConflicts,row=>row.operationId,'旧冲突');
+  for(const row of data.legacyConflicts){
+    if(!validId(row.operationId)||!isSyncableStorageKey(row.key)||!Number.isSafeInteger(row.baseRevision)||row.baseRevision<0
+      ||!Number.isSafeInteger(row.remoteRevision)||row.remoteRevision<0||!validHash(row.remoteHash)||typeof row.localDeleted!=='boolean'
+      ||typeof row.remoteDeleted!=='boolean'||(row.createdAt!==undefined&&!validDate(row.createdAt)))throw Error('旧冲突归档无效。');
+    canonicalJson(row.baseValue);canonicalJson(row.localValue);canonicalJson(row.remoteValue);
+  }
+  unique(data.v5Outbox,row=>row.id,'v5 队列');
+  for(const row of data.v5Outbox){
+    if(!validId(row.id)||!SYNC_V5_SCOPES.includes(row.scope)||!validRecordId(row.recordId)||!Number.isSafeInteger(row.baseRevision)||row.baseRevision<0
+      ||!validHash(row.baseHash)||typeof row.deleted!=='boolean'||!validDate(row.clientUpdatedAt))throw Error('v5 同步操作归档无效。');
+    canonicalJson(row.value);
+  }
+  unique(data.v5Conflicts,row=>row.operationId,'v5 冲突');
+  for(const row of data.v5Conflicts){
+    if(!validId(row.operationId)||!SYNC_V5_SCOPES.includes(row.scope)||!validRecordId(row.recordId)||!Number.isSafeInteger(row.baseRevision)||row.baseRevision<0
+      ||!Number.isSafeInteger(row.remoteRevision)||row.remoteRevision<0||!validHash(row.baseHash)||!validHash(row.remoteHash)
+      ||typeof row.localDeleted!=='boolean'||typeof row.remoteDeleted!=='boolean'||!validDate(row.createdAt))throw Error('v5 冲突归档无效。');
+    canonicalJson(row.localValue);canonicalJson(row.remoteValue);
+  }
+  return data as SyncArchiveData;
+}
+export async function restoreSyncArchiveData(ownerId:string,value:unknown):Promise<{legacyOperations:number;legacyConflicts:number;v5Operations:number;v5Conflicts:number}>{
+  const archive=validateSyncArchiveData(value,ownerId),db=await openDatabase(`${DB_NAME}:${ownerId}`);
+  try{return await new Promise((resolve,reject)=>{
+    const names=['outbox','conflicts','v5Outbox','v5Conflicts','settings'] as const,tx=db.transaction([...names],'readwrite');
+    const reads=names.map(name=>tx.objectStore(name).getAll());let ready=0,failed=false;
+    const fail=(error:unknown)=>{if(failed)return;failed=true;try{tx.abort();}catch{}reject(error);};
+    const same=(left:unknown,right:unknown)=>canonicalJson(left)===canonicalJson(right);
+    const apply=()=>{
+      if(++ready!==reads.length||failed)return;
+      try{
+        const [oldLegacyOps,oldLegacyConflicts,oldV5Ops,oldV5Conflicts,settings]=reads.map(request=>request.result) as [SyncOperation[],SyncConflict[],V5ResourceOperation[],V5ResourceConflict[],Array<{key:string;value:{createdAt?:string}}>];
+        const check=(existing:Array<Record<string,unknown>>,incoming:Array<Record<string,unknown>>,key:'id'|'operationId',label:string,compare:(left:Record<string,unknown>,right:Record<string,unknown>)=>boolean)=>{
+          const current=new Map(existing.map(row=>[row[key],row]));
+          for(const row of incoming){const id=row[key],old=typeof id==='string'?current.get(id):undefined;if(old&&!compare(old,row))throw Error(`${label}同一 ID 的内容与本机不同，未覆盖待办或冲突。`);}
+        };
+        const noSequence=(row:SyncOperation)=>{const content={...row};delete content.sequence;return content;};
+        check(oldLegacyOps as unknown as Array<Record<string,unknown>>,archive.legacyOutbox as unknown as Array<Record<string,unknown>>,'id','旧操作',(a,b)=>same(noSequence(a as unknown as SyncOperation),noSequence(b as unknown as SyncOperation)));
+        check(oldLegacyConflicts as unknown as Array<Record<string,unknown>>,archive.legacyConflicts as unknown as Array<Record<string,unknown>>,'operationId','旧冲突',same);
+        check(oldV5Ops as unknown as Array<Record<string,unknown>>,archive.v5Outbox as unknown as Array<Record<string,unknown>>,'id','v5 操作',same);
+        check(oldV5Conflicts as unknown as Array<Record<string,unknown>>,archive.v5Conflicts as unknown as Array<Record<string,unknown>>,'operationId','v5 冲突',same);
+        tx.objectStore('settings').put({key:`archiveRecovery:${ownerId}:${crypto.randomUUID()}`,value:{ownerId,createdAt:new Date().toISOString(),legacyOutbox:oldLegacyOps,legacyConflicts:oldLegacyConflicts,v5Outbox:oldV5Ops,v5Conflicts:oldV5Conflicts}});
+        const merge=(existing:Array<Record<string,unknown>>,incoming:Array<Record<string,unknown>>,key:'id'|'operationId',store:IDBObjectStore)=>{
+          const present=new Set(existing.map(row=>row[key]));let added=0;
+          for(const row of incoming){const id=row[key];if(typeof id==='string'&&!present.has(id)){store.put(row);present.add(id);added++;}}
+          return added;
+        };
+        const added={legacyOperations:merge(oldLegacyOps as unknown as Array<Record<string,unknown>>,archive.legacyOutbox as unknown as Array<Record<string,unknown>>,'id',tx.objectStore('outbox')),
+          legacyConflicts:merge(oldLegacyConflicts as unknown as Array<Record<string,unknown>>,archive.legacyConflicts as unknown as Array<Record<string,unknown>>,'operationId',tx.objectStore('conflicts')),
+          v5Operations:merge(oldV5Ops as unknown as Array<Record<string,unknown>>,archive.v5Outbox as unknown as Array<Record<string,unknown>>,'id',tx.objectStore('v5Outbox')),
+          v5Conflicts:merge(oldV5Conflicts as unknown as Array<Record<string,unknown>>,archive.v5Conflicts as unknown as Array<Record<string,unknown>>,'operationId',tx.objectStore('v5Conflicts'))};
+        const recovery=settings.filter(row=>row.key.startsWith(`archiveRecovery:${ownerId}:`)).sort((a,b)=>String(a.value?.createdAt??'').localeCompare(String(b.value?.createdAt??'')));
+        for(const row of recovery.slice(0,Math.max(0,recovery.length+1-10)))tx.objectStore('settings').delete(row.key);
+        tx.oncomplete=()=>resolve(added);tx.onerror=()=>fail(tx.error);tx.onabort=()=>{if(!failed)fail(tx.error??Error('同步待办恢复事务中止。'));};
+      }catch(error){fail(error);}
+    };
+    for(const request of reads){request.onsuccess=apply;request.onerror=()=>fail(request.error);}
+  });}finally{db.close();}
 }
 export interface V5WorkspaceAuthorityPreparation {authoritativeKeys:string[];migratedOperationIds:string[];deferredKeys:Array<{key:string;reason:'baseline'|'submission'|'conflict'|'local-changed'|'base-mismatch'|'v5-operation'}>}
 /** Reconcile eligible legacy intents and persist per-key v5 authority in one account DB transaction. */
