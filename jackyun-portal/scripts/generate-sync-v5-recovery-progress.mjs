@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 const require = createRequire(import.meta.url);
 const bundledModules = process.env.CODEX_NODE_MODULES;
 const { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, WidthType } = require(bundledModules ? resolve(bundledModules, 'docx') : 'docx');
-const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.58.3-20261028.docx');
+const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.58.4-20261028.docx');
 const p = (text, options = {}) => new Paragraph({ text, ...options });
 const h = (text, level = HeadingLevel.HEADING_1) => new Paragraph({ text, heading: level, keepNext: true });
 const cell = text => new TableCell({ children: [p(text)], width: { size: 25, type: WidthType.PERCENTAGE } });
@@ -22,7 +22,7 @@ const doc = new Document({
   },
   sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } } }, children: [
     new Paragraph({ text: 'JackYun 全量资源同步与数据恢复实施记录', style: 'Title' }),
-    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档、3.57.1 存储键映射回归、3.58.0 同步待办归档、3.58.1 多设备恢复缺陷修复、3.58.2 导出账号隔离与本机 Quiz 题目身份修复及 3.58.3 清理旧测验身份。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
+    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档、3.57.1 存储键映射回归、3.58.0 同步待办归档、3.58.1 多设备恢复缺陷修复、3.58.2 导出账号隔离与本机 Quiz 题目身份修复、3.58.3 清理旧测验身份及 3.58.4 手机快速任务输入字号修复。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
     p('结论：本记录确认了现有 Schedule v5 客户端的空缓存保护、哈希校验、原子游标与按页订阅测试，并针对日志中可恢复网络错误造成的噪音进行修复。它不表示全账号资源已迁入 v5，也不表示生产账号、staging 迁移或真实双设备验收已通过。'),
     h('1. 当前工作范围'),
     p('3.52.3 已通过 PR #168 合入并部署生产；本地当前在基于最新 main 的隔离分支推进 3.52.4。当前修改没有接触 Supabase 分支或生产数据。3.52.1 将主动取消降为 debug；网络断开、408、425、429、500、502、503、504 记为 warn，不附加重复错误正文；401、403、409、其他非恢复类 HTTP 错误仍保留 error 诊断。3.52.2 修复删除最后一条 CUE 时空集合保护吞掉 tombstone 的 P2 缺陷。3.52.3 再修复放弃或完成最后一个 CUE 学习草稿时空 map 吞掉 tombstone 的 P2 缺陷。两类已同步记录都以当前 revision/hash 写入 v5 outbox；存在未解决冲突时阻止该资源删除并提示用户。所有请求日志仅保留 origin 与 pathname，避免把 ID 查询参数完整写进日志。'),
@@ -90,6 +90,12 @@ const doc = new Document({
     p('开始新的 QuizWise 测验时立即清空上一场测验留下的 dbQuestions。若当前新测验无法建立云端 session，进度的 questionIds 继续保持为空数组，不会短暂把上一场云端题目 UUID 写入新的本机-only 进度。新增浏览器回归先建立旧云端题目与进度，再导入另一套本机题目并开始本机测验，检查新进度不继承旧 questionIds。此修复不改变 QuizWise 独立云端历史、成绩/复习副作用或 v5 migration scope。'),
     p('本次为 3.58.3 稳定性修复，不改同步协议、数据库或生产灰度。GitHub Actions run 40601080902（SHA 02c573a）中生产构建、Type/lint 与 Existing data safety regressions 通过；Run production UI flows 失败，失败包含 shell 主题状态、Quiz 版本切换立即读写、IELTS dashboard、旧 iframe/theme、study guide、music player、answer sheet、CUE route/search 和 review queue。Quiz 的产品页面文件不在 PR 改动中，本机 Edge 同一浏览器套件 6/6 通过；其跨浏览器断言现改为等待 localStorage 状态，不降低断言。准确 main SHA 382ea47 的本机工作区未包含后续 Quiz 版本选择流程，因此该整组 CI UI 失败仍不应标为已证实历史基线；它们也不是同步安全测试结果。最新提交 CI 及 Preview 需重新核对。'),
     p('4.0.0 前仍必须完成独立业务数据适配、staging/生产真实迁移的计数与哈希、受限账号认证读写及 receipt/SHA/RLS、两个独立浏览器双向/离线/冲突/回滚验收，以及实体手机验收。当前距离真实 v5 端到端仍差这些线上数据与设备证据；不创建 Supabase 分支、不扩大灰度，也不移除运行时 v4 兼容。'),
+    h('15. 3.58.4 手机快速任务及最新 CI'),
+    p('快速任务输入框同时使用 UI 组件的 jy-input 移动端规则和 text-sm。后者将手机视口字号覆盖为约 13.33px，与既有 16px 防缩放规则冲突。本机 Edge 在任务测试初始断言处复现；移除输入框上的 text-sm，保留按钮字号，版本升至 3.58.4。该改动不改变离线 mutation 的协议或服务端行为。'),
+    p('quick-task-ui 用例还存在观察竞态：成功重试响应监听器在收到 503 后才注册，如果随后早期断言失败，浏览器清理会关闭页面并由未处理的 waitForResponse Promise 覆盖首个断言。更深一层的真实失败是离线工作区 IndexedDB 升到版本 2 后，测试读取器仍以版本 1 打开数据库，产生 VersionError。现将读取器改为沿用当前数据库版本、并在提交点击前注册 503 和成功响应监听器；回执、队列和幂等断言没有放宽。'),
+    p('GitHub Actions run 40603251492（SHA c7d1b435）中 build、Type/lint、Existing data safety regressions 均通过，Run production UI flows 失败。quick-task-ui 的日志表面显示 page/context closed；在按 CI 方式正确设置构建变量和 standalone 静态资源后，本机重现了 16px 输入字号冲突，并在修复样式后确认测试读取器仍以 IndexedDB v1 打开已升级的 v2 数据库，触发 VersionError。现在读取器采用当前版本打开数据库，成功重试响应从点击前开始监听；本机 Edge 重跑 4/4 通过，覆盖 503 本机队列、幂等 ID 与回执清除。新提交仍需 GitHub Actions 复跑验证。其余失败包括 UI shell theme、IELTS dashboard、旧 iframe/theme、Study Guide、Music Player、Answer Sheet、CUE route/search 与 Review Queue；目前没有同一 SHA 的 main 对照证据，不能称其为已证实基线，也不能把它们说成此次同步改动回归。数据安全门槛继续保持通过才可考虑合并。'),
+    p('本次 Preview 仅用于部署预览，当前 SHA 的 Vercel Preview READY 且 /api/health 返回 200 不代表生产数据库读写验收。没有更改 staging/生产数据库、未扩大 v5 灰度、未切换所有账号，也未移除 v4 运行时兼容。'),
+    p('距离真实 v5 端到端验收仍差：独立 QuizWise 云历史/专注/阅读等业务源的事务级适配与 RLS；staging 快照、迁移演练和恢复；专用账号认证写入、回执查询、重新读取 SHA-256 与 RLS 证据；两个独立浏览器的双向更新、离线重试、冲突保留及安全回滚；生产部署 SHA 与受控单账号真实读写；实体手机验收。目前无实体手机，不能以浏览器视口模拟替代。未达到 4.0.0 发布条件。'),
   ] }],
 });
 

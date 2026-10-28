@@ -53,7 +53,7 @@ export default function QuickTaskForm() {
           onFocus={() => setExpanded(true)}
           maxLength={140}
           placeholder="快速添加一个学习任务…"
-          className="min-w-0 flex-1 rounded-lg text-sm"
+          className="min-w-0 flex-1 rounded-lg"
         />
         <Button type="submit" busy={isPending} disabled={!title.trim()} className="rounded-lg text-sm">{isPending ? '添加中' : '添加'}</Button>
       </div>

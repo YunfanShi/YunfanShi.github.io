@@ -3,7 +3,7 @@ import { chromium } from 'playwright';
 
 async function readTaskOutbox(page, operationIdOrTitle) {
   return page.evaluate(key => new Promise((resolve, reject) => {
-    const request = indexedDB.open('jackyun-offline-workspace', 1);
+    const request = indexedDB.open('jackyun-offline-workspace');
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
       const db = request.result;
@@ -63,6 +63,8 @@ try {
     return field?.value === '共享控件任务回归' && button instanceof HTMLButtonElement && !button.disabled;
   });
   const failedResponse = page.waitForResponse(response => response.url().includes('/api/offline/workspace') && response.request().method() === 'POST' && response.status() === 503, { timeout: 10_000 });
+  const retryConfirmed = page.waitForResponse(response => response.url().includes('/api/offline/workspace') && response.request().method() === 'POST' && response.status() === 200, { timeout: 45_000 })
+    .then(response => ({ response }), error => ({ error }));
   let initialPostStarted = false;
   page.on('request', request => {
     if (request.url().includes('/api/offline/workspace') && request.method() === 'POST') initialPostStarted = true;
@@ -74,7 +76,6 @@ try {
     if (!initialPostStarted) void page.evaluate(() => window.dispatchEvent(new Event('jackyun-sync-retry'))).catch(() => {});
   }, 250);
   try { await failedResponse; } finally { clearInterval(retryPump); }
-  const retryConfirmed = page.waitForResponse(response => response.url().includes('/api/offline/workspace') && response.request().method() === 'POST' && response.status() === 200, { timeout: 45_000 });
   assert.equal(await page.getByText(/Offline mutation failed|本机模拟服务暂不可用/).count(), 0, 'recoverable 503 details stay out of the user-facing task flow');
 
   const taskTitle = '共享控件任务回归';
@@ -92,7 +93,9 @@ try {
   assert.equal(payloads[0].payload.estimatedMinutes, 45);
   assert.equal(payloads[0].payload.dueDate, new Date(Date.now() + 86_400_000).toISOString().slice(0, 10));
 
-  const receiptResponse = await retryConfirmed;
+  const retryResult = await retryConfirmed;
+  if ('error' in retryResult) throw retryResult.error;
+  const receiptResponse = retryResult.response;
   assert.ok(receiptResponse, 'background retry receives a successful confirmation');
   assert.equal(payloads.length, 2, 'the queued operation is retried once without a second user submission');
   assert.equal(payloads[1].operationId, payloads[0].operationId, 'retry reuses the original idempotency key');
