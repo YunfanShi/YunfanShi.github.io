@@ -147,6 +147,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
       page: item.page,
       owner: localOwner,
       values: item.values,
+      deletedKeys: item.deletedKeys,
       storage: {
         keys: () => Array.from({ length: workspaceStorage.length }, (_, index) => workspaceStorage.key(index)).filter((key): key is string => key !== null),
         getItem: key => workspaceStorage.getItem(key),
@@ -169,7 +170,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   }
 
   function downloadLocal(item: LocalBackup) {
-    const url = URL.createObjectURL(new Blob([JSON.stringify({ version: 1, page: item.page, createdAt: item.createdAt, values: item.values }, null, 2)], { type: 'application/json' }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ version: 2, page: item.page, createdAt: item.createdAt, values: item.values, deletedKeys: item.deletedKeys ?? [] }, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = `jackyun-local-${item.page}-${item.id}.json`;
@@ -240,9 +241,9 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   async function uploadLocal(file?: File) {
     if (!file) return;
     await run(async () => {
-      const values = parseLocalPageBackup(await file.text(), page);
+      const backup = parseLocalPageBackup(await file.text(), page);
       if (!(await siteConfirm('导入编辑后的页面 JSON？当前本地页面会先保存。'))) return;
-      await applyLocal({ id: -1, userId: localOwner, page, createdAt: new Date().toISOString(), values });
+      await applyLocal({ id: -1, userId: localOwner, page, createdAt: new Date().toISOString(), ...backup });
     });
   }
 
