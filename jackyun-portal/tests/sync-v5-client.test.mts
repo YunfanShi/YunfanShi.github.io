@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {IDBFactory,IDBObjectStore} from 'fake-indexeddb';
-import {accountSyncStore,acknowledgeV5Operations,acknowledgeV5RestoreTargets,acknowledgeV5WorkspaceOperations,commitV5ResourcePage,commitV5WorkspacePage,getDocuments,getOutbox,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,getV5RestoreTargets,openDatabase,prepareV5WorkspaceAuthority,queueV5ResourceDeletion,queueV5RestoreTargets,resolveV5ConflictLocally,resolveV5ConflictRemotely,setV5Cursor,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
+import {accountSyncStore,acknowledgeV5Operations,acknowledgeV5RestoreTargets,acknowledgeV5WorkspaceOperations,commitV5ResourcePage,commitV5WorkspacePage,getDocuments,getOutbox,getV5Conflicts,getV5Cursor,getV5Outbox,getV5Resources,getV5RestoreTargets,openDatabase,prepareV5WorkspaceAuthority,queueV5ResourceDeletion,queueV5ResourceOperation,queueV5RestoreTargets,resolveV5ConflictLocally,resolveV5ConflictRemotely,setV5Cursor,type V5ResourceConflict} from '../src/lib/sync/outbox.ts';
 import {createV5ResourceSync,resourceFieldsForPath,retainV5ScheduleAuthority} from '../src/lib/sync/resource-engine.ts';
 import {legacyWorkspaceRecordId,resourceFieldsForScope,resourceTargetsForStorageKeys} from '../src/lib/sync/resource-model.ts';
 import {canonicalJson} from '../src/lib/sync/hash.ts';
@@ -471,6 +471,54 @@ test('workspace sync migrates one eligible legacy operation and confirms it once
   assert.equal(result.enabled,true);assert.deepEqual(sent,[operationId]);assert.ok(owned.includes(key));
   assert.deepEqual(await getOutbox(dbName),[]);assert.deepEqual(await getV5Outbox('workspace',dbName),[]);
   assert.equal((await getV5Resources('workspace',dbName)).find(row=>row.recordId===recordId)?.contentHash,valueHash);
+});
+
+test('v5 stale-base conflicts auto-confirm identical content and preserve real differences',async()=>{
+  const scenarios=[
+    {name:'same content',base:{id:'cue',prompt:'base'},local:{id:'cue',prompt:'same'},remote:{id:'cue',prompt:'same'},deleted:false},
+    {name:'same deletion',base:{id:'cue',prompt:'base'},local:null,remote:null,deleted:true},
+    {name:'different content',base:{id:'cue',prompt:'base'},local:{id:'cue',prompt:'local'},remote:{id:'cue',prompt:'cloud'},deleted:false},
+  ] as const;
+  for(const scenario of scenarios){
+    const dbName=id(),recordId='cues:cue',baseHash=createHash('sha256').update(canonicalJson(scenario.base)).digest('hex');
+    const valueHash=scenario.deleted?null:createHash('sha256').update(canonicalJson(scenario.remote)).digest('hex');
+    const visibleCue=scenario.deleted?{id:'keep',prompt:'keep'}:scenario.local;
+    const visibleIds=[visibleCue.id];let scheduleRaw=JSON.stringify({schemaVersion:1,cues:[visibleCue]});
+    const operation={id:crypto.randomUUID(),scope:'cue' as const,recordId,baseRevision:1,baseHash,
+      value:scenario.local,deleted:scenario.deleted,clientUpdatedAt:'now'};
+    const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{
+      const tx=db.transaction(['documents','v5Resources'],'readwrite');
+      tx.objectStore('documents').put({key:'jackyun_schedule_control_v1',value:scheduleRaw,updatedAt:1});
+      tx.objectStore('v5Resources').put({scope:'cue',recordId,revision:1,contentHash:baseHash,deleted:false,updatedAt:'base',value:scenario.base});
+      if(scenario.deleted)tx.objectStore('v5Resources').put({scope:'cue',recordId:'cues:keep',revision:1,contentHash:createHash('sha256').update(canonicalJson(visibleCue)).digest('hex'),deleted:false,updatedAt:'base',value:visibleCue});
+      tx.objectStore('v5Resources').put({scope:'cue',recordId:'cues:%24order',revision:1,contentHash:createHash('sha256').update(canonicalJson(visibleIds)).digest('hex'),deleted:false,updatedAt:'base',value:visibleIds});
+      tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+    });}finally{db.close();}
+    await setV5Cursor('cue',{scope:'cue',field:'cues',mode:'changes',after:'',cursor:1,head:1},dbName,'cues');
+    await queueV5ResourceOperation(operation,dbName);
+    const engine=createV5ResourceSync({databaseScope:dbName,request:async(url)=>{
+      const parsed=new URL(url,'https://sync.test');
+      if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:SYNC_V5_SCOPES});
+      if(parsed.pathname==='/api/sync/v5/changes')return Response.json({syncProtocol:5,records:[],cursor:1,head:1,hasMore:false});
+      if(parsed.pathname==='/api/sync/v5/receipts')return Response.json({syncProtocol:5,receipts:[]});
+      if(parsed.pathname==='/api/sync/v5/operations')return Response.json({syncProtocol:5,applied:[],conflicts:[{
+        operationId:operation.id,status:'conflict',revision:2,contentHash:valueHash,deleted:scenario.deleted,value:scenario.remote,updatedAt:'remote',
+      }]});
+      throw Error(`Unexpected request ${parsed.pathname}`);
+    },deviceId:async()=>crypto.randomUUID(),uuid:()=>crypto.randomUUID(),readSchedule:()=>scheduleRaw,projectSchedule:async value=>{if(value!==null)scheduleRaw=value;},setAuthority:()=>{}});
+    await engine.synchronize([{scope:'cue',field:'cues'}]);
+    const pending=await getV5Outbox('cue',dbName),conflicts=await getV5Conflicts(dbName);
+    if(scenario.name==='different content'){
+      assert.equal(pending.length,0,scenario.name);assert.equal(conflicts.length,1,scenario.name);
+      assert.deepEqual(conflicts[0].localValue,scenario.local);assert.deepEqual(conflicts[0].remoteValue,scenario.remote);
+      assert.equal(conflicts[0].baseRevision,1);assert.equal(conflicts[0].remoteRevision,2);
+    }else{
+      assert.equal(pending.length,0,`${scenario.name} pending: ${JSON.stringify(pending)} conflicts: ${JSON.stringify(conflicts)}`);assert.equal(conflicts.length,0,`${scenario.name}: ${JSON.stringify(conflicts)}`);
+      const saved=(await getV5Resources('cue',dbName)).find(row=>row.recordId===recordId)!;
+      assert.equal(saved.revision,2,scenario.name);assert.equal(saved.deleted,scenario.deleted,scenario.name);
+      if(!scenario.deleted)assert.deepEqual(saved.value,scenario.remote,scenario.name);
+    }
+  }
 });
 
 test('resource-field cursors remain independent across page navigation',async()=>{

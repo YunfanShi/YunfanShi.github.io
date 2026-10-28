@@ -1,5 +1,5 @@
 'use client';
-import { captureRepositoryContext, workspaceStorage } from '@/lib/sync/repository';
+import { captureRepositoryContext, initializeRepository, workspaceStorage } from '@/lib/sync/repository';
 import { queueV5ResourceDeletion } from '@/lib/sync/outbox';
 
 
@@ -71,6 +71,7 @@ import {
   applyTimetableUpdate,
   allCueStudyDrafts,
   cueCollectionSummaryForSubject,
+  cueManagementCatalog,
   isCueCollectionBatch,
   isRecordedCueCollectionBatch,
   applyCueUnitMappings,
@@ -1453,7 +1454,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const universeEnabled = useCueUniverseEnabled();
   const [standaloneShopOpen, setStandaloneShopOpen] = useState(false);
   const [starSummary, setStarSummary] = useState<'summary' | 'album' | null>(null);
-  const { signedIn } = useAuthMode();
+  const { signedIn, userId } = useAuthMode();
   const [state, setState] = useState<ScheduleControlState>(() => createEmptyScheduleState());
   const [questionBank, setQuestionBank] = useState<QuestionBankState>(emptyQuestionBank);
   const [questionBankError, setQuestionBankError] = useState('');
@@ -1507,8 +1508,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
   const todayKey = now ? dateKey(now) : '';
 
   useEffect(() => {
-    queueMicrotask(() => {
-      try {
+    const hydrateLocalSnapshot = () => { try {
       const current = new Date();
       setNow(current);
       setSelectedDate(dateKey(current));
@@ -1526,9 +1526,13 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       const requestedView = new URLSearchParams(window.location.search).get('view');
       if (requestedView === 'cue') { setView('cue'); setGuideOpen(false); }
       setReady(true);
-      } catch (error) { setPersistenceError(error instanceof Error ? error.message : '学习数据读取失败'); }
+    } catch (error) { setPersistenceError(error instanceof Error ? error.message : '学习数据读取失败'); } };
+    // Restore the account's local IndexedDB projection before exposing the page; this does not wait for network sync.
+    void initializeRepository(userId).then(hydrateLocalSnapshot).catch((error) => {
+      setPersistenceError(error instanceof Error ? `本机数据仓库读取失败：${error.message}` : '本机数据仓库读取失败');
+      hydrateLocalSnapshot();
     });
-  }, []);
+  }, [userId]);
   useEffect(() => {
     if (!ready) return;
     if (skipInitialEmptySaveRef.current && !scheduleHasContent(state)) {
@@ -1976,7 +1980,7 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       {cueStudyTask && activeCueDraft && <CueStudyPage gameAccount={gameAccount} onShopAction={shopAction} starCues={state.cues} starRecords={state.learningRecords} reviews={state.cueReviews} task={cueStudyTask} onDifficulty={changeCueDifficulty} cues={cueStudyCues} draft={activeCueDraft} memos={state.cueMemos} onProgress={saveCueStudyProgress} onMastered={(cueId) => setState(current => markCueMastered(current, cueId, new Date(), cueStudyTask.key))} onAssessment={(cueId, status, practice, editPractice) => saveCueStudyAssessment(cueStudyTask, cueId, status, practice, editPractice)} answerCards={state.cueAnswerCards} onAnswerText={(cueId, text) => setState((current) => ({ ...current, cueAnswerCards: editCueAnswerCard(current.cueAnswerCards, activeCueDraft.id, cueId, text, new Date().toISOString()) }))} onAnswerCompare={(cue) => setState((current) => ({ ...current, cueAnswerCards: compareCueAnswerCard(current.cueAnswerCards, activeCueDraft.id, cue, new Date().toISOString()) }))} onAnswerCheck={(id, index, checked) => setState((current) => ({ ...current, cueAnswerCards: checkCueAnswerPoint(current.cueAnswerCards, id, index, checked, new Date().toISOString()) }))} onClose={() => { setCueStudyTask(null); if (universeEnabled && Object.keys(activeCueDraft.assessments).length) setStarSummary('summary'); setNotice('Cue 状态、学习进度和答题卡均已保存，可随时恢复。'); }} onComplete={async (details, evidence) => (await submitReview(cueStudyTask, details, evidence))} />}
       {reviewTask && <ReviewDialog task={reviewTask} cues={reviewCues} catalog={state.learningCatalog} signedIn={signedIn} onClose={() => setReviewTask(null)} onComplete={async (details, evidence) => (await submitReview(reviewTask, details, evidence))} />}
       {taskDialog && <TaskDialog date={selectedDate} cues={state.cues} catalog={[...state.learningCatalog, ...(state.timetable?.courses ?? []).filter((course) => !matchLearningCatalogSubject(state.learningCatalog, course.name)).map((course) => ({ id: course.id, name: course.name, units: [], materialProgress: {} }))]} onClose={() => setTaskDialog(false)} onSave={(tasks) => { setState((current) => ({ ...current, manualTasks: [...current.manualTasks, ...tasks] })); setTaskDialog(false); setNotice(`已添加 ${tasks.length} 项任务。`); }} />}
-      {cueManager && <CueManagerDialog cues={state.cues} reviews={state.cueReviews} catalog={state.learningCatalog} collectionUpdates={state.cueCollectionUpdates} changeHistory={state.cueChangeHistory} similarityDecisions={state.cueSimilarityDecisions} onSimilarityDecisionsChange={(update) => setState((current) => ({ ...current, cueSimilarityDecisions: update(current.cueSimilarityDecisions ?? []) }))} reminderDays={state.settings.cueCollectionReminderDays} initialSubjectName={cueManagerSubject} showMastered={state.settings.cueShowMastered} onClose={() => setCueManager(false)} onDeleteCue={async cueId => { const context = await captureRepositoryContext(); await queueV5ResourceDeletion('cue', `cues:${encodeURIComponent(cueId)}`, crypto.randomUUID(), context.databaseScope); }} onChange={(cues, learningCatalog, batchUpdate, source = 'manual') => setState((current) => { const change = createCueChangeRecord(current.cues, cues, source, new Date().toISOString(), taskId()); const cueIds = new Set(cues.map((cue) => cue.id)); return recalculateLegacyCueSchedules({ ...current, cueScheduleRevision: 0, cues, cueChangeHistory: [...(current.cueChangeHistory ?? []), ...(change ? [change] : [])], cueMemos: current.cueMemos.filter((memo) => cueIds.has(memo.cueId)), cueSimilarityDecisions: (current.cueSimilarityDecisions ?? []).filter((decision) => cueIds.has(decision.leftCueId) && cueIds.has(decision.rightCueId)), ...(learningCatalog ? { learningCatalog } : {}), ...(batchUpdate ? { cueCollectionUpdates: [...current.cueCollectionUpdates, batchUpdate].slice(-100) } : {}) }); })} />}
+      {cueManager && <CueManagerDialog cues={state.cues} reviews={state.cueReviews} catalog={cueManagementCatalog(state.learningCatalog,state.cues,subjectIdFromName)} collectionUpdates={state.cueCollectionUpdates} changeHistory={state.cueChangeHistory} similarityDecisions={state.cueSimilarityDecisions} onSimilarityDecisionsChange={(update) => setState((current) => ({ ...current, cueSimilarityDecisions: update(current.cueSimilarityDecisions ?? []) }))} reminderDays={state.settings.cueCollectionReminderDays} initialSubjectName={cueManagerSubject} showMastered={state.settings.cueShowMastered} onClose={() => setCueManager(false)} onDeleteCue={async cueId => { const context = await captureRepositoryContext(); await queueV5ResourceDeletion('cue', `cues:${encodeURIComponent(cueId)}`, crypto.randomUUID(), context.databaseScope); }} onChange={(cues, learningCatalog, batchUpdate, source = 'manual') => setState((current) => { const change = createCueChangeRecord(current.cues, cues, source, new Date().toISOString(), taskId()); const cueIds = new Set(cues.map((cue) => cue.id)); return recalculateLegacyCueSchedules({ ...current, cueScheduleRevision: 0, cues, cueChangeHistory: [...(current.cueChangeHistory ?? []), ...(change ? [change] : [])], cueMemos: current.cueMemos.filter((memo) => cueIds.has(memo.cueId)), cueSimilarityDecisions: (current.cueSimilarityDecisions ?? []).filter((decision) => cueIds.has(decision.leftCueId) && cueIds.has(decision.rightCueId)), ...(learningCatalog ? { learningCatalog } : {}), ...(batchUpdate ? { cueCollectionUpdates: [...current.cueCollectionUpdates, batchUpdate].slice(-100) } : {}) }); })} />}
       {importDialog && <ImportDialog currentTimetable={state.timetable} onClose={() => setImportDialog(false)} onApply={(timetable) => { setState((current) => reconcileScheduleSubjects({ ...current, timetable, importedAt: new Date().toISOString() })); setImportDialog(false); setNotice(signedIn ? '课表已导入；已保留你的手动复习科目设置，正在同步到账号。' : '课表已导入；已保留你的手动复习科目设置。'); }} />}
       {catalogDialog && <LearningCatalogDialog current={state.learningCatalog} onClose={() => setCatalogDialog(false)} onApply={async (subjects) => { if (!(await siteConfirm('保存新的学科分类配置吗？系统会按关键词合并课表科目引用；现有学习记录和 Cue 不会删除。'))) return; commitQuestionBank(reconcileQuestionSubjects(questionBank, subjects)); setState((current) => reconcileScheduleSubjects({ ...current, learningCatalog: subjects })); setCatalogDialog(false); setNotice('学科分类已保存；课表科目、复习进度和记录已自动归并。'); }} />}
       {guideOpen && <ScheduleGuide onNavigate={setView} onClose={() => { setGuideOpen(false); setState((current) => ({ ...current, settings: { ...current.settings, tutorialSeenVersion: 1 } })); }} />}

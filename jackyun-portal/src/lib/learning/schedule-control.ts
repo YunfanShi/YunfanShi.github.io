@@ -107,6 +107,31 @@ export interface LearningCatalogSubject {
   materialProgress: Partial<Record<LearningMaterialCode, string>>;
 }
 
+/** Add subjects and units already used by Cues to the management picker.
+ * Catalog setup can lag behind imported learning data; existing records remain
+ * selectable without rewriting their IDs, review state, or content.
+ */
+export function cueManagementCatalog(
+  catalog: LearningCatalogSubject[],
+  cues: StudyCue[],
+  subjectIdForName: (name: string) => string,
+): LearningCatalogSubject[] {
+  const result=catalog.map(subject=>({...subject,units:subject.units.map(unit=>({...unit,subsections:[...unit.subsections]}))}));
+  const byName=new Map(result.map(subject=>[subject.name.trim().toLocaleLowerCase(),subject]));
+  for(const cue of cues){
+    const name=cue.subjectName.trim();if(!name)continue;
+    const key=name.toLocaleLowerCase();let subject=byName.get(key);
+    if(!subject){
+      subject={id:cue.subjectId||subjectIdForName(name),name,units:[],materialProgress:{}};
+      result.push(subject);byName.set(key,subject);
+    }
+    const unitName=cue.unit.trim();
+    if(unitName&&!subject.units.some(unit=>unit.name.trim().toLocaleLowerCase()===unitName.toLocaleLowerCase()))
+      subject.units.push({name:unitName,subsections:[]});
+  }
+  return result;
+}
+
 export interface LearningCatalogImport {
   version: 1;
   subjects: LearningCatalogSubject[];

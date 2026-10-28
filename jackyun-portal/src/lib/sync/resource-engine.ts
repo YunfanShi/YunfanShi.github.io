@@ -228,8 +228,23 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
         if(!Number.isSafeInteger(revision)||revision<1||(contentHash!==null&&!/^[a-f\d]{64}$/i.test(contentHash)))continue;
         applied.push({operation,revision,contentHash,updatedAt:String(result.updatedAt??new Date().toISOString())});handled.add(operation.id);
       }else if(result.status==='conflict'&&Number.isSafeInteger(Number(result.revision))&&Number(result.revision)>=0){
+        const remoteDeleted=Boolean(result.deleted),remoteRevision=Number(result.revision);
+        const remoteHash=typeof result.contentHash==='string'?result.contentHash:null;
+        const remoteValue=result.value??null;
+        // A stale base can be rejected even when another device has already
+        // stored this exact value. Confirm that content from its canonical
+        // hash before treating the conflict as a no-op acknowledgement.
+        const sameState=operation.deleted===remoteDeleted
+          &&(remoteDeleted||equal(operation.value,remoteValue));
+        const verifiedSameContent=remoteDeleted
+          ||(sameState&&remoteHash!==null&&/^[a-f\d]{64}$/i.test(remoteHash)&&await digest(remoteValue)===remoteHash);
+        if(sameState&&verifiedSameContent){
+          applied.push({operation,revision:remoteRevision,contentHash:remoteHash,updatedAt:String(result.updatedAt??new Date().toISOString())});
+          handled.add(operation.id);
+          continue;
+        }
         conflicts.push({operationId:operation.id,scope,recordId:operation.recordId,baseRevision:operation.baseRevision,baseHash:operation.baseHash,
-          localValue:operation.value,localDeleted:operation.deleted,remoteValue:result.value??null,remoteDeleted:Boolean(result.deleted),remoteRevision:Number(result.revision),remoteHash:typeof result.contentHash==='string'?result.contentHash:null,createdAt:new Date().toISOString()});
+          localValue:operation.value,localDeleted:operation.deleted,remoteValue,remoteDeleted,remoteRevision,remoteHash,createdAt:new Date().toISOString()});
         handled.add(operation.id);
       }
     }
