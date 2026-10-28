@@ -674,7 +674,7 @@ test('page resource selection avoids unrelated CUE history and schedule scopes',
   assert.ok(resourceFieldsForPath('/cue/study').some(row=>row.field==='cueGameAccount'));
   assert.ok(resourceFieldsForPath('/settings/watch').some(row=>row.field==='settings'));
   assert.ok(!resourceFieldsForPath('/settings/watch').some(row=>row.field==='legacyMisc'),'settings pages must not subscribe to a generic catch-all scope');
-  assert.deepEqual(resourceFieldsForPath('/reading'),[],'independent reader state is not misrepresented as Schedule data');
+  assert.deepEqual(resourceFieldsForPath('/reading').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyReader'],'reader shelf and position are subscribed only on the reading page');
 });
 
 test('backup restore targets persist per account until their v5 records and conflicts settle',async()=>{
@@ -732,7 +732,7 @@ test('new writing subscriptions wait for the backend capability instead of sendi
 });
 
 test('every writable v5 field has a valid page target without loading all fields on each page',()=>{
-  const paths=['/schedule','/dashboard','/study','/review','/cue','/timetable-hub','/activity','/practice-timer','/ielts','/ielts-writing','/study-guide','/quiz','/pomodoro','/answer-sheet','/mock-portal','/answer-sheet-sync','/settings','/music','/ai','/studio','/relax'];
+  const paths=['/schedule','/dashboard','/study','/review','/cue','/timetable-hub','/activity','/practice-timer','/ielts','/ielts-writing','/reading','/study-guide','/quiz','/pomodoro','/answer-sheet','/mock-portal','/answer-sheet-sync','/settings','/music','/ai','/studio','/relax'];
   const targets=new Set(paths.flatMap(path=>resourceFieldsForPath(path).map(target=>`${target.scope}\0${target.field}`)));
   for(const scope of SYNC_V5_SCOPES)for(const field of resourceFieldsForScope(scope))assert.ok(targets.has(`${scope}\0${field}`),`${scope}/${field} must be writable through a page subscription`);
   const schedule=new Set(resourceFieldsForPath('/schedule').map(target=>target.field));

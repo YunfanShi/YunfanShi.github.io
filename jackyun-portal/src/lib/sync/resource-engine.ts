@@ -40,6 +40,7 @@ export function resourceFieldsForPath(pathname:string):SyncV5ResourceTarget[]{
   if(path==='/activity'||path.startsWith('/activity/'))return withWorkspace([...targets('learning','learningRecords'),...targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies')],'legacyLearning','legacyPractice');
   if(path==='/practice-timer'||path.startsWith('/practice-timer/'))return withWorkspace([...targets('timer','practiceSessions','practiceTimerConfig'),...targets('practice','timedPracticeRecords','practiceFrequencies')],'legacyTimer','legacyPractice');
   if(path==='/ielts'||path.startsWith('/ielts/'))return withWorkspace(targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies'),'legacyIELTS');
+  if(path==='/reading'||path.startsWith('/reading/'))return targetsForWorkspace('legacyReader');
   if(path==='/ielts-writing')return targetsForWorkspace('writingEssays','writingErrorHistory','writingArchive');
   if(path==='/definitions'||path.startsWith('/definitions/'))return targetsForWorkspace('legacyCue','legacyLearning');
   if(path==='/properties'||path.startsWith('/properties/'))return targetsForWorkspace('legacyCue','legacyLearning');

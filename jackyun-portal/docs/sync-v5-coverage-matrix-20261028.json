@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-27T21:22:29.154Z",
-  "source_files_scanned": 591,
-  "storage_call_sites": 756,
+  "generated_at": "2026-10-28T08:08:49.362Z",
+  "source_files_scanned": 592,
+  "storage_call_sites": 759,
   "inventory_rows": [
     {
       "key_or_pattern": "? conflict.key",
@@ -2934,7 +2934,7 @@
       ],
       "call_sites": 6,
       "page_or_module": [
-        "IELTS"
+        "Reading / novel shelf"
       ]
     },
     {
@@ -3218,6 +3218,30 @@
       "call_sites": 4,
       "page_or_module": [
         "Shared or unresolved module"
+      ]
+    },
+    {
+      "key_or_pattern": "jackyun_reader_book_v1:${dynamic}",
+      "storage": "workspaceStorage (localStorage projection)",
+      "data_class": "workspace business key",
+      "current_protocol": "legacy v2/v4; v5 candidate may also bootstrap or sync",
+      "should_cloud_sync": true,
+      "v5_scope": "workspace",
+      "v5_record_id": "legacyReader:base64url(runtime key)",
+      "migration": "Bootstrap the exact legacy key with owner, revision, SHA-256 and tombstone; reconcile pending legacy outbox before v5 authority.",
+      "test_status": "inventory classification only; business round-trip not proven",
+      "unresolved_risk": "Key-level mapping does not split nested arrays/records; inspect value schema and credential content.",
+      "runtime_sampling_or_test_method": "In an authenticated, isolated test profile, instrument Storage.prototype.getItem/setItem/removeItem to record key names only (never values); exercise create/read/update/delete on the named page, compare observed keys against this row, then assert v5 manifest/receipt/hash/tombstone behavior.",
+      "source_files": [
+        "src/components/modules/ielts/novel-workbench.tsx"
+      ],
+      "operations": [
+        "getItem",
+        "setItem"
+      ],
+      "call_sites": 3,
+      "page_or_module": [
+        "Reading / novel shelf"
       ]
     },
     {
@@ -6350,7 +6374,7 @@
       "database_or_store": "jackyun-page-backups-v1",
       "kind": "database",
       "source_file": "src/lib/backup/local.ts",
-      "line": 19,
+      "line": 20,
       "data_class": "local recovery history",
       "current_protocol": "device-local IndexedDB",
       "should_cloud_sync": false,
@@ -6364,7 +6388,7 @@
       "database_or_store": "versions",
       "kind": "store",
       "source_file": "src/lib/backup/local.ts",
-      "line": 21,
+      "line": 22,
       "data_class": "local recovery history store",
       "current_protocol": "device-local IndexedDB",
       "should_cloud_sync": false,
@@ -6518,7 +6542,7 @@
       "database_or_store": "quizwise",
       "kind": "database",
       "source_file": "src/lib/quiz/storage.ts",
-      "line": 13,
+      "line": 14,
       "data_class": "QuizWise local cache and fallback",
       "current_protocol": "IndexedDB cache mirrored to quizwise_* workspace keys",
       "should_cloud_sync": false,
@@ -6532,7 +6556,7 @@
       "database_or_store": "quiz_data",
       "kind": "store",
       "source_file": "src/lib/quiz/storage.ts",
-      "line": 17,
+      "line": 18,
       "data_class": "QuizWise local cache/fallback store",
       "current_protocol": "IndexedDB cache mirrored to quizwise_* keys",
       "should_cloud_sync": false,
@@ -6546,7 +6570,7 @@
       "database_or_store": "offline_answers",
       "kind": "store",
       "source_file": "src/lib/quiz/storage.ts",
-      "line": 20,
+      "line": 21,
       "data_class": "legacy QuizWise offline answer queue and migration source",
       "current_protocol": "legacy IndexedDB queue; current callers absent",
       "should_cloud_sync": true,
@@ -6560,7 +6584,7 @@
       "database_or_store": null,
       "kind": "database",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 32,
+      "line": 33,
       "data_class": "sync protocol local database",
       "current_protocol": "IndexedDB metadata and outboxes",
       "should_cloud_sync": false,
@@ -6574,7 +6598,7 @@
       "database_or_store": "outbox",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 35,
+      "line": 36,
       "data_class": "v4 durable workspace operation queue",
       "current_protocol": "v4",
       "should_cloud_sync": false,
@@ -6588,7 +6612,7 @@
       "database_or_store": "metadata",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 36,
+      "line": 37,
       "data_class": "v4 sync metadata",
       "current_protocol": "v4",
       "should_cloud_sync": false,
@@ -6602,7 +6626,7 @@
       "database_or_store": "conflicts",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 37,
+      "line": 38,
       "data_class": "v4 conflict metadata",
       "current_protocol": "v4",
       "should_cloud_sync": false,
@@ -6616,7 +6640,7 @@
       "database_or_store": "settings",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 38,
+      "line": 39,
       "data_class": "local sync account/device settings",
       "current_protocol": "local sync metadata",
       "should_cloud_sync": false,
@@ -6630,7 +6654,7 @@
       "database_or_store": "documents",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 39,
+      "line": 40,
       "data_class": "local durable workspace projection",
       "current_protocol": "v4 document store plus v5 projection",
       "should_cloud_sync": true,
@@ -6644,7 +6668,7 @@
       "database_or_store": "leases",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 40,
+      "line": 41,
       "data_class": "sync lease coordination",
       "current_protocol": "local coordination metadata",
       "should_cloud_sync": false,
@@ -6658,7 +6682,7 @@
       "database_or_store": "v5Resources",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 41,
+      "line": 42,
       "data_class": "v5 local resource cache",
       "current_protocol": "v5",
       "should_cloud_sync": false,
@@ -6672,7 +6696,7 @@
       "database_or_store": "v5Cursors",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 42,
+      "line": 43,
       "data_class": "v5 sync cursor metadata",
       "current_protocol": "v5",
       "should_cloud_sync": false,
@@ -6686,7 +6710,7 @@
       "database_or_store": "v5FieldCursors",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 43,
+      "line": 44,
       "data_class": "v5 field cursor metadata",
       "current_protocol": "v5",
       "should_cloud_sync": false,
@@ -6700,7 +6724,7 @@
       "database_or_store": "v5Outbox",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 44,
+      "line": 45,
       "data_class": "v5 durable operation queue",
       "current_protocol": "v5",
       "should_cloud_sync": false,
@@ -6714,7 +6738,7 @@
       "database_or_store": "v5Conflicts",
       "kind": "store",
       "source_file": "src/lib/sync/outbox.ts",
-      "line": 45,
+      "line": 46,
       "data_class": "v5 conflict metadata",
       "current_protocol": "v5",
       "should_cloud_sync": false,
@@ -6815,14 +6839,14 @@
     },
     {
       "owner": "novel shelf and reading progress",
-      "client_storage": "jackyun_novel_library content cache; progress in reader_books rows",
-      "api": "direct authenticated Supabase CRUD in novel-workbench; reader bootstrap API",
-      "server_owner": "reader_books rows keyed by user_id + book_id; novel/book bodies are catalog/cache",
-      "protocol": "direct authenticated CRUD with RLS; not v5",
+      "client_storage": "jackyun_novel_library content cache; canonical progress in reader_books rows; v5 shadow rows under jackyun_reader_book_v1:<book_id>",
+      "api": "v5 workspace legacyReader on /reading plus existing authenticated reader_books compatibility CRUD and reader bootstrap API",
+      "server_owner": "reader_books remains the compatibility source keyed by user_id + book_id; v5 workspace stores shelf/progress metadata only; novel/chapter bodies remain catalog or object-storage content",
+      "protocol": "v5 per-book workspace records with stable book ID and SHA-256/receipt; reader_books is dual-written for old clients and is not retired yet",
       "should_v5": true,
-      "proposed_v5_mapping": "new reader scope per stable book_id, separating user shelf/progress metadata from downloaded book/chapter cache",
-      "migration": "Keep content cache device-local; move only canonical user progress/shelf state and preserve book storage references.",
-      "test": "Two-device shelf/progress update, deletion/tombstone, content cache purge independence and cross-user RLS."
+      "proposed_v5_mapping": "workspace field legacyReader; record key jackyun_reader_book_v1:<book_id>; mirror metadata, reading progress, and shelf tombstone while excluding covers and chapter bodies",
+      "migration": "On /reading, import existing reader_books rows once into v5 records. Prefer newer v5 metadata by updated_at, then project updates to reader_books for compatibility. Keep cloud book bodies and reader_books until old-client writes are frozen and readback/hash coverage is verified.",
+      "test": "Verify authenticated v5 read/write receipt and hash, two-device progress/shelf merge, tombstone non-resurrection, local book cache purge independence, and RLS. This patch adds the client shadow bridge; production cross-device acceptance is still pending."
     }
   ]
 }

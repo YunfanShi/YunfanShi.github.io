@@ -66,6 +66,7 @@ export function isBackupableLegacyKey(key: unknown): key is string {
 }
 
 export function legacyBackupPage(key: string): BackupPage {
+  if (key.startsWith('jackyun_reader_book_v1:')) return 'reader';
   if (/^(?:jackyun_schedule_|jack_timetable_|w3_schedule$)/.test(key)) return 'schedule';
   if (/^(?:studyguide_|caie_|jackyun_goal_|jackyun_daily_plan$|th2_|control_|jackyun_control_)/.test(key)) return 'study';
   if (/^(?:jackyun_definition_|jackyun_property_)/.test(key)) return 'definitions';
