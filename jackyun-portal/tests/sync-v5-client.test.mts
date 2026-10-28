@@ -662,7 +662,12 @@ test('page resource selection avoids unrelated CUE history and schedule scopes',
   assert.ok(resourceFieldsForPath('/dashboard').some(row=>row.scope==='cue'&&row.field==='cueReviews'));
   assert.deepEqual(resourceFieldsForPath('/dashboard').filter(row=>['cueChangeHistory','cueCollectionUpdates','cueSimilarityDecisions','studyReports'].includes(row.field)),[]);
   const scheduleFields=new Set(resourceFieldsForPath('/schedule').map(row=>row.field));
-  for(const field of ['cueReviews','learningRecords','learningCatalog','learningReminders','timedPracticeRecords','examDiagnoses','practiceFrequencies','practiceSessions','practiceTimerConfig','cueMemos','cueAnswerCards','importedAt'])assert.ok(scheduleFields.has(field),`Schedule page must subscribe to ${field}`);
+  for(const field of ['cueReviews','cueStudyDrafts','cues','learningRecords','learningCatalog','learningReminders','timedPracticeRecords','examDiagnoses','practiceFrequencies','practiceSessions','practiceTimerConfig','cueMemos','cueAnswerCards','importedAt'])assert.ok(scheduleFields.has(field),`Schedule page must subscribe to ${field}`);
+  for(const path of ['/schedule','/cue/study']){
+    const fields=new Set(resourceFieldsForPath(path).filter(row=>row.scope==='cue').map(row=>row.field));
+    assert.ok(fields.has('cueStudyDrafts'),`${path} must subscribe to unfinished CUE study drafts`);
+    assert.ok(fields.has('cues'),`${path} must subscribe to the cards referenced by those drafts`);
+  }
   assert.ok(resourceFieldsForPath('/study/tasks').some(row=>row.field==='manualTasks'));
   assert.deepEqual(resourceFieldsForPath('/ielts').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyIELTS']);
   assert.deepEqual(resourceFieldsForPath('/studio').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyPersonalSites','legacyLearning']);
