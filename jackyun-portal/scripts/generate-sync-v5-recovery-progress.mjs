@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 const require = createRequire(import.meta.url);
 const bundledModules = process.env.CODEX_NODE_MODULES;
 const { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, WidthType } = require(bundledModules ? resolve(bundledModules, 'docx') : 'docx');
-const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.58.4-20261028.docx');
+const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.58.6-20261028.docx');
 const p = (text, options = {}) => new Paragraph({ text, ...options });
 const h = (text, level = HeadingLevel.HEADING_1) => new Paragraph({ text, heading: level, keepNext: true });
 const cell = text => new TableCell({ children: [p(text)], width: { size: 25, type: WidthType.PERCENTAGE } });
@@ -22,7 +22,7 @@ const doc = new Document({
   },
   sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } } }, children: [
     new Paragraph({ text: 'JackYun 全量资源同步与数据恢复实施记录', style: 'Title' }),
-    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档、3.57.1 存储键映射回归、3.58.0 同步待办归档、3.58.1 多设备恢复缺陷修复、3.58.2 导出账号隔离与本机 Quiz 题目身份修复、3.58.3 清理旧测验身份及 3.58.4 手机快速任务输入字号修复。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
+    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档、3.57.1 存储键映射回归、3.58.0 同步待办归档、3.58.1 多设备恢复缺陷修复、3.58.2 导出账号隔离与本机 Quiz 题目身份修复、3.58.3 清理旧测验身份、3.58.4 手机快速任务输入字号修复、3.58.5 StudyGuide 状态就绪修复及 3.58.6 本机页面导入缺失键保护。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
     p('结论：本记录确认了现有 Schedule v5 客户端的空缓存保护、哈希校验、原子游标与按页订阅测试，并针对日志中可恢复网络错误造成的噪音进行修复。它不表示全账号资源已迁入 v5，也不表示生产账号、staging 迁移或真实双设备验收已通过。'),
     h('1. 当前工作范围'),
     p('3.52.3 已通过 PR #168 合入并部署生产；本地当前在基于最新 main 的隔离分支推进 3.52.4。当前修改没有接触 Supabase 分支或生产数据。3.52.1 将主动取消降为 debug；网络断开、408、425、429、500、502、503、504 记为 warn，不附加重复错误正文；401、403、409、其他非恢复类 HTTP 错误仍保留 error 诊断。3.52.2 修复删除最后一条 CUE 时空集合保护吞掉 tombstone 的 P2 缺陷。3.52.3 再修复放弃或完成最后一个 CUE 学习草稿时空 map 吞掉 tombstone 的 P2 缺陷。两类已同步记录都以当前 revision/hash 写入 v5 outbox；存在未解决冲突时阻止该资源删除并提示用户。所有请求日志仅保留 origin 与 pathname，避免把 ID 查询参数完整写进日志。'),
@@ -96,6 +96,17 @@ const doc = new Document({
     p('GitHub Actions run 40603251492（SHA c7d1b435）中 build、Type/lint、Existing data safety regressions 均通过，Run production UI flows 失败。quick-task-ui 的日志表面显示 page/context closed；在按 CI 方式正确设置构建变量和 standalone 静态资源后，本机重现了 16px 输入字号冲突，并在修复样式后确认测试读取器仍以 IndexedDB v1 打开已升级的 v2 数据库，触发 VersionError。现在读取器采用当前版本打开数据库，成功重试响应从点击前开始监听；本机 Edge 重跑 4/4 通过，覆盖 503 本机队列、幂等 ID 与回执清除。新提交仍需 GitHub Actions 复跑验证。其余失败包括 UI shell theme、IELTS dashboard、旧 iframe/theme、Study Guide、Music Player、Answer Sheet、CUE route/search 与 Review Queue；目前没有同一 SHA 的 main 对照证据，不能称其为已证实基线，也不能把它们说成此次同步改动回归。数据安全门槛继续保持通过才可考虑合并。'),
     p('本次 Preview 仅用于部署预览，当前 SHA 的 Vercel Preview READY 且 /api/health 返回 200 不代表生产数据库读写验收。没有更改 staging/生产数据库、未扩大 v5 灰度、未切换所有账号，也未移除 v4 运行时兼容。'),
     p('距离真实 v5 端到端验收仍差：独立 QuizWise 云历史/专注/阅读等业务源的事务级适配与 RLS；staging 快照、迁移演练和恢复；专用账号认证写入、回执查询、重新读取 SHA-256 与 RLS 证据；两个独立浏览器的双向更新、离线重试、冲突保留及安全回滚；生产部署 SHA 与受控单账号真实读写；实体手机验收。目前无实体手机，不能以浏览器视口模拟替代。未达到 4.0.0 发布条件。'),
+    h('16. Schedule 字段核对与 3.58.5 初始化就绪握手'),
+    p('Schedule v5 模型明确覆盖 cueChangeHistory（CUE 内容导入/修改明细）、cueCollectionUpdates（旧批次摘要）、importedAt（课表最近导入时间）、learningRecords、reviewProgress、cueReviews、cueStudyDraft/cueStudyDrafts，以及独立 jackyun_schedule_questions_v1 题库键（workspace/legacyLearning）。/schedule 页面订阅这些资源域。自动化往返用例逐项验证记录映射、作用域、页面订阅和独立题库键归属。这个覆盖证明代码路径存在，不代表用户历史全部已上云或云端读回成功；较早的旧批次历史只保存摘要时，不能凭当前 v5 映射恢复缺失的明细。'),
+    p('PR #169 workflow run 40608188222（SHA 2d25c3c）：build、TypeScript/ESLint、Existing data safety regressions 通过；production UI flow 仍失败，quick-task-ui 通过 4/4。精确基线 SHA 382ea47 的本机 Edge 复跑中，IELTS dashboard、active-legacy-ui、answer-sheet-legacy、cue-route-draft、cue-search、review-queue 六项同样失败；UI shell、Study Guide、Music Player 基线通过。此对照只证明本机 Edge 复现，不等同 GitHub Linux Chromium 基线证据。'),
+    p('StudyGuide 偶发状态等待超时定位为 iframe 初始化竞态：父组件注入的 data-legacy-workspace 早于 DOMContentLoaded、loadState() 和首次 render()。3.58.5 在首轮状态加载和渲染完成后设置 data-studyguide-ready=true，浏览器回归等待该就绪标记；同步与学习数据逻辑没有变化。新 SHA 仍需 CI 验证。'),
+    p('距离真实 v5 E2E 仍差独立业务资源事务适配与 RLS、staging 快照/迁移/恢复、认证写入与 receipt/SHA/RLS、双浏览器双向/离线/冲突回滚、生产单账号读写以及实体手机验收。当前改动未更改数据库、生产灰度或部署，v4 兼容仍保留。'),
+    h('17. 3.58.6 Schedule 答题进度与 JSON 恢复保护'),
+    p('复核用户提供的 jackyun-local-schedule-255.json 和 jackyun-local-schedule-2.json：两份各 3,580,449 字节的 version 1 Schedule 页面备份键集合相同，只包含 3 个 jack_timetable_plan_* 键和 jackyun_schedule_control_v1，不包含独立本机存储键 jackyun_schedule_questions_v1。它们确实包含 1,170 条 cueReviews、35 条 learningRecords、5 项 reviewProgress、1 份 studyReport、课表最近导入时间和 CUE 学习草稿，因此这些 Schedule 内的学习/复习记录并非缺失。独立题库的答题 attempts、session 草稿不在两份文件内。故不能从这些文件恢复它们从未包含的题库进度，也不能仅凭网络日志中 changes GET 200 认定服务端已将这些记录读取并落盘。'),
+    p('发现并修复本机页面 JSON 导入的数据丢失风险：旧逻辑把文件未列出的本机页面键都删除。导入不完整/旧版 Schedule 文件时，这会把本机已有的 jackyun_schedule_questions_v1 答题进度误删，且不能由该文件恢复。现在导入采用合并语义，未出现的键保持原状；仅 version 2 JSON 中 deletedKeys 明确列出的键才会删除并生成相应 v5 资源目标。导入前的本机恢复点、IndexedDB flush 后再报告成功、明确删除后的 v5 排队保持不变。版本 1 旧 JSON 仍可导入，但缺失键不再隐式删除。'),
+    p('新增自动化回归验证：从较旧 JSON 更新 Schedule 时保留本机问题集、答题记录和草稿；不为未改变的题库错误排队；显式删除题库键时删除本机值并排入 legacyLearning。Schedule 资源模型往返用例同时确认独立问题集键映射到 Schedule 页面订阅的 legacyLearning。以上证明本地代码路径，不证明当前测试账号云端存在答题记录或生产已读回；如果进度只存在于另一设备，仍需从那台设备导出包含 jackyun_schedule_questions_v1 的备份或先让其成功上传。'),
+    p('本次验证：同步套件 316/316 通过；备份中心、3.58 MB 导入、v5 客户端及 Schedule 字段映射定向测试 61/61 通过；TypeScript --noEmit 通过；定向 ESLint 无错误但保留一条既有未使用导入警告；Next.js production build 在独立临时 distDir 编译、类型检查、静态生成和路由优化全部通过。系统默认 .next 构建因 Windows EBUSY 文件锁未清理，未触碰任何运行进程。'),
+    p('距离真实 v5 E2E 仍差：确认用户要恢复的答题记录来源和实际数据；对测试账号 authenticated v5 pull/write、receipt 和 SHA-256 读回；staging 迁移与 RLS 验收；两独立浏览器双向与离线/冲突/回滚测试；生产单账号验收。实体手机当前不可用，未做手机验收。本次未改数据库、生产灰度或部署。'),
   ] }],
 });
 
