@@ -1,19 +1,27 @@
 import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './pages.ts';
 import { scheduleHasContent, SCHEDULE_STORAGE_KEY } from '../sync/schedule-safety.ts';
+import { localPageValues } from './local.ts';
+import { resourceTargetsForStorageKeys } from '../sync/resource-model.ts';
 
-export function parseLocalPageBackup(text: string, page: BackupPage): Record<string, string> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error('JSON 文件格式错误。');
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('文件不是当前页面的本地备份。');
-  const backup = parsed as { version?: unknown; page?: unknown; values?: unknown };
-  if (backup.version !== 1 || backup.page !== page || !backup.values || typeof backup.values !== 'object'
-    || Array.isArray(backup.values) || !Object.keys(backup.values).length) throw new Error('文件不是当前页面的本地备份。');
+type LocalPageImportStorage = {
+  keys: () => string[];
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+  flush: () => Promise<void>;
+};
 
-  const values = backup.values as Record<string, unknown>;
+type LocalPageImportOptions = {
+  page: BackupPage;
+  owner: string;
+  values: Record<string, string>;
+  deletedKeys?: string[];
+  storage: LocalPageImportStorage;
+  saveRecoveryPoint: (owner: string, page: BackupPage, values: Record<string, string>) => Promise<void>;
+  queueV5Targets?: (targets: ReturnType<typeof resourceTargetsForStorageKeys>) => Promise<void>;
+};
+
+function validateValues(values: Record<string, string>, page: BackupPage): void {
   for (const [key, value] of Object.entries(values)) {
     if (typeof value !== 'string' || !isBackupableLegacyKey(key) || legacyBackupPage(key) !== page) {
       throw new Error(`不允许导入的页面数据键：${key}`);
@@ -28,5 +36,56 @@ export function parseLocalPageBackup(text: string, page: BackupPage): Record<str
       if (!scheduleHasContent(schedule)) throw new Error('拒绝导入空 Schedule。');
     }
   }
-  return values as Record<string, string>;
+}
+
+function validateDeletedKeys(keys: readonly string[], page: BackupPage, values: Record<string, string>): void {
+  if (new Set(keys).size !== keys.length) throw new Error('删除键列表含重复项。');
+  for (const key of keys) {
+    if (!isBackupableLegacyKey(key) || legacyBackupPage(key) !== page || Object.hasOwn(values, key)) {
+      throw new Error(`不允许显式删除的页面数据键：${key}`);
+    }
+  }
+}
+
+/** Save a durable recovery point before changing the repository; success follows flush only. */
+export async function applyLocalPageImport(options: LocalPageImportOptions): Promise<string[]> {
+  const { page, owner, values, storage, saveRecoveryPoint } = options;
+  const deletedKeys = options.deletedKeys ?? [];
+  validateValues(values, page);
+  validateDeletedKeys(deletedKeys, page, values);
+
+  const current: Record<string, string> = {};
+  for (const key of storage.keys()) {
+    if (!isBackupableLegacyKey(key) || legacyBackupPage(key) !== page) continue;
+    const value = storage.getItem(key);
+    if (value !== null) current[key] = value;
+  }
+
+  await saveRecoveryPoint(owner, page, localPageValues(current, page));
+  for (const [key, value] of Object.entries(values)) storage.setItem(key, value);
+  for (const key of deletedKeys) storage.removeItem(key);
+  await storage.flush();
+  const changedKeys=[...new Set([...Object.keys(values), ...deletedKeys])];
+  await options.queueV5Targets?.(resourceTargetsForStorageKeys(changedKeys));
+  return changedKeys;
+}
+
+export function parseLocalPageBackup(text: string, page: BackupPage): { values: Record<string, string>; deletedKeys: string[] } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('JSON 文件格式错误。');
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('文件不是当前页面的本地备份。');
+  const backup = parsed as { version?: unknown; page?: unknown; values?: unknown; deletedKeys?: unknown };
+  if ((backup.version !== 1 && backup.version !== 2) || backup.page !== page || !backup.values || typeof backup.values !== 'object'
+    || Array.isArray(backup.values) || (backup.deletedKeys !== undefined && (!Array.isArray(backup.deletedKeys) || backup.deletedKeys.some((key) => typeof key !== 'string')))) throw new Error('文件不是当前页面的本地备份。');
+
+  const values = backup.values as Record<string, unknown>;
+  validateValues(values as Record<string, string>, page);
+  const deletedKeys = (backup.deletedKeys ?? []) as string[];
+  validateDeletedKeys(deletedKeys, page, values as Record<string, string>);
+  if (!Object.keys(values).length && !deletedKeys.length) throw new Error('文件不是当前页面的本地备份。');
+  return { values: values as Record<string, string>, deletedKeys };
 }

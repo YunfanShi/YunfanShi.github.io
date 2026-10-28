@@ -65,8 +65,12 @@ export default function QuizHistory({ onClose }: QuizHistoryProps) {
   const handleDelete = async (sessionId: string) => {
     if (!(await siteConfirm('Delete this quiz session?'))) return;
     if (sessionId.startsWith('local-')) {
-      deleteLocalQuizHistory(sessionId);
-      setSessions((current) => current.filter((session) => session.id !== sessionId));
+      try {
+        await deleteLocalQuizHistory(sessionId);
+        setSessions((current) => current.filter((session) => session.id !== sessionId));
+      } catch {
+        setError('本机历史记录未能保存删除；记录仍保留，请重试。');
+      }
       return;
     }
     if (!signedIn) return;

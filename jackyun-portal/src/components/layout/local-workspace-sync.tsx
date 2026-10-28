@@ -128,9 +128,9 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     const controller=new AbortController(), gate=createSyncRunGate();
     const accountStore=syncStore.accountSyncStore(userId);
     const publish=async (state:SyncStatus,error?:string,progress?:string) => {
-      const [pending,conflicts,lastSyncedAt,v5Pending,v5Conflicts]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<string>('lastSyncedAt'),v5Authority?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),v5Authority?getV5Conflicts(accountStore.databaseScope):Promise.resolve([])]);
+      const [pending,conflicts,lastSyncedAt,v5Pending,v5Conflicts,restoreTargets]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<string>('lastSyncedAt'),v5Authority?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),v5Authority?getV5Conflicts(accountStore.databaseScope):Promise.resolve([]),syncStore.getV5RestoreTargets(accountStore.databaseScope)]);
       if(cancelled) return;
-      const totalPending=pending.length+v5Pending.length,totalConflicts=conflicts.length+v5Conflicts.length;
+      const totalPending=pending.length+v5Pending.length+restoreTargets.length,totalConflicts=conflicts.length+v5Conflicts.length;
       announce({state:totalConflicts && state!=='syncing' && state!=='error' && state!=='server_unavailable' && state!=='auth_required' && state!=='access_denied' ? 'conflict' : state==='synced' && totalPending ? 'offline_pending' : state,
         pending:totalPending,conflicts:totalConflicts,lastSyncedAt,error,progress:progress??(v5Conflicts.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':undefined),consecutiveFailures:failures});
     };
@@ -202,23 +202,25 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           await flushLocalWrites();await engine.capture();
           if(!navigator.onLine){await publish('offline_pending');return false;}
           if(authPaused)return false;
-          const [pending,conflicts,lastRead,v5Pending]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull'),v5Enabled?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([])]);
+          const [pending,conflicts,lastRead,v5Pending,queuedRestoreTargets]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull'),v5Enabled?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),syncStore.getV5RestoreTargets(accountStore.databaseScope)]);
           const blocked=new Set(conflicts.map(c=>c.key));
-          if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&!v5Pending.length&&requestReason!=='edit'&&requestReason!=='route'&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
+          if(!manual&&!queuedResolution&&!pending.some(op=>!blocked.has(op.key))&&!v5Pending.length&&!queuedRestoreTargets.length&&requestReason!=='edit'&&requestReason!=='route'&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
           if(queuedResolution){const choice=queuedResolution;await engine.resolve(choice.operationId,choice.choice,choice.review);if(queuedResolution===choice)queuedResolution=undefined;await engine.flush();}
           if(queuedV5Resolution){const choice=queuedV5Resolution;await v5Sync.resolveConflict(choice.operationId,choice.choice);if(queuedV5Resolution===choice)queuedV5Resolution=undefined;}
-          const v5Result=await v5Sync.synchronize(resourceFieldsForPath(routeForRun));
+          const restoreTargets=await syncStore.getV5RestoreTargets(accountStore.databaseScope);
+          const v5Result=await v5Sync.synchronize([...resourceFieldsForPath(routeForRun),...restoreTargets]);
           v5Enabled=v5Result.enabled;
+          if(v5Result.enabled&&v5Result.processedTargets?.length)await syncStore.acknowledgeV5RestoreTargets(v5Result.processedTargets,accountStore.databaseScope);
           await engine.synchronize();
           await flushLocalWrites();await engine.capture();
           await accountStore.setSetting('lastAutomaticPull',Date.now());
-          const [remaining,unresolved,v5Remaining,v5Unresolved]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),v5Enabled?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),v5Enabled?getV5Conflicts(accountStore.databaseScope):Promise.resolve([])]);
-          if(!remaining.length&&!unresolved.length&&!v5Remaining.length&&!v5Unresolved.length)await accountStore.setSetting('lastSyncedAt',new Date().toISOString());
+          const [remaining,unresolved,v5Remaining,v5Unresolved,remainingRestoreTargets]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),v5Enabled?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),v5Enabled?getV5Conflicts(accountStore.databaseScope):Promise.resolve([]),syncStore.getV5RestoreTargets(accountStore.databaseScope)]);
+          if(!remaining.length&&!unresolved.length&&!v5Remaining.length&&!v5Unresolved.length&&!remainingRestoreTargets.length)await accountStore.setSetting('lastSyncedAt',new Date().toISOString());
           failures=0;
           if(Date.now()-lastBackupCheck>=5*60_000){lastBackupCheck=Date.now();void runScheduledSync('backup',userId!,async()=>{await createDueBackupVersions();}).catch(()=>console.warn('[Backup] Cloud backup deferred'));}
-          await publish(v5AuthoritySuspended?'server_unavailable':unresolved.length||v5Unresolved.length?'conflict':remaining.length||v5Remaining.length?'offline_pending':'synced',undefined,
-            v5AuthoritySuspended?'v5 Schedule 权限暂时不可用；为避免旧快照覆盖，已保留本地 v5 所有权并暂停该域回退。':unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':v5Unresolved.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':remaining.length||v5Remaining.length?'本机修改仍在队列中，将分批继续上传。':v5Result.enabled&&resourceFieldsForPath(routeForRun).length?'当前页面所需资源已核对；其他页面会在打开时分别检查。':'兼容同步检查已完成。');
+          await publish(v5AuthoritySuspended?'server_unavailable':unresolved.length||v5Unresolved.length?'conflict':remaining.length||v5Remaining.length||remainingRestoreTargets.length?'offline_pending':'synced',undefined,
+            v5AuthoritySuspended?'v5 Schedule 权限暂时不可用；为避免旧快照覆盖，已保留本地 v5 所有权并暂停该域回退。':unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':v5Unresolved.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':remainingRestoreTargets.length?'本机数据已保存；相关 v5 资源尚待云端核对，恢复目标已保留并会继续重试。':remaining.length||v5Remaining.length?'本机修改仍在队列中，将分批继续上传。':v5Result.enabled&&resourceFieldsForPath(routeForRun).length?'当前页面所需资源已核对；其他页面会在打开时分别检查。':'兼容同步检查已完成。');
           return true;
         };
         const completed=await runScheduledSync('workspace',userId!,work,manual);

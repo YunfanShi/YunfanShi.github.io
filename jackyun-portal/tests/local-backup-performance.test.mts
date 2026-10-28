@@ -6,6 +6,7 @@ import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { IDBFactory, IDBKeyRange, IDBIndex, IDBObjectStore } from 'fake-indexeddb';
 import { listLocalBackups, pruneLocalBackups, saveLocalBackup } from '../src/lib/backup/local.ts';
+import { applyLocalPageImport, parseLocalPageBackup } from '../src/lib/backup/local-import.ts';
 
 function installDatabase() {
   Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: new IDBFactory() });
@@ -90,6 +91,76 @@ test('a failed insertion aborts pruning and leaves all previous versions intact'
   const rows = await listLocalBackups('alice', 'schedule');
   assert.equal(rows.length, 10);
   assert.deepEqual(rows.map(row => row.values.revision), ['9', '8', '7', '6', '5', '4', '3', '2', '1', '0']);
+});
+
+test('large local Schedule import saves a durable recovery point before writing and waits for IndexedDB flush', async () => {
+  installDatabase();
+  const key = 'jackyun_schedule_control_v1';
+  const previous = JSON.stringify({ cues: [{ id: 'old-cue' }], notes: 'old'.repeat(20) });
+  const importedSchedule = JSON.stringify({ cues: [{ id: 'new-cue' }], notes: 'large'.repeat(350_000) });
+  const json = JSON.stringify({ version: 1, page: 'schedule', values: { [key]: importedSchedule } });
+  assert.ok(Buffer.byteLength(json) > 1_000_000);
+  const values = parseLocalPageBackup(json, 'schedule');
+  const current = new Map([[key, previous], ['jackyun_schedule_old_v1', '{"cues":[]}']]);
+  const events: string[] = [];
+  let persisted = false;
+  let queuedFields: string[] = [];
+
+  const committedKeys = await applyLocalPageImport({
+    page: 'schedule', owner: 'alice', ...values,
+    storage: {
+      keys: () => [...current.keys()],
+      getItem: item => current.get(item) ?? null,
+      setItem: (item, value) => { assert.ok(persisted, 'the recovery point must commit before the first local edit'); events.push(`set:${item}`); current.set(item, value); },
+      removeItem: item => { assert.ok(persisted, 'the recovery point must commit before the first local edit'); events.push(`remove:${item}`); current.delete(item); },
+      flush: async () => { events.push('flush:start'); await new Promise(resolve => setImmediate(resolve)); persisted = true; events.push('flush:complete'); },
+    },
+    saveRecoveryPoint: async (owner, page, snapshot) => {
+      events.push('recovery:start');
+      await saveLocalBackup(owner, page, snapshot);
+      const backups = await listLocalBackups(owner, page);
+      assert.equal(backups[0]?.values[key], previous, 'recovery point must be readable from IndexedDB before mutation');
+      persisted = true;
+      events.push('recovery:complete');
+    },
+    queueV5Targets: async targets => { assert.ok(events.includes('flush:complete'), 'v5 restore targets are queued only after local IndexedDB flush'); queuedFields=targets.map(target=>target.field); events.push('v5-targets-queued'); },
+  });
+
+  assert.deepEqual(committedKeys, [key]);
+  assert.equal(current.get(key), importedSchedule);
+  assert.equal(current.get('jackyun_schedule_old_v1'), '{"cues":[]}', 'keys absent from an older import are preserved');
+  assert.ok(events.indexOf('recovery:complete') < events.indexOf(`set:${key}`));
+  assert.ok(events.indexOf('flush:complete') < events.indexOf('v5-targets-queued'));
+  assert.ok(queuedFields.includes('cues'), 'Schedule imports target all required v5 Schedule resources');
+});
+
+test('local import failure before recovery or during IndexedDB flush never returns success', async () => {
+  installDatabase();
+  const key = 'jackyun_schedule_control_v1', values = { [key]: JSON.stringify({ cues: [{ id: 'cue' }] }) };
+  const current = new Map([[key, JSON.stringify({ cues: [{ id: 'old' }] })]]);
+  const makeStorage = (flush: () => Promise<void>) => ({
+    keys: () => [...current.keys()], getItem: (item: string) => current.get(item) ?? null,
+    setItem: (item: string, value: string) => current.set(item, value), removeItem: (item: string) => current.delete(item), flush,
+  });
+  await assert.rejects(applyLocalPageImport({ page: 'schedule', owner: 'alice', values, storage: makeStorage(async () => {}),
+    saveRecoveryPoint: async () => { throw new Error('recovery IndexedDB failed'); } }), /recovery IndexedDB failed/);
+  assert.equal(current.get(key), JSON.stringify({ cues: [{ id: 'old' }] }), 'failed recovery must stop before mutating local data');
+
+  let returned = false;
+  await assert.rejects((async () => {
+    const result = await applyLocalPageImport({ page: 'schedule', owner: 'alice', values, storage: makeStorage(async () => { throw new Error('workspace IndexedDB failed'); }),
+      saveRecoveryPoint: async (owner, page, snapshot) => saveLocalBackup(owner, page, snapshot) });
+    returned = true;
+    return result;
+  })(), /workspace IndexedDB failed/);
+  assert.equal(returned, false, 'the import cannot report success before the IndexedDB-backed queue flush');
+  assert.ok((await listLocalBackups('alice', 'schedule')).length > 0, 'recovery point remains available after a later failure');
+});
+
+test('local JSON import rejects empty and malformed Schedule data without applying it', () => {
+  assert.throws(() => parseLocalPageBackup('', 'schedule'), /JSON 文件格式错误/);
+  assert.throws(() => parseLocalPageBackup(JSON.stringify({ version: 1, page: 'schedule', values: { jackyun_schedule_control_v1: '{' } }), 'schedule'), /Schedule JSON 格式错误/);
+  assert.throws(() => parseLocalPageBackup(JSON.stringify({ version: 1, page: 'schedule', values: { jackyun_schedule_control_v1: '{"cues":[]}' } }), 'schedule'), /拒绝导入空 Schedule/);
 });
 
 test('visible idle scans fall to 240 per hour; hidden scans pause and exits still save immediately', async () => {

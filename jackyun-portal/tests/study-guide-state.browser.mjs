@@ -20,7 +20,7 @@ try {
   await page.route(/^https:\/\/(fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net)\//, route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
   await page.goto(`${base}/study-guide`);
   let frame = page.frameLocator('iframe[title="StudyGuide"]');
-  await frame.locator('html[data-legacy-workspace]').waitFor();
+  await frame.locator('html[data-studyguide-ready="true"]').waitFor();
   await frame.locator('.nav-item[data-tab="today"]').waitFor();
 
   const todayNav = frame.locator('.nav-item[data-tab="today"]');
@@ -146,7 +146,7 @@ try {
   await page.goto(`${base}/dashboard`);
   await page.goto(`${base}/study-guide`);
   frame = page.frameLocator('iframe[title="StudyGuide"]');
-  await frame.locator('html[data-legacy-workspace]').waitFor();
+  await frame.locator('html[data-studyguide-ready="true"]').waitFor();
   await frame.locator('.nav-item[data-tab="learn"].active').waitFor();
   await frame.locator('.nav-item[data-tab="today"]').click();
   await frame.locator('.nav-item[data-tab="today"].active').waitFor();
@@ -155,7 +155,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${base}/study-guide`);
   frame = page.frameLocator('iframe[title="StudyGuide"]');
-  await frame.locator('html[data-legacy-workspace]').waitFor();
+  await frame.locator('html[data-studyguide-ready="true"]').waitFor();
   const mobileMenu = frame.getByRole('button', { name: '打开学习指南导航' });
   assert.ok(await mobileMenu.evaluate(element => element.getBoundingClientRect().height >= 44), 'mobile navigation trigger remains touch sized');
   await mobileMenu.click();

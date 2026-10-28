@@ -17,16 +17,23 @@ export default function SubjectSelector({ questions, onStart, onCancel }: Subjec
   const [selectedSubject, setSelectedSubject] = useState<string>(() => getSelectedSubject() || '');
   const [customSubject, setCustomSubject] = useState('');
   const [isCustom, setIsCustom] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const questionTypes = questions.reduce((acc, q) => {
     acc[q.type] = (acc[q.type] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     const subject = isCustom ? customSubject.trim() : selectedSubject;
     if (!subject) return;
-    saveSelectedSubject(subject);
+    setSaveError(null);
+    try {
+      await saveSelectedSubject(subject);
+    } catch {
+      setSaveError('本机科目设置未能保存；请重试，测验尚未开始。');
+      return;
+    }
     onStart(subject);
   };
 
@@ -137,6 +144,8 @@ export default function SubjectSelector({ questions, onStart, onCancel }: Subjec
           />
         </div>
       )}
+
+      {saveError && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{saveError}</p>}
 
       {/* Actions */}
       <div className="flex gap-3 pt-2">

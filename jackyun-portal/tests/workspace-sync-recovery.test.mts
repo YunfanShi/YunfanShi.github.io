@@ -48,7 +48,7 @@ function harness() {
   let release: (() => void) | undefined;
   const values = new Map<string, string>(), settings = new Map<string, unknown>();
   const metadata = new Map<string, SyncRecord>();
-  let outbox: SyncOperation[] = [];let conflicts:any[]=[];let sequence=0;
+  let outbox: SyncOperation[] = [];let conflicts:any[]=[];let restoreTargets:any[]=[];let sequence=0;
   const requests: { method: string; url: string; body?: { operations: SyncOperation[] } }[] = [];
   const resourcePaths:string[]=[];
   const locks = new Set<string>();
@@ -59,6 +59,7 @@ function harness() {
   const outboxApi = {
     getSubmission:async()=>settings.get('syncSubmission')??null,saveSubmission:async(value:unknown)=>{settings.set('syncSubmission',value);},
     getV5Outbox:async()=>[],getV5Conflicts:async()=>[],
+    getV5RestoreTargets:async()=>[...restoreTargets],acknowledgeV5RestoreTargets:async()=>[...restoreTargets],
     getDownloadParts:async()=>[],saveDownloadPart:async()=>{},clearDownload:async()=>{},
     bindSyncUser: async () => {}, clearConflicts: async () => {}, getOrCreateDeviceId: async () => 'device',
     getSetting: async (key: string) => settings.get(key) ?? null,
@@ -156,7 +157,7 @@ function harness() {
   }
   return { tab, tabs, requests, resourcePaths, storage, settings, outboxApi,
     set cloudRecords(value: SyncRecord[]) { cloudRecords = value; },
-    get outbox() { return outbox; }, set blocked(value: boolean) { blocked = value; }, set conflict(value: boolean) { conflict = value; }, set fail(value: boolean) { fail = value; },
+    get outbox() { return outbox; }, get restoreTargets() { return restoreTargets; }, set restoreTargets(value:any[]) { restoreTargets=value; }, set blocked(value: boolean) { blocked = value; }, set conflict(value: boolean) { conflict = value; }, set fail(value: boolean) { fail = value; },
     set workspaceLockHeld(value:boolean){if(value)locks.add('shared:workspacealice');else locks.delete('shared:workspacealice');},
     release() { blocked = false; release?.(); },runTimers(){const pending=[...windowTimers.values()];windowTimers.clear();pending.forEach(task=>task());}, advance(ms: number) { now += ms; tabs.forEach(tab => tab.ticks.forEach(tick => tick())); } };
 }
@@ -192,6 +193,17 @@ test('route subscription is retried after another tab releases the workspace lea
 test('initial pathname does not trigger a duplicate route pull',async()=>{
   const h=harness(),tab=h.tab();await settle();
   assert.equal(h.resourcePaths.filter(path=>path==='/schedule').length,1,JSON.stringify(h.resourcePaths));
+  tab.stop();
+});
+
+test('an uncompleted v5 restore target prevents false synced status and remains counted for retry',async()=>{
+  const h=harness(),tab=h.tab();h.restoreTargets=[{scope:'cue',field:'cueCards'}];
+  tab.win.dispatchEvent(new Event('jackyun-sync-retry'));await settle();
+  assert.equal(tab.status.state,'offline_pending',JSON.stringify(tab.status));
+  assert.equal(tab.status.pending,1,JSON.stringify(tab.status));
+  assert.match(tab.status.progress,/恢复目标已保留并会继续重试/);
+  assert.equal(h.settings.has('lastSyncedAt'),false,'an unsettled restore must not stamp a completed sync');
+  assert.deepEqual(h.restoreTargets,[{scope:'cue',field:'cueCards'}]);
   tab.stop();
 });
 

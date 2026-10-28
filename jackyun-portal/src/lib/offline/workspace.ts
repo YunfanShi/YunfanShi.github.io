@@ -1,8 +1,8 @@
 'use client';
 
-import {fetchAuthenticatedSync as fetchSyncWithTimeout} from '../sync/session-transport';
+import {fetchAuthenticatedSync as fetchSyncWithTimeout} from '../sync/session-transport.ts';
 import { canonicalJson } from '../sync/hash.ts';
-import { runScheduledSync,recoveryDelay,retryAfterMilliseconds } from '../sync/scheduler';
+import { runScheduledSync,recoveryDelay,retryAfterMilliseconds } from '../sync/scheduler.ts';
 
 export type OfflineScope = 'tasks' | 'review' | 'reading';
 
@@ -28,8 +28,15 @@ interface SnapshotRow<T = unknown> {
 }
 
 const DB_NAME = 'jackyun-offline-workspace';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const USER_KEY = 'active-user';
+const ARCHIVE_RECOVERY_STORE = 'archiveRecoveryPoints';
+
+export type OfflineWorkspaceArchiveData = {
+  ownerId: string;
+  snapshots: Array<SnapshotRow>;
+  outbox: OfflineMutation[];
+};
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -39,10 +46,136 @@ function openDatabase(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('snapshots')) db.createObjectStore('snapshots', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('outbox')) db.createObjectStore('outbox', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains(ARCHIVE_RECOVERY_STORE)) db.createObjectStore(ARCHIVE_RECOVERY_STORE, { keyPath: 'id' });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
+}
+
+export async function exportOfflineWorkspaceArchiveData(ownerId: string): Promise<OfflineWorkspaceArchiveData> {
+  const db = await openDatabase();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(['snapshots', 'outbox'], 'readonly');
+      const snapshots = tx.objectStore('snapshots').getAll();
+      const outbox = tx.objectStore('outbox').getAll();
+      tx.oncomplete = () => resolve({
+        ownerId,
+        snapshots: (snapshots.result as SnapshotRow[]).filter(row => row.userId === ownerId),
+        outbox: (outbox.result as OfflineMutation[]).filter(row => row.userId === ownerId),
+      });
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error('Offline workspace export aborted'));
+    });
+  } finally { db.close(); }
+}
+
+export async function restoreOfflineWorkspaceArchiveData(ownerId: string, archive: OfflineWorkspaceArchiveData): Promise<{ snapshotsAdded: number; operationsAdded: number }> {
+  if (!ownerId || archive.ownerId !== ownerId) throw new Error('离线队列归档属于其他账号，已拒绝导入。');
+  const isScope = (scope: unknown): scope is OfflineScope => scope === 'tasks' || scope === 'review' || scope === 'reading';
+  if (!Array.isArray(archive.snapshots) || !Array.isArray(archive.outbox)) throw new Error('离线工作区归档格式无效。');
+  for (const row of archive.snapshots) {
+    if (!row || row.userId !== ownerId || row.id !== `${ownerId}:${row.scope}` || !isScope(row.scope) || typeof row.updatedAt !== 'string') {
+      throw new Error('离线快照归档无效。');
+    }
+  }
+  for (const row of archive.outbox) {
+    if (!row || row.userId !== ownerId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(row.id) || typeof row.kind !== 'string'
+      || !row.payload || typeof row.payload !== 'object' || Array.isArray(row.payload) || !Number.isFinite(Date.parse(row.createdAt))) {
+      throw new Error('离线操作归档无效。');
+    }
+    if (row.attemptCount !== undefined && (!Number.isSafeInteger(row.attemptCount) || row.attemptCount < 0)) throw new Error('离线操作重试状态无效。');
+    if (row.nextAttemptAt !== undefined && !Number.isFinite(Date.parse(row.nextAttemptAt))) throw new Error('离线操作重试时间无效。');
+    canonicalJson(row.payload);
+  }
+
+  const db = await openDatabase();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(['snapshots', 'outbox', 'settings', ARCHIVE_RECOVERY_STORE], 'readwrite');
+      const snapshots = tx.objectStore('snapshots');
+      const outbox = tx.objectStore('outbox');
+      const settings = tx.objectStore('settings');
+      const snapshotRead = snapshots.getAll();
+      const operationRead = outbox.getAll();
+      const sequenceRead = settings.get(`sequence:${ownerId}`);
+      const recoveryRead = tx.objectStore(ARCHIVE_RECOVERY_STORE).getAll();
+      const result = { snapshotsAdded: 0, operationsAdded: 0 };
+      const restoredOperations: OfflineMutation[] = [];
+      const restoredSnapshots: SnapshotRow[] = [];
+      let completed = 0;
+      let failed = false;
+      const fail = (error: unknown) => {
+        if (failed) return;
+        failed = true;
+        try { tx.abort(); } catch { /* transaction may already be inactive */ }
+        reject(error);
+      };
+      const apply = () => {
+        if (++completed !== 4 || failed) return;
+        try {
+          const currentSnapshots = (snapshotRead.result as SnapshotRow[]).filter(row => row.userId === ownerId);
+          const currentOperations = (operationRead.result as OfflineMutation[]).filter(row => row.userId === ownerId);
+          const currentById = new Map(currentOperations.map(row => [row.id, row]));
+          const orderedOperations = [...archive.outbox].sort((left, right) => {
+            const bothSequenced = Number.isSafeInteger(left.sequence) && Number.isSafeInteger(right.sequence);
+            if (bothSequenced && left.sequence !== right.sequence) return left.sequence! - right.sequence!;
+            return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
+          });
+          for (const operation of orderedOperations) {
+            const existing = currentById.get(operation.id);
+            if (existing && (existing.kind !== operation.kind || canonicalJson(existing.payload) !== canonicalJson(operation.payload))) {
+              throw new Error('离线操作 ID 与本机内容冲突，已拒绝导入。');
+            }
+          }
+
+          tx.objectStore(ARCHIVE_RECOVERY_STORE).put({
+            id: crypto.randomUUID(), ownerId, createdAt: new Date().toISOString(),
+            snapshots: currentSnapshots, outbox: currentOperations,
+          });
+          const oldRecovery = (recoveryRead.result as Array<{ id: string; ownerId: string; createdAt: string }>)
+            .filter(row => row.ownerId === ownerId).sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+          for (const row of oldRecovery.slice(9)) tx.objectStore(ARCHIVE_RECOVERY_STORE).delete(row.id);
+          const currentSnapshotIds = new Set(currentSnapshots.map(row => row.id));
+          for (const row of archive.snapshots) if (!currentSnapshotIds.has(row.id)) {
+            snapshots.put(row);
+            restoredSnapshots.push(row);
+            result.snapshotsAdded++;
+          }
+          const savedSequence = Number(sequenceRead.result?.value ?? 0);
+          if (!Number.isSafeInteger(savedSequence) || savedSequence < 0) throw new Error('本机离线操作序号损坏，已停止恢复。');
+          let sequence = Math.max(savedSequence, ...currentOperations.map(row => Number.isSafeInteger(row.sequence) && (row.sequence ?? 0) > 0 ? row.sequence! : 0));
+          for (const operation of orderedOperations) {
+            const existing = currentById.get(operation.id);
+            if (existing) continue;
+            sequence++;
+            if (!Number.isSafeInteger(sequence)) throw new Error('离线操作序号已超出安全范围。');
+            const restored = { ...operation, sequence };
+            outbox.put(restored);
+            restoredOperations.push(restored);
+            result.operationsAdded++;
+          }
+          if (result.operationsAdded) settings.put({ key: `sequence:${ownerId}`, value: sequence });
+        } catch (error) { fail(error); }
+      };
+      snapshotRead.onsuccess = apply;
+      operationRead.onsuccess = apply;
+      sequenceRead.onsuccess = apply;
+      recoveryRead.onsuccess = apply;
+      snapshotRead.onerror = () => fail(snapshotRead.error);
+      operationRead.onerror = () => fail(operationRead.error);
+      sequenceRead.onerror = () => fail(sequenceRead.error);
+      recoveryRead.onerror = () => fail(recoveryRead.error);
+      tx.oncomplete = () => {
+        for (const row of restoredSnapshots) window.dispatchEvent(new CustomEvent('jackyun-offline-snapshot', { detail: { userId: ownerId, scope: row.scope, value: row.value } }));
+        for (const operation of restoredOperations) window.dispatchEvent(new CustomEvent('jackyun-offline-queued', { detail: operation }));
+        resolve(result);
+      };
+      tx.onerror = () => { if (!failed) reject(tx.error); };
+      tx.onabort = () => { if (!failed) reject(tx.error ?? new Error('Offline workspace restore aborted')); };
+    });
+  } finally { db.close(); }
 }
 
 async function transact<T>(stores: string | string[], mode: IDBTransactionMode, run: (transaction: IDBTransaction) => IDBRequest<T>): Promise<T> {

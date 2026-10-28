@@ -12,6 +12,7 @@ export type LocalBackup = {
   page: BackupPage;
   createdAt: string;
   values: Record<string, string>;
+  deletedKeys?: string[];
 };
 
 function openDatabase(): Promise<IDBDatabase> {

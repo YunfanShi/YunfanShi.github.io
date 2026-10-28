@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import {resourcesToSchedule,resourceMap,scheduleToResources,mergeScheduleResources,legacyWorkspaceFieldForKey,legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceScopeForRecordId,workspaceStorageToResources} from '../src/lib/sync/resource-model.ts';
+import {resourcesToSchedule,resourceMap,scheduleToResources,mergeScheduleResources,legacyWorkspaceFieldForKey,legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceScopeForRecordId,resourceTargetsForStorageKeys,SYNC_V5_SCHEDULE_SCOPES,workspaceStorageToResources} from '../src/lib/sync/resource-model.ts';
+import {resourceFieldsForPath} from '../src/lib/sync/resource-engine.ts';
 
 test('Schedule fields round-trip as scoped records with stable entity identifiers',()=>{
   const input={schemaVersion:1,timetable:{version:1,courses:[]},manualTasks:[{id:'task-1',title:'Review'}],
@@ -12,6 +14,31 @@ test('Schedule fields round-trip as scoped records with stable entity identifier
   assert.ok(resources.some(row=>row.scope==='cue'&&row.recordId==='cues:cue-1'));
   assert.ok(resources.some(row=>row.scope==='learning'&&row.recordId==='manualTasks:task-1'));
   assert.ok(resources.some(row=>row.scope==='timer'&&row.recordId==='practiceSessions:focus-1'));
+});
+
+test('Schedule import history, learning progress, and question-bank data are explicit v5 round-trips',()=>{
+  const importedAt='2026-10-28T08:30:00.000Z';
+  const importRecord={id:'import-1',at:importedAt,source:'import',createdCount:1,modifiedCount:0,deletedCount:0,changes:[{cueId:'cue-imported',action:'create',subjectName:'Physics',unit:'Waves',prompt:'Define wave',fields:[]}]};
+  const studyDraft={id:'draft-1',task:{key:'course-review:physics'},cueIds:['cue-imported'],index:0,assessments:{},startedAt:importedAt,updatedAt:importedAt};
+  const schedule={
+    schemaVersion:1,importedAt,timetable:{version:1,name:'Imported timetable',courses:[]},
+    cueChangeHistory:[importRecord],cueCollectionUpdates:[{id:'batch-1',subjectId:'physics',subjectName:'Physics',updatedAt:importedAt,nextReminderDate:'2026-11-04',createdCount:1,modifiedCount:0,totalCueCount:1}],
+    learningRecords:[{id:'record-1',subjectId:'physics',status:'stable',studiedAt:importedAt}],
+    reviewProgress:{physics:{subjectId:'physics',intervalDays:3,nextReviewDate:'2026-10-31',updatedAt:importedAt}},
+    cueReviews:[{id:'review-1',cueId:'cue-imported',status:'stable',reviewedAt:importedAt}],
+    cueStudyDrafts:{physics:studyDraft},cueStudyDraft:studyDraft,
+  };
+  const resources=scheduleToResources(schedule);
+  assert.deepEqual(resourcesToSchedule(resources),schedule);
+  for(const [field,scope] of [['cueChangeHistory','cue'],['cueCollectionUpdates','cue'],['learningRecords','learning'],['reviewProgress','learning'],['cueReviews','cue'],['cueStudyDrafts','cue'],['importedAt','settings']] as const){
+    assert.ok(resources.some(row=>row.field===field&&row.scope===scope),`${field} must have a v5 record`);
+  }
+  const pageTargets=resourceFieldsForPath('/schedule');
+  for(const field of ['cueChangeHistory','cueCollectionUpdates','learningRecords','reviewProgress','cueReviews','cueStudyDrafts','importedAt']){
+    assert.ok(pageTargets.some(row=>row.field===field),`Schedule page must subscribe to ${field}`);
+  }
+  assert.equal(legacyWorkspaceFieldForKey('jackyun_schedule_questions_v1'),'legacyLearning','the independent question bank is included in the Schedule page workspace subscription');
+  assert.ok(pageTargets.some(row=>row.scope==='workspace'&&row.field==='legacyLearning'));
 });
 
 test('editing one CUE changes one record while preserving the collection order resource',()=>{
@@ -117,6 +144,40 @@ test('dynamic key families keep stable per-key v5 identities across goal, timer 
   assert.deepEqual(traffic.map(legacyWorkspaceFieldForKey),['legacyLearning','legacyLearning']);
   assert.notEqual(legacyWorkspaceRecordId(traffic[0]),legacyWorkspaceRecordId(traffic[1]),'prefix-enumerated traffic records retain distinct key identity');
 });
+
+test('every concrete legacy inventory key has an explicit v5 record mapping',()=>{
+  const matrix=JSON.parse(readFileSync(new URL('../docs/sync-v5-coverage-matrix-20261028.json',import.meta.url),'utf8')) as {inventory_rows:Array<{key_or_pattern:string;should_cloud_sync:unknown;current_protocol:string}>};
+  const candidates=matrix.inventory_rows.filter(row=>row.should_cloud_sync===true&&/v2|v4/.test(row.current_protocol));
+  const concrete=candidates.filter(row=>!row.key_or_pattern.startsWith('?')&&!row.key_or_pattern.includes(String.fromCharCode(36)));
+  const schedule=concrete.filter(row=>row.key_or_pattern==='jackyun_schedule_control_v1');
+  assert.equal(candidates.length,189,'inventory candidate count is intentionally reviewed when the scanner changes');
+  assert.equal(concrete.length,171,'all static key names must be classified, not left as runtime guesses');
+  assert.equal(schedule.length,1);
+  assert.deepEqual([...new Set(resourceTargetsForStorageKeys([schedule[0].key_or_pattern]).map(target=>target.scope))].sort(),[...SYNC_V5_SCHEDULE_SCOPES].sort());
+  const workspace=concrete.filter(row=>row.key_or_pattern!=='jackyun_schedule_control_v1');
+  assert.equal(workspace.length,170);
+  for(const row of workspace){
+    const field=legacyWorkspaceFieldForKey(row.key_or_pattern);
+    assert.ok(field,`missing v5 owner field for ${row.key_or_pattern}`);
+    const recordId=legacyWorkspaceRecordId(row.key_or_pattern);
+    assert.ok(recordId,`missing stable v5 record ID for ${row.key_or_pattern}`);
+    assert.equal(legacyWorkspaceKeyFromRecordId(recordId),row.key_or_pattern);
+    assert.equal(resourceScopeForRecordId(recordId),'workspace');
+  }
+  const dynamic=candidates.filter(row=>row.key_or_pattern.startsWith('?')||row.key_or_pattern.includes(String.fromCharCode(36)));
+  assert.equal(dynamic.length,18,'dynamic key templates remain explicit migration work');
+  for(const row of dynamic){
+    const sampleKey=row.key_or_pattern.replace(/\$\{dynamic\}/g,'sample');
+    const field=legacyWorkspaceFieldForKey(sampleKey);
+    assert.ok(field,`missing v5 owner for dynamic family ${row.key_or_pattern} (${sampleKey})`);
+    const recordId=legacyWorkspaceRecordId(sampleKey);
+    assert.ok(recordId,`missing stable v5 record ID for ${sampleKey}`);
+    assert.equal(legacyWorkspaceKeyFromRecordId(recordId),sampleKey);
+    assert.equal(resourceScopeForRecordId(recordId),'workspace');
+  }
+  assert.equal(candidates.length-concrete.length,dynamic.length,'all non-concrete rows are explicitly sampled dynamic families');
+});
+
 test('device controls, browser-tab state and user-script configuration are excluded from cloud sync',()=>{
   for(const key of ['sync_position','sync_isInput','sme_v30_hijack','sme_v30_autoclose','jy_tr3000_profile_mac','jackyun-browser-ai-conversation-target','jackyun-browser-ai-recent-choice:openai:gpt','jackyun-savepoint-conversation-1','jackyun-continue-conversation-1'])
     assert.equal(legacyWorkspaceFieldForKey(key),null,key);
