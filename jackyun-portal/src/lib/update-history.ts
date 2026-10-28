@@ -15,6 +15,8 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
+  { version: '3.58.6', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '保护导入时未包含的答题进度', summary: '导入较旧的 Schedule JSON 时保留文件未包含的本机数据；只有显式删除清单才会删除并同步 tombstone。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['兼容未包含独立题库键的旧备份，不再把缺失误判为删除。', '恢复前仍保存本机恢复点，显式删除继续进入 v5 资源队列。'] },
+  { version: '3.58.5', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '稳定学习指南恢复状态检查', summary: '学习指南在恢复本机状态并完成首屏渲染后提供明确就绪信号，减少 iframe 初始化竞态。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['跨路由重新挂载时等待首轮状态恢复和渲染完成，再检查活动页面。', '未改变学习数据、同步协议或云端状态。'] },
   { version: '3.58.4', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '修复手机快速任务输入字号', summary: '快速添加任务时，移动端输入框保持 16px 字号，避免浏览器缩放并让同步回归流程可用。', categories: ['稳定性', '学习体验'], accent: 'blue', featured: true, highlights: ['移除覆盖组件移动端字号规则的 text-sm 类。', '浏览器验证继续检查 16px 输入文字、触控高度、503 本机排队、同一操作 ID 重试及回执清除。'] },
   { version: '3.58.3', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '隔离新的本机测验进度', summary: '开始本机-only QuizWise 测验时清空上一场云端题目 ID，防止旧测验身份进入新进度。', categories: ['稳定性', '学习体验'], accent: 'blue', featured: false, highlights: ['新测验开始后立即移除旧 session 的数据库题目行。', '浏览器回归覆盖旧云端进度后启动本机新测验，校验题目 ID 列表不会继承。'] },
   { version: '3.58.2', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '修复完整归档与本机测验恢复', summary: '账号在导出过程中切换时停止生成归档；没有云端题目 ID 的本机 QuizWise 进度继续使用空 ID 列表。', categories: ['稳定性', '平台体验'], accent: 'blue', featured: false, highlights: ['归档导出在每次异步读取及哈希完成后核对账号上下文，阻止混合不同账号的数据。', '本机测验不会将缺失题目身份写为空字符串；云端会话仍需稳定题目 ID 完全匹配。'] },
