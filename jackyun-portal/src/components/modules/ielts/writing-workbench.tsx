@@ -1,5 +1,5 @@
 'use client';
-import { workspaceStorage } from '@/lib/sync/repository';
+import { getLocalSaveState, LOCAL_DURABILITY_EVENT, workspaceStorage } from '@/lib/sync/repository';
 import { CLOUD_STATE_APPLIED_EVENT, LOCAL_SYNC_STATUS_EVENT } from '@/lib/local-workspace';
 import { getLatestSyncStatus } from '@/lib/sync/status';
 
@@ -7,7 +7,7 @@ import { getLatestSyncStatus } from '@/lib/sync/status';
 import { siteConfirm } from '@/lib/site-dialog';
 import Link from 'next/link';
 import { ArchiveTitleEditor } from './archive-title-editor';
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { parseLocalValue, persistLocalEditNow } from '@/lib/sync/local-edit';
 import {canonicalJson} from '@/lib/sync/hash';
 import {threeWayMerge} from '@/lib/sync/merge';
@@ -30,7 +30,7 @@ const WORKSPACES_KEY = 'jackyun_ielts_writing_workspaces_v1';
 const WORKSPACES_MIRROR_KEY = 'jackyun_ielts_writing_workspaces_mirror_v1';
 const RESPONSE_FORMAT_KEY = 'jackyun_ielts_writing_response_format_v1';
 type UiLanguage = 'en' | 'zh';
-type SaveState = 'saved' | 'error';
+type SaveState = 'saved' | 'saving' | 'error';
 type WorkspaceLayout = 'split' | 'stacked';
 type WritingView = 'workbench' | 'library' | 'reader';
 type ReaderTheme = 'paper' | 'mint' | 'night';
@@ -45,7 +45,7 @@ const COPY = {
   en: {
     title: 'Writing Correction Studio', newEssay: 'New essay', newEssayStarted: 'New essay ready. Your previous revision stays in progress.', inProgress: 'In progress', continueRevision: 'Continue revising', currentEssay: 'Current essay', subtitle: 'Keep the real first attempt. Let AI locate the problems, revise them yourself, then prove the improvement on a new question.',
     timer: 'exam timer', pause: 'Pause timer', start: 'Start timer', reset: 'Reset timer', language: '中文', taskGroup: 'Choose an IELTS Writing task', words: 'words',
-    saved: 'Saved now · primary + mirror', saveError: 'Local save failed', question: 'Question', questionPlaceholder: 'Paste the IELTS Writing task here…', essay: 'Your essay', originalLink: 'View original', essayPlaceholder: 'Write your real first attempt independently. Do not ask AI for a model answer first…',
+    saved: 'Saved on this device', saving: 'Saving on this device…', saveError: 'Local save failed', question: 'Question', questionPlaceholder: 'Paste the IELTS Writing task here…', essay: 'Your essay', originalLink: 'View original', essayPlaceholder: 'Write your real first attempt independently. Do not ask AI for a model answer first…',
     layout: 'Workspace layout', split: 'Side by side', stacked: 'Top and bottom',
     highlights: 'Editor highlights', highlightsOn: 'Editor highlights on', highlightsOff: 'Editor highlights off', highlightedDraft: 'Quoted issues in your current draft', noQuotedIssues: 'No quoted issue can be matched to the current draft.', locateIssue: 'Show this issue in the editor',
     originalEyebrow: 'Original attempt', originalTitle: 'Locked evidence of your starting point', loop: 'Correction loop', round: 'What to do this round', stageHint: 'Choose any step. Your choice is saved for the next visit.', stages: ['Original', 'Self-revise', 'Upgrade', 'Transfer'],
@@ -61,7 +61,7 @@ const COPY = {
   zh: {
     title: '雅思写作修复工作台', newEssay: '新建文章', newEssayStarted: '新文章已就绪，上一篇修订仍保留在进行中。', inProgress: '进行中的修订', continueRevision: '继续修订', currentEssay: '当前文章', subtitle: '保留真实原稿，让 AI 定位问题；你自己修改，再用一道新题证明这次进步能够迁移。',
     timer: '考试计时', pause: '暂停计时', start: '开始计时', reset: '重置计时', language: 'EN', taskGroup: '选择雅思写作题型', words: '词',
-    saved: '刚刚保存 · 主草稿 + 镜像', saveError: '本地保存失败', question: '题目', questionPlaceholder: '粘贴雅思写作题目…', essay: '你的作文', originalLink: '查看原稿', essayPlaceholder: '先独立完成真实写作，不要让 AI 预先生成范文…',
+    saved: '已保存到本机', saving: '正在保存到本机…', saveError: '本地保存失败', question: '题目', questionPlaceholder: '粘贴雅思写作题目…', essay: '你的作文', originalLink: '查看原稿', essayPlaceholder: '先独立完成真实写作，不要让 AI 预先生成范文…',
     layout: '工作台布局', split: '左右分栏', stacked: '上下排列',
     highlights: '编辑框高亮', highlightsOn: '编辑框高亮已开启', highlightsOff: '编辑框高亮已关闭', highlightedDraft: '当前稿中被引用的问题', noQuotedIssues: '当前反馈的引用无法在作文中精确匹配。', locateIssue: '在编辑框中定位这个问题',
     originalEyebrow: '真实原稿', originalTitle: '不可覆盖的起点证据', loop: '修复循环', round: '本轮怎么做', stageHint: '可以自由选择任意阶段，刷新后仍会保留。', stages: ['原稿', '自己修改', '语言升级', '新文迁移'],
@@ -78,13 +78,23 @@ const COPY = {
 
 function formatTime(seconds: number) { return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }
 function newEssayId() { return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `essay-${Date.now()}`; }
+function storageFailureMessage(error: unknown, language: UiLanguage, draftSave: boolean) {
+  const name = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+  const detail = error instanceof Error ? error.message : '';
+  const prefix = draftSave
+    ? (language === 'en' ? 'Your current essay remains in the editor. ' : '当前作文仍保留在编辑框中。')
+    : (language === 'en' ? 'Your essay is still stored in the local workspace, but this preference could not be saved. ' : '作文仍保存在本机工作区，但此项偏好设置未能保存。');
+  if (name === 'QuotaExceededError') return `${prefix}${language === 'en' ? 'Browser storage is full. Export a backup, then clear this site’s stored downloads or data before retrying.' : '浏览器本机存储空间已满。请先导出备份，再清理本站下载缓存或站点数据后重试。'}`;
+  if (name === 'SecurityError') return `${prefix}${language === 'en' ? 'The browser blocked this site from saving local data. Check site data and privacy settings.' : '浏览器阻止了本站保存本机数据，请检查站点数据和隐私设置。'}`;
+  return `${prefix}${detail || (language === 'en' ? 'Local storage could not be accessed.' : '无法访问本机存储。')}`;
+}
 function validDraft(value: unknown): value is DraftState {
   if (!value || typeof value !== 'object') return false;
   const draft = value as Partial<DraftState>;
   return typeof draft.essayId === 'string' && typeof draft.essay === 'string' && typeof draft.question === 'string' && typeof draft.originalEssay === 'string' && ['task1-academic', 'task1-general', 'task2'].includes(draft.task ?? '') && typeof draft.secondsLeft === 'number' && typeof draft.timerStarted === 'boolean';
 }
 function readStoredDraft(): DraftState | null {
-  return readFirstValidJson(localStorage, [DRAFT_KEY, MIRROR_KEY], validDraft);
+  return readFirstValidJson(workspaceStorage, [DRAFT_KEY, MIRROR_KEY], validDraft);
 }
 function validFeedback(value: unknown): value is WritingFeedback {
   if (!value || typeof value !== 'object') return false;
@@ -164,36 +174,38 @@ export default function WritingWorkbench() {
   const editCount = useRef(0);
   const originalRef = useRef<HTMLDivElement>(null);
   const essayRef = useRef<HTMLTextAreaElement>(null);
+  const essaySelection = useRef<{ start: number; end: number; direction: 'forward' | 'backward' | 'none' } | null>(null);
   const highlightLayerRef = useRef<HTMLDivElement>(null);
   const c = COPY[uiLanguage];
 
   function persistDraft(next: DraftState, keepSnapshot = false, reportState = true, failOnError = false) {
-    let saved=next;
     try {
-      const merged = persistLocalEditNow(localStorage,DRAFT_KEY,draftBase.current,next) as DraftState;
-      saved=merged;draftBase.current=merged;
-      writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, merged);
-      workspaceStorage.setItem(DRAFT_KEY,JSON.stringify(merged));
-      workspaceStorage.setItem(MIRROR_KEY,JSON.stringify(merged));
+      const merged = persistLocalEditNow(workspaceStorage,DRAFT_KEY,draftBase.current,next) as DraftState;
+      workspaceStorage.setItem(MIRROR_KEY, JSON.stringify(merged));
+      draftBase.current=merged;
       if (keepSnapshot) {
         const existing = JSON.parse(workspaceStorage.getItem(SNAPSHOTS_KEY) || '[]') as DraftSnapshot[];
         const snapshots = [{ savedAt: new Date().toISOString(), draft: merged }, ...(Array.isArray(existing) ? existing : [])].slice(0, 5);
         workspaceStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
       }
-      if (reportState) setSaveState('saved');
       return merged;
-    } catch (error) { if (reportState) setSaveState('error');setMessage(error instanceof Error?error.message:'保存失败，草稿已保留。');if(failOnError)throw error;return saved; }
+    } catch (error) {
+      if (reportState) setSaveState('error');
+      setMessage(storageFailureMessage(error, uiLanguage, true));
+      if (failOnError) throw error;
+      // A failed storage write must not replace the controlled editor value with
+      // a merged copy. React would otherwise reset the caret to the end.
+      return next;
+    }
   }
   function commitDraft(next: DraftState, keepSnapshot = false) { setDraft(hydrated ? persistDraft(next,keepSnapshot) : next); }
   function editField(field: 'question' | 'essay', value: string) { editCount.current += 1; commitDraft({ ...draft, [field]: value }, editCount.current % 25 === 0); }
   const currentWorkspaceSnapshot = useMemo<WritingWorkspace>(() => ({ id: draft.essayId, draft, feedback, feedbackSource, feedbackHistory, previousRuleKeys, resolved, stage, externalFallbackMode, externalReply, externalPanelOpen, savedAt: new Date().toISOString(), markdownReport }), [draft, feedback, feedbackSource, feedbackHistory, previousRuleKeys, resolved, stage, externalFallbackMode, externalReply, externalPanelOpen, markdownReport]);
   function persistWritingWorkspaces(next: WritingWorkspace[]) {
     try {
-      writeRedundantJson(localStorage, WORKSPACES_KEY, WORKSPACES_MIRROR_KEY, next);
-      const serialized=JSON.stringify(next);workspaceStorage.setItem(WORKSPACES_KEY,serialized);workspaceStorage.setItem(WORKSPACES_MIRROR_KEY,serialized);
+      writeRedundantJson(workspaceStorage, WORKSPACES_KEY, WORKSPACES_MIRROR_KEY, next);
       workspacesRef.current = next;
       setWorkspaces(next);
-      setSaveState('saved');
       return true;
     } catch (error) {
       setSaveState('error');
@@ -207,7 +219,7 @@ export default function WritingWorkbench() {
 
   useEffect(() => {
     let storedDraft: DraftState | null = null; let storedHistory: ErrorHistoryEntry[] = []; let storedArchive: WritingArchiveEntry[] = []; let storedWorkspaces: WritingWorkspace[] = []; let storedLanguage: UiLanguage = 'en'; let storedLayout: WorkspaceLayout = 'split'; let storedHighlights = true; let storedStage: WritingStage | null = null; let storedGuidance: WritingGuidanceMode = 'hint';
-    try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(workspaceStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; const parsedArchive = JSON.parse(workspaceStorage.getItem(ARCHIVE_KEY) || '[]') as unknown; if (Array.isArray(parsedArchive)) storedArchive = parsedArchive.filter(isWritingArchiveEntry); storedWorkspaces = readFirstValidJson(localStorage, [WORKSPACES_KEY, WORKSPACES_MIRROR_KEY], (value): value is WritingWorkspace[] => Array.isArray(value) && value.every(validWritingWorkspace)) ?? []; storedLanguage = workspaceStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = workspaceStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = workspaceStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(workspaceStorage.getItem(STAGE_KEY)); storedGuidance = workspaceStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; setResponseFormat(workspaceStorage.getItem(RESPONSE_FORMAT_KEY) === 'markdown' ? 'markdown' : 'json'); } catch { /* Start clean when all local copies are unavailable. */ }
+    try { storedDraft = readStoredDraft(); storedHistory = JSON.parse(workspaceStorage.getItem(HISTORY_KEY) || '[]') as ErrorHistoryEntry[]; const parsedArchive = JSON.parse(workspaceStorage.getItem(ARCHIVE_KEY) || '[]') as unknown; if (Array.isArray(parsedArchive)) storedArchive = parsedArchive.filter(isWritingArchiveEntry); storedWorkspaces = readFirstValidJson(workspaceStorage, [WORKSPACES_KEY, WORKSPACES_MIRROR_KEY], (value): value is WritingWorkspace[] => Array.isArray(value) && value.every(validWritingWorkspace)) ?? []; storedLanguage = workspaceStorage.getItem(LANGUAGE_KEY) === 'zh' ? 'zh' : 'en'; storedLayout = workspaceStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'split'; storedHighlights = workspaceStorage.getItem(HIGHLIGHT_KEY) !== 'off'; storedStage = coerceWritingStage(workspaceStorage.getItem(STAGE_KEY)); storedGuidance = workspaceStorage.getItem(GUIDANCE_KEY) === 'correction' ? 'correction' : 'hint'; setResponseFormat(workspaceStorage.getItem(RESPONSE_FORMAT_KEY) === 'markdown' ? 'markdown' : 'json'); } catch { /* Start clean when all local copies are unavailable. */ }
     try {draftBase.current=parseLocalValue(workspaceStorage.getItem(DRAFT_KEY));historyBase.current=parseLocalValue(workspaceStorage.getItem(HISTORY_KEY));archiveBase.current=parseLocalValue(workspaceStorage.getItem(ARCHIVE_KEY));} catch { /* Corrupt originals remain untouched; guarded saves report conflicts. */ }
     const activeWorkspace = storedWorkspaces.find((workspace) => workspace.id === (storedDraft?.essayId ?? storedWorkspaces[0]?.id));
     const activeDraft = storedDraft ?? activeWorkspace?.draft ?? defaultDraft;
@@ -261,8 +273,8 @@ export default function WritingWorkbench() {
     try {
       const previous=draftBase.current as DraftState | undefined;
       if(previous && ['essayId','task','question','essay','originalEssay','timerStarted'].every(key=>previous[key as keyof DraftState]===draft[key as keyof DraftState]) && Math.floor(previous.secondsLeft/10)===Math.floor(draft.secondsLeft/10)) return;
-      const merged=persistLocalEditNow(localStorage,DRAFT_KEY,draftBase.current,draft) as DraftState;
-      writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, merged);
+      const merged=persistLocalEditNow(workspaceStorage,DRAFT_KEY,draftBase.current,draft) as DraftState;
+      workspaceStorage.setItem(MIRROR_KEY, JSON.stringify(merged));
       if(canonicalJson(merged)===canonicalJson(draft))draftBase.current=merged;
       else queueMicrotask(()=>setDraft(current=>{draftBase.current=merged;return threeWayMerge(draft,current,merged).merged as DraftState;}));
     } catch (error) { queueMicrotask(()=>{setSaveState('error');setMessage(error instanceof Error?error.message:'草稿保存失败。');}); }
@@ -273,16 +285,15 @@ export default function WritingWorkbench() {
     const current = currentWorkspaceSnapshot;
     const next = upsertWritingWorkspace(workspacesRef.current, current);
     try {
-      writeRedundantJson(localStorage, WORKSPACES_KEY, WORKSPACES_MIRROR_KEY, next);
-      const serialized=JSON.stringify(next);workspaceStorage.setItem(WORKSPACES_KEY,serialized);workspaceStorage.setItem(WORKSPACES_MIRROR_KEY,serialized);
+      writeRedundantJson(workspaceStorage, WORKSPACES_KEY, WORKSPACES_MIRROR_KEY, next);
       if (canonicalJson(next) !== canonicalJson(workspacesRef.current)) setWorkspaces(next);
       workspacesRef.current = next;
     } catch (error) {
       queueMicrotask(() => { setSaveState('error'); setMessage(error instanceof Error ? error.message : '进行中的修订未能保存。'); });
     }
   }, [currentWorkspaceSnapshot, archive, hydrated]);
-  useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history) as ErrorHistoryEntry[];workspaceStorage.setItem(HISTORY_KEY,JSON.stringify(merged));if(canonicalJson(merged)===canonicalJson(history))historyBase.current=merged;else queueMicrotask(()=>setHistory(current=>{historyBase.current=merged;return threeWayMerge(history,current,merged).merged as ErrorHistoryEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作历史未保存，原历史已保留。'));} }, [history, hydrated]);
-  useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(localStorage,ARCHIVE_KEY,archiveBase.current,archive) as WritingArchiveEntry[];workspaceStorage.setItem(ARCHIVE_KEY,JSON.stringify(merged));if(canonicalJson(merged)===canonicalJson(archive))archiveBase.current=merged;else queueMicrotask(()=>setArchive(current=>{archiveBase.current=merged;return threeWayMerge(archive,current,merged).merged as WritingArchiveEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作归档未保存，原归档已保留。'));} }, [archive, hydrated]);
+  useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(workspaceStorage,HISTORY_KEY,historyBase.current,history) as ErrorHistoryEntry[];if(canonicalJson(merged)===canonicalJson(history))historyBase.current=merged;else queueMicrotask(()=>setHistory(current=>{historyBase.current=merged;return threeWayMerge(history,current,merged).merged as ErrorHistoryEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作历史未保存，原历史已保留。'));} }, [history, hydrated]);
+  useEffect(() => { if (!hydrated) return; try { const merged=persistLocalEditNow(workspaceStorage,ARCHIVE_KEY,archiveBase.current,archive) as WritingArchiveEntry[];if(canonicalJson(merged)===canonicalJson(archive))archiveBase.current=merged;else queueMicrotask(()=>setArchive(current=>{archiveBase.current=merged;return threeWayMerge(archive,current,merged).merged as WritingArchiveEntry[];})); } catch (error) {queueMicrotask(()=>setMessage(error instanceof Error?error.message:'写作归档未保存，原归档已保留。'));} }, [archive, hydrated]);
   useEffect(() => {
     if (!draft.timerStarted || draft.secondsLeft <= 0) return;
     const interval = window.setInterval(() => setDraft((current) => ({ ...current, secondsLeft: Math.max(0, current.secondsLeft - 1), timerStarted: current.secondsLeft > 1 })), 1000);
@@ -311,6 +322,34 @@ export default function WritingWorkbench() {
     syncWidth();
     return () => observer.disconnect();
   }, [hydrated]);
+  useEffect(() => {
+    const updateDurability = (state: string) => {
+      if (state === 'storage_error') {
+        setSaveState('error');
+        setMessage(uiLanguage === 'en'
+          ? 'The browser could not confirm saving to this device. Your current text remains in the editor; storage may be full or blocked. Export a backup before leaving this page.'
+          : '浏览器未能确认作文已写入本机。当前文字仍保留在编辑框中；本机空间可能已满或存储权限受限。离开页面前请先导出备份。');
+      } else if (state === 'saving') setSaveState('saving');
+      else if (state === 'saved' || state === 'projection_degraded') setSaveState('saved');
+    };
+    const onDurability = (event: Event) => updateDurability((event as CustomEvent<{ state?: string }>).detail?.state ?? '');
+    updateDurability(getLocalSaveState());
+    window.addEventListener(LOCAL_DURABILITY_EVENT, onDurability);
+    return () => window.removeEventListener(LOCAL_DURABILITY_EVENT, onDurability);
+  }, [uiLanguage]);
+  useLayoutEffect(() => {
+    const selection = essaySelection.current;
+    const editor = essayRef.current;
+    if (!selection) return;
+    if (editor && document.activeElement === editor) {
+      editor.setSelectionRange(
+        Math.min(selection.start, draft.essay.length),
+        Math.min(selection.end, draft.essay.length),
+        selection.direction,
+      );
+    }
+    essaySelection.current = null;
+  }, [draft.essay]);
   async function enterFocusMode() {
     setFocusMode(true);
     requestAnimationFrame(() => {
@@ -356,11 +395,11 @@ export default function WritingWorkbench() {
   const archiveResults = archive.filter((entry) => `${entry.title} ${entry.question} ${entry.content}`.toLocaleLowerCase().includes(archiveQuery.toLocaleLowerCase()));
   const readerThemeClass = readerTheme === 'night' ? 'bg-[#111827] text-[#e5e7eb]' : readerTheme === 'mint' ? 'bg-[#effaf5] text-[#16372d]' : 'bg-[#fffdf7] text-[#29251f]';
   const externalPrompt = useMemo(() => repairPromptMode ? buildWritingFeedbackRepairPrompt(externalReply.slice(0, 40_000), guidanceMode, uiLanguage) : buildWritingReviewPrompt({ ...draft, mode: activeExternalMode, previousRuleKeys: [...new Set([...previousRuleKeys, ...recurringRuleKeys(history)])], recurringErrorKeys: recurringRuleKeys(history), previousIssues: promptIssueRecords, outputLanguage: uiLanguage, responseFormat, guidanceMode }), [activeExternalMode, draft, externalReply, guidanceMode, history, previousRuleKeys, promptIssueRecords, repairPromptMode, responseFormat, uiLanguage]);
-  function toggleLanguage() { const next = uiLanguage === 'en' ? 'zh' : 'en'; setUiLanguage(next); try { workspaceStorage.setItem(LANGUAGE_KEY, next); } catch { setSaveState('error'); } }
-  function changeLayout(next: WorkspaceLayout) { setWorkspaceLayout(next); try { workspaceStorage.setItem(LAYOUT_KEY, next); } catch { setSaveState('error'); } }
-  function toggleHighlights() { const next = !highlightIssues; setHighlightIssues(next); try { workspaceStorage.setItem(HIGHLIGHT_KEY, next ? 'on' : 'off'); } catch { setSaveState('error'); } }
-  function changeStage(next: WritingStage) { setStageState(next); try { workspaceStorage.setItem(STAGE_KEY, String(next)); } catch { setSaveState('error'); } }
-  function changeGuidanceMode(next: WritingGuidanceMode) { setGuidanceMode(next); try { workspaceStorage.setItem(GUIDANCE_KEY, next); } catch { setSaveState('error'); } }
+  function toggleLanguage() { const next = uiLanguage === 'en' ? 'zh' : 'en'; setUiLanguage(next); try { workspaceStorage.setItem(LANGUAGE_KEY, next); } catch (error) { setMessage(storageFailureMessage(error, next, false)); } }
+  function changeLayout(next: WorkspaceLayout) { setWorkspaceLayout(next); try { workspaceStorage.setItem(LAYOUT_KEY, next); } catch (error) { setMessage(storageFailureMessage(error, uiLanguage, false)); } }
+  function toggleHighlights() { const next = !highlightIssues; setHighlightIssues(next); try { workspaceStorage.setItem(HIGHLIGHT_KEY, next ? 'on' : 'off'); } catch (error) { setMessage(storageFailureMessage(error, uiLanguage, false)); } }
+  function changeStage(next: WritingStage) { setStageState(next); try { workspaceStorage.setItem(STAGE_KEY, String(next)); } catch (error) { setMessage(storageFailureMessage(error, uiLanguage, false)); } }
+  function changeGuidanceMode(next: WritingGuidanceMode) { setGuidanceMode(next); try { workspaceStorage.setItem(GUIDANCE_KEY, next); } catch (error) { setMessage(storageFailureMessage(error, uiLanguage, false)); } }
   function syncEditorScroll() {
     const editor = essayRef.current;
     const layer = highlightLayerRef.current;
@@ -418,7 +457,7 @@ export default function WritingWorkbench() {
     const selected = workspacesRef.current.find((workspace) => workspace.id === workspaceId);
     if (!selected) return;
     try {
-      writeRedundantJson(localStorage, DRAFT_KEY, MIRROR_KEY, selected.draft);
+      writeRedundantJson(workspaceStorage, DRAFT_KEY, MIRROR_KEY, selected.draft);
       draftBase.current = selected.draft;
     } catch (error) {
       setSaveState('error'); setMessage(error instanceof Error ? error.message : '无法切换到这篇文章。'); return;
@@ -494,10 +533,10 @@ export default function WritingWorkbench() {
     {view === 'workbench' && <section ref={workspaceRef} data-writing-workspace data-focus-mode={focusMode} className={`grid gap-5 ${focusMode ? 'fixed inset-0 z-[100] !m-0 h-[100dvh] w-full max-w-none overflow-y-auto bg-[var(--background)] p-3 sm:p-5' : ''} ${workspaceLayout === 'split' ? `${focusMode ? 'xl:grid-rows-[auto_minmax(0,1fr)]' : 'xl:h-[calc(100dvh-20rem)]'} xl:min-h-[360px] xl:grid-cols-[minmax(0,1.3fr)_minmax(440px,1fr)] xl:overflow-hidden` : 'grid-cols-1'}`}>
       {focusMode && <div className="sticky top-0 z-20 col-span-full flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2"><span className="flex items-center gap-2 text-sm font-bold"><button type="button" onClick={() => commitDraft({ ...draft, timerStarted: !draft.timerStarted })} aria-label={draft.timerStarted ? c.pause : c.start} className="min-h-10 rounded-lg border border-[var(--card-border)] px-3">{draft.timerStarted ? c.pause : c.start}</button>{uiLanguage === 'en' ? 'Focused revision' : '专注修改'} <span className="ml-2 font-mono text-[var(--muted-foreground)]">{formatTime(draft.secondsLeft)}</span></span><div className="flex flex-wrap gap-2"><button type="button" onClick={archiveCurrentEssay} className="min-h-10 rounded-lg bg-[#147352] px-3 text-sm font-bold text-white">{uiLanguage === 'en' ? 'Save final version' : '保存最终稿'}</button><button type="button" onClick={() => void leaveFocusMode()} className="min-h-10 rounded-lg border border-[var(--card-border)] px-3 text-sm font-bold">{uiLanguage === 'en' ? 'Exit fullscreen' : '退出全屏'}</button></div></div>}
       <div className={`min-w-0 space-y-5 ${workspaceLayout === 'split' ? 'xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:pr-1 xl:pb-6' : ''}`} data-scroll-region={workspaceLayout === 'split' ? true : undefined}>
-      <article className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[0_14px_45px_rgba(15,23,42,.07)] dark:shadow-none"><div className="flex flex-col gap-4 border-b border-[var(--card-border)] bg-[linear-gradient(90deg,rgba(14,116,144,.06),transparent)] p-4 sm:px-6"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className={focusMode ? 'hidden' : 'flex flex-wrap gap-2'} role="group" aria-label={c.taskGroup}>{(['task1-academic', 'task1-general', 'task2'] as WritingTask[]).map((task) => <button type="button" key={task} onClick={() => updateTask(task)} className={`min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${draft.task === task ? 'bg-[#0e7490] text-white shadow-md shadow-cyan-950/15' : 'border border-transparent bg-[var(--background)] text-[var(--muted-foreground)] hover:border-[#67b9cc]'}`}>{taskLabel(task)}</button>)}</div><div className="flex items-center gap-3 text-sm"><span className={`rounded-full px-3 py-1.5 font-bold ${words >= target ? 'bg-[#dcfce7] text-[#166534] dark:bg-[#143f2a] dark:text-[#86efac]' : 'bg-[var(--background)] text-[var(--muted-foreground)]'}`}>{words} / {target}+ {c.words}</span><span title={cloudSyncStatus === 'synced' ? '已同步到账号' : cloudSyncStatus === 'syncing' ? '正在同步到账号' : cloudSyncStatus === 'error' ? '云端同步暂不可用，内容仍保存在本机' : '本机已保存'} className={`flex items-center gap-1.5 text-xs font-semibold ${saveState === 'error' ? 'text-[#dc2626]' : 'text-[#16845b]'}`}><span className="material-icons-round text-base">{saveState === 'error' ? 'cloud_off' : 'verified'}</span>{saveState === 'error' ? c.saveError : c.saved}</span></div></div><div className="flex flex-wrap items-center gap-2">{!focusMode && <><button type="button" onClick={() => void enterFocusMode()} className="min-h-10 rounded-xl bg-[#0e7490] px-3 text-xs font-bold text-white">{uiLanguage === 'en' ? 'Fullscreen revision' : '全屏修改'}</button><button type="button" onClick={archiveCurrentEssay} className="min-h-10 rounded-xl border border-[var(--card-border)] px-3 text-xs font-bold text-[#147352] dark:text-[#86efac]">{uiLanguage === 'en' ? 'Save final version' : '保存最终稿'}</button></>}<span className="mr-1 text-xs font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]">{c.layout}</span><button type="button" aria-pressed={workspaceLayout === 'split'} onClick={() => changeLayout('split')} className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold ${workspaceLayout === 'split' ? 'bg-[#0e7490] text-white' : 'border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">view_sidebar</span>{c.split}</button><button type="button" aria-pressed={workspaceLayout === 'stacked'} onClick={() => changeLayout('stacked')} className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold ${workspaceLayout === 'stacked' ? 'bg-[#0e7490] text-white' : 'border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">view_agenda</span>{c.stacked}</button></div></div>
+      <article className="overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[0_14px_45px_rgba(15,23,42,.07)] dark:shadow-none"><div className="flex flex-col gap-4 border-b border-[var(--card-border)] bg-[linear-gradient(90deg,rgba(14,116,144,.06),transparent)] p-4 sm:px-6"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className={focusMode ? 'hidden' : 'flex flex-wrap gap-2'} role="group" aria-label={c.taskGroup}>{(['task1-academic', 'task1-general', 'task2'] as WritingTask[]).map((task) => <button type="button" key={task} onClick={() => updateTask(task)} className={`min-h-11 rounded-xl px-3.5 text-sm font-semibold transition ${draft.task === task ? 'bg-[#0e7490] text-white shadow-md shadow-cyan-950/15' : 'border border-transparent bg-[var(--background)] text-[var(--muted-foreground)] hover:border-[#67b9cc]'}`}>{taskLabel(task)}</button>)}</div><div className="flex items-center gap-3 text-sm"><span className={`rounded-full px-3 py-1.5 font-bold ${words >= target ? 'bg-[#dcfce7] text-[#166534] dark:bg-[#143f2a] dark:text-[#86efac]' : 'bg-[var(--background)] text-[var(--muted-foreground)]'}`}>{words} / {target}+ {c.words}</span><span title={cloudSyncStatus === 'synced' ? '已同步到账号' : cloudSyncStatus === 'syncing' ? '正在同步到账号' : cloudSyncStatus === 'error' ? '云端同步暂不可用，内容仍保存在本机' : '本机已保存'} className={`flex items-center gap-1.5 text-xs font-semibold ${saveState === 'error' ? 'text-[#dc2626]' : 'text-[#16845b]'}`}><span className="material-icons-round text-base">{saveState === 'error' ? 'cloud_off' : saveState === 'saving' ? 'sync' : 'verified'}</span>{saveState === 'error' ? c.saveError : saveState === 'saving' ? c.saving : c.saved}</span></div></div><div className="flex flex-wrap items-center gap-2">{!focusMode && <><button type="button" onClick={() => void enterFocusMode()} className="min-h-10 rounded-xl bg-[#0e7490] px-3 text-xs font-bold text-white">{uiLanguage === 'en' ? 'Fullscreen revision' : '全屏修改'}</button><button type="button" onClick={archiveCurrentEssay} className="min-h-10 rounded-xl border border-[var(--card-border)] px-3 text-xs font-bold text-[#147352] dark:text-[#86efac]">{uiLanguage === 'en' ? 'Save final version' : '保存最终稿'}</button></>}<span className="mr-1 text-xs font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]">{c.layout}</span><button type="button" aria-pressed={workspaceLayout === 'split'} onClick={() => changeLayout('split')} className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold ${workspaceLayout === 'split' ? 'bg-[#0e7490] text-white' : 'border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">view_sidebar</span>{c.split}</button><button type="button" aria-pressed={workspaceLayout === 'stacked'} onClick={() => changeLayout('stacked')} className={`flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold ${workspaceLayout === 'stacked' ? 'bg-[#0e7490] text-white' : 'border border-[var(--card-border)] bg-[var(--background)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-lg">view_agenda</span>{c.stacked}</button></div></div>
         <div className="space-y-5 p-4 sm:p-6">
           <details open={!focusMode}><summary className={focusMode ? 'cursor-pointer text-sm font-bold text-[var(--muted-foreground)]' : 'hidden'}>{c.question}</summary><label className="block"><span className="mb-2 block text-sm font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]">{c.question}</span><textarea value={draft.question} onChange={(event) => editField('question', event.target.value)} rows={3} placeholder={c.questionPlaceholder} className="w-full resize-y rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-4 py-3.5 text-base leading-7 outline-none transition focus:border-[#0e7490] focus:ring-4 focus:ring-[#0e7490]/10" /></label></details>
-          <div className="block"><div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]"><span id="ielts-essay-label">{c.essay}</span><span className="flex items-center gap-2"><button type="button" aria-pressed={highlightIssues} onClick={toggleHighlights} className={`flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold normal-case tracking-normal ${highlightIssues ? 'bg-[#fef3c7] text-[#92400e] dark:bg-[#4a2e0c] dark:text-[#fcd34d]' : 'border border-[var(--card-border)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-base">highlight</span>{highlightIssues ? c.highlightsOn : c.highlightsOff}</button>{draft.originalEssay && <button type="button" onClick={() => originalRef.current?.scrollIntoView({ behavior: 'smooth' })} className="normal-case font-semibold tracking-normal text-[#0e7490] hover:underline">{c.originalLink}</button>}</span></div><div className="relative block overflow-hidden rounded-2xl bg-[var(--background)]"><div aria-hidden="true" style={{ right: 'var(--editor-scrollbar-inset, 1px)' }} className={`pointer-events-none absolute inset-y-px left-px overflow-hidden rounded-2xl ${editorHighlightsReady ? 'opacity-100' : 'opacity-0'}`}><div ref={highlightLayerRef} className="block min-h-full whitespace-pre-wrap break-words px-5 py-5 font-serif text-[18px] leading-[2] text-[var(--foreground)] sm:px-7">{highlightedEssay.map((part, index) => part.highlighted ? <mark key={index} data-issue-ids={part.issueIds.join(' ')} className={`rounded text-inherit ${activeIssueId && part.issueIds.includes(activeIssueId) ? 'bg-[#fb923c] ring-2 ring-[#ea580c]/60 dark:bg-[#c2410c]' : 'bg-[#fde68a] ring-1 ring-[#f59e0b]/35 dark:bg-[#854d0e]'}`}>{part.text}</mark> : <span key={index}>{part.text}</span>)}</div></div><textarea aria-labelledby="ielts-essay-label" ref={essayRef} value={draft.essay} onChange={(event) => { setActiveIssueId(null); editField('essay', event.target.value); }} onScroll={syncEditorScroll} rows={20} spellCheck lang="en" placeholder={c.essayPlaceholder} className={`relative min-h-[500px] w-full resize-y rounded-2xl border border-[var(--card-border)] bg-transparent px-5 py-5 font-serif text-[18px] leading-[2] caret-[var(--foreground)] outline-none transition selection:bg-[#38bdf8]/45 focus:border-[#0e7490] focus:ring-4 focus:ring-[#0e7490]/10 sm:px-7 ${editorHighlightsReady ? 'text-transparent' : 'text-[var(--foreground)]'}`} /></div></div>
+          <div className="block"><div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm font-bold uppercase tracking-[.08em] text-[var(--muted-foreground)]"><span id="ielts-essay-label">{c.essay}</span><span className="flex items-center gap-2"><button type="button" aria-pressed={highlightIssues} onClick={toggleHighlights} className={`flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold normal-case tracking-normal ${highlightIssues ? 'bg-[#fef3c7] text-[#92400e] dark:bg-[#4a2e0c] dark:text-[#fcd34d]' : 'border border-[var(--card-border)] text-[var(--muted-foreground)]'}`}><span className="material-icons-round text-base">highlight</span>{highlightIssues ? c.highlightsOn : c.highlightsOff}</button>{draft.originalEssay && <button type="button" onClick={() => originalRef.current?.scrollIntoView({ behavior: 'smooth' })} className="normal-case font-semibold tracking-normal text-[#0e7490] hover:underline">{c.originalLink}</button>}</span></div><div className="relative block overflow-hidden rounded-2xl bg-[var(--background)]"><div aria-hidden="true" style={{ right: 'var(--editor-scrollbar-inset, 1px)' }} className={`pointer-events-none absolute inset-y-px left-px overflow-hidden rounded-2xl ${editorHighlightsReady ? 'opacity-100' : 'opacity-0'}`}><div ref={highlightLayerRef} className="block min-h-full whitespace-pre-wrap break-words px-5 py-5 font-serif text-[18px] leading-[2] text-[var(--foreground)] sm:px-7">{highlightedEssay.map((part, index) => part.highlighted ? <mark key={index} data-issue-ids={part.issueIds.join(' ')} className={`rounded text-inherit ${activeIssueId && part.issueIds.includes(activeIssueId) ? 'bg-[#fb923c] ring-2 ring-[#ea580c]/60 dark:bg-[#c2410c]' : 'bg-[#fde68a] ring-1 ring-[#f59e0b]/35 dark:bg-[#854d0e]'}`}>{part.text}</mark> : <span key={index}>{part.text}</span>)}</div></div><textarea aria-labelledby="ielts-essay-label" ref={essayRef} value={draft.essay} onChange={(event) => { essaySelection.current = { start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd, direction: event.currentTarget.selectionDirection }; setActiveIssueId(null); editField('essay', event.target.value); }} onScroll={syncEditorScroll} rows={20} spellCheck lang="en" placeholder={c.essayPlaceholder} className={`relative min-h-[500px] w-full resize-y rounded-2xl border border-[var(--card-border)] bg-transparent px-5 py-5 font-serif text-[18px] leading-[2] caret-[var(--foreground)] outline-none transition selection:bg-[#38bdf8]/45 focus:border-[#0e7490] focus:ring-4 focus:ring-[#0e7490]/10 sm:px-7 ${editorHighlightsReady ? 'text-transparent' : 'text-[var(--foreground)]'}`} /></div></div>
           {feedback && <section className="rounded-2xl border border-[#f5c34f] bg-[#fffbeb] p-4 dark:border-[#755615] dark:bg-[#2f270f]"><div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[.1em] text-[#92400e] dark:text-[#fcd34d]"><span className="material-icons-round text-lg">format_ink_highlighter</span>{c.highlightedDraft}</div>{highlightedEssay.some((part) => part.highlighted) ? <p className="whitespace-pre-wrap font-serif text-[17px] leading-8 text-[var(--foreground)]">{highlightedEssay.map((part, index) => part.highlighted ? <mark key={index} className="rounded bg-[#fde68a] px-0.5 text-[#713f12] ring-1 ring-[#f59e0b]/35 dark:bg-[#854d0e] dark:text-[#fef3c7]">{part.text}</mark> : <span key={index}>{part.text}</span>)}</p> : <p className="text-sm text-[var(--muted-foreground)]">{c.noQuotedIssues}</p>}</section>}
         </div>
       </article>
