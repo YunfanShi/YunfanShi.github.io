@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {resourcesToSchedule,resourceMap,scheduleToResources,mergeScheduleResources,legacyWorkspaceFieldForKey,legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceScopeForRecordId,resourceTargetsForStorageKeys,SYNC_V5_SCHEDULE_SCOPES,workspaceStorageToResources} from '../src/lib/sync/resource-model.ts';
+import {resourceFieldsForPath} from '../src/lib/sync/resource-engine.ts';
 
 test('Schedule fields round-trip as scoped records with stable entity identifiers',()=>{
   const input={schemaVersion:1,timetable:{version:1,courses:[]},manualTasks:[{id:'task-1',title:'Review'}],
@@ -13,6 +14,31 @@ test('Schedule fields round-trip as scoped records with stable entity identifier
   assert.ok(resources.some(row=>row.scope==='cue'&&row.recordId==='cues:cue-1'));
   assert.ok(resources.some(row=>row.scope==='learning'&&row.recordId==='manualTasks:task-1'));
   assert.ok(resources.some(row=>row.scope==='timer'&&row.recordId==='practiceSessions:focus-1'));
+});
+
+test('Schedule import history, learning progress, and question-bank data are explicit v5 round-trips',()=>{
+  const importedAt='2026-10-28T08:30:00.000Z';
+  const importRecord={id:'import-1',at:importedAt,source:'import',createdCount:1,modifiedCount:0,deletedCount:0,changes:[{cueId:'cue-imported',action:'create',subjectName:'Physics',unit:'Waves',prompt:'Define wave',fields:[]}]};
+  const studyDraft={id:'draft-1',task:{key:'course-review:physics'},cueIds:['cue-imported'],index:0,assessments:{},startedAt:importedAt,updatedAt:importedAt};
+  const schedule={
+    schemaVersion:1,importedAt,timetable:{version:1,name:'Imported timetable',courses:[]},
+    cueChangeHistory:[importRecord],cueCollectionUpdates:[{id:'batch-1',subjectId:'physics',subjectName:'Physics',updatedAt:importedAt,nextReminderDate:'2026-11-04',createdCount:1,modifiedCount:0,totalCueCount:1}],
+    learningRecords:[{id:'record-1',subjectId:'physics',status:'stable',studiedAt:importedAt}],
+    reviewProgress:{physics:{subjectId:'physics',intervalDays:3,nextReviewDate:'2026-10-31',updatedAt:importedAt}},
+    cueReviews:[{id:'review-1',cueId:'cue-imported',status:'stable',reviewedAt:importedAt}],
+    cueStudyDrafts:{physics:studyDraft},cueStudyDraft:studyDraft,
+  };
+  const resources=scheduleToResources(schedule);
+  assert.deepEqual(resourcesToSchedule(resources),schedule);
+  for(const [field,scope] of [['cueChangeHistory','cue'],['cueCollectionUpdates','cue'],['learningRecords','learning'],['reviewProgress','learning'],['cueReviews','cue'],['cueStudyDrafts','cue'],['importedAt','settings']] as const){
+    assert.ok(resources.some(row=>row.field===field&&row.scope===scope),`${field} must have a v5 record`);
+  }
+  const pageTargets=resourceFieldsForPath('/schedule');
+  for(const field of ['cueChangeHistory','cueCollectionUpdates','learningRecords','reviewProgress','cueReviews','cueStudyDrafts','importedAt']){
+    assert.ok(pageTargets.some(row=>row.field===field),`Schedule page must subscribe to ${field}`);
+  }
+  assert.equal(legacyWorkspaceFieldForKey('jackyun_schedule_questions_v1'),'legacyLearning','the independent question bank is included in the Schedule page workspace subscription');
+  assert.ok(pageTargets.some(row=>row.scope==='workspace'&&row.field==='legacyLearning'));
 });
 
 test('editing one CUE changes one record while preserving the collection order resource',()=>{
