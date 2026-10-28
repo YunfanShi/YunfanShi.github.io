@@ -7,13 +7,14 @@ import {resourceFieldsForPath} from '../src/lib/sync/resource-engine.ts';
 test('Schedule fields round-trip as scoped records with stable entity identifiers',()=>{
   const input={schemaVersion:1,timetable:{version:1,courses:[]},manualTasks:[{id:'task-1',title:'Review'}],
     completions:{'task-1':{completedAt:'2026-10-25T00:00:00Z'}},cues:[{id:'cue-1',prompt:'A'},{id:'cue-2',prompt:'B'}],
-    cueMemos:[{cueId:'cue-1',content:'memo',updatedAt:'2026-10-25'}],practiceSessions:[{id:'focus-1'}],settings:{mode:'term'},
+    cueMemos:[{cueId:'cue-1',content:'memo',updatedAt:'2026-10-25'}],practiceSessions:[{id:'focus-1',questions:[{id:'question-1',result:'completed',firstAttempt:'incorrect',retest:'correct'}]}],settings:{mode:'term'},
     customField:{retained:true}};
   const resources=scheduleToResources(input);
   assert.deepEqual(resourcesToSchedule(resources),input);
   assert.ok(resources.some(row=>row.scope==='cue'&&row.recordId==='cues:cue-1'));
   assert.ok(resources.some(row=>row.scope==='learning'&&row.recordId==='manualTasks:task-1'));
   assert.ok(resources.some(row=>row.scope==='timer'&&row.recordId==='practiceSessions:focus-1'));
+  assert.deepEqual(resources.find(row=>row.scope==='timer'&&row.recordId==='practiceSessions:focus-1')?.value,input.practiceSessions[0],'question-level answer results must remain inside their stable session resource');
 });
 
 test('Schedule import history, learning progress, and question-bank data are explicit v5 round-trips',()=>{

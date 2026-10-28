@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 const require = createRequire(import.meta.url);
 const bundledModules = process.env.CODEX_NODE_MODULES;
 const { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, WidthType } = require(bundledModules ? resolve(bundledModules, 'docx') : 'docx');
-const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.58.6-20261028.docx');
+const out = resolve(process.argv[2] ?? 'docs/sync-v5-full-data-recovery-progress-3.58.7-20261028.docx');
 const p = (text, options = {}) => new Paragraph({ text, ...options });
 const h = (text, level = HeadingLevel.HEADING_1) => new Paragraph({ text, heading: level, keepNext: true });
 const cell = text => new TableCell({ children: [p(text)], width: { size: 25, type: WidthType.PERCENTAGE } });
@@ -22,7 +22,7 @@ const doc = new Document({
   },
   sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } } }, children: [
     new Paragraph({ text: 'JackYun 全量资源同步与数据恢复实施记录', style: 'Title' }),
-    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档、3.57.1 存储键映射回归、3.58.0 同步待办归档、3.58.1 多设备恢复缺陷修复、3.58.2 导出账号隔离与本机 Quiz 题目身份修复、3.58.3 清理旧测验身份、3.58.4 手机快速任务输入字号修复、3.58.5 StudyGuide 状态就绪修复及 3.58.6 本机页面导入缺失键保护。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
+    p('记录日期：2026 年 10 月 28 日。前六节记录 3.54.0 状态；第七节记录 3.55.1 QuizWise 离线答案迁移；后续各节记录 3.56.0 本机工作区归档、3.57.0 离线队列归档、3.57.1 存储键映射回归、3.58.0 同步待办归档、3.58.1 多设备恢复缺陷修复、3.58.2 导出账号隔离与本机 Quiz 题目身份修复、3.58.3 清理旧测验身份、3.58.4 手机快速任务输入字号修复、3.58.5 StudyGuide 状态就绪修复、3.58.6 本机页面导入缺失键保护及 3.58.7 答题卡练习会话订阅修复。目标版本：在所有数据迁移与安全验收完成后发布 4.0.0。'),
     p('结论：本记录确认了现有 Schedule v5 客户端的空缓存保护、哈希校验、原子游标与按页订阅测试，并针对日志中可恢复网络错误造成的噪音进行修复。它不表示全账号资源已迁入 v5，也不表示生产账号、staging 迁移或真实双设备验收已通过。'),
     h('1. 当前工作范围'),
     p('3.52.3 已通过 PR #168 合入并部署生产；本地当前在基于最新 main 的隔离分支推进 3.52.4。当前修改没有接触 Supabase 分支或生产数据。3.52.1 将主动取消降为 debug；网络断开、408、425、429、500、502、503、504 记为 warn，不附加重复错误正文；401、403、409、其他非恢复类 HTTP 错误仍保留 error 诊断。3.52.2 修复删除最后一条 CUE 时空集合保护吞掉 tombstone 的 P2 缺陷。3.52.3 再修复放弃或完成最后一个 CUE 学习草稿时空 map 吞掉 tombstone 的 P2 缺陷。两类已同步记录都以当前 revision/hash 写入 v5 outbox；存在未解决冲突时阻止该资源删除并提示用户。所有请求日志仅保留 origin 与 pathname，避免把 ID 查询参数完整写进日志。'),
@@ -107,6 +107,11 @@ const doc = new Document({
     p('新增自动化回归验证：从较旧 JSON 更新 Schedule 时保留本机问题集、答题记录和草稿；不为未改变的题库错误排队；显式删除题库键时删除本机值并排入 legacyLearning。Schedule 资源模型往返用例同时确认独立问题集键映射到 Schedule 页面订阅的 legacyLearning。以上证明本地代码路径，不证明当前测试账号云端存在答题记录或生产已读回；如果进度只存在于另一设备，仍需从那台设备导出包含 jackyun_schedule_questions_v1 的备份或先让其成功上传。'),
     p('本次验证：同步套件 316/316 通过；备份中心、3.58 MB 导入、v5 客户端及 Schedule 字段映射定向测试 61/61 通过；TypeScript --noEmit 通过；定向 ESLint 无错误但保留一条既有未使用导入警告；Next.js production build 在独立临时 distDir 编译、类型检查、静态生成和路由优化全部通过。系统默认 .next 构建因 Windows EBUSY 文件锁未清理，未触碰任何运行进程。'),
     p('距离真实 v5 E2E 仍差：确认用户要恢复的答题记录来源和实际数据；对测试账号 authenticated v5 pull/write、receipt 和 SHA-256 读回；staging 迁移与 RLS 验收；两独立浏览器双向与离线/冲突/回滚测试；生产单账号验收。实体手机当前不可用，未做手机验收。本次未改数据库、生产灰度或部署。'),
+    h('18. 3.58.7 答题卡练习会话读取修复'),
+    p('用户提供的 2026-10-28 网络日志对 /api/sync/v5/changes 有 185 次 GET 200，对 /api/sync/v5 有 9 次 GET 200，并出现 9 次 /api/sync/v4 GET 200；日志没有 v5 /records、/operations 或 /receipts 请求，也没有正文、回执或本地数据库读回数据。因此这些 200 只能证明清单/能力端点可访问，不能证明答题内容已经从云端获取、SHA-256 验证并写入本机。'),
+    p('静态检查发现 /answer-sheet 页面之前只订阅 practice/timedPracticeRecords、practice/examDiagnoses、learning/learningRecords、learning/manualTasks 及旧 workspace 投影，没有订阅 Schedule 的 timer/practiceSessions。练习会话中的逐题 result、firstAttempt 和 retest 因此不会在此页面路由触发 v5 拉取。3.58.7 将 timer/practiceSessions 加到答题卡资源目标，并增加路由回归断言；Schedule 页面本身已有该资源订阅。'),
+    p('用户提供的本机 Schedule JSON 包含 11 个 practiceSessions，共 45 道带非空 result 的题目记录。这些内容在结构上由 practiceSessions v5 item 资源承载。相同文件不包含独立 jackyun_schedule_questions_v1，因此不能用该文件恢复此独立题库键里的题目作答 attempts 或 drafts；需要来源设备重新导出包含该键的备份，或先从云端证明并读回其 v5 legacyLearning 记录。'),
+    p('同时将超 1 MB 本机 Schedule 导入回归样例加入逐题 result、firstAttempt 和 retest，验证恢复点先写入 IndexedDB、Schedule flush 成功后再排队，并确认 practiceSessions v5 目标存在。本次只修客户端页面订阅和测试，没有声称日志已证明生产记录实际存在或完整。修改后需完成定向 v5 客户端测试、CI、部署 SHA 核对，并使用已认证账号在 /answer-sheet 页面检查是否出现 /api/sync/v5/records 正文读取及 SHA-256 成功的浏览器证据。距离真实 v5 端到端验收仍差认证记录读回/receipt/SHA、staging RLS、双浏览器离线冲突回滚、生产单账号验收和实体手机验收。'),
   ] }],
 });
 
