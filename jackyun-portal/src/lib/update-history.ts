@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
+  { version: '3.59.0', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '恢复缺失的 Schedule 学习进度', summary: '本机 Schedule 或 v5 正文缓存缺失时，不再把过期增量游标当成数据已下载；重新建立基线并恢复云端答题结果。', categories: ['稳定性', '学习体验'], accent: 'blue', featured: true, highlights: ['对照本机资源正文数量与已保存游标；旧游标无完整性证据时重新拉取 v5 manifest 与记录正文。', '答题会话中的逐题 result 随 practiceSessions 一起恢复；网络清单成功不再等同于正文已恢复。', '日常导入导出统一使用带记录级和整体 SHA-256 的 v5 本机归档；旧云端表格式入口仅保留为折叠的历史迁移工具。'] },
   { version: '3.58.7', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '答题卡补齐练习会话同步', summary: '答题卡页面现在订阅包含逐题结果的 Schedule 练习会话。', categories: ['稳定性', '学习体验'], accent: 'blue', featured: false, highlights: ['补齐 timer/practiceSessions 页面资源订阅，已有云端答题结果可以在答题卡页面读取。', '网络清单 200 不再被当作正文已读回的证明；独立题库作答历史仍需来源备份包含相应题库键。'] },
   { version: '3.58.6', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '保护导入时未包含的答题进度', summary: '导入较旧的 Schedule JSON 时保留文件未包含的本机数据；只有显式删除清单才会删除并同步 tombstone。', categories: ['稳定性'], accent: 'blue', featured: false, highlights: ['兼容未包含独立题库键的旧备份，不再把缺失误判为删除。', '恢复前仍保存本机恢复点，显式删除继续进入 v5 资源队列。'] },
   { version: '3.58.5', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '稳定学习指南恢复状态检查', summary: '学习指南在恢复本机状态并完成首屏渲染后提供明确就绪信号，减少 iframe 初始化竞态。', categories: ['稳定性'], accent: 'blue', featured: false, highlights: ['跨路由重新挂载时等待首轮状态恢复和渲染完成，再检查活动页面。', '未改变学习数据、同步协议或云端状态。'] },
