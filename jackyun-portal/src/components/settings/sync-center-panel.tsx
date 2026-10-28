@@ -15,6 +15,7 @@ import {createConflictBatch} from '@/lib/sync/conflict-batch';
 import {listOfflineMutations} from '@/lib/offline/workspace';
 import {getLatestLaneStates,type LaneState} from '@/lib/sync/scheduler';
 import {useLocalSaveState,downloadLocalRecovery} from '@/components/layout/local-durability';
+import {getSyncPauseUntil,pauseSync,resumeSync,SYNC_PAUSE_CHANGED_EVENT} from '@/lib/sync/pause';
 import type { SyncConflict, SyncDevice, SyncStatusDetail,SyncOperation,SyncResolutionRequest } from '@/types/sync';
 
 function v5ConflictText(value:unknown,deleted:boolean){
@@ -32,6 +33,9 @@ export default function SyncCenterPanel() {
   const { signedIn } = useAuthMode();
   const [devices, setDevices] = useState<SyncDevice[]>([]);
   const [currentDeviceId, setCurrentDeviceId] = useState('');
+  const [pauseUserId,setPauseUserId]=useState<string|null>(null);
+  const [pauseUntil,setPauseUntil]=useState<number|null>(null);
+  const [pauseNow,setPauseNow]=useState(()=>Date.now());
   const [detail, setDetail] = useState<SyncStatusDetail>({ state: 'guest', pending: 0, conflicts: 0, lastSyncedAt: null });
   const [error, setError] = useState('');
   const [lanes,setLanes]=useState<LaneState[]>([]);
@@ -107,6 +111,38 @@ export default function SyncCenterPanel() {
     return () => { window.removeEventListener('jackyun-sync-lane',onLane);window.clearTimeout(initialLoad); window.removeEventListener(LOCAL_SYNC_STATUS_EVENT, listener);for(const name of ['storage','jackyun-sync-edit','focus'])window.removeEventListener(name,onLocal); };
   }, [load,refreshReview]);
 
+  useEffect(()=>{
+    let active=true;
+    let owner:string|null=null;
+    const refreshPause=async()=>{
+      const nextOwner=signedIn?await getSetting<string>('activeUserId'):null;
+      if(!active)return;
+      owner=nextOwner??null;setPauseUserId(owner);
+      setPauseUntil(owner?getSyncPauseUntil(owner):null);setPauseNow(Date.now());
+    };
+    void refreshPause();
+    const onPauseChange=(event:Event)=>{
+      const changed=(event as CustomEvent<{userId?:string}>).detail?.userId;
+      if(!changed||changed===owner)void refreshPause();
+    };
+    const onStorage=(event:StorageEvent)=>{if(event.key?.startsWith('jackyun_sync_pause_until_v1:'))void refreshPause();};
+    const timer=window.setInterval(()=>{if(owner){setPauseUntil(getSyncPauseUntil(owner));setPauseNow(Date.now());}},1000);
+    window.addEventListener(SYNC_PAUSE_CHANGED_EVENT,onPauseChange);
+    window.addEventListener('storage',onStorage);
+    return()=>{active=false;window.clearInterval(timer);window.removeEventListener(SYNC_PAUSE_CHANGED_EVENT,onPauseChange);window.removeEventListener('storage',onStorage);};
+  },[signedIn]);
+
+  function changeSyncPause(minutes:15|30|null){
+    if(!pauseUserId)return;
+    try{
+      if(minutes===null)resumeSync(pauseUserId);
+      else pauseSync(pauseUserId,minutes);
+      setPauseUntil(getSyncPauseUntil(pauseUserId));setPauseNow(Date.now());
+    }catch{
+      setError('无法保存本机暂停状态，请检查浏览器是否允许本站保存数据。');
+    }
+  }
+
   function submitResolution(request:SyncResolutionRequest) {
     setDetail(current=>({...current,state:'syncing',error:undefined,progress:'正在核对版本并上传合并结果…'}));
     window.dispatchEvent(new CustomEvent('jackyun-sync-resolve',{detail:request}));
@@ -137,6 +173,8 @@ export default function SyncCenterPanel() {
   }
 
   const local=useLocalSaveState();
+  const pauseSeconds=pauseUntil?Math.max(0,Math.ceil((pauseUntil-pauseNow)/1000)):0;
+  const pauseCountdown=`${Math.floor(pauseSeconds/60)}:${String(pauseSeconds%60).padStart(2,'0')}`;
   const status = local==='storage_error'?'本机保存未完成，请下载恢复副本':local==='saving'?'正在保存到本机':detail.state === 'guest'
     ? '当前为本机模式，登录后才能同步'
     : detail.state === 'auth_required'?'等待重新登录，本机内容和队列保留'
@@ -156,7 +194,10 @@ export default function SyncCenterPanel() {
     <button type="button" className="rounded-lg border px-3 py-2 text-sm" onClick={downloadLocalRecovery}>下载本机恢复副本</button>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-4">
       <div><p className="font-semibold">{status}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">待上传 {detail.pending} 项 · 待处理冲突 {detail.conflicts} 项{detail.lastSyncedAt ? ` · 最近成功 ${new Date(detail.lastSyncedAt).toLocaleString()}` : ''}</p></div>
-      <button type="button" disabled={!signedIn || detail.state === 'syncing'} onClick={() => { setDetail((current) => ({ ...current, state: 'syncing', error: undefined, progress: '已收到立即同步请求…' })); window.dispatchEvent(new Event('jackyun-sync-retry')); }} className="rounded-lg bg-[#1a73e8] px-3 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{detail.state === 'syncing' ? '同步中…' : '立即同步'}</button>
+      <div className="flex flex-wrap items-center gap-2">
+        {pauseUntil&&pauseSeconds>0?<><span role="status" className="text-xs text-amber-700">同步已暂停 · {pauseCountdown} 后恢复</span><button type="button" onClick={()=>changeSyncPause(null)} className="rounded-lg border px-3 py-2 text-sm">恢复同步</button></>:signedIn&&<><button type="button" onClick={()=>changeSyncPause(15)} className="rounded-lg border px-3 py-2 text-sm">暂停 15 分钟</button><button type="button" onClick={()=>changeSyncPause(30)} className="rounded-lg border px-3 py-2 text-sm">暂停 30 分钟</button></>}
+        <button type="button" disabled={!signedIn || detail.state === 'syncing'} onClick={() => { setDetail((current) => ({ ...current, state: 'syncing', error: undefined, progress: '已收到立即同步请求…' })); window.dispatchEvent(new Event('jackyun-sync-retry')); }} className="rounded-lg bg-[#1a73e8] px-3 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{detail.state === 'syncing' ? '同步中…' : '立即同步'}</button>
+      </div>
     </div>
     {detail.progress && <p role="status" aria-live="polite" className="text-sm text-[var(--muted-foreground)]">{detail.progress}</p>}
     {error ? <p className="rounded-lg bg-[#fce8e6] px-3 py-2 text-sm text-[#c5221f]">{error}</p> : null}
@@ -174,7 +215,7 @@ export default function SyncCenterPanel() {
     <div className="rounded-xl border border-[var(--card-border)] p-4 text-sm leading-6">
       <h3 className="font-semibold">同步范围</h3>
       <p className="mt-1 text-[var(--muted-foreground)]">Cue、复习状态、学习记录、课表、计划、答题卡草稿、写作与阅读进度、刷题数据和界面偏好会随账号同步。</p>
-      <p className="mt-2 text-xs text-[var(--muted-foreground)]">可见页面每30秒检查其他设备的新修改；隐藏页面暂停普通轮询。修改会先保存在本机，联网后继续上传，也可以点击“立即同步”。</p>
+      <p className="mt-2 text-xs text-[var(--muted-foreground)]">可见页面每30秒检查其他设备的新修改；隐藏页面暂停普通轮询。暂停期间，本机编辑和待上传队列仍会保存，到期自动恢复。暂停只作用于当前浏览器和账号；“立即同步”可提前执行，正在进行的请求会先完成。</p>
       <p className="mt-2 text-xs text-[var(--muted-foreground)]">安全例外：密码、登录令牌、个人 API Key、诊断日志不会上传；本地导入的小说正文和音频文件属于设备文件，需在目标设备重新导入。</p>
     </div>
     <div><h3 className="font-semibold">网页与 PWA 设备</h3><div className="mt-2 divide-y divide-[var(--card-border)] rounded-xl border border-[var(--card-border)]">{openDevices.map((device) => <div key={device.id} className="flex items-center gap-3 p-3"><span className="material-icons-round text-[var(--muted-foreground)]">{device.platform === 'pwa' ? 'install_mobile' : 'devices'}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{device.name}{device.id === currentDeviceId ? '（当前）' : ''}</p><p className="text-xs text-[var(--muted-foreground)]">最后活动 {new Date(device.lastSeenAt).toLocaleString()}</p></div><button onClick={() => rename(device)} className="text-xs text-[#1a73e8]">改名</button>{device.id !== currentDeviceId ? <button onClick={() => revoke(device)} className="text-xs text-[#d93025]">撤销</button> : null}</div>)}</div></div>

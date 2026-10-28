@@ -1,4 +1,5 @@
 import { accountSyncStore, withSyncLease } from './outbox.ts';
+import { isSyncPaused } from './pause.ts';
 export type SyncLane='workspace'|'business'|'backup';
 interface Recovery {failures:number;nextAttemptAt:number;openUntil:number;authPaused?:boolean;lastSuccessAt?:string;}
 export interface LaneState extends Recovery {lane:SyncLane;userId:string;state:'syncing'|'confirmed'|'waiting'|'auth_required';}
@@ -16,6 +17,9 @@ export function recoveryDelay(failures:number,random=Math.random()):number {
   return Math.round(Math.min(120_000,2_000*2**Math.min(Math.max(0,failures-1),6))*(0.5+0.5*random));
 }
 export async function runScheduledSync(lane:SyncLane,userId:string,work:()=>Promise<void|boolean>,manual=false):Promise<boolean> {
+  // A pause is device-local and covers every scheduled lane. Explicit user retries
+  // remain available, while local edits and queued operations stay untouched.
+  if(!manual&&isSyncPaused(userId))return false;
   const {getSetting,setSetting}=accountSyncStore(userId);
   const key=`recovery:${userId}:${lane}`;
   if(running.has(key))return false;running.add(key);
