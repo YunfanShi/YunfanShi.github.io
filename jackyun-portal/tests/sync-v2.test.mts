@@ -187,6 +187,9 @@ test('automatic sync excludes its timestamp ledger and preserves explicit confli
   assert.match(review, /上传此合并结果/);
   assert.match(review, /以本机完整内容作为结果/);
   assert.match(panel, /待处理冲突/);
+  assert.match(panel, /getV5Outbox/);
+  assert.match(panel, /未完成的 CUE 学习草稿/);
+  assert.match(panel, /本机同步队列读取失败/);
   assert.doesNotMatch(panel, /冲突自动处理/);
 });
 
