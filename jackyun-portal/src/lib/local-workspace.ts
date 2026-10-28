@@ -45,6 +45,7 @@ const LOCAL_ONLY_PREFIXES = ['jy_tr3000_', 'jackyun-browser-ai-recent-choice:', 
 const BLOCKED_KEY = /(password|passwd|secret|auth|supabase|api[_-]?key|(?:^|[_-])(?:llm|ds|deepseek|openai)[_-]?(?:api[_-]?)?key(?:$|[_-])|access[_-]?token|refresh[_-]?token|service[_-]?role|(^|[_-])sk([_-]|$)|deviceid|broadcast|cookie|guest_mode|debug)/i;
 // A dated subject such as Biology is learning data, not a diagnostic log.
 const DATED_SUBJECT_KEY = /^(check|prog)_\d{4}-\d{2}-\d{2}_.+$/i;
+const READER_BOOK_METADATA_KEY = /^jackyun_reader_book_v1:[A-Za-z0-9_-]{1,80}$/;
 
 /** Product state may sync; credentials, auth state, device IDs and diagnostics never do. */
 export function isSyncableStorageKey(key: string): boolean {
@@ -57,7 +58,7 @@ export function isSyncableStorageKey(key: string): boolean {
     && !LOCAL_ONLY_KEYS.has(key)
     && !LOCAL_ONLY_PREFIXES.some(prefix => key.startsWith(prefix))
     && !SENSITIVE_STORAGE_KEYS.has(key)
-    && (!/log/i.test(key) || DATED_SUBJECT_KEY.test(key))
+    && (!/log/i.test(key) || DATED_SUBJECT_KEY.test(key) || READER_BOOK_METADATA_KEY.test(key))
     && !BLOCKED_KEY.test(key);
 }
 

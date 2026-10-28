@@ -18,6 +18,8 @@ test('every exported table belongs to a selectable backup page', () => {
   assert.equal(tableBackupPage('reader_books'), 'reader');
   assert.equal(legacyBackupPage('jackyun_schedule_control_v1'), 'schedule');
   assert.equal(legacyBackupPage('jackyun_definition_cards_v1'), 'definitions');
+  assert.equal(isBackupableLegacyKey('jackyun_reader_book_v1:book-1'), true);
+  assert.equal(legacyBackupPage('jackyun_reader_book_v1:book-1'), 'reader');
   assert.deepEqual(normalizeBackupPages(['schedule', 'schedule', 'quiz']), ['schedule', 'quiz']);
   assert.throws(() => normalizeBackupPages(['unknown']), /不支持/);
 });

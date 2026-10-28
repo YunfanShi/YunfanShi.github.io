@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {resourcesToSchedule,resourceMap,scheduleToResources,mergeScheduleResources,legacyWorkspaceFieldForKey,legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceScopeForRecordId,resourceTargetsForStorageKeys,SYNC_V5_SCHEDULE_SCOPES,workspaceStorageToResources} from '../src/lib/sync/resource-model.ts';
 import {resourceFieldsForPath} from '../src/lib/sync/resource-engine.ts';
+import {parseReaderBookProjection,readerBookStorageKey,serializeReaderBook} from '../src/lib/sync/reader-resource.ts';
 
 test('Schedule fields round-trip as scoped records with stable entity identifiers',()=>{
   const input={schemaVersion:1,timetable:{version:1,courses:[]},manualTasks:[{id:'task-1',title:'Review'}],
@@ -151,7 +152,7 @@ test('every concrete legacy inventory key has an explicit v5 record mapping',()=
   const candidates=matrix.inventory_rows.filter(row=>row.should_cloud_sync===true&&/v2|v4/.test(row.current_protocol));
   const concrete=candidates.filter(row=>!row.key_or_pattern.startsWith('?')&&!row.key_or_pattern.includes(String.fromCharCode(36)));
   const schedule=concrete.filter(row=>row.key_or_pattern==='jackyun_schedule_control_v1');
-  assert.equal(candidates.length,189,'inventory candidate count is intentionally reviewed when the scanner changes');
+  assert.equal(candidates.length,190,'inventory candidate count is intentionally reviewed when the scanner changes');
   assert.equal(concrete.length,171,'all static key names must be classified, not left as runtime guesses');
   assert.equal(schedule.length,1);
   assert.deepEqual([...new Set(resourceTargetsForStorageKeys([schedule[0].key_or_pattern]).map(target=>target.scope))].sort(),[...SYNC_V5_SCHEDULE_SCOPES].sort());
@@ -166,7 +167,7 @@ test('every concrete legacy inventory key has an explicit v5 record mapping',()=
     assert.equal(resourceScopeForRecordId(recordId),'workspace');
   }
   const dynamic=candidates.filter(row=>row.key_or_pattern.startsWith('?')||row.key_or_pattern.includes(String.fromCharCode(36)));
-  assert.equal(dynamic.length,18,'dynamic key templates remain explicit migration work');
+  assert.equal(dynamic.length,19,'dynamic key templates remain explicit migration work');
   for(const row of dynamic){
     const sampleKey=row.key_or_pattern.replace(/\$\{dynamic\}/g,'sample');
     const field=legacyWorkspaceFieldForKey(sampleKey);
@@ -184,4 +185,22 @@ test('device controls, browser-tab state and user-script configuration are exclu
     assert.equal(legacyWorkspaceFieldForKey(key),null,key);
   for(const key of ['jackyun_novel_position_v2:book-1','jackyun:seiue-course-review:v1:account-1'])
     assert.equal(legacyWorkspaceFieldForKey(key),null,key);
+});
+
+test('reader shelf metadata and progress map to per-book v5 workspace records',()=>{
+  const book={id:'catalog-123e4567-e89b-42d3-a456-426614174000',title:'Book',author:'Author',language:'en' as const,chapterCount:3,characterCount:1200,importedAt:'2026-10-28T00:00:00.000Z',lastReadAt:'2026-10-28T00:10:00.000Z',currentChapter:2,chapterProgress:.4,overallProgress:.7,readingSeconds:600,sourceFileName:'book.txt',positionUpdatedAt:'2026-10-28T00:10:00.000Z',coverDataUrl:'data:image/png;base64,private-local-cache'};
+  const key=readerBookStorageKey(book.id)!;
+  assert.equal(legacyWorkspaceFieldForKey(key),'legacyReader');
+  const id=legacyWorkspaceRecordId(key)!;
+  assert.equal(legacyWorkspaceKeyFromRecordId(id),key);
+  assert.ok(resourceTargetsForStorageKeys([key]).some(target=>target.scope==='workspace'&&target.field==='legacyReader'));
+  assert.deepEqual(resourceFieldsForPath('/reading').map(target=>`${target.scope}:${target.field}`),['workspace:legacyReader']);
+  const raw=serializeReaderBook(book,true,'2026-10-28T00:11:00.000Z');
+  const parsed=parseReaderBookProjection(key,raw)!;
+  assert.equal(parsed.metadata.currentChapter,2);
+  assert.equal(parsed.metadata.chapterProgress,.4);
+  assert.equal(Object.hasOwn(parsed.metadata,'coverDataUrl'),false,'device-local cover cache must not enter v5');
+  assert.equal(parsed.onShelf,true);
+  assert.equal(parseReaderBookProjection(key.replace(book.id,'other'),raw),null,'record ID and payload book ID must agree');
+  assert.equal(readerBookStorageKey('book/id'),null);
 });

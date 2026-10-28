@@ -44,20 +44,45 @@ export default function PracticeTimerFrame() {
     let liveRetryAt = 0;
     const sessionBases = new Map<string, PracticeSession>();
     let configBase: PracticeConfig | undefined;
+    let initialization: Promise<void> | undefined;
     const initialize = () => {
-      try {
-        const state = readRecoveredState();
-        for (const session of state.practiceSessions ?? []) sessionBases.set(session.id, session);
-        configBase = state.practiceTimerConfig;
-        send({ type: 'practice-state', state, requestedSession: new URLSearchParams(location.search).get('session') });
-      } catch (error) { send({ type: 'practice-error', error: String(error) }); }
+      if (initialization) return initialization;
+      initialization = (async () => {
+        try {
+          let state = readScheduleState(workspaceStorage), base = parseLocalValue(workspaceStorage.getItem(SCHEDULE_STORAGE_KEY)), migrated = false;
+          const recoveryKeys = Array.from({length: workspaceStorage.length}, (_, index) => workspaceStorage.key(index))
+            .filter((key): key is string => Boolean(key?.startsWith('jackyun_debug_unsaved_edit:practice-timer:')));
+          for (const key of recoveryKeys) {
+            try {
+              const saved = JSON.parse(workspaceStorage.getItem(key) || 'null'), session = validateSession(saved?.session);
+              if (!session.finished) continue;
+              const next = applyPracticeSession(state, session);
+              if (JSON.stringify(next.practiceSessions) !== JSON.stringify(state.practiceSessions)) {
+                writer.reset(base);
+                await writer.write(base, next);
+                state = next;
+                base = next;
+                migrated = true;
+              }
+              if (saved.config && JSON.stringify(saved.config) !== JSON.stringify(state.practiceTimerConfig)) continue;
+              workspaceStorage.removeItem(key);
+            } catch { /* Preserve checkpoints that conflict with newer canonical progress. */ }
+          }
+          if (migrated) window.dispatchEvent(new Event('jackyun-sync-edit'));
+          state = readRecoveredState();
+          for (const session of state.practiceSessions ?? []) sessionBases.set(session.id, session);
+          configBase = state.practiceTimerConfig;
+          send({ type: 'practice-state', state, requestedSession: new URLSearchParams(location.search).get('session') });
+        } catch (error) { send({ type: 'practice-error', error: String(error) }); }
+      })().finally(() => { initialization = undefined; });
+      return initialization;
     };
     const handler = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.source !== ref.current?.contentWindow) return;
       const message = event.data;
       if (message?.type === 'practice-focus') { setFocused(message.focused === true); return; }
       if (message?.type === 'practice-ready') {
-        initialize();
+        void initialize();
       }
       if (message?.type !== 'practice-save' && message?.type !== 'practice-retest') return;
       queue = queue.catch(()=>{}).then(async () => {
@@ -85,6 +110,22 @@ export default function PracticeTimerFrame() {
                   if (Date.now() >= liveRetryAt) liveRetryAt = Date.now() + 10000;
                   const recovery = validateSession(message.session);
                   workspaceStorage.setItem('jackyun_debug_unsaved_edit:practice-timer:' + recovery.id, JSON.stringify({session:recovery,config:message.config}));
+                  if (recovery.finished) {
+                    next = applyPracticeSession(state, recovery);
+                    if (message.config) {
+                      const local = validateConfig(message.config), merged = threeWayMerge(configBase, local, state.practiceTimerConfig);
+                      if (merged.conflicts.length) throw Error('另一设备修改了相同时间设置，请重新打开页面；练习结果已保留在本机。');
+                      next = { ...next, practiceTimerConfig: validateConfig(merged.merged) };
+                    }
+                    writer.reset(base);
+                    await writer.write(base, next);
+                    workspaceStorage.removeItem('jackyun_debug_unsaved_edit:practice-timer:' + recovery.id);
+                    sessionBases.set(recovery.id, structuredClone(recovery));
+                    if (message.config) configBase = structuredClone(message.config);
+                    window.dispatchEvent(new Event('jackyun-sync-edit'));
+                    send({type:'practice-saved', requestId:message.requestId, cloudPending:true});
+                    return;
+                  }
                   send({type:'practice-saved', requestId:message.requestId, localOnly:true});
                   return;
                 }
@@ -114,7 +155,7 @@ export default function PracticeTimerFrame() {
     // A cached iframe can announce readiness before React attaches this effect.
     // Reuse the existing state handshake once here; later ready messages still
     // cover a slow iframe without changing save, takeover or sync semantics.
-    initialize();
+    void initialize();
     window.addEventListener(CLOUD_STATE_APPLIED_EVENT, refresh);
     window.addEventListener('storage', refresh);
     return () => { window.removeEventListener('message',handler);window.removeEventListener(CLOUD_STATE_APPLIED_EVENT,refresh);window.removeEventListener('storage',refresh); };

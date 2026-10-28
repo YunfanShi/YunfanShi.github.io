@@ -18,6 +18,7 @@ test('source storage inventory maps core learning keys and excludes credential a
   assert.ok(ownerFor('th2_plans').includes('v5-workspace'));
   assert.ok(ownerFor('LexiFlowPro_Merged_V2').includes('v5-workspace'));
   assert.ok(inventory.rows.some(row => row.key === 'jackyun_pomodoro_history_${dynamic}' && row.field === 'legacyTimer'));
+  assert.ok(inventory.rows.some(row => row.key === 'jackyun_reader_book_v1:${dynamic}' && row.field === 'legacyReader'));
 
   const indexedDb = inventory.indexedDbCalls.map(row => `${row.kind}:${row.name}`);
   for (const database of ['quizwise', 'jackyun-offline-workspace', 'jackyun_novel_library', 'jackyun-personal-sites', 'jackyun-page-backups-v1']) {
@@ -47,6 +48,7 @@ test('machine-readable coverage matrix preserves unresolved and independent Inde
   assert.ok(matrix.inventory_rows.some(row => row.key_or_pattern === 'ielts_${dynamic}' && row.v5_record_id.startsWith('legacyStudyPlan:')));
   assert.ok(matrix.inventory_rows.some(row => row.key_or_pattern === 'quizwise_${dynamic}' && row.v5_scope === 'workspace'));
   assert.ok(matrix.inventory_rows.some(row => row.key_or_pattern === 'jackyun_pomodoro_history_${dynamic}' && row.v5_record_id.startsWith('legacyTimer:')));
+  assert.ok(matrix.inventory_rows.some(row => row.key_or_pattern === 'jackyun_reader_book_v1:${dynamic}' && row.v5_scope === 'workspace' && row.v5_record_id.startsWith('legacyReader:')));
   for (const pattern of ['ielts_${dynamic}','jackyun_traffic_${dynamic}|${dynamic}','jackyun_pomodoro_history_${dynamic}']) {
     const row = matrix.inventory_rows.find(item => item.key_or_pattern === pattern);
     assert.match(row.test_status, /authenticated browser\/runtime sampling.*pending/i, `${pattern} template regression must not imply runtime acceptance`);
@@ -104,5 +106,8 @@ test('machine-readable coverage matrix preserves unresolved and independent Inde
   assert.ok(focusOwner.protocol.includes('client_operation_id uniqueness') && focusOwner.protocol.includes('not v5'));
   assert.match(focusOwner.migration, /deduplicate legacy source=pomodoro/i);
   assert.match(focusOwner.test, /lost response.*one session/i);
-  assert.ok(matrix.business_api_owners.some(row => row.owner === 'novel shelf and reading progress' && row.migration.includes('device-local')));
+  const readerOwner = matrix.business_api_owners.find(row => row.owner === 'novel shelf and reading progress');
+  assert.ok(readerOwner.protocol.includes('v5 per-book workspace records') && readerOwner.protocol.includes('not retired yet'));
+  assert.ok(readerOwner.proposed_v5_mapping.includes('legacyReader'));
+  assert.ok(readerOwner.migration.includes('old-client writes are frozen'));
 });

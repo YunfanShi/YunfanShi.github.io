@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element -- User-provided signed covers use their original URLs without an optimization proxy. */
 'use client';
 import { workspaceStorage } from '@/lib/sync/repository';
+import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
+import { parseReaderBookProjection, readerBookStorageKey, serializeReaderBook, READER_BOOK_KEY_PREFIX } from '@/lib/sync/reader-resource';
 
 
 import { siteConfirm } from '@/lib/site-dialog';
@@ -104,6 +106,14 @@ function catalogFingerprint(catalog: CatalogNovel[]): string {
 
 function cloudPath(userId: string, bookId: string): string { return `users/${userId}/${bookId}.json`; }
 
+function projectReaderMetadata(book: NovelBook, onShelf: boolean, updatedAt: string): string | null {
+  if (!readerBookStorageKey(book.id)) return null;
+  const key = `jackyun_reader_book_v1:${book.id}`;
+  const value = serializeReaderBook(cloudSafeBook(book), onShelf, updatedAt);
+  if (workspaceStorage.getItem(`jackyun_reader_book_v1:${book.id}`) !== value) workspaceStorage.setItem(key, value);
+  return key;
+}
+
 async function uploadCloudBook(userId: string, book: NovelBook, chapters: NovelChapter[]) {
   if (isStoreBook(book)) { await updateCloudMetadata(userId, book); return; }
   const supabase = createClient();
@@ -116,12 +126,16 @@ async function uploadCloudBook(userId: string, book: NovelBook, chapters: NovelC
   if (upload.error) throw upload.error;
   const { error } = await supabase.from('reader_books').upsert({ user_id: userId, book_id: book.id, metadata, storage_path: path, content_hash: contentHash, content_source: 'local', on_shelf: true, updated_at: new Date().toISOString() }, { onConflict: 'user_id,book_id' });
   if (error) throw error;
+  const key = projectReaderMetadata(book, true, new Date().toISOString());
+  if (key) await workspaceStorage.flush();
 }
 
 async function updateCloudMetadata(userId: string, book: NovelBook, onShelf = true) {
   const supabase = createClient();
   const metadata = cloudSafeBook(book);
   const timestamp = new Date().toISOString();
+  const key = projectReaderMetadata(metadata, onShelf, timestamp);
+  if (key) await workspaceStorage.flush();
   const query = isStoreBook(book)
     ? supabase.from('reader_books').upsert({ user_id: userId, book_id: book.id, metadata, storage_path: null, content_hash: null, content_source: 'store', on_shelf: onShelf, updated_at: timestamp }, { onConflict: 'user_id,book_id' })
     : supabase.from('reader_books').update({ metadata, content_source: 'local', on_shelf: onShelf, updated_at: timestamp }).eq('user_id', userId).eq('book_id', book.id);
@@ -284,7 +298,27 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     const supabase = createClient();
     const { data, error } = await supabase.from('reader_books').select('book_id, metadata, storage_path, content_hash, content_source, on_shelf, updated_at').eq('user_id', bootstrap.userId);
     if (error) throw error;
-    const rows = (data ?? []) as CloudRow[];
+    const rowsById = new Map((data ?? []).map((row) => [row.book_id, row as CloudRow]));
+    const legacyRowIds = new Set((data ?? []).map((row) => row.book_id));
+    const v5Projections = Object.entries(workspaceStorage.snapshot())
+      .filter(([key]) => key.startsWith(READER_BOOK_KEY_PREFIX))
+      .flatMap(([key, value]) => { const row = parseReaderBookProjection(key, value); return row ? [row] : []; });
+    const v5Preferred = new Set<string>();
+    for (const projection of v5Projections) {
+      const previous = rowsById.get(projection.bookId);
+      if (previous && previous.updated_at >= projection.updatedAt) continue;
+      v5Preferred.add(projection.bookId);
+      rowsById.set(projection.bookId, {
+        book_id: projection.bookId,
+        metadata: projection.metadata,
+        storage_path: previous?.storage_path ?? (projection.metadata.source === 'store' ? null : cloudPath(bootstrap.userId, projection.bookId)),
+        content_hash: previous?.content_hash ?? null,
+        content_source: previous?.content_source ?? (projection.metadata.source === 'store' ? 'store' : 'local'),
+        on_shelf: projection.onShelf,
+        updated_at: projection.updatedAt,
+      });
+    }
+    const rows = [...rowsById.values()];
     const localMap = new Map(localBooks.map((book) => [book.id, book]));
     const merged = [...localBooks];
     const catalogById = new Map(catalog.map((novel) => [novel.id, novel]));
@@ -306,13 +340,36 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
       }
       const localPosition = local.positionUpdatedAt ?? '';
       const cloudPosition = row.metadata.positionUpdatedAt ?? '';
-      if (cloudPosition > localPosition) {
+      if (v5Preferred.has(row.book_id)) {
+        const updated = { ...local, ...row.metadata };
+        await updateNovelBook(updated);
+        const index = merged.findIndex((book) => book.id === updated.id);
+        merged[index] = updated;
+      } else if (cloudPosition > localPosition) {
         const updated = { ...local, ...row.metadata };
         await updateNovelBook(updated);
         const index = merged.findIndex((book) => book.id === updated.id);
         merged[index] = updated;
       } else if (localPosition > cloudPosition) await updateCloudMetadata(bootstrap.userId, local);
     }
+    for (const row of rows) {
+      const key = readerBookStorageKey(row.book_id);
+      if (!key) continue;
+      if (v5Preferred.has(row.book_id)) {
+        const local = merged.find((book) => book.id === row.book_id);
+        if (local && !legacyRowIds.has(row.book_id) && !isStoreBook(local)) {
+          await uploadCloudBook(bootstrap.userId, local, await listNovelChapters(local.id));
+        } else {
+          await updateCloudMetadata(bootstrap.userId, local ?? row.metadata, row.on_shelf);
+        }
+        continue;
+      }
+      const projection = parseReaderBookProjection(key, workspaceStorage.getItem(`jackyun_reader_book_v1:${row.book_id}`) ?? '');
+      if (!projection || projection.updatedAt < row.updated_at) {
+        projectReaderMetadata(row.metadata, row.on_shelf, row.updated_at);
+      }
+    }
+    await workspaceStorage.flush();
     const cloudIds = new Set(rows.map((row) => row.book_id));
     for (const book of localBooks) if (!cloudIds.has(book.id)) await uploadCloudBook(bootstrap.userId, book, await listNovelChapters(book.id));
     for (let index = 0; index < merged.length; index += 1) {
@@ -359,6 +416,16 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
     }
     return merged;
   }, [bootstrap.userId, catalog, materializeCatalogNovel]);
+
+  useEffect(() => {
+    const onWorkspaceApplied = (event: Event) => {
+      const keys = (event as CustomEvent<{ keys?: string[] }>).detail?.keys ?? [];
+      if (!keys.some((key) => key.startsWith(READER_BOOK_KEY_PREFIX))) return;
+      void listNovelBooks().then(syncLibrary).then(setBooks).catch(() => undefined);
+    };
+    window.addEventListener(CLOUD_STATE_APPLIED_EVENT, onWorkspaceApplied);
+    return () => window.removeEventListener(CLOUD_STATE_APPLIED_EVENT, onWorkspaceApplied);
+  }, [syncLibrary]);
 
   useEffect(() => {
     let cancelled = false;
@@ -873,7 +940,7 @@ export default function NovelWorkbench({ onOpenAiStudio, bootstrap }: { onOpenAi
         ]);
       } else {
         await Promise.all([
-          supabase.from('reader_books').delete().eq('user_id', bootstrap.userId).eq('book_id', book.id),
+          updateCloudMetadata(bootstrap.userId, book, false),
           supabase.storage.from('novel-files').remove([cloudPath(bootstrap.userId, book.id)]),
         ]);
       }

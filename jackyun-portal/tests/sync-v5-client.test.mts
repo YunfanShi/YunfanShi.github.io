@@ -662,7 +662,12 @@ test('page resource selection avoids unrelated CUE history and schedule scopes',
   assert.ok(resourceFieldsForPath('/dashboard').some(row=>row.scope==='cue'&&row.field==='cueReviews'));
   assert.deepEqual(resourceFieldsForPath('/dashboard').filter(row=>['cueChangeHistory','cueCollectionUpdates','cueSimilarityDecisions','studyReports'].includes(row.field)),[]);
   const scheduleFields=new Set(resourceFieldsForPath('/schedule').map(row=>row.field));
-  for(const field of ['cueReviews','learningRecords','learningCatalog','learningReminders','timedPracticeRecords','examDiagnoses','practiceFrequencies','practiceSessions','practiceTimerConfig','cueMemos','cueAnswerCards','importedAt'])assert.ok(scheduleFields.has(field),`Schedule page must subscribe to ${field}`);
+  for(const field of ['cueReviews','cueStudyDrafts','cues','learningRecords','learningCatalog','learningReminders','timedPracticeRecords','examDiagnoses','practiceFrequencies','practiceSessions','practiceTimerConfig','cueMemos','cueAnswerCards','importedAt'])assert.ok(scheduleFields.has(field),`Schedule page must subscribe to ${field}`);
+  for(const path of ['/schedule','/cue/study']){
+    const fields=new Set(resourceFieldsForPath(path).filter(row=>row.scope==='cue').map(row=>row.field));
+    assert.ok(fields.has('cueStudyDrafts'),`${path} must subscribe to unfinished CUE study drafts`);
+    assert.ok(fields.has('cues'),`${path} must subscribe to the cards referenced by those drafts`);
+  }
   assert.ok(resourceFieldsForPath('/study/tasks').some(row=>row.field==='manualTasks'));
   assert.deepEqual(resourceFieldsForPath('/ielts').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyIELTS']);
   assert.deepEqual(resourceFieldsForPath('/studio').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyPersonalSites','legacyLearning']);
@@ -674,7 +679,7 @@ test('page resource selection avoids unrelated CUE history and schedule scopes',
   assert.ok(resourceFieldsForPath('/cue/study').some(row=>row.field==='cueGameAccount'));
   assert.ok(resourceFieldsForPath('/settings/watch').some(row=>row.field==='settings'));
   assert.ok(!resourceFieldsForPath('/settings/watch').some(row=>row.field==='legacyMisc'),'settings pages must not subscribe to a generic catch-all scope');
-  assert.deepEqual(resourceFieldsForPath('/reading'),[],'independent reader state is not misrepresented as Schedule data');
+  assert.deepEqual(resourceFieldsForPath('/reading').filter(row=>row.scope==='workspace').map(row=>row.field),['legacyReader'],'reader shelf and position are subscribed only on the reading page');
 });
 
 test('backup restore targets persist per account until their v5 records and conflicts settle',async()=>{
@@ -732,7 +737,7 @@ test('new writing subscriptions wait for the backend capability instead of sendi
 });
 
 test('every writable v5 field has a valid page target without loading all fields on each page',()=>{
-  const paths=['/schedule','/dashboard','/study','/review','/cue','/timetable-hub','/activity','/practice-timer','/ielts','/ielts-writing','/study-guide','/quiz','/pomodoro','/answer-sheet','/mock-portal','/answer-sheet-sync','/settings','/music','/ai','/studio','/relax'];
+  const paths=['/schedule','/dashboard','/study','/review','/cue','/timetable-hub','/activity','/practice-timer','/ielts','/ielts-writing','/reading','/study-guide','/quiz','/pomodoro','/answer-sheet','/mock-portal','/answer-sheet-sync','/settings','/music','/ai','/studio','/relax'];
   const targets=new Set(paths.flatMap(path=>resourceFieldsForPath(path).map(target=>`${target.scope}\0${target.field}`)));
   for(const scope of SYNC_V5_SCOPES)for(const field of resourceFieldsForScope(scope))assert.ok(targets.has(`${scope}\0${field}`),`${scope}/${field} must be writable through a page subscription`);
   const schedule=new Set(resourceFieldsForPath('/schedule').map(target=>target.field));

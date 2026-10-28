@@ -40,6 +40,7 @@ export function resourceFieldsForPath(pathname:string):SyncV5ResourceTarget[]{
   if(path==='/activity'||path.startsWith('/activity/'))return withWorkspace([...targets('learning','learningRecords'),...targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies')],'legacyLearning','legacyPractice');
   if(path==='/practice-timer'||path.startsWith('/practice-timer/'))return withWorkspace([...targets('timer','practiceSessions','practiceTimerConfig'),...targets('practice','timedPracticeRecords','practiceFrequencies')],'legacyTimer','legacyPractice');
   if(path==='/ielts'||path.startsWith('/ielts/'))return withWorkspace(targets('practice','timedPracticeRecords','examDiagnoses','practiceFrequencies'),'legacyIELTS');
+  if(path==='/reading'||path.startsWith('/reading/'))return targetsForWorkspace('legacyReader');
   if(path==='/ielts-writing')return targetsForWorkspace('writingEssays','writingErrorHistory','writingArchive');
   if(path==='/definitions'||path.startsWith('/definitions/'))return targetsForWorkspace('legacyCue','legacyLearning');
   if(path==='/properties'||path.startsWith('/properties/'))return targetsForWorkspace('legacyCue','legacyLearning');
@@ -216,20 +217,28 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
       assertCurrent();await queueV5ResourceOperation({id:e.uuid(),scope,recordId:change.recordId,baseRevision:base?.revision??0,baseHash:base?.contentHash??null,value:change.value,deleted:change.deleted,clientUpdatedAt:new Date().toISOString()},e.databaseScope);
     }
   }
-  async function resolveReceipt(scope:SyncV5Scope,operation:V5ResourceOperation,result:Result){
-    if(result.status==='applied'){
-      if(scope==='workspace'){
-        await acknowledgeV5WorkspaceOperations([{operation,revision:Number(result.revision),contentHash:String(result.contentHash),updatedAt:String(result.updatedAt??new Date().toISOString())}],e.databaseScope);return true;
+  async function resolveReceiptBatch(scope:SyncV5Scope,operations:V5ResourceOperation[],results:Result[]){
+    const byId=new Map(operations.map(operation=>[operation.id,operation])),handled=new Set<string>();
+    const applied:Array<{operation:V5ResourceOperation;revision:number;contentHash:string|null;updatedAt:string}>=[],conflicts:V5ResourceConflict[]=[];
+    for(const result of results){
+      const operation=typeof result.operationId==='string'?byId.get(result.operationId):undefined;
+      if(!operation||handled.has(operation.id))continue;
+      if(result.status==='applied'){
+        const revision=Number(result.revision),contentHash=typeof result.contentHash==='string'?result.contentHash:null;
+        if(!Number.isSafeInteger(revision)||revision<1||(contentHash!==null&&!/^[a-f\d]{64}$/i.test(contentHash)))continue;
+        applied.push({operation,revision,contentHash,updatedAt:String(result.updatedAt??new Date().toISOString())});handled.add(operation.id);
+      }else if(result.status==='conflict'&&Number.isSafeInteger(Number(result.revision))&&Number(result.revision)>=0){
+        conflicts.push({operationId:operation.id,scope,recordId:operation.recordId,baseRevision:operation.baseRevision,baseHash:operation.baseHash,
+          localValue:operation.value,localDeleted:operation.deleted,remoteValue:result.value??null,remoteDeleted:Boolean(result.deleted),remoteRevision:Number(result.revision),remoteHash:typeof result.contentHash==='string'?result.contentHash:null,createdAt:new Date().toISOString()});
+        handled.add(operation.id);
       }
-      const projected=await acknowledgeV5Operations([{operation,revision:Number(result.revision),contentHash:String(result.contentHash),updatedAt:String(result.updatedAt??new Date().toISOString())}],e.databaseScope);
-      assertCurrent();if(projected!==null)await e.projectSchedule(projected);return true;
     }
-    if(result.status==='conflict'){
-      const conflict:V5ResourceConflict={operationId:operation.id,scope,recordId:operation.recordId,baseRevision:operation.baseRevision,baseHash:operation.baseHash,
-        localValue:operation.value,localDeleted:operation.deleted,remoteValue:result.value??null,remoteDeleted:Boolean(result.deleted),remoteRevision:Number(result.revision),remoteHash:typeof result.contentHash==='string'?result.contentHash:null,createdAt:new Date().toISOString()};
-      await saveV5Conflicts([conflict],e.databaseScope);return true;
+    if(applied.length){
+      if(scope==='workspace')await acknowledgeV5WorkspaceOperations(applied,e.databaseScope);
+      else {const projected=await acknowledgeV5Operations(applied,e.databaseScope);assertCurrent();if(projected!==null)await e.projectSchedule(projected);}
     }
-    return false;
+    if(conflicts.length)await saveV5Conflicts(conflicts,e.databaseScope);
+    return handled;
   }
   async function push(scope:SyncV5Scope,writingCollections:boolean){
     let changed=false;
@@ -240,16 +249,14 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
       changed=true;
       const deviceId=await e.deviceId(),hashes=await Promise.all(operations.map(async operation=>({id:operation.id,requestHash:await digest(operation)})));
       const receipts=await readJson(e.request,`/api/sync/v5/receipts?scope=${encodeURIComponent(scope)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scope,operations:hashes})});
-      const confirmed=new Set<string>();
-      if(Array.isArray(receipts.receipts))for(const receipt of receipts.receipts as Result[]){
-        const operation=operations.find(row=>row.id===receipt.operationId);if(operation&&receipt.state==='confirmed'&&await resolveReceipt(scope,operation,receipt.result as Result))confirmed.add(operation.id);
-      }
+      const confirmedResults=Array.isArray(receipts.receipts)?(receipts.receipts as Result[]).filter(receipt=>receipt.state==='confirmed'&&receipt.result&&typeof receipt.result==='object').map(receipt=>receipt.result as Result):[];
+      const confirmed=await resolveReceiptBatch(scope,operations,confirmedResults);
       const unknown=operations.filter(operation=>!confirmed.has(operation.id));if(!unknown.length)continue;
       const response=await readJson(e.request,`/api/sync/v5/operations?scope=${encodeURIComponent(scope)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scope,deviceId,operations:unknown})});
       if(response.syncProtocol!==5||!Array.isArray(response.applied)||!Array.isArray(response.conflicts))throw Error('v5 写入回执无效。');
-      for(const result of response.applied as Result[]){const operation=unknown.find(row=>row.id===result.operationId);if(operation)await resolveReceipt(scope,operation,result);}
-      for(const result of response.conflicts as Result[]){const operation=unknown.find(row=>row.id===result.operationId);if(operation)await resolveReceipt(scope,operation,result);}
-      if(!response.applied.length&&!response.conflicts.length)throw Error('v5 写入未确认，原操作保持队列。');
+      const handled=await resolveReceiptBatch(scope,unknown,[...response.applied as Result[],...response.conflicts as Result[]]);
+      if(!handled.size)throw Error('v5 写入未确认，原操作保持队列。');
+      if(handled.size<unknown.length)throw Error('部分 v5 操作尚未确认，剩余操作保持队列。');
     }
     throw Error('v5 上传队列超过单轮上限。');
   }

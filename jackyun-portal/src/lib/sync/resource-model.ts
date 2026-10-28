@@ -3,7 +3,7 @@ import {isWritingProjectionKey,splitWritingCollection,writingCollectionForKey,wr
 
 export const SYNC_V5_SCHEDULE_SCOPES = ['timetable','learning','cue','practice','timer','settings'] as const;
 export const SYNC_V5_SCOPES = [...SYNC_V5_SCHEDULE_SCOPES,'workspace'] as const;
-export const LEGACY_WORKSPACE_FIELDS = ['legacyTimetable','legacyLearning','legacyStudyPlan','legacyGoals','legacyCue','legacyIELTS','legacyQuiz','legacyExam','legacyPractice','legacyTimer','legacySettings','legacyMedia','legacyPersonalSites','writingEssays','writingErrorHistory','writingArchive'] as const;
+export const LEGACY_WORKSPACE_FIELDS = ['legacyTimetable','legacyLearning','legacyStudyPlan','legacyGoals','legacyCue','legacyIELTS','legacyQuiz','legacyExam','legacyPractice','legacyTimer','legacySettings','legacyMedia','legacyPersonalSites','legacyReader','writingEssays','writingErrorHistory','writingArchive'] as const;
 export type SyncV5Scope = typeof SYNC_V5_SCOPES[number];
 export type SyncV5ResourceTarget = {scope:SyncV5Scope;field:string;generation?:string};
 
@@ -69,6 +69,7 @@ export function legacyWorkspaceFieldForKey(key:string):typeof LEGACY_WORKSPACE_F
   const projection=WRITING_COLLECTIONS.find(collection=>collection.legacyKey===key);if(projection)return projection.field;
   const writing=writingCollectionForKey(key);if(writing)return writing.field;
   if(/^jackyun_personal_site_v1:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key))return 'legacyPersonalSites';
+  if(/^jackyun_reader_book_v1:[A-Za-z0-9_-]{1,80}$/.test(key))return 'legacyReader';
   if(/^(temp_|blocks_|check_|prog_)/i.test(key))return 'legacyStudyPlan';
   if(/^ielts_\d{4}-\d{2}-\d{2}$/i.test(key))return 'legacyStudyPlan';
   if(/^(jackyun_traffic_|jackyun_schedule_questions_v1$|jackyun-site-tasks:|warden_chat_v23$|jack_chat_history$)/i.test(key))return 'legacyLearning';
