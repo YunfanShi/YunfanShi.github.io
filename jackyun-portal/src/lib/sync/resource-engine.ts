@@ -236,7 +236,13 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
         // hash before treating the conflict as a no-op acknowledgement.
         const sameState=operation.deleted===remoteDeleted
           &&(remoteDeleted||equal(operation.value,remoteValue));
+        // A legacy record may have no content hash even though the server
+        // explicitly returned JSON null. Match that exact value safely, while
+        // excluding large-value placeholders and delete/edit differences.
+        const sameExplicitNull=sameState&&!remoteDeleted&&operation.value===null
+          &&Object.hasOwn(result,'value')&&result.value===null&&result.large!==true&&result.remoteLarge!==true;
         const verifiedSameContent=remoteDeleted
+          ||sameExplicitNull
           ||(sameState&&remoteHash!==null&&/^[a-f\d]{64}$/i.test(remoteHash)&&await digest(remoteValue)===remoteHash);
         if(sameState&&verifiedSameContent){
           applied.push({operation,revision:remoteRevision,contentHash:remoteHash,updatedAt:String(result.updatedAt??new Date().toISOString())});
