@@ -19,7 +19,7 @@ export type SyncMetadata = SyncRecord;
 
 export interface V5ResourceRecord {scope:SyncV5Scope;recordId:string;revision:number;contentHash:string|null;deleted:boolean;updatedAt:string;value:unknown;verifiedAt?:string}
 export interface V5ResourceOperation {id:string;scope:SyncV5Scope;recordId:string;baseRevision:number;baseHash:string|null;value:unknown;deleted:boolean;clientUpdatedAt:string}
-export interface V5ResourceCursor {scope:SyncV5Scope;field?:string;mode:'baseline'|'changes';after:string;cursor:number;head:number}
+export interface V5ResourceCursor {scope:SyncV5Scope;field?:string;mode:'baseline'|'changes';after:string;cursor:number;head:number;resourceCount?:number}
 export interface V5ResourceConflict {operationId:string;scope:SyncV5Scope;recordId:string;baseRevision:number;baseHash:string|null;localValue:unknown;localDeleted:boolean;remoteValue:unknown;remoteDeleted:boolean;remoteRevision:number;remoteHash:string|null;createdAt:string}
 export interface SyncArchiveData {ownerId:string;legacyOutbox:SyncOperation[];legacyConflicts:SyncConflict[];v5Outbox:V5ResourceOperation[];v5Conflicts:V5ResourceConflict[]}
 const SCHEDULE_DOCUMENT_KEY='jackyun_schedule_control_v1';
@@ -290,7 +290,8 @@ export async function commitV5ResourcePage(scope:SyncV5Scope,records:V5ResourceR
         if(cursor.field)touched.add(cursor.field);
       const merged=mergeScheduleResources(base,parseScheduleResources([...rows.values()]),[...touched]);
       projected=JSON.stringify(merged);if(projected!==raw)documents.put({...document.result,key:SCHEDULE_DOCUMENT_KEY,value:projected,updatedAt:Date.now()});
-      cursorStore.put(cursor);
+      const resourceCount=cursor.field?[...rows.values()].filter(row=>row.recordId.startsWith(`${cursor.field}:`)&&!row.deleted).length:undefined;
+      cursorStore.put(resourceCount===undefined?cursor:{...cursor,resourceCount});
     }catch(error){failed=true;tx.abort();reject(error);}};
     for(const request of [known,pending,conflicts,document,...(priorCursor?[priorCursor]:[])]){request.onsuccess=finish;request.onerror=()=>{failed=true;reject(request.error);};}
     tx.oncomplete=()=>resolve(projected);tx.onerror=()=>reject(tx.error);tx.onabort=()=>{if(!failed)reject(tx.error??new Error('v5 page commit aborted'));};});}finally{db.close();}

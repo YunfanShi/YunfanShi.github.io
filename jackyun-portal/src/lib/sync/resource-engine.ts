@@ -132,7 +132,20 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     }
     throw Error('v5 基线超过分页上限。');
   }
+  async function recoverMissingScheduleField(target:SyncV5ResourceTarget){
+    if(target.scope==='workspace')return;
+    const schedule=parse(e.readSchedule());
+    if(Object.hasOwn(schedule,target.field)&&!isEmptyScheduleCollection(target.field,schedule[target.field]))return;
+    const checkpoint=await getV5Cursor(target.scope,e.databaseScope,target.field);
+    if(!checkpoint||checkpoint.mode!=='changes')return;
+    const cachedCount=(await getV5Resources(target.scope,e.databaseScope)).filter(row=>row.recordId.startsWith(`${target.field}:`)&&!row.deleted).length;
+    // A saved cursor is not proof that the local resource body still exists.
+    // Old cursors have no count, so verify them with one fresh baseline as well.
+    if(checkpoint.resourceCount===undefined||cachedCount<checkpoint.resourceCount)
+      await setV5Cursor(target.scope,null,e.databaseScope,target.field);
+  }
   async function pull(target:SyncV5ResourceTarget,retry=true){
+    await recoverMissingScheduleField(target);
     let checkpoint=await getV5Cursor(target.scope,e.databaseScope,target.field);
     if(!checkpoint){await baseline(target);checkpoint=await getV5Cursor(target.scope,e.databaseScope,target.field);}
     if(!checkpoint)throw Error('v5 基线没有提交本地游标。');

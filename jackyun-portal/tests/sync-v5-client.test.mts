@@ -94,6 +94,38 @@ test('NULL or missing local Schedule fields rehydrate verified resources on an e
   }
 });
 
+test('saved v5 cursor with missing local answer-progress bodies forces a baseline download',async()=>{
+  const databaseScope=id(),field='practiceSessions',scope='timer' as const;
+  const answer={id:'answer-1',result:'correct',selectedAnswer:'B'},session={id:'session-1',questions:[answer]};
+  const values=[['practiceSessions:%24order',['session-1']],['practiceSessions:session-1',session]] as const;
+  const hash=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex');
+  const remote=values.map(([recordId,value])=>({scope,recordId,revision:1,contentHash:hash(value),deleted:false,updatedAt:'now',value}));
+  const database=await openDatabase(databaseScope);
+  try{await new Promise<void>((resolve,reject)=>{
+    const tx=database.transaction('v5FieldCursors','readwrite');
+    tx.objectStore('v5FieldCursors').put({scope,field,mode:'changes',after:'',cursor:2,head:2,resourceCount:2});
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+  });}finally{database.close();}
+
+  let scheduleRaw='{}';const requests:string[]=[];
+  const engine=createV5ResourceSync({databaseScope,readSchedule:()=>scheduleRaw,projectSchedule:async value=>{if(value!==null)scheduleRaw=value;},setAuthority:()=>{},
+    deviceId:async()=>crypto.randomUUID(),uuid:()=>crypto.randomUUID(),request:async url=>{
+      const parsed=new URL(url,'https://sync.test');requests.push(parsed.pathname);
+      if(parsed.pathname==='/api/sync/v5')return Response.json({capabilities:{v5:true},scopes:['timer']});
+      if(parsed.pathname==='/api/sync/v5/manifest')return Response.json({syncProtocol:5,records:remote.map(row=>({scope:row.scope,recordId:row.recordId,revision:row.revision,contentHash:row.contentHash,deleted:row.deleted,updatedAt:row.updatedAt})),next:null,head:2});
+      if(parsed.pathname==='/api/sync/v5/records')return Response.json({syncProtocol:5,records:remote.filter(row=>parsed.searchParams.getAll('id').includes(row.recordId))});
+      if(parsed.pathname==='/api/sync/v5/changes')return Response.json({syncProtocol:5,records:[],cursor:2,head:2,hasMore:false});
+      throw Error(`unexpected ${parsed.pathname}`);
+    }});
+
+  await engine.synchronize([{scope,field}]);
+  assert.ok(requests.includes('/api/sync/v5/manifest'));
+  assert.ok(requests.includes('/api/sync/v5/records'));
+  assert.deepEqual(JSON.parse(scheduleRaw).practiceSessions,[session]);
+  assert.equal(JSON.parse(scheduleRaw).practiceSessions[0].questions[0].result,'correct');
+  assert.equal((await getV5Cursor(scope,databaseScope,field))?.resourceCount,2);
+});
+
 test('empty local collections do not become cloud delete-all operations',async()=>{
   const cases=[
     {field:'cues',scope:'cue' as const,empty:[],values:[{id:'cloud-cue',prompt:'verified cloud item'}]},
