@@ -97,7 +97,7 @@ test('large local Schedule import saves a durable recovery point before writing 
   installDatabase();
   const key = 'jackyun_schedule_control_v1';
   const previous = JSON.stringify({ cues: [{ id: 'old-cue' }], notes: 'old'.repeat(20) });
-  const importedSchedule = JSON.stringify({ cues: [{ id: 'new-cue' }], notes: 'large'.repeat(350_000) });
+  const importedSchedule = JSON.stringify({ cues: [{ id: 'new-cue' }], practiceSessions: [{ id: 'session-1', questions: [{ id: 'question-1', result: 'completed', firstAttempt: 'incorrect', retest: 'correct' }] }], notes: 'large'.repeat(350_000) });
   const json = JSON.stringify({ version: 1, page: 'schedule', values: { [key]: importedSchedule } });
   assert.ok(Buffer.byteLength(json) > 1_000_000);
   const values = parseLocalPageBackup(json, 'schedule');
@@ -128,10 +128,12 @@ test('large local Schedule import saves a durable recovery point before writing 
 
   assert.deepEqual(committedKeys, [key]);
   assert.equal(current.get(key), importedSchedule);
+  assert.equal(JSON.parse(current.get(key)!).practiceSessions[0].questions[0].result, 'completed', 'question-level progress survives the large Schedule import');
   assert.equal(current.get('jackyun_schedule_old_v1'), '{"cues":[]}', 'keys absent from an older import are preserved');
   assert.ok(events.indexOf('recovery:complete') < events.indexOf(`set:${key}`));
   assert.ok(events.indexOf('flush:complete') < events.indexOf('v5-targets-queued'));
   assert.ok(queuedFields.includes('cues'), 'Schedule imports target all required v5 Schedule resources');
+  assert.ok(queuedFields.includes('practiceSessions'), 'Schedule imports queue the v5 resource containing question-level results');
 });
 
 test('local import failure before recovery or during IndexedDB flush never returns success', async () => {

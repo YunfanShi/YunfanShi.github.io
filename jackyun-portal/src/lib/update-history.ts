@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
+  { version: '3.58.7', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '答题卡补齐练习会话同步', summary: '答题卡页面现在订阅包含逐题结果的 Schedule 练习会话。', categories: ['稳定性', '学习体验'], accent: 'blue', featured: false, highlights: ['补齐 timer/practiceSessions 页面资源订阅，已有云端答题结果可以在答题卡页面读取。', '网络清单 200 不再被当作正文已读回的证明；独立题库作答历史仍需来源备份包含相应题库键。'] },
   { version: '3.58.6', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '保护导入时未包含的答题进度', summary: '导入较旧的 Schedule JSON 时保留文件未包含的本机数据；只有显式删除清单才会删除并同步 tombstone。', categories: ['稳定性'], accent: 'blue', featured: false, highlights: ['兼容未包含独立题库键的旧备份，不再把缺失误判为删除。', '恢复前仍保存本机恢复点，显式删除继续进入 v5 资源队列。'] },
   { version: '3.58.5', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '稳定学习指南恢复状态检查', summary: '学习指南在恢复本机状态并完成首屏渲染后提供明确就绪信号，减少 iframe 初始化竞态。', categories: ['稳定性'], accent: 'blue', featured: false, highlights: ['跨路由重新挂载时等待首轮状态恢复和渲染完成，再检查活动页面。', '未改变学习数据、同步协议或云端状态。'] },
   { version: '3.58.4', date: '2026-10-28', dateLabel: '2026 年 10 月 28 日', title: '修复手机快速任务输入字号', summary: '快速添加任务时，移动端输入框保持 16px 字号，避免浏览器缩放并让同步回归流程可用。', categories: ['稳定性', '学习体验'], accent: 'blue', featured: true, highlights: ['移除覆盖组件移动端字号规则的 text-sm 类。', '浏览器验证继续检查 16px 输入文字、触控高度、503 本机排队、同一操作 ID 重试及回执清除。'] },

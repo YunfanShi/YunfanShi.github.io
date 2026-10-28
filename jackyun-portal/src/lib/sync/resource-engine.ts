@@ -46,7 +46,7 @@ export function resourceFieldsForPath(pathname:string):SyncV5ResourceTarget[]{
   if(path==='/study-guide')return withWorkspace([...targets('learning','learningCatalog','manualTasks','learningRecords'),...targets('cue','cues','cueMemos')],'legacyStudyPlan','legacyLearning','legacyCue');
   if(path==='/quiz')return withWorkspace([...targets('cue','cues','cueReviews','cueAnswerCards'),...targets('learning','reviewProgress')],'legacyQuiz','legacyCue','legacyLearning');
   if(path==='/pomodoro')return withWorkspace([...targets('timer','practiceSessions','practiceTimerConfig'),...targets('learning','manualTasks','completions')],'legacyTimer','legacyLearning');
-  if(path==='/answer-sheet')return withWorkspace([...targets('practice','timedPracticeRecords','examDiagnoses'),...targets('learning','learningRecords','manualTasks')],'legacyPractice','legacyLearning');
+  if(path==='/answer-sheet')return withWorkspace([...targets('practice','timedPracticeRecords','examDiagnoses'),...targets('learning','learningRecords','manualTasks'),...targets('timer','practiceSessions')],'legacyPractice','legacyLearning');
   if(path==='/settings'||path.startsWith('/settings/'))return withWorkspace(targets('settings','settings','schemaVersion','importedAt','dailyLearningAdvice','__root'),'legacySettings');
   if(['/goal','/studyplan'].includes(path))return targetsForWorkspace('legacyGoals','legacyStudyPlan','legacyTimetable','legacyLearning');
   if(['/countdown','/examcountdown','/igcountdown','/control/focus'].includes(path))return targetsForWorkspace('legacyTimer','legacyLearning');

@@ -712,6 +712,7 @@ test('every writable v5 field has a valid page target without loading all fields
   assert.ok(schedule.has('practiceSessions'));
   assert.ok(schedule.has('learningRecords'));
   assert.ok(resourceFieldsForPath('/study').some(target=>target.scope==='timer'&&target.field==='practiceSessions'));
+  assert.ok(resourceFieldsForPath('/answer-sheet').some(target=>target.scope==='timer'&&target.field==='practiceSessions'),'answer sheet must pull Schedule sessions containing question-level results');
   assert.ok(resourceFieldsForPath('/activity').some(target=>target.scope==='practice'&&target.field==='practiceFrequencies'));
   assert.ok(!resourceFieldsForPath('/review').some(target=>target.field==='examDiagnoses'),'review should not fetch unrelated practice history');
 });
