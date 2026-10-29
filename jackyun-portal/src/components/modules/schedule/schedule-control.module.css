@@ -267,7 +267,7 @@
   .studyTools nav { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
   .studyTools nav button { min-width: 44px; min-height: 44px; border: 1px solid var(--card-border); border-radius: 10px; }
   .studyTools nav [aria-current] { border-color: var(--brand); background: var(--card); }
-  .touchPrompt { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 24px; width: 100%; min-height: min(52dvh, 440px); padding: 24px 16px; background: var(--card); border: 1px solid var(--card-border); border-radius: 22px; text-align: center; color: var(--foreground); }
+  .touchPrompt { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 18px; width: 100%; min-height: min(60dvh, 560px); padding: 20px 16px; background: var(--card); border: 1px solid var(--card-border); border-radius: 22px; text-align: center; color: var(--foreground); }
   .touchTitle { min-width: 0; overflow-wrap: anywhere; font-size: clamp(20px, 5.5vw, 28px); font-weight: 650; line-height: 1.5; }
   .touchPageLabel { font-size: 12px; color: var(--muted-foreground); font-weight: 600; }
   .touchSubtitle { font-size: 15px; line-height: 1.7; overflow-wrap: anywhere; }
@@ -427,8 +427,8 @@
   .touchStudyOnly { display: block; }
   .pointerStudyOnly, .studyOverlay [data-cue-study-stage], .studyOverlay [data-cue-study-meta], .studyOverlay [aria-label='Cue 学习进度'] { display: none; }
   .studyHeader [aria-label='学习工具和题目目录'] { display: grid; }
-  .studyHeader button[aria-pressed] { display: none; }
-  .studyHeader > div:last-child { display: none; }
+  .studyHeader [data-cue-actions] > div[data-feature='study-actions'] { left: auto; right: 0; max-width: min(88vw, 280px); }
+  .studyHeader [data-cue-actions] summary { margin-left: auto; }
 }
 @media (min-width: 768px) and (pointer: coarse) {
   .studyMain { max-width: 900px; }
