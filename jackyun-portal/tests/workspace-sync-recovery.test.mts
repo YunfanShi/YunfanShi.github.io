@@ -111,7 +111,7 @@ function harness() {
       '@/lib/sync/schedule-safety': { SCHEDULE_STORAGE_KEY: 'schedule', scheduleHasContent: () => false,
         shouldQueueLocalValue: (key: string, current: string, previous: string) => key === 'study' && (current !== undefined || previous !== undefined) },
       '@/lib/sync/remote-record': { remoteRecordIsCurrent: () => false },
-      '@/actions/backup-center': { createDueBackupVersions: async () => {} },
+      '@/actions/backup-center': { createDueBackupVersions: async () => ({ ok: true, created: 0 }) },
       '@/lib/diagnostic-events': { emitDiagnostic: () => {}, errorDetails: () => ({}) },
       '@/lib/sync/report-failure': { reportSyncFailure: async () => {} },
       '@/lib/sync/service-error': { SyncHttpError: class extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status; } }, syncFailureStatus: () => 'server_unavailable' },

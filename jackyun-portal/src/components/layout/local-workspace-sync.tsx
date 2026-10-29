@@ -25,6 +25,16 @@ import {syncFailureStatus} from '@/lib/sync/service-error';
 import {reportSyncFailure} from '@/lib/sync/report-failure';
 import type {SyncStatus,SyncResolutionRequest} from '@/types/sync';
 
+async function runScheduledBackup(userId: string): Promise<boolean> {
+  return runScheduledSync('backup', userId, async () => {
+    const attempt = await createDueBackupVersions();
+    if (!attempt.ok) {
+      throw Object.assign(new Error('自动备份暂未完成，稍后会重试。'), attempt.status ? { status: attempt.status } : {});
+    }
+    return true;
+  });
+}
+
 function localSnapshot(includeLarge = false): Record<string, string> {
   if(workspaceStorage.snapshot)return Object.fromEntries(Object.entries(workspaceStorage.snapshot()).filter(([,value])=>includeLarge||value.length<=MAX_SYNC_VALUE_CHARACTERS));
   const snapshot: Record<string, string> = {};
@@ -218,7 +228,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           const [remaining,unresolved,v5Remaining,v5Unresolved,remainingRestoreTargets]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),v5Enabled?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),v5Enabled?getV5Conflicts(accountStore.databaseScope):Promise.resolve([]),syncStore.getV5RestoreTargets(accountStore.databaseScope)]);
           if(!remaining.length&&!unresolved.length&&!v5Remaining.length&&!v5Unresolved.length&&!remainingRestoreTargets.length)await accountStore.setSetting('lastSyncedAt',new Date().toISOString());
           failures=0;
-          if(Date.now()-lastBackupCheck>=5*60_000){lastBackupCheck=Date.now();void runScheduledSync('backup',userId!,async()=>{await createDueBackupVersions();}).catch(()=>console.warn('[Backup] Cloud backup deferred'));}
+          if(Date.now()-lastBackupCheck>=5*60_000){lastBackupCheck=Date.now();void runScheduledBackup(userId!).catch(()=>console.warn('[Backup] Cloud backup deferred'));}
           await publish(v5AuthoritySuspended?'server_unavailable':unresolved.length||v5Unresolved.length?'conflict':remaining.length||v5Remaining.length||remainingRestoreTargets.length?'offline_pending':'synced',undefined,
             v5AuthoritySuspended?'v5 Schedule 权限暂时不可用；为避免旧快照覆盖，已保留本地 v5 所有权并暂停该域回退。':unresolved.length?'存在不能安全合并的修改，两份内容已保留，请到设置的同步中心处理。':v5Unresolved.length?'存在 v5 资源冲突，本机与云端内容均已保留，请在同步诊断中查看。':remainingRestoreTargets.length?'本机数据已保存；相关 v5 资源尚待云端核对，恢复目标已保留并会继续重试。':remaining.length||v5Remaining.length?'本机修改仍在队列中，将分批继续上传。':v5Result.enabled&&resourceFieldsForPath(routeForRun).length?'当前页面所需资源已核对；其他页面会在打开时分别检查。':'兼容同步检查已完成。');
           return true;
@@ -268,7 +278,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       recoveryTimers.set(lane.lane,setTimeout(()=>{
         if(cancelled||signingOut||document.visibilityState!=='visible'||isWorkspaceSleeping())return;
         if(lane.lane==='workspace')void sync(false,false,undefined,queuedRouteSync?'route':'periodic');
-        else void runScheduledSync('backup',userId!,async()=>{await createDueBackupVersions();}).catch(()=>{});
+        else void runScheduledBackup(userId!).catch(()=>{});
       },Math.max(100,Math.max(lane.nextAttemptAt,lane.openUntil)-Date.now())));
     };
     window.addEventListener('jackyun-sync-lane',onLane);
