@@ -1,7 +1,7 @@
 const CACHE_PREFIX = 'jackyun-pwa';
-const CACHE_VERSION = 'v13';
+const CACHE_VERSION = 'v14';
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
-const PREVIOUS_STATIC_CACHE = `${CACHE_PREFIX}-static-v12`;
+const PREVIOUS_STATIC_CACHE = `${CACHE_PREFIX}-static-v13`;
 // Navigation entries survive worker updates; old immutable assets stay available for them.
 const NAVIGATION_CACHE = `${CACHE_PREFIX}-pages-v10`;
 const OWNER_CACHE = `${CACHE_PREFIX}-owner-v1`;
@@ -43,6 +43,19 @@ async function fetchPage(request, options = {}, timeoutMs = 2500) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try { return await fetch(request, { ...options, signal: controller.signal }); }
   finally { clearTimeout(timer); }
+}
+async function fetchNavigation(request, options = {}) {
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(request, options);
+      if (response.status < 500 || attempt === 1) return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 1) throw error;
+    }
+  }
+  throw lastError ?? new Error('Navigation request failed');
 }
 function validPage(response, pathname) {
   return response.ok && !response.redirected && new URL(response.url || `${self.location.origin}${pathname}`).pathname === pathname && response.headers.get('Content-Type')?.includes('text/html');
@@ -163,14 +176,14 @@ self.addEventListener('fetch', (event) => {
       let cachedRoute;
       try { if (cacheablePage(url.pathname)) cachedRoute = await freshPage(await caches.open(NAVIGATION_CACHE), routeKey); } catch {}
       try {
-        const response = await fetchPage(request, reopen ? {cache:'reload'} : {}, cachedRoute ? 2500 : 15000);
+        const response = await fetchNavigation(request, reopen ? {cache:'reload'} : {});
         if (validPage(response, url.pathname) && cacheablePage(url.pathname) && generation === cacheGeneration) {
           try {
             const cache = await caches.open(NAVIGATION_CACHE);
             await storePage(cache, routeKey, response.clone());
           } catch {}
         }
-        if (response.status >= 500) throw new Error('Server unavailable');
+        if (response.status >= 500 && cachedRoute && cacheablePage(url.pathname)) return cachedRoute;
         return response;
       } catch {
         try { const cache = await caches.open(NAVIGATION_CACHE); cachedRoute = await freshPage(cache, routeKey); } catch {}
