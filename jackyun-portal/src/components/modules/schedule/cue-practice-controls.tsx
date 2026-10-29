@@ -2,12 +2,13 @@
 
 import type { CuePracticePolicy } from '@/lib/learning/cue-practice';
 
-export default function CuePracticeControls({ automatic, policy, onAutomatic, onPolicy }: {
+export default function CuePracticeControls({ automatic, policy, onAutomatic, onPolicy, compact = false }: {
   automatic: boolean; policy: CuePracticePolicy;
+  compact?: boolean;
   onAutomatic: (value: boolean) => void; onPolicy: (value: CuePracticePolicy) => void;
 }) {
   return <details data-cue-practice-settings className="relative text-xs">
-    <summary className="flex min-h-10 cursor-pointer items-center rounded-full border border-[var(--card-border)] px-3 font-semibold">间隔重练 · {automatic ? '自动' : '手动'}</summary>
+    <summary aria-label="间隔重练设置" title={`间隔重练 · ${automatic ? '自动' : '手动'}`} className="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-full border border-[var(--card-border)] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]"><span aria-hidden="true" className="material-icons-round text-lg">{compact ? 'repeat' : 'replay'}</span><span className="sr-only">间隔重练 · {automatic ? '自动' : '手动'}</span></summary>
     <div className="absolute right-0 top-full z-40 mt-2 w-64 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-xl">
       <label className="flex items-center justify-between gap-3"><span>自动进入间隔重练</span><input aria-label="自动进入间隔重练" type="checkbox" checked={automatic} onChange={event => onAutomatic(event.target.checked)} className="h-5 w-5 accent-[var(--brand)]" /></label>
       <p className="my-3 leading-5 text-[var(--muted-foreground)]">仅本次有效。关闭后仍保留提示和重练目录，可手动进入。</p>

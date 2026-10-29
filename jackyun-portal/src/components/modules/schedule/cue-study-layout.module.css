@@ -12,7 +12,7 @@
 .session header { flex-shrink: 0; padding: 8px 16px !important; position: relative; }
 .session header [data-feature="study-actions"] { gap: 6px; margin-top: 6px; }
 .session header [data-feature="study-actions"] > button, .session header button[aria-pressed] { display: inline-flex !important; align-items: center; }
-.session [data-cue-actions] > summary { display: none; }
+.session [data-cue-actions] > summary { display: grid; }
 .session header button { min-height: 34px; }
 .session [data-cue-study-page] { flex: 1 1 0 !important; min-height: 0 !important; width: 100%; overflow-y: auto !important; padding: 10px 20px !important; }
 .session [data-cue-study-meta] { display: flex !important; margin-bottom: 6px !important; }
@@ -30,23 +30,25 @@
 .session [data-cue-practice-settings] > div { max-height: min(480px, 65dvh); overflow-y: auto; }
 .session [data-cue-study-page] > div:has(> [aria-label="触屏学习卡片"]) { flex: 1 0 auto; flex-direction: column; min-height: 0; }
 .session [aria-label="触屏学习卡片"] { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.session [aria-label="触屏学习卡片"] > :is(button, article) { flex: 1; min-height: min(440px, 42dvh) !important; }
+.session [aria-label="触屏学习卡片"] > :is(button, article) { flex: 1; min-height: min(52dvh, 460px) !important; }
 .session [data-feature="study-history"] { margin-block: 6px; padding: 6px 10px; }
 @media (max-width: 599px) {
-  .session header > div:first-child { display: grid; grid-template-columns: 32px minmax(0, 1fr) 96px 32px; gap: 6px; }
+  .session header > div:first-child { display: grid; grid-template-columns: 32px minmax(0, 1fr) repeat(4, 40px); gap: 4px; }
   .session header > div:first-child > button:first-child { grid-column: 1; grid-row: 1; width: 32px; }
   .session header > div:first-child > div { grid-column: 2; grid-row: 1; }
   .session header > div:first-child > div > p { display: none; }
-  .session header > div:first-child > button:nth-child(3) { grid-column: 1 / 3; grid-row: 2; }
-  .session header > div:first-child > details { grid-column: 3 / 5; grid-row: 2; }
+  .session header > div:first-child > button:nth-child(3) { grid-column: 3; grid-row: 1; width: 40px; }
+  .session header > div:first-child > details { grid-column: 4; grid-row: 1; }
   .session header > div:first-child > details > summary { justify-content: center; }
-  .session header > div:first-child > span { grid-column: 4; grid-row: 1; font-size: 11px; }
-  .session header > div:first-child > button:last-child { grid-column: 3; grid-row: 1; padding-inline: 6px; }
+  .session header > div:first-child > span { grid-column: 5; grid-row: 1; font-size: 11px; text-align: center; }
+  .session header > div:first-child > button:last-child { grid-column: 6; grid-row: 1; width: 40px; padding-inline: 6px; }
+  .session [data-cue-study-meta] { display: none !important; }
   .session [data-cue-actions] > summary { display: block; padding: 6px 4px; font-size: 11px; cursor: pointer; color: var(--muted-foreground); }
   .session header { padding: 6px 10px !important; }
   .session [data-cue-study-page] { padding: 8px 12px !important; }
   .session header h1 { font-size: 13px; }
   .session header [data-feature="study-actions"] button { font-size: 11px; padding: 5px 8px; }
+  .session [aria-label="触屏学习卡片"] > :is(button, article) { min-height: min(52dvh, 460px) !important; }
 }
 @media (max-height: 550px) {
   .workspace { overflow-y: auto !important; }
