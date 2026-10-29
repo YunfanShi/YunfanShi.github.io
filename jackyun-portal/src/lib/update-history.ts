@@ -15,6 +15,8 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
+  { version: '3.62.2', date: '2026-10-29', dateLabel: '2026 年 10 月 29 日', title: '学习操作菜单清晰易辨', summary: 'CUE 学习中的更多操作菜单改为不透明卡片背景，每个图标按钮也有实色底，避免内容透出影响识别。', categories: ['学习体验', '平台体验'], accent: 'blue', featured: true, highlights: ['菜单使用实色卡片背景和清晰边框，在手机与桌面上都保持可读。', '菜单内的图标操作提供实色按钮底和悬停反馈，图标仍保留功能标签。'] },
+  { version: '3.62.1', date: '2026-10-29', dateLabel: '2026 年 10 月 29 日', title: '直达学习日程时不再被自动备份错误打断', summary: '学习日程打开时的后台自动备份遇到云端暂不可用，会返回可重试状态而不再让 /schedule 的服务端动作返回 500。', categories: ['稳定性', '平台体验'], accent: 'blue', featured: false, highlights: ['区分可选的定时备份与页面加载，备份失败不会阻断学习日程。', '失败状态仍交给原有同步车道记录并按退避策略重试。', '手动备份与恢复继续显示真实错误，不把未确认的备份误报为成功。'] },
   { version: '3.62.0', date: '2026-10-29', dateLabel: '2026 年 10 月 29 日', title: 'CUE 分组学习更专注', summary: '学习卡片获得更多屏幕空间；常用信息收紧为进度，低频操作收进图标菜单；每组完成后先看掌握情况，再复习薄弱项或继续。', categories: ['学习体验', '平台体验'], accent: 'mint', featured: true, highlights: ['桌面与手机的 CUE 学习工作区扩大，进度条替代占行的组内与累计统计。', '乱序、间隔重练、目录和帮助等入口改为图标按钮，悬停与无障碍标签仍说明用途。', '每组完成后显示已掌握、部分掌握和待复习数量，可直接回到薄弱项或进入下一组。'] },
   { version: '3.61.1', date: '2026-10-29', dateLabel: '2026 年 10 月 29 日', title: '自动确认两侧相同的 NULL 内容', summary: '当同步冲突双方都明确保存 JSON null 且都不是删除时，即使历史记录缺少内容哈希，也自动确认相同内容，减少无意义的手动处理。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['仅接受云端明确返回的 null 值，不把缺失字段或大内容占位符当作 null。', '删除与未删除状态不一致时仍保留冲突；非 null 内容继续要求内容哈希校验。', '确认后正常清除已完成队列，并保留真实内容差异供手动处理。'] },
   { version: '3.61.0', date: '2026-10-29', dateLabel: '2026 年 10 月 29 日', title: '可定时暂停自动同步', summary: '同步中心可暂停当前浏览器账号的自动同步 15 或 30 分钟，到期自动恢复；本机修改与待办持续保留。', categories: ['稳定性', '平台体验'], accent: 'blue', featured: true, highlights: ['工作区、离线任务与复习队列、自动备份共用暂停状态；同浏览器其他标签页会同步更新倒计时。', '暂停状态只存本机，不上传云端；手动“立即同步”可以提前执行。', '正在执行的网络请求会完成后停止后续自动任务，暂停期间的新修改继续留在本机队列。'] },
@@ -193,4 +195,4 @@ const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
   }
 ];
 
-export const UPDATE_HISTORY: UpdateEntry[] = UPDATE_HISTORY_ENTRIES.map((entry) => entry.version === '3.52.0' ? { ...entry, featured: false } : entry);
+export const UPDATE_HISTORY: UpdateEntry[] = UPDATE_HISTORY_ENTRIES.map((entry, index) => ({ ...entry, featured: index === 0 }));

@@ -3,9 +3,15 @@ import test from 'node:test';
 import { ALL_BACKUP_PAGES, BACKUP_TABLES, isBackupableLegacyKey, isBackupableSettingKey, legacyBackupPage, normalizeBackupPages, tableBackupPage } from '../src/lib/backup/pages.ts';
 import { getLocalBackupLimit } from '../src/lib/backup/local.ts';
 import { applyLocalPageImport, parseLocalPageBackup } from '../src/lib/backup/local-import.ts';
+import { attemptScheduledBackup } from '../src/lib/backup/scheduled-backup.ts';
 
 test('local backup retention stays at ten even with an older preference', () => {
   assert.equal(getLocalBackupLimit(), 10);
+});
+
+test('scheduled backup converts upstream failures to deferred retry results', async () => {
+  const result = await attemptScheduledBackup(async () => { throw Object.assign(new Error('upstream unavailable'), { status: 503 }); });
+  assert.deepEqual(result, { ok: false, status: 503 });
 });
 
 test('every exported table belongs to a selectable backup page', () => {

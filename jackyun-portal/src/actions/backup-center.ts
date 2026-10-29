@@ -10,6 +10,7 @@ import { azureBackupSource } from '@/lib/sync/azure-backup-source';
 import { saveAzurePageBackup } from '@/lib/backup/azure-page-backup';
 import { createAzureDueBackups } from '@/lib/backup/azure-automatic-backup';
 import { restoreAzurePage } from '@/lib/backup/azure-page-restore';
+import { attemptScheduledBackup } from '@/lib/backup/scheduled-backup';
 
 async function context() {
   const supabase = await createClient();
@@ -48,15 +49,19 @@ export async function createBackupVersion(page: BackupPage): Promise<number> {
   return data;
 }
 
-export async function createDueBackupVersions(): Promise<number> {
-  const { supabase,user } = await context();
-  const azure = await azureBackupSource(supabase);
-  if (azure) return createAzureDueBackups(azure,user.id,
-    async()=>await supabase.rpc('list_backup_change_markers'),
-    async args=>await supabase.rpc('create_automatic_backup_with_sync',args));
-  const { data, error } = await supabase.rpc('create_due_backup_pages');
-  if (error) throw new Error(`自动备份失败：${error.message}`);
-  return Number(data ?? 0);
+export async function createDueBackupVersions() {
+  return attemptScheduledBackup(async () => {
+    const { supabase,user } = await context();
+    const azure = await azureBackupSource(supabase);
+    if (azure) {
+      return createAzureDueBackups(azure,user.id,
+        async()=>await supabase.rpc('list_backup_change_markers'),
+        async args=>await supabase.rpc('create_automatic_backup_with_sync',args));
+    }
+    const { data, error } = await supabase.rpc('create_due_backup_pages');
+    if (error) throw new Error(`自动备份失败：${error.message}`);
+    return Number(data ?? 0);
+  });
 }
 
 export async function downloadBackupVersion(id: number): Promise<DataArchiveV2<BackupTable>> {
