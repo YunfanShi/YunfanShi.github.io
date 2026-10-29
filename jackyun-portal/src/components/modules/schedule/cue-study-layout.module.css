@@ -12,7 +12,7 @@
 .session header { flex-shrink: 0; padding: 8px 16px !important; position: relative; }
 .session header [data-feature="study-actions"] { gap: 6px; margin-top: 6px; }
 .session header [data-feature="study-actions"] > button, .session header button[aria-pressed] { display: inline-flex !important; align-items: center; }
-.session [data-cue-actions] > summary { display: none; }
+.session [data-cue-actions] > summary { display: grid; }
 .session header button { min-height: 34px; }
 .session [data-cue-study-page] { flex: 1 1 0 !important; min-height: 0 !important; width: 100%; overflow-y: auto !important; padding: 10px 20px !important; }
 .session [data-cue-study-meta] { display: flex !important; margin-bottom: 6px !important; }

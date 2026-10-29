@@ -572,7 +572,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
         </>}
       </main>
       </div>
-      {current && groupSummaryIndex !== groupIndex && <footer className={styles.touchControls}>
+      {current && (groupSummaryIndex !== groupIndex || practice.active || practice.mode) && <footer className={styles.touchControls}>
         <button type="button" className={styles.touchAnswerButton} aria-expanded={memoOpen} onClick={() => setMemoOpen(true)}>{currentAnswer?.text.trim() ? "查看我的作答" : "填写答题卡（可选）"}</button>
         {revealed && <div className={styles.touchRatings} aria-label="判定本次学习状态">{(['stable', 'partial', 'unclear'] as const).map((status) => <button key={status} type="button" data-rating={status} aria-pressed={(practice.active ? practice.rating : assessments[current.id]) === status} onClick={() => rate(status)}>{status === 'stable' ? '√ 通过' : status === 'partial' ? '△ 部分' : '○ 未通过'}</button>)}</div>}
         <div className={styles.touchNavigation}><button type="button" disabled={currentIndex === 0} onClick={() => move(-1)} aria-label="上一题">←</button><button type="button" disabled={!revealed && (current.type === 'multiple-choice' || current.display === 'multiple-choice')} onClick={() => setRevealed((value) => !value)}>{revealed ? '翻回题目' : current.type === 'multiple-choice' || current.display === 'multiple-choice' ? '请先选择选项' : '翻到答案'}</button><button type="button" disabled={!practice.active && currentIndex >= cues.length - 1} onClick={() => move(1)} aria-label="下一题">→</button></div>
