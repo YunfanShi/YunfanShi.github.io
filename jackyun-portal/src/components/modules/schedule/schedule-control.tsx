@@ -1595,13 +1595,34 @@ export default function ScheduleControl({ personalIeltsPlan = false }: { persona
       if(!keys || keys.includes(STORAGE_KEY)) {
         const incoming=parseLocalValue(workspaceStorage.getItem(STORAGE_KEY));
         const base=scheduleBaseRef.current;
-        setState(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length){scheduleBaseRef.current=incoming;localWriter(STORAGE_KEY).reset(incoming);}return (result.merged ?? readScheduleState(workspaceStorage)) as ScheduleControlState;});
+        setState(current=>{
+          // A projection can briefly be absent while account ownership or a cloud
+          // snapshot is being switched. Do not turn a populated screen into zeros.
+          if(scheduleHasContent(current)&&!scheduleHasContent(incoming))return current;
+          const result=threeWayMerge(base,current,incoming);
+          const merged=(result.merged ?? readScheduleState(workspaceStorage)) as ScheduleControlState;
+          if(scheduleHasContent(current)&&!scheduleHasContent(merged))return current;
+          if(!result.conflicts.length){scheduleBaseRef.current=incoming;localWriter(STORAGE_KEY).reset(incoming);}
+          return merged;
+        });
       }
       if(!keys || keys.includes(QUESTION_BANK_KEY)) {
         try {
           const incoming=parseLocalValue(workspaceStorage.getItem(QUESTION_BANK_KEY));
           const base=questionBaseRef.current;
-          setQuestionBank(current=>{const result=threeWayMerge(base,current,incoming);if(!result.conflicts.length){questionBaseRef.current=incoming;localWriter(QUESTION_BANK_KEY).reset(incoming);}return readQuestionBank(result.merged ?? emptyQuestionBank());});setQuestionBankError('');
+          const hasContent=(value:unknown)=>Boolean(value&&typeof value==='object'&&(
+            (Array.isArray((value as QuestionBankState).questions)&&(value as QuestionBankState).questions.length)
+            ||(Array.isArray((value as QuestionBankState).attempts)&&(value as QuestionBankState).attempts.length)
+            ||Object.keys((value as QuestionBankState).reviews??{}).length
+            ||Object.keys((value as QuestionBankState).drafts??{}).length));
+          setQuestionBank(current=>{
+            if(hasContent(current)&&!hasContent(incoming))return current;
+            const result=threeWayMerge(base,current,incoming);
+            const merged=readQuestionBank(result.merged ?? emptyQuestionBank());
+            if(hasContent(current)&&!hasContent(merged))return current;
+            if(!result.conflicts.length){questionBaseRef.current=incoming;localWriter(QUESTION_BANK_KEY).reset(incoming);}
+            return merged;
+          });setQuestionBankError('');
         } catch(error){setQuestionBankError(error instanceof Error?error.message:'题库读取失败，原始内容已保留。');}
       }
     };
