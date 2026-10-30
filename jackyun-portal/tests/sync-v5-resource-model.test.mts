@@ -31,6 +31,7 @@ test('regular workspace sync no longer invokes the V2 or V4 scan loop',()=>{
   assert.doesNotMatch(coordinator,/engine\.(resolve|flush)\(/);
   assert.doesNotMatch(coordinator,/refreshLegacyCloudBaselines\(\)/);
   assert.match(coordinator,/v5Sync\.synchronize\(requestedTargets/);
+  assert.match(coordinator,/includes\(field\)&&!v5Result\.writingCollectionsEnabled/);
 });
 
 test('portal shell streams local defaults before optional cloud profile queries',()=>{

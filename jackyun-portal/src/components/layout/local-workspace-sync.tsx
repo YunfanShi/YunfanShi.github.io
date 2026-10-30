@@ -249,7 +249,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
               if(coveredIds.has(conflict.operationId))continue;
               const recordId=legacyWorkspaceRecordId(conflict.key);if(!recordId)continue;
               const field=recordId.slice(0,recordId.indexOf(':'));
-              if(['writingEssays','writingErrorHistory','writingArchive'].includes(field))continue;
+              if(['writingEssays','writingErrorHistory','writingArchive'].includes(field)&&!v5Result.writingCollectionsEnabled)continue;
               const raw=workspaceStorage.getItem(conflict.key);let local:unknown=raw;
               if(raw!==null){try{local=JSON.parse(raw);}catch{/* Workspace string value. */}}
               if(canonicalJson(local)!==canonicalJson(conflict.localValue)||(raw===null)!==conflict.localDeleted)continue;
