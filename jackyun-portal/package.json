@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.62.6",
+  "version": "3.62.7",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -98,6 +98,7 @@
     "test:cue-route-draft-ui": "node tests/cue-route-draft.browser.mts",
     "test:cue-editor-draft": "node --test tests/cue-editor-draft.test.mts",
     "test:cue-editor-draft-ui": "node tests/cue-editor-draft.browser.mts",
+    "test:cue-interval-auto-ui": "node tests/cue-interval-auto.browser.mts",
     "test:support-ui": "node tests/support-conversation.browser.mjs",
     "test:sync-review-ui": "node tests/sync-review.browser.mjs"
   },

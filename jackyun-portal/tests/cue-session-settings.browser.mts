@@ -24,7 +24,8 @@ try {
     await settings.getByRole('spinbutton',{name:'间隔题数'}).fill('2');
     await settings.getByRole('checkbox',{name:'自动进入间隔重练'}).setChecked(automatic);await settings.locator('summary').click();
     await page.keyboard.press('3');await page.keyboard.press('3');
-    for(let i=0;i<2;i++){await page.keyboard.press('1');await page.keyboard.press('1');}
+    if(automatic){await page.keyboard.press('1');await page.keyboard.press('1');await page.keyboard.press('1');}
+    else for(let i=0;i<2;i++){await page.keyboard.press('1');await page.keyboard.press('1');}
     const prompt=session.getByRole('region',{name:'触屏学习卡片'});
     assert.ok((await prompt.innerText()).includes(automatic?'题号 1':'题号 4'));
     assert.ok(await session.getByRole('region',{name:'本轮重练目录'}).isVisible());

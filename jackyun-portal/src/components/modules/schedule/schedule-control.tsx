@@ -361,6 +361,22 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   const activeAssessments = useMemo(() => Object.fromEntries(allCues.flatMap((cue) => assessments[cue.id] ? [[cue.id, assessments[cue.id]]] : [])) as Record<string, LearningStatus>, [assessments, allCues]);
   const assessedCount = Object.keys(activeAssessments).length;
   const roundComplete = allCues.length > 0 && assessedCount === allCues.length;
+  useEffect(() => {
+    if (!automaticPractice || practice.active || practice.mode) return;
+    // A timer becoming due must not take the card away while the learner is
+    // still working on it. Start the retry as soon as that card is rated.
+    if (!roundComplete && current && !assessments[current.id]) return;
+    if (!dueCuePractice(practice, practiceNow, current?.id, roundComplete, practicePolicy)) return;
+    queueMicrotask(() => {
+      setPractice(state => {
+        if (!automaticPractice || state.active || state.mode || (!roundComplete && current && !assessments[current.id])) return state;
+        return enterCuePractice(state, Date.now(), current?.id, current?.id, false, roundComplete, practicePolicy);
+      });
+      setRatingFeedback(null);
+      setRevealed(false);
+      setSelectedChoice(undefined);
+    });
+  }, [automaticPractice, practice, practiceNow, roundComplete, current, assessments, practicePolicy]);
   const savingRef = useRef(false);
   const [saveError, setSaveError] = useState('');
   const submit = useCallback(async (nextAssessments: Record<string, LearningStatus>) => {
