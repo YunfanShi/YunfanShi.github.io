@@ -14,7 +14,7 @@ export default function CuePracticeControls({ automatic, policy, onAutomatic, on
       <p className="my-3 leading-5 text-[var(--muted-foreground)]">仅本次有效。关闭后仍保留提示和重练目录，可手动进入。</p>
       <label className="block">重练触发方式<select aria-label="重练触发方式" value={policy.trigger} onChange={event => onPolicy({ ...policy, trigger: event.target.value as CuePracticePolicy['trigger'] })} className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2"><option value="questions">按题数</option><option value="time">按时间</option></select></label>
       <label className="mt-3 block">{policy.trigger === 'questions' ? '间隔题数' : '间隔分钟'}<input aria-label={policy.trigger === 'questions' ? '间隔题数' : '间隔分钟'} type="number" min="1" max={policy.trigger === 'questions' ? 50 : 60} value={policy.trigger === 'questions' ? policy.questions : policy.minutes} onChange={event => { const value = Math.max(1, Math.min(policy.trigger === 'questions' ? 50 : 60, Math.round(Number(event.target.value) || 1))); onPolicy({ ...policy, [policy.trigger === 'questions' ? 'questions' : 'minutes']: value }); }} className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2" /></label>
-      <p className="mt-3 leading-5 text-[var(--muted-foreground)]">修改后从现在重新计算待重练间隔；到期后切换下一题时插入，不打断当前作答。本轮全部评价后可直接手动重练。</p>
+      <p className="mt-3 leading-5 text-[var(--muted-foreground)]">修改后从现在重新计算待重练间隔；到期后会在当前题评价完成或切换到下一题时自动插入，不打断未完成作答。本轮全部评价后也可直接手动重练。</p>
     </div>
   </details>;
 }
