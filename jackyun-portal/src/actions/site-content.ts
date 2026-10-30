@@ -59,22 +59,33 @@ export async function saveSiteContent(
   try {
     const admin = await requireContentAdmin();
     if (id && !/^[a-f0-9-]{36}$/.test(id)) throw new Error("无效 ID。");
-    const value = {
-      ...validateContent(kind, input),
-      updated_at: new Date().toISOString(),
-    };
-    const table = kind === "article" ? "site_articles" : "site_share_links";
-    const result = id
-      ? await admin.from(table).update(value).eq("id", id).select("id").single()
-      : await admin
-          .from(table)
-          .insert(
-            kind === "link"
-              ? { ...value, code: `j-${randomBytes(8).toString("hex")}` }
-              : value,
-          )
-          .select("id")
-          .single();
+    const updatedAt = new Date().toISOString();
+    const result =
+      kind === "article"
+        ? id
+          ? await admin
+              .from("site_articles")
+              .update({ ...validateContent("article", input), updated_at: updatedAt } as Omit<Article, "id">)
+              .eq("id", id)
+              .select("id")
+              .single()
+          : await admin
+              .from("site_articles")
+              .insert({ ...validateContent("article", input), updated_at: updatedAt } as Omit<Article, "id">)
+              .select("id")
+              .single()
+        : id
+          ? await admin
+              .from("site_share_links")
+              .update({ ...validateContent("link", input), updated_at: updatedAt } as Omit<ShareLink, "id" | "code">)
+              .eq("id", id)
+              .select("id")
+              .single()
+          : await admin
+              .from("site_share_links")
+              .insert({ ...validateContent("link", input), updated_at: updatedAt, code: `j-${randomBytes(8).toString("hex")}` } as Omit<ShareLink, "id">)
+              .select("id")
+              .single();
     if (result.error)
       throw new Error(
         result.error.code === "23505"
