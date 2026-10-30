@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.62.5",
+  "version": "3.62.6",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -96,6 +96,8 @@
     "test:music-player-state-ui": "node tests/music-player-state.browser.mjs",
     "test:countdown-state-ui": "node tests/countdown-state.browser.mjs",
     "test:cue-route-draft-ui": "node tests/cue-route-draft.browser.mts",
+    "test:cue-editor-draft": "node --test tests/cue-editor-draft.test.mts",
+    "test:cue-editor-draft-ui": "node tests/cue-editor-draft.browser.mts",
     "test:support-ui": "node tests/support-conversation.browser.mjs",
     "test:sync-review-ui": "node tests/sync-review.browser.mjs"
   },
