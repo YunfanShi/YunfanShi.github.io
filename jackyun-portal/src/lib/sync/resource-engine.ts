@@ -241,11 +241,14 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
         // excluding large-value placeholders and delete/edit differences.
         const sameExplicitNull=sameState&&!remoteDeleted&&operation.value===null
           &&Object.hasOwn(result,'value')&&result.value===null&&result.large!==true&&result.remoteLarge!==true;
+        const sameNullValue=operation.value===null&&remoteValue===null
+          &&(remoteDeleted||Object.hasOwn(result,'value')&&result.value===null&&result.large!==true&&result.remoteLarge!==true);
         const verifiedSameContent=remoteDeleted
           ||sameExplicitNull
           ||(sameState&&remoteHash!==null&&/^[a-f\d]{64}$/i.test(remoteHash)&&await digest(remoteValue)===remoteHash);
-        if(sameState&&verifiedSameContent){
-          applied.push({operation,revision:remoteRevision,contentHash:remoteHash,updatedAt:String(result.updatedAt??new Date().toISOString())});
+        if((sameState&&verifiedSameContent)||sameNullValue){
+          const confirmedOperation=sameNullValue?{...operation,deleted:remoteDeleted,value:null}:operation;
+          applied.push({operation:confirmedOperation,revision:remoteRevision,contentHash:remoteHash,updatedAt:String(result.updatedAt??new Date().toISOString())});
           handled.add(operation.id);
           continue;
         }
@@ -291,14 +294,20 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     return {enabled,authoritativeSchedule:enabled&&SYNC_V5_SCHEDULE_SCOPES.every(scope=>scopes.includes(scope)),scopes,
       writingCollections:enabled&&flags?.writingCollections===true&&scopes.includes('workspace')};
   }
-  async function synchronize(requestedScopes:readonly (SyncV5Scope|SyncV5ResourceTarget)[]){
-    const authority=await refreshAuthority();if(!authority.enabled)return {enabled:false,authoritativeSchedule:false,conflicts:await getV5Conflicts(e.databaseScope)};
+  async function synchronize(requestedScopes:readonly (SyncV5Scope|SyncV5ResourceTarget)[],options:{resetCursors?:boolean;requireAllTargets?:boolean}={}){
+    const authority=await refreshAuthority();if(!authority.enabled)return {enabled:false,authoritativeSchedule:false,scopes:authority.scopes,conflicts:await getV5Conflicts(e.databaseScope)};
     const {scopes}=authority;
     // Snapshot current local edits before remote pages can replace their resource rows.
     const requestedTargets= requestedScopes.flatMap((item):SyncV5ResourceTarget[]=>typeof item==='string'?resourceFieldsForScope(item as SyncV5Scope).map(field=>({scope:item as SyncV5Scope,field})):[item]);
     const uniqueTargets=[...new Map(requestedTargets.filter(item=>scopes.includes(item.scope)&&resourceFieldsForScope(item.scope).includes(item.field)
       &&(!WRITING_COLLECTIONS.some(collection=>collection.field===item.field)||authority.writingCollections)).map(item=>[`${item.scope}\0${item.field}`,item])).values()];
+    const requiredTargetKeys=new Set(requestedTargets.filter(item=>!WRITING_COLLECTIONS.some(collection=>collection.field===item.field)||authority.writingCollections).map(item=>`${item.scope}\0${item.field}`));
+    if(options.requireAllTargets&&uniqueTargets.length!==requiredTargetKeys.size)
+      throw Object.assign(Error('V5 云端尚未启用全部资源范围；本机缓存和同步游标均未清理。'),{code:'SYNC_V5_SCOPE_INCOMPLETE'});
     for(const target of uniqueTargets)await captureLocalChanges(target.scope,target.field);
+    // Capture edits against their existing confirmed checkpoints first. Reset
+    // only after the capability response proves every requested scope is available.
+    if(options.resetCursors)for(const target of uniqueTargets)await setV5Cursor(target.scope,null,e.databaseScope,target.field);
     for(const target of uniqueTargets)await pull(target);
     const writingFields=uniqueTargets.filter(target=>target.scope==='workspace'&&WRITING_COLLECTIONS.some(row=>row.field===target.field)).map(target=>target.field);
     for(const field of writingFields){
@@ -312,7 +321,12 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     const written=new Set<SyncV5Scope>();
     for(const scope of scopes)if(await push(scope,authority.writingCollections))written.add(scope);
     for(const target of uniqueTargets)if(written.has(target.scope))await pull(target);
-    return {enabled:true,authoritativeSchedule:authority.authoritativeSchedule,writingCollectionsEnabled:authority.writingCollections,processedTargets:uniqueTargets,conflicts:await getV5Conflicts(e.databaseScope)};
+    return {enabled:true,authoritativeSchedule:authority.authoritativeSchedule,writingCollectionsEnabled:authority.writingCollections,scopes,processedTargets:uniqueTargets,conflicts:await getV5Conflicts(e.databaseScope)};
+  }
+  async function flushPending(){
+    const authority=await refreshAuthority();if(!authority.enabled)throw Object.assign(Error('V5 云端同步暂不可用，本机队列已保留。'),{status:503,code:'SYNC_V5_UNAVAILABLE'});
+    for(const scope of authority.scopes)await push(scope,authority.writingCollections);
+    return getV5Conflicts(e.databaseScope);
   }
   async function resolveConflict(operationId:string,choice:'local'|'remote',expected?:V5ResourceConflict){
     let guard:import('./outbox.ts').V5ResolutionGuard|undefined;
@@ -358,5 +372,5 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
       }else {const projected=await resolveV5ConflictRemotely(operationId,e.databaseScope,guard);if(projected!==null)await e.projectSchedule(projected);}
     }
   }
-  return {synchronize,resolveConflict,refreshAuthority};
+  return {synchronize,resolveConflict,refreshAuthority,flushPending};
 }

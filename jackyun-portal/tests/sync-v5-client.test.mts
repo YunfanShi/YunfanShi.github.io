@@ -477,20 +477,21 @@ test('v5 stale-base conflicts auto-confirm identical content and preserve real d
   const scenarios=[
     {name:'same content',base:{id:'cue',prompt:'base'},local:{id:'cue',prompt:'same'},remote:{id:'cue',prompt:'same'},deleted:false},
     {name:'same deletion',base:{id:'cue',prompt:'base'},local:null,remote:null,deleted:true},
+    {name:'null value matches tombstone',base:{id:'cue',prompt:'base'},local:null,remote:null,deleted:true,localDeleted:false},
     {name:'different content',base:{id:'cue',prompt:'base'},local:{id:'cue',prompt:'local'},remote:{id:'cue',prompt:'cloud'},deleted:false},
   ] as const;
   for(const scenario of scenarios){
     const dbName=id(),recordId='cues:cue',baseHash=createHash('sha256').update(canonicalJson(scenario.base)).digest('hex');
     const valueHash=scenario.deleted?null:createHash('sha256').update(canonicalJson(scenario.remote)).digest('hex');
-    const visibleCue=scenario.deleted?{id:'keep',prompt:'keep'}:scenario.local;
+    const visibleCue=scenario.deleted||scenario.local===null?{id:'keep',prompt:'keep'}:scenario.local;
     const visibleIds=[visibleCue.id];let scheduleRaw=JSON.stringify({schemaVersion:1,cues:[visibleCue]});
     const operation={id:crypto.randomUUID(),scope:'cue' as const,recordId,baseRevision:1,baseHash,
-      value:scenario.local,deleted:scenario.deleted,clientUpdatedAt:'now'};
+      value:scenario.local,deleted:('localDeleted'in scenario?scenario.localDeleted:scenario.deleted),clientUpdatedAt:'now'};
     const db=await openDatabase(dbName);try{await new Promise<void>((resolve,reject)=>{
       const tx=db.transaction(['documents','v5Resources'],'readwrite');
       tx.objectStore('documents').put({key:'jackyun_schedule_control_v1',value:scheduleRaw,updatedAt:1});
       tx.objectStore('v5Resources').put({scope:'cue',recordId,revision:1,contentHash:baseHash,deleted:false,updatedAt:'base',value:scenario.base});
-      if(scenario.deleted)tx.objectStore('v5Resources').put({scope:'cue',recordId:'cues:keep',revision:1,contentHash:createHash('sha256').update(canonicalJson(visibleCue)).digest('hex'),deleted:false,updatedAt:'base',value:visibleCue});
+      if(scenario.deleted||scenario.local===null)tx.objectStore('v5Resources').put({scope:'cue',recordId:'cues:keep',revision:1,contentHash:createHash('sha256').update(canonicalJson(visibleCue)).digest('hex'),deleted:false,updatedAt:'base',value:visibleCue});
       tx.objectStore('v5Resources').put({scope:'cue',recordId:'cues:%24order',revision:1,contentHash:createHash('sha256').update(canonicalJson(visibleIds)).digest('hex'),deleted:false,updatedAt:'base',value:visibleIds});
       tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
     });}finally{db.close();}

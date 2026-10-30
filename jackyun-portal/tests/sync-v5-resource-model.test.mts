@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import {resourcesToSchedule,resourceMap,scheduleToResources,mergeScheduleResources,legacyWorkspaceFieldForKey,legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceScopeForRecordId,resourceTargetsForStorageKeys,SYNC_V5_SCHEDULE_SCOPES,workspaceStorageToResources} from '../src/lib/sync/resource-model.ts';
+import {allV5ResourceTargets,resourcesToSchedule,resourceMap,scheduleToResources,mergeScheduleResources,legacyWorkspaceFieldForKey,legacyWorkspaceKeyFromRecordId,legacyWorkspaceRecordId,resourceFieldsForScope,resourceScopeForRecordId,resourceTargetsForStorageKeys,SYNC_V5_SCOPES,SYNC_V5_SCHEDULE_SCOPES,workspaceStorageToResources} from '../src/lib/sync/resource-model.ts';
 import {resourceFieldsForPath} from '../src/lib/sync/resource-engine.ts';
 import {parseReaderBookProjection,readerBookStorageKey,serializeReaderBook} from '../src/lib/sync/reader-resource.ts';
 
@@ -16,6 +16,30 @@ test('Schedule fields round-trip as scoped records with stable entity identifier
   assert.ok(resources.some(row=>row.scope==='learning'&&row.recordId==='manualTasks:task-1'));
   assert.ok(resources.some(row=>row.scope==='timer'&&row.recordId==='practiceSessions:focus-1'));
   assert.deepEqual(resources.find(row=>row.scope==='timer'&&row.recordId==='practiceSessions:focus-1')?.value,input.practiceSessions[0],'question-level answer results must remain inside their stable session resource');
+});
+
+test('full V5 bootstrap covers every declared V5 resource field exactly once',()=>{
+  const targets=allV5ResourceTargets();
+  assert.equal(new Set(targets.map(row=>`${row.scope}\\0${row.field}`)).size,targets.length);
+  assert.deepEqual(targets.map(row=>row.scope).filter((scope,index,rows)=>rows.indexOf(scope)===index),SYNC_V5_SCOPES);
+  for(const scope of SYNC_V5_SCOPES)assert.deepEqual(targets.filter(row=>row.scope===scope).map(row=>row.field),resourceFieldsForScope(scope));
+});
+
+test('regular workspace sync no longer invokes the V2 or V4 scan loop',()=>{
+  const coordinator=readFileSync(new URL('../src/components/layout/local-workspace-sync.tsx',import.meta.url),'utf8');
+  assert.doesNotMatch(coordinator,/engine\.synchronize\(\)/);
+  assert.doesNotMatch(coordinator,/engine\.(resolve|flush)\(/);
+  assert.doesNotMatch(coordinator,/refreshLegacyCloudBaselines\(\)/);
+  assert.match(coordinator,/v5Sync\.synchronize\(requestedTargets/);
+});
+
+test('portal shell streams local defaults before optional cloud profile queries',()=>{
+  const layout=readFileSync(new URL('../src/app/(portal)/layout.tsx',import.meta.url),'utf8');
+  const schedulePage=readFileSync(new URL('../src/app/(portal)/schedule/page.tsx',import.meta.url),'utf8');
+  assert.match(layout,/<Suspense fallback=\{<PortalShell/);
+  assert.match(layout,/<CloudPortalShell claims=\{claims\}/);
+  assert.doesNotMatch(schedulePage,/createClient|supabase\./);
+  assert.match(schedulePage,/<ScheduleControl \/>/);
 });
 
 test('Schedule import history, learning progress, and question-bank data are explicit v5 round-trips',()=>{

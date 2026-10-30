@@ -145,6 +145,10 @@ export function resourceFieldsForScope(scope:SyncV5Scope):string[]{
   if(scope==='workspace')return [...LEGACY_WORKSPACE_FIELDS];
   return [...new Set(fields.filter(item=>item.scope===scope).map(item=>item.field).concat(scope==='settings'?['__root']:[]))];
 }
+/** Every V5 field, used for a one-time account bootstrap and explicit refresh. */
+export function allV5ResourceTargets():SyncV5ResourceTarget[]{
+  return SYNC_V5_SCOPES.flatMap(scope=>resourceFieldsForScope(scope).map(field=>({scope,field})));
+}
 const record=(field:ResourceField,itemId:string,value:unknown):ScheduleResource=>({
   scope:field.scope,field:field.field,itemId,recordId:`${field.field}:${encodeURIComponent(itemId)}`,value,
 });

@@ -272,7 +272,8 @@ export async function commitV5ResourcePage(scope:SyncV5Scope,records:V5ResourceR
         for(const local of scheduleToResources(base).filter(item=>item.scope===scope&&item.field===cursor.field&&!isEmptyScheduleCollection(cursor.field!,base[cursor.field!]))) {
           if(pendingIds.has(local.recordId)||blockedIds.has(local.recordId))continue;
           const remote=rows.get(local.recordId);
-          if(remote&&!remote.deleted&&canonicalJson(remote.value)===canonicalJson(local.value))continue;
+          if(remote&&((!remote.deleted&&canonicalJson(remote.value)===canonicalJson(local.value))
+            ||(local.value===null&&(remote.deleted||remote.value===null))))continue;
           if(remote){
             const conflict:V5ResourceConflict={operationId:crypto.randomUUID(),scope,recordId:local.recordId,baseRevision:remote.revision,baseHash:remote.contentHash,
               localValue:local.value,localDeleted:false,remoteValue:remote.deleted?null:remote.value,remoteDeleted:remote.deleted,remoteRevision:remote.revision,
@@ -541,6 +542,58 @@ export async function saveConflict(conflict: SyncConflict,scope?:string): Promis
 
 export async function removeConflict(operationId: string,scope?:string): Promise<void> {
   await storeRequest('conflicts', 'readwrite', (store) => store.delete(operationId),scope);
+}
+
+/** Archive only unchanged legacy conflicts that a verified V5 pull proved identical. */
+export async function archiveV5CoveredLegacyConflicts(candidates:SyncConflict[],scope?:string):Promise<number>{
+  if(!candidates.length)return 0;
+  const db=await openDatabase(scope);
+  try{return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(['conflicts','outbox','settings'],'readwrite'),conflicts=tx.objectStore('conflicts'),outbox=tx.objectStore('outbox'),settings=tx.objectStore('settings');
+    const all=conflicts.getAll(),pending=outbox.getAll(),saved=settings.get('v5CoveredLegacyConflictArchive');let archived=0,loaded=0;
+    const finish=()=>{if(++loaded!==3)return;
+      const existing=Array.isArray(saved.result?.value)?saved.result.value:[],rows=[...existing];
+      for(const candidate of candidates){
+        const current=(all.result as SyncConflict[]).find(row=>row.operationId===candidate.operationId);
+        const pendingOperation=(pending.result as SyncOperation[]).find(row=>row.id===candidate.operationId);
+        if(!current||canonicalJson(current)!==canonicalJson(candidate)
+          ||pendingOperation&&(pendingOperation.key!==current.key||pendingOperation.deleted!==current.localDeleted||canonicalJson(pendingOperation.value)!==canonicalJson(current.localValue)))continue;
+        if(pendingOperation)outbox.delete(pendingOperation.id);
+        rows.push({conflict:current,archivedAt:new Date().toISOString(),reason:'verified-v5-identical'});conflicts.delete(current.operationId);archived++;
+      }
+      if(archived)settings.put({key:'v5CoveredLegacyConflictArchive',value:rows.slice(-500)});
+    };
+    for(const request of [all,pending,saved]){request.onsuccess=finish;request.onerror=()=>reject(request.error);}
+    tx.oncomplete=()=>resolve(archived);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('V5 已覆盖冲突归档失败。'));
+  });}finally{db.close();}
+}
+
+/** Move a preserved legacy local intent into the V5 outbox before retiring its old conflict row. */
+export async function migrateLegacyConflictToV5(candidate:SyncConflict,operation:V5ResourceOperation,scope?:string):Promise<boolean>{
+  const db=await openDatabase(scope);
+  try{return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(['conflicts','outbox','v5Outbox','v5Conflicts','settings'],'readwrite');
+    const current=tx.objectStore('conflicts').get(candidate.operationId),legacy=tx.objectStore('outbox').getAll(),v5Pending=tx.objectStore('v5Outbox').getAll(),v5Conflicts=tx.objectStore('v5Conflicts').getAll(),saved=tx.objectStore('settings').get('v5CoveredLegacyConflictArchive');
+    const requests=[current,legacy,v5Pending,v5Conflicts,saved];let loaded=0,migrated=false;
+    const finish=()=>{if(++loaded!==requests.length)return;
+      const row=current.result as SyncConflict|undefined;
+      if(!row||canonicalJson(row)!==canonicalJson(candidate))return;
+      const oldOperation=(legacy.result as SyncOperation[]).find(item=>item.id===candidate.operationId);
+      if(oldOperation&&(oldOperation.key!==candidate.key||oldOperation.deleted!==candidate.localDeleted||canonicalJson(oldOperation.value)!==canonicalJson(candidate.localValue)))return;
+      const sameValue=(value:unknown,deleted:boolean)=>deleted===operation.deleted&&canonicalJson(value)===canonicalJson(operation.value);
+      const pending=(v5Pending.result as V5ResourceOperation[]).find(item=>item.scope===operation.scope&&item.recordId===operation.recordId);
+      const conflict=(v5Conflicts.result as V5ResourceConflict[]).find(item=>item.scope===operation.scope&&item.recordId===operation.recordId);
+      if((pending&&!sameValue(pending.value,pending.deleted))||(conflict&&!sameValue(conflict.localValue,conflict.localDeleted)))return;
+      if(!pending&&!conflict)tx.objectStore('v5Outbox').put(operation);
+      tx.objectStore('conflicts').delete(candidate.operationId);
+      if(oldOperation)tx.objectStore('outbox').delete(oldOperation.id);
+      const existing=Array.isArray(saved.result?.value)?saved.result.value:[];
+      tx.objectStore('settings').put({key:'v5CoveredLegacyConflictArchive',value:[...existing,{conflict:row,archivedAt:new Date().toISOString(),reason:'migrated-to-v5'}].slice(-500)});
+      migrated=true;
+    };
+    for(const request of requests){request.onsuccess=finish;request.onerror=()=>reject(request.error);}
+    tx.oncomplete=()=>resolve(migrated);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('遗留冲突迁移到 V5 失败。'));
+  });}finally{db.close();}
 }
 
 export async function clearConflicts(): Promise<void> {

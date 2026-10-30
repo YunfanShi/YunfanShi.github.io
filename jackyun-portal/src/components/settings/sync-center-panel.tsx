@@ -6,6 +6,7 @@ import { sitePrompt, siteConfirm } from '@/lib/site-dialog';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LOCAL_SYNC_STATUS_EVENT } from '@/lib/local-workspace';
 import { fetchSyncWithTimeout } from '@/lib/request-timeout';
+import { isServerUnavailable } from '@/lib/sync/service-error';
 import { getLatestSyncStatus } from '@/lib/sync/status';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { getConflicts, getOrCreateDeviceId, getOutbox,getSetting,getV5Conflicts,getV5Outbox,type V5ResourceConflict,type V5ResourceOperation } from '@/lib/sync/outbox';
@@ -78,6 +79,12 @@ export default function SyncCenterPanel() {
       setError(`本机同步队列读取失败：${names[stage]??stage}（${errorName}）。队列未修改；请勿清理浏览器数据。`);
     }
   },[]);
+  async function refreshAllV5(){
+    if(!signedIn||detail.state==='syncing')return;
+    if(!(await siteConfirm('先下载包含待上传修改和冲突的本机恢复副本，再校验 V5 全部资源并重建同步游标。失败时本机数据会保留；确认与 V5 云端内容完全相同的旧冲突会归档。继续吗？')))return;
+    try{if(await downloadLocalRecovery())window.dispatchEvent(new Event('jackyun-sync-v5-refresh'));}
+    catch(cause){setError(cause instanceof Error?cause.message:'恢复副本未完整生成，重新获取已取消。');}
+  }
 
   const load = useCallback(async () => {
     setError('');
@@ -87,12 +94,12 @@ export default function SyncCenterPanel() {
       if (!deviceResponse.ok) {
         const failed = deviceResponse;
         const payload = await failed.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
-        throw new Error(payload?.error?.code ? `同步中心加载失败：${payload.error.code}` : `同步中心加载失败 (${failed.status})`);
+        throw Object.assign(new Error(payload?.error?.code ? `同步中心加载失败：${payload.error.code}` : `同步中心加载失败 (${failed.status})`),{status:failed.status});
       }
       const devicePayload = await deviceResponse.json() as { devices: SyncDevice[] };
       setCurrentDeviceId(deviceId);
       setDevices(devicePayload.devices);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : '同步中心加载失败'); }
+    } catch (cause) { setError(isServerUnavailable(cause,navigator.onLine)?'':cause instanceof Error ? cause.message : '同步中心加载失败'); }
   }, []);
 
   useEffect(() => {
@@ -197,6 +204,7 @@ export default function SyncCenterPanel() {
       <div className="flex flex-wrap items-center gap-2">
         {pauseUntil&&pauseSeconds>0?<><span role="status" className="text-xs text-amber-700">同步已暂停 · {pauseCountdown} 后恢复</span><button type="button" onClick={()=>changeSyncPause(null)} className="rounded-lg border px-3 py-2 text-sm">恢复同步</button></>:signedIn&&<><button type="button" onClick={()=>changeSyncPause(15)} className="rounded-lg border px-3 py-2 text-sm">暂停 15 分钟</button><button type="button" onClick={()=>changeSyncPause(30)} className="rounded-lg border px-3 py-2 text-sm">暂停 30 分钟</button></>}
         <button type="button" disabled={!signedIn || detail.state === 'syncing'} onClick={() => { setDetail((current) => ({ ...current, state: 'syncing', error: undefined, progress: '已收到立即同步请求…' })); window.dispatchEvent(new Event('jackyun-sync-retry')); }} className="rounded-lg bg-[#1a73e8] px-3 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{detail.state === 'syncing' ? '同步中…' : '立即同步'}</button>
+        <button type="button" disabled={!signedIn||detail.state==='syncing'} onClick={()=>void refreshAllV5()} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50">设为新设备并重新获取 V5 数据</button>
       </div>
     </div>
     {detail.progress && <p role="status" aria-live="polite" className="text-sm text-[var(--muted-foreground)]">{detail.progress}</p>}

@@ -2,12 +2,12 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 
-const AuthModeContext = createContext<{ signedIn: boolean; userId: string | null }>({ signedIn: false, userId: null });
+const AuthModeContext = createContext<{ signedIn: boolean; userId: string | null; isAdmin:boolean }>({ signedIn: false, userId: null,isAdmin:false });
 
 export function useAuthMode() {
   return useContext(AuthModeContext);
 }
 
-export default function AuthModeProvider({ signedIn, userId, children }: { signedIn: boolean; userId: string | null; children: ReactNode }) {
-  return <AuthModeContext.Provider value={{ signedIn, userId }}>{children}</AuthModeContext.Provider>;
+export default function AuthModeProvider({ signedIn, userId, isAdmin=false, children }: { signedIn: boolean; userId: string | null; isAdmin?:boolean; children: ReactNode }) {
+  return <AuthModeContext.Provider value={{ signedIn, userId,isAdmin }}>{children}</AuthModeContext.Provider>;
 }
