@@ -11,6 +11,7 @@
   let state=null,config=null,session=null,selectedType=0,ready=false,editing=null,releaseLock=null,editable=false,settingsDraft=null,nextSelection=false,nextTypeAll=false,pickerCourseId=null;
   let saveNumber=0,lastSaved=0,saveFailed=false,lastTone=null,toneQuestion=null;
   const requests=new Map();
+  const conflictNotices=new Set();
   const notice=text=>{$('notice').textContent=text;};
   const sound=name=>{void globalThis.PracticeAudio?.play(name,config||{});};
   const cloud=new globalThis.PracticeCloud({
@@ -83,7 +84,7 @@
   window.addEventListener('message',event=>{if(event.source!==parent||event.origin!==location.origin)return;const m=event.data;
     if(m.type==='practice-exit-focus'){focus(false);return;}
     if(m.type==='practice-state'){state=m.state;if(!ready){const upgraded=E.upgradeConfig(state.practiceTimerConfig||{subjects:{},green:30,red:10});config=upgraded.config;const bound=E.bindCourses(config,subjects());config=bound.config;ready=true;fillSubjects();notice('已就绪');if(!state.practiceTimerConfig||upgraded.changed||bound.changed)save({config});if(allowedSkills.includes(requestedSkill))notice('本次训练目标：'+requestedSkill+'。请选择相应题型与另一道未见题；开始前不要查看 MS。');if(m.requestedSession)void openSession(m.requestedSession);else if((state.practiceSessions||[]).some(s=>!s.finished)){history();notice('发现未完成练习，打开记录恢复；刷新后默认暂停。');}}else if(m.remote){if(session&&cloud.mode!=='cloud'){const incoming=state.practiceSessions?.find(s=>s.id===session.id);if(incoming&&incoming.updatedAt>session.updatedAt){if(current().startedAt!==null){session=E.toggle(session,Date.now());}editable=false;notice('检测到其他设备更新，请导出本地内容并重新打开记录。');}}} }
-    if(m.type==='practice-saved'){requests.delete(m.requestId);lastSaved=Date.now();saveFailed=false;applyExperience();notice(m.localOnly?'仅保存在本机，尚未同步；完成练习后会加入 Schedule 同步队列。':m.cloudPending?'本机已保存，云端同步待确认。':'已保存到本机，云端同步中。');if(session){state.practiceSessions=[...(state.practiceSessions||[]).filter(s=>s.id!==session.id),structuredClone(session)];}}
+    if(m.type==='practice-saved'){requests.delete(m.requestId);lastSaved=Date.now();saveFailed=false;applyExperience();if(m.conflictPending){if(!conflictNotices.has(m.sessionId)){conflictNotices.add(m.sessionId);notice('这次练习与另一份记录有冲突，计时会继续；进度已暂存在本机恢复副本，请结束后导出并核对。');}}else notice(m.localOnly?'仅保存在本机，尚未同步；完成练习后会加入 Schedule 同步队列。':m.cloudPending?'本机已保存，云端同步待确认。':'已保存到本机，云端同步中。');if(session){state.practiceSessions=[...(state.practiceSessions||[]).filter(s=>s.id!==session.id),structuredClone(session)];}}
     if(m.type==='practice-control-lost'){cloud.lose('另一设备已接管，本设备已退出计时。');return;}
     if(m.type==='practice-error'){saveFailed=true;requests.delete(m.requestId);if(session&&!session.finished&&current().startedAt!==null)session=E.toggle(session,Date.now());notice(m.error+' 可先导出 JSON 保留内容。');tick();}
   });

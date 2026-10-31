@@ -3,7 +3,7 @@ import { workspaceStorage } from '@/lib/sync/repository';
 
 import { useEffect, useRef, useState } from 'react';
 import { readScheduleState, SCHEDULE_STORAGE_KEY } from '@/lib/learning/workspace-reader';
-import { applyPracticeSession, mergePracticeSession, validateSession, validateConfig, type PracticeSession, type PracticeConfig } from '@/lib/learning/practice-timer';
+import { applyPracticeSession, mergePracticeSession, PracticeSessionConflict, validateSession, validateConfig, type PracticeSession, type PracticeConfig } from '@/lib/learning/practice-timer';
 import { threeWayMerge } from '@/lib/sync/merge';
 import { createLocalEditWriter, parseLocalValue } from '@/lib/sync/local-edit';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
@@ -66,6 +66,7 @@ export default function PracticeTimerFrame() {
     let queue = Promise.resolve();
     let liveRetryAt = 0;
     const sessionBases = new Map<string, PracticeSession>();
+    const conflictedSessions = new Set<string>();
     let configBase: PracticeConfig | undefined;
     let initialization: Promise<void> | undefined;
     const initialize = () => {
@@ -78,6 +79,7 @@ export default function PracticeTimerFrame() {
           for (const key of recoveryKeys) {
             try {
               const saved = JSON.parse(workspaceStorage.getItem(key) || 'null'), session = validateSession(saved?.session);
+              if (saved?.conflict === true) continue;
               if (!session.finished) continue;
               const next = applyPracticeSession(state, session);
               if (JSON.stringify(next.practiceSessions) !== JSON.stringify(state.practiceSessions)) {
@@ -110,6 +112,12 @@ export default function PracticeTimerFrame() {
       if (message?.type !== 'practice-save' && message?.type !== 'practice-retest') return;
       queue = queue.catch(()=>{}).then(async () => {
         try {
+          if (message.session && conflictedSessions.has(message.session.id)) {
+            const recovery=validateSession(message.session);
+            workspaceStorage.setItem('jackyun_debug_unsaved_edit:practice-timer:'+recovery.id,JSON.stringify({session:recovery,config:message.config,conflict:true}));
+            send({type:'practice-saved',requestId:message.requestId,sessionId:recovery.id,localOnly:true,conflictPending:true});
+            return;
+          }
           const base = parseLocalValue(workspaceStorage.getItem(SCHEDULE_STORAGE_KEY));
           const state = readTimerSchedule(message.type);
           let next: ScheduleControlState = state;
@@ -170,7 +178,20 @@ export default function PracticeTimerFrame() {
           if (message.config) configBase=structuredClone(message.config);
           window.dispatchEvent(new Event('jackyun-sync-edit'));
           send({ type:'practice-saved', requestId:message.requestId });
-        } catch (error) { logger.error('PracticeTimer','练习计时器本机保存失败',{stage:message.type,error:errorDetails(error)});send({ type:'practice-error', requestId:message.requestId, error: error instanceof Error ? error.message : '保存失败，原数据已保留。' }); }
+        } catch (error) {
+          if(error instanceof PracticeSessionConflict && message.session){
+            try{
+              const recovery=validateSession(message.session);
+              workspaceStorage.setItem('jackyun_debug_unsaved_edit:practice-timer:'+recovery.id,JSON.stringify({session:recovery,config:message.config,conflict:true}));
+              conflictedSessions.add(recovery.id);
+              logger.warn('PracticeTimer','练习记录存在并发修改，已保留本机恢复副本并继续计时',{stage:message.type,sessionId:recovery.id,error:errorDetails(error)});
+              send({type:'practice-saved',requestId:message.requestId,sessionId:recovery.id,localOnly:true,conflictPending:true});
+              return;
+            }catch(recoveryError){error=recoveryError;}
+          }
+          logger.error('PracticeTimer','练习计时器本机保存失败',{stage:message.type,error:errorDetails(error)});
+          send({ type:'practice-error', requestId:message.requestId, error: error instanceof Error ? error.message : '保存失败，原数据已保留。' });
+        }
       });
     };
     const refresh = () => { try { send({type:'practice-state',state:readRecoveredState(),remote:true}); } catch (error) { logger.error('PracticeTimer','同步刷新后读取 Schedule 失败',{stage:'refresh',error:errorDetails(error)});send({type:'practice-error',error:String(error)}); } };

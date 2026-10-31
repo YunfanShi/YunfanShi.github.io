@@ -30,6 +30,12 @@ export interface PracticeSession {
   unit?: string; subsection?: string;
   index: number; updatedAt: number; finished: boolean; questions: PracticeQuestion[];
 }
+export class PracticeSessionConflict extends Error {
+  constructor() {
+    super('另一设备修改了同一题的数据，已保留原记录。练习可继续计时，本次修改暂存在本机恢复记录中。');
+    this.name = 'PracticeSessionConflict';
+  }
+}
 export interface PracticeType { id: string; name: string; description: string; seconds: { relaxed: number; normal: number; exam: number } }
 export interface PracticeConfig { subjects: Record<string, PracticeType[]>; green: number; red: number; effects?: boolean; sound?: boolean; volume?: number;
   courseBindings?: Record<string, { family: string; name: string; source: 'auto' | 'manual' }>;
@@ -132,6 +138,6 @@ export function mergePracticeSession(base: PracticeSession | undefined, value: u
   if (!remote) return next;
   if (!base) throw Error('这次练习已有记录，请重新打开后编辑。');
   const result = threeWayMerge({ ...base, updatedAt:0 }, { ...next, updatedAt:0 }, { ...remote, updatedAt:0 });
-  if (result.conflicts.length) throw Error('另一设备修改了同一题的数据，已保留原记录。请导出当前内容，再重新打开记录。');
+  if (result.conflicts.length) throw new PracticeSessionConflict();
   return validateSession({ ...(result.merged as PracticeSession), updatedAt:Math.max(next.updatedAt,remote.updatedAt) });
 }
