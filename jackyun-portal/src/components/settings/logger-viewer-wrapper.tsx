@@ -12,7 +12,7 @@ export default function LoggerViewerWrapper() {
         </h2>
       </div>
       <p className="text-sm text-[var(--muted-foreground)] mb-4">
-        查看浏览器端所有操作日志、网络请求、错误信息等，用于诊断和调试。
+        可单独筛选错误或网络日志；展开错误条目可查看异常原因与堆栈。日志仅保存在本机，并会自动脱敏。
       </p>
       <LoggerViewer />
     </section>

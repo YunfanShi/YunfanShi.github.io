@@ -8,6 +8,8 @@ import { threeWayMerge } from '@/lib/sync/merge';
 import { createLocalEditWriter, parseLocalValue } from '@/lib/sync/local-edit';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
 import type { ScheduleControlState } from '@/lib/learning/schedule-control';
+import logger from '@/lib/logger';
+import { errorDetails } from '@/lib/diagnostic-events';
 
 export default function PracticeTimerFrame() {
   const ref = useRef<HTMLIFrameElement>(null);
@@ -22,8 +24,29 @@ export default function PracticeTimerFrame() {
   }, [focused]);
   useEffect(() => {
     const writer = createLocalEditWriter(workspaceStorage, SCHEDULE_STORAGE_KEY, navigator.locks ? async (name, work) => navigator.locks.request(name, work) : undefined);
+    let legacyCuesNoticeLogged=false;
+    const readTimerSchedule = (stage:string) => {
+      const raw=workspaceStorage.getItem(SCHEDULE_STORAGE_KEY);
+      try {
+        const value=readScheduleState(workspaceStorage);
+        if(raw!==null){
+          let parsed:unknown;try{parsed=JSON.parse(raw);}catch{parsed=undefined;}
+          if(!legacyCuesNoticeLogged&&parsed&&typeof parsed==='object'&&!Array.isArray(parsed)&&!Object.hasOwn(parsed,'cues')){
+            logger.warn('PracticeTimer','Schedule 快照缺少 cues 字段，已按旧格式读取',{stage,key:SCHEDULE_STORAGE_KEY,rawLength:raw.length,schemaVersion:(parsed as {schemaVersion?:unknown}).schemaVersion});
+            legacyCuesNoticeLogged=true;
+          }
+        }
+        return value;
+      } catch(error) {
+        let parsed:unknown;try{parsed=raw===null?undefined:JSON.parse(raw);}catch{parsed=undefined;}
+        const record=parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?parsed as Record<string,unknown>:undefined;
+        logger.error('PracticeTimer','读取 Schedule 数据失败',{stage,key:SCHEDULE_STORAGE_KEY,rawPresent:raw!==null,rawLength:raw?.length??0,
+          schemaVersion:record?.schemaVersion??null,cuesType:record&&Object.hasOwn(record,'cues')?Array.isArray(record.cues)?'array':record.cues===null?'null':typeof record.cues:'missing',error:errorDetails(error)});
+        throw error;
+      }
+    };
     const readRecoveredState = () => {
-      let state = readScheduleState(workspaceStorage);
+      let state = readTimerSchedule('recovery');
       for (let i = 0; i < workspaceStorage.length; i++) {
         const key = workspaceStorage.key(i);
         if (!key?.startsWith('jackyun_debug_unsaved_edit:practice-timer:')) continue;
@@ -49,7 +72,7 @@ export default function PracticeTimerFrame() {
       if (initialization) return initialization;
       initialization = (async () => {
         try {
-          let state = readScheduleState(workspaceStorage), base = parseLocalValue(workspaceStorage.getItem(SCHEDULE_STORAGE_KEY)), migrated = false;
+          let state = readTimerSchedule('initialize'), base = parseLocalValue(workspaceStorage.getItem(SCHEDULE_STORAGE_KEY)), migrated = false;
           const recoveryKeys = Array.from({length: workspaceStorage.length}, (_, index) => workspaceStorage.key(index))
             .filter((key): key is string => Boolean(key?.startsWith('jackyun_debug_unsaved_edit:practice-timer:')));
           for (const key of recoveryKeys) {
@@ -88,7 +111,7 @@ export default function PracticeTimerFrame() {
       queue = queue.catch(()=>{}).then(async () => {
         try {
           const base = parseLocalValue(workspaceStorage.getItem(SCHEDULE_STORAGE_KEY));
-          const state = readScheduleState(workspaceStorage);
+          const state = readTimerSchedule(message.type);
           let next: ScheduleControlState = state;
           if (message.type === 'practice-retest') {
             const session = state.practiceSessions?.find(s=>s.id===message.sessionId && s.finished);
@@ -147,10 +170,10 @@ export default function PracticeTimerFrame() {
           if (message.config) configBase=structuredClone(message.config);
           window.dispatchEvent(new Event('jackyun-sync-edit'));
           send({ type:'practice-saved', requestId:message.requestId });
-        } catch (error) { send({ type:'practice-error', requestId:message.requestId, error: error instanceof Error ? error.message : '保存失败，原数据已保留。' }); }
+        } catch (error) { logger.error('PracticeTimer','练习计时器本机保存失败',{stage:message.type,error:errorDetails(error)});send({ type:'practice-error', requestId:message.requestId, error: error instanceof Error ? error.message : '保存失败，原数据已保留。' }); }
       });
     };
-    const refresh = () => { try { send({type:'practice-state',state:readRecoveredState(),remote:true}); } catch (error) { send({type:'practice-error',error:String(error)}); } };
+    const refresh = () => { try { send({type:'practice-state',state:readRecoveredState(),remote:true}); } catch (error) { logger.error('PracticeTimer','同步刷新后读取 Schedule 失败',{stage:'refresh',error:errorDetails(error)});send({type:'practice-error',error:String(error)}); } };
     window.addEventListener('message', handler);
     // A cached iframe can announce readiness before React attaches this effect.
     // Reuse the existing state handshake once here; later ready messages still

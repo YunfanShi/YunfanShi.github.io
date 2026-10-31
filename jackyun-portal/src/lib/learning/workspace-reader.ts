@@ -7,7 +7,7 @@ export function readScheduleState(storage: Pick<Storage, 'getItem'>, now = new D
   try {
     const parsed = JSON.parse(storage.getItem(SCHEDULE_STORAGE_KEY) || 'null') as Partial<ScheduleControlState> | null;
     if (!parsed) return empty;
-    if (parsed.schemaVersion !== 1 || !Array.isArray(parsed.cues)) throw new Error('学习数据格式无法读取，原内容已保留。');
+    if (parsed.schemaVersion !== 1 || parsed.cues !== undefined && !Array.isArray(parsed.cues)) throw new Error('学习数据格式无法读取，原内容已保留。');
     const storedSettings = parsed.settings as Partial<ScheduleControlState['settings']> | undefined;
     const previewPreferenceSet = storedSettings?.previewPreferenceSet === true;
     const storedMemos = Array.isArray(parsed.cueMemos) ? parsed.cueMemos.flatMap((memo): CueMemo[] => (
@@ -39,6 +39,8 @@ export function readScheduleState(storage: Pick<Storage, 'getItem'>, now = new D
       completions: parsed.completions && typeof parsed.completions === 'object' ? parsed.completions : {},
       cancellations: parsed.cancellations && typeof parsed.cancellations === 'object' ? parsed.cancellations : {},
       reviewProgress: parsed.reviewProgress && typeof parsed.reviewProgress === 'object' ? parsed.reviewProgress : {},
+      // Older Schedule snapshots may not have introduced CUE data yet. Treat
+      // only a missing field as an empty collection; reject malformed values.
       cues: Array.isArray(parsed.cues) ? parsed.cues.map((cue) => normalizeCueMetadata(cue, now.toISOString())) : [],
       cueReviews: Array.isArray(parsed.cueReviews) ? parsed.cueReviews : [],
       timedPracticeRecords: normalizeTimedPractice(parsed.timedPracticeRecords),

@@ -32,6 +32,12 @@ test('read-only reader preserves storage and rejects corruption rather than retu
   assert.throws(() => readScheduleState({ getItem: () => '{"schemaVersion":8}' }));
   assert.equal(cueDashboard(readScheduleState({ getItem: () => null }), '2026-10-12').total, 0);
 });
+test('reader accepts a legacy Schedule snapshot with no cues field without mutating storage',()=>{
+  const raw=JSON.stringify({schemaVersion:1,timetable:{version:1,courses:[]},practiceSessions:[]});
+  const storage={getItem:()=>raw},loaded=readScheduleState(storage,new Date(at));
+  assert.deepEqual(loaded.cues,[]);assert.equal(loaded.timetable?.courses.length,0);assert.equal(storage.getItem(),raw);
+  assert.throws(()=>readScheduleState({getItem:()=>JSON.stringify({schemaVersion:1,cues:'broken'})}));
+});
 test('deleted draft content is excluded and entry params are safely encoded', () => {
   const s = saveCueStudyDraft({ ...createEmptyScheduleState(), cues: [cue('a')] }, { id: 'draft', task: { key: 'draft', title: '复习', detail: '', type: 'special', date: '2026-10-12', durationMinutes: 4, subjectId: 'math' }, cueIds: ['gone', 'a'], index: 1, revealed: false, assessments: { gone: 'stable', a: 'partial' }, updatedAt: at });
   assert.equal(cueDashboard(s, '2026-10-12').drafts[0].count, 1); assert.equal(cueDashboard(s, '2026-10-12').drafts[0].done, 1);

@@ -30,7 +30,7 @@ const LEVEL_LABELS: Record<LogLevel, string> = {
 
 export default function LoggerViewer() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [filter, setFilter] = useState<LogLevel | 'all'>('all');
+  const [filter, setFilter] = useState<LogLevel | 'errors' | 'network' | 'all'>('all');
   const [tagFilter, setTagFilter] = useState('');
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [paused, setPaused] = useState(false);
@@ -67,7 +67,9 @@ export default function LoggerViewer() {
   // Filtered and sorted logs
   const filtered = logs
     .filter(l => {
-      if (filter !== 'all' && l.level !== filter) return false;
+      if (filter === 'errors' && l.level !== 'error' && l.level !== 'unhandled') return false;
+      if (filter === 'network' && l.level !== 'fetch' && l.level !== 'xhr' && l.tag !== 'Network' && l.tag !== 'NetworkResponse') return false;
+      if (filter !== 'all' && filter !== 'errors' && filter !== 'network' && l.level !== filter) return false;
       if (tagFilter && !l.tag.toLowerCase().includes(tagFilter.toLowerCase())) return false;
       return true;
     });
@@ -168,6 +170,18 @@ export default function LoggerViewer() {
         >
           全部 ({logs.length})
         </button>
+        <button
+          onClick={() => setFilter('errors')}
+          className={`px-2 py-0.5 rounded text-xs whitespace-nowrap transition-colors ${filter === 'errors' ? 'bg-[#EF4444] text-white' : 'text-[#EF4444] hover:bg-[#EF4444]/10'}`}
+        >
+          错误 ({(counts.error || 0) + (counts.unhandled || 0)})
+        </button>
+        <button
+          onClick={() => setFilter('network')}
+          className={`px-2 py-0.5 rounded text-xs whitespace-nowrap transition-colors ${filter === 'network' ? 'bg-[#16866f] text-white' : 'text-[#16866f] hover:bg-[#16866f]/10'}`}
+        >
+          网络 ({logs.filter(row => row.level === 'fetch' || row.level === 'xhr' || row.tag === 'Network' || row.tag === 'NetworkResponse').length})
+        </button>
         {allLevels.map(lvl => (
           <button
             key={lvl}
@@ -205,6 +219,9 @@ export default function LoggerViewer() {
           filtered.map(entry => {
             const isExpanded = expanded.has(entry.id);
             const isError = entry.level === 'error' || entry.level === 'unhandled';
+            const data=entry.data&&typeof entry.data==='object'?entry.data as Record<string,unknown>:undefined;
+            const errorData=data?.error&&typeof data.error==='object'?data.error as Record<string,unknown>:
+              data&&(typeof data.message==='string'||typeof data.stack==='string')?data:undefined;
             return (
               <div
                 key={entry.id}
@@ -282,6 +299,15 @@ export default function LoggerViewer() {
                     )}
 
                     {/* Data payload */}
+                    {errorData && (
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-[#EF4444]">错误详情:</span>
+                        <pre className="text-[10px] text-[#EF4444] bg-[var(--card)] px-2 py-1 rounded overflow-x-auto max-h-[180px] overflow-y-auto whitespace-pre-wrap break-all">
+                          {JSON.stringify({name:errorData.name,message:errorData.message,cause:errorData.cause},null,2)}
+                        </pre>
+                        {typeof errorData.stack==='string'&&<><span className="text-[10px] text-[var(--muted-foreground)]">异常堆栈:</span><pre className="text-[10px] text-[#EA4335] bg-[var(--card)] px-2 py-1 rounded overflow-x-auto max-h-[200px] overflow-y-auto whitespace-pre-wrap break-all">{errorData.stack}</pre></>}
+                      </div>
+                    )}
                     {entry.data != null && (
                       <div className="space-y-0.5">
                         <span className="text-[10px] text-[var(--muted-foreground)]">Data:</span>
