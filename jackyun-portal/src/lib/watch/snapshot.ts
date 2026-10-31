@@ -1,10 +1,10 @@
 import { cueDashboard } from '../learning/cue-dashboard.ts';
-import { readScheduleState, SCHEDULE_STORAGE_KEY } from '../learning/workspace-reader.ts';
+import { readScheduleState } from '../learning/workspace-reader.ts';
 import { sessionsForDate, tasksForDate } from '../learning/schedule-control.ts';
-import { createAzureRecordClient } from '../sync/azure-records.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decryptSecret } from '../secret-crypto.ts';
 import { safeSeiueSite, type SeiueTodo } from '../integrations/seiue.ts';
+import { resourcesToSchedule, SYNC_V5_SCHEDULE_SCOPES } from '../sync/resource-model.ts';
 
 export function calendarDate(at: Date, timezone='Asia/Shanghai') {
   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(at);
@@ -49,8 +49,59 @@ export function scheduleSnapshot(value:unknown,now=new Date(),timezone='Asia/Sha
   }
   return {lessons,agenda:agenda.slice(0,300),agendaHasMore:agenda.length>300,learningRecords:state.learningRecords.slice(0,30).map(record=>({id:record.id,title:record.taskTitle,subject:record.subjectName??'',completedAt:record.completedAt,status:record.status})),cue:{due:summary.due,learned:summary.learned,weak:summary.weak,subjects:summary.subjects}};
 }
+
+const watchScheduleFields:Record<string,string[]>={
+  timetable:['timetable'],
+  learning:['manualTasks','completions','cancellations','reviewProgress','learningRecords','learningCatalog','learningReminders'],
+  cue:['cues','cueReviews','cueGameAccount','cueCollectionUpdates','cueChangeHistory','cueSimilarityDecisions','cueMemos','cueAnswerCards','cueStudyDraft','cueStudyDrafts'],
+  practice:['timedPracticeRecords','examDiagnoses','practiceFrequencies'],
+  timer:['practiceSessions','practiceTimerConfig'],
+  settings:['settings','cueScheduleRevision','dailyLearningAdvice','studyReports','importedAt','schemaVersion','__root'],
+};
+export async function readV5Schedule(token:string,fetchImpl:typeof fetch=fetch):Promise<Record<string,unknown>> {
+  const endpoint=process.env.AZURE_SYNC_API_URL;
+  if(!endpoint)throw Error('V5 sync backend unavailable');
+  const base=new URL(endpoint);
+  if(base.protocol!=='https:'||!/^jackyun-sync-9d26b2cc(?:-[a-z0-9]+)?\.(?:[a-z0-9-]+\.)?azurewebsites\.net$/.test(base.hostname)||base.pathname!=='/'||base.username||base.password||base.search||base.hash)throw Error('V5 sync backend configuration invalid');
+  const request=async(path:string)=>{
+    const response=await fetchImpl(new URL(path,base),{headers:{Authorization:`Bearer ${token}`},cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20_000)});
+    if(!response.ok)throw Error(`V5 request failed (${response.status})`);
+    const value=await response.json() as Record<string,unknown>;
+    if(!value||typeof value!=='object'||Array.isArray(value))throw Error('V5 response invalid');
+    return value;
+  };
+  const capability=await request('/api/sync/v5');
+  const capabilities=capability.capabilities as Record<string,unknown>|undefined;
+  const scopes=Array.isArray(capability.scopes)?capability.scopes:[];
+  if(capability.syncProtocol!==5||capabilities?.v5!==true||!SYNC_V5_SCHEDULE_SCOPES.every(scope=>scopes.includes(scope)))throw Error('V5 schedule scopes unavailable');
+  const rows:Array<Record<string,unknown>>=[];
+  for(const [scope,fields] of Object.entries(watchScheduleFields))for(const field of fields){
+    let after='',head:number|undefined;
+    for(let page=0;page<100;page++){
+      const manifest=await request(`/api/sync/v5/manifest?scope=${encodeURIComponent(scope)}&field=${encodeURIComponent(field)}&after=${encodeURIComponent(after)}`);
+      if(manifest.syncProtocol!==5||!Array.isArray(manifest.records)||manifest.records.length>100||!Number.isSafeInteger(manifest.head))throw Error('V5 manifest invalid');
+      head??=Number(manifest.head);if(Number(manifest.head)!==head)throw Error('V5 manifest changed during read');
+      const descriptors=manifest.records as Array<Record<string,unknown>>;
+      if(descriptors.some(row=>row.scope!==scope||typeof row.recordId!=='string'||!row.recordId.startsWith(`${field}:`)))throw Error('V5 manifest scope invalid');
+      for(let offset=0;offset<descriptors.length;offset+=50){
+        const ids=descriptors.slice(offset,offset+50).map(row=>`id=${encodeURIComponent(String(row.recordId))}`).join('&');
+        const records=await request(`/api/sync/v5/records?scope=${encodeURIComponent(scope)}&${ids}`);
+        if(records.syncProtocol!==5||!Array.isArray(records.records))throw Error('V5 records invalid');
+        const returned=records.records as Array<Record<string,unknown>>;
+        if(returned.length!==descriptors.slice(offset,offset+50).length||returned.some(row=>row.scope!==scope||!descriptors.slice(offset,offset+50).some(item=>item.recordId===row.recordId)))throw Error('V5 records incomplete');
+        rows.push(...returned);
+      }
+      const next=manifest.next;
+      if(next===null)break;
+      if(typeof next!=='string'||!descriptors.length||next!==descriptors.at(-1)?.recordId||next<=after)throw Error('V5 manifest cursor invalid');
+      after=next;
+      if(page===99)throw Error('V5 manifest page limit exceeded');
+    }
+  }
+  return resourcesToSchedule(rows.filter(row=>row.deleted!==true) as never);
+}
 export async function snapshot(supabase:SupabaseClient,userId:string,token:string,now=new Date()) {
-  const result:Record<string,unknown>={apiVersion:1,timezone:'Asia/Shanghai',generatedAt:now.toISOString()};
+  const result:Record<string,unknown>={apiVersion:5,syncProtocol:5,timezone:'Asia/Shanghai',generatedAt:now.toISOString()};
   const modules:Record<string,string>={};result.modules=modules;
   let didaTasks: Array<{id:string;title:string;completed:boolean;version:string;date:string;start:string;minutes:number;subject:string;detail:string;source:string}> = [];
   async function load(name:string,action:()=>Promise<void>){try{await action();if(modules[name]!=='partial')modules[name]='ready';}catch{modules[name]='error';}}
@@ -98,15 +149,8 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
     }),
     (async()=>{
       try {
-        let value:unknown;
-        if(process.env.AZURE_SYNC_API_URL) {
-          const record=await createAzureRecordClient({endpoint:process.env.AZURE_SYNC_API_URL,token}).read(SCHEDULE_STORAGE_KEY);
-          value=record&&!record.deleted?record.value:null;
-        } else {
-          const {data,error}=await supabase.from('legacy_sync_data').select('storage_value,deleted_at').eq('user_id',userId).eq('storage_key',SCHEDULE_STORAGE_KEY).maybeSingle();
-          if(error)throw Error('Schedule unavailable');value=data&&!data.deleted_at?data.storage_value:null;
-        }
-        if(value==null){for(const name of ['timetable','cue','agenda','learning'])modules[name]='not_synced';return;}
+        const value=await readV5Schedule(token);
+        if(!Object.keys(value).length){for(const name of ['timetable','cue','agenda','learning'])modules[name]='not_synced';return;}
         Object.assign(result,scheduleSnapshot(value,now));for(const name of ['timetable','cue','agenda','learning'])modules[name]='ready';
       }catch{for(const name of ['timetable','cue','agenda','learning'])modules[name]='error';}
     })(),

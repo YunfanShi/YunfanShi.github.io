@@ -15,9 +15,10 @@ async function access(auth:Auth) {
 export async function watchReader(auth:Auth,action:string,value:Record<string,unknown>) {
   const entitlement=await access(auth);
   if(action==='reader/list'){
-    const {data,error}=await auth.admin.from('novel_catalog').select('id,title,author,minimum_plan,content_revision,chapters_ready').eq('enabled',true).eq('chapters_ready',true).order('title').limit(501);
+    const {data,error}=await auth.admin.from('novel_catalog').select('id,title,author,minimum_plan,content_revision,chapters_ready').eq('enabled',true).eq('chapters_ready',true).order('title').limit(2001);
     if(error)fail(503,'READER_UNAVAILABLE','书架读取失败');
-    return {books:(data??[]).filter(book=>hasPlanAccess(entitlement.plan,book.minimum_plan)||entitlement.owned.has(book.id)).slice(0,100).map(book=>({id:book.id,title:book.title,author:book.author,revision:book.content_revision})),notice:'显示有阅读权限的托管图书；本机导入图书可在手表单独导入 TXT。书架最多显示 100 本。'};
+    const allowed=(data??[]).filter(book=>hasPlanAccess(entitlement.plan,book.minimum_plan)||entitlement.owned.has(book.id));
+    return {books:allowed.slice(0,2000).map(book=>({id:book.id,title:book.title,author:book.author,revision:book.content_revision})),notice:`显示有阅读权限的托管图书；本机导入图书可在手表单独导入 TXT。${allowed.length>2000?'书架结果超过安全上限，已显示前 2000 本。':'书架已完整加载。'}`};
   }
   const id=String(value.id??'');if(!UUID.test(id))fail(400,'INVALID_BOOK','图书参数无效');
   const {data:book,error}=await auth.admin.from('novel_catalog').select('id,title,minimum_plan,content_revision,chapters_ready').eq('id',id).eq('enabled',true).maybeSingle();

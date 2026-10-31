@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { digest, sameHash, seal, unseal, validateOperation } from '../src/lib/watch/policy.ts';
-import { calendarDate, normalizeWatchSeiueTodos, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
+import { calendarDate, normalizeWatchSeiueTodos, readV5Schedule, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
 import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.ts';
 
 test('pair payload encryption authenticates its key and ciphertext',()=>{
@@ -55,6 +55,36 @@ test('Watch SEIUE server integration is user-scoped, read-only and cache-safe',(
   assert.match(snapshotSource,/const agenda=normalizeWatchSeiueTodos/);
   assert.match(snapshotSource,/result\.seiueAgenda=agenda\.items/);
   assert.doesNotMatch(snapshotSource,/result\.seiueAgenda\s*=\s*credentials/);
+});
+test('Watch schedule snapshot reads authenticated V5 resources and never falls back to legacy sync',()=>{
+  const snapshotSource=readFileSync(new URL('../src/lib/watch/snapshot.ts',import.meta.url),'utf8');
+  assert.match(snapshotSource,/api\/sync\/v5\/manifest/);
+  assert.match(snapshotSource,/api\/sync\/v5\/records/);
+  assert.match(snapshotSource,/syncProtocol:5/);
+  assert.match(snapshotSource,/SYNC_V5_SCHEDULE_SCOPES\.every/);
+  assert.match(snapshotSource,/resourcesToSchedule\(rows\.filter/);
+  assert.doesNotMatch(snapshotSource,/legacy_sync_data|createAzureRecordClient/);
+});
+test('Watch V5 resource reader assembles authoritative schedule and rejects unavailable V5',async()=>{
+  const prior=process.env.AZURE_SYNC_API_URL;process.env.AZURE_SYNC_API_URL='https://jackyun-sync-9d26b2cc.azurewebsites.net';
+  try {
+    const requests:string[]=[];
+    const fetchImpl:typeof fetch=async(input,init)=>{
+      const url=new URL(String(input));requests.push(url.pathname+url.search);
+      if(url.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:['timetable','learning','cue','practice','timer','settings']});
+      if(url.pathname.endsWith('/manifest')){
+        const scope=url.searchParams.get('scope'),field=url.searchParams.get('field');
+        const rows=scope==='timetable'&&field==='timetable'?[{scope,recordId:'timetable:$value',revision:1,contentHash:'a'.repeat(64),deleted:false,updatedAt:'2026-10-31T00:00:00Z'}]:[];
+        return Response.json({syncProtocol:5,records:rows,head:1,next:null});
+      }
+      if(url.pathname.endsWith('/records'))return Response.json({syncProtocol:5,records:[{scope:'timetable',field:'timetable',recordId:'timetable:$value',itemId:'$value',revision:1,deleted:false,value:{version:1,name:'V5',courses:[]}}]});
+      throw Error('unexpected V5 path');
+    };
+    const value=await readV5Schedule('test-watch-token',fetchImpl);
+    assert.deepEqual(value.timetable,{version:1,name:'V5',courses:[]});
+    assert.ok(requests.some(path=>path.startsWith('/api/sync/v5/manifest')));
+    await assert.rejects(()=>readV5Schedule('test-watch-token',async()=>Response.json({syncProtocol:4,capabilities:{v5:false},scopes:[]})),/V5 schedule scopes unavailable/);
+  } finally { if(prior===undefined)delete process.env.AZURE_SYNC_API_URL;else process.env.AZURE_SYNC_API_URL=prior; }
 });
 test('empty synchronized schedule is a valid empty result',()=>{
   const summary=scheduleSnapshot(createEmptyScheduleState(),new Date('2026-10-13T00:00:00Z'));
