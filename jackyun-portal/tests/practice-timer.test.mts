@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { webcrypto } from 'node:crypto';
 import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.ts';
-import { applyPracticeSession, mergePracticeSession, practiceEvidence, validateSession, validateConfig, type PracticeSession } from '../src/lib/learning/practice-timer.ts';
+import { applyPracticeSession, currentPracticeRecords, mergePracticeSession, practiceEvidence, validateSession, validateConfig, type PracticeSession } from '../src/lib/learning/practice-timer.ts';
+import { practiceBreakdowns } from '../src/lib/learning/practice-insights.ts';
 import { readScheduleState } from '../src/lib/learning/workspace-reader.ts';
 import { weeklyPracticeSummary } from '../src/lib/learning/timed-practice.ts';
 import { scheduleHasContent } from '../src/lib/sync/schedule-safety.ts';
@@ -50,6 +51,16 @@ test('custom subjects, preset durations and read/merge/safety survive Schedule s
   const s=session();s.subject='自定义科目';s.finished=true;s.questions[0].elapsedMs=1200000;s.questions[0].result='correct';const state=applyPracticeSession(createEmptyScheduleState(),s);
   const loaded=readScheduleState({getItem:()=>JSON.stringify(state)});assert.equal(loaded.practiceSessions?.[0].subject,s.subject);assert.equal(loaded.timedPracticeRecords?.[0].subject,s.subject);assert.ok(scheduleHasContent({practiceSessions:[s]}));
   const second=structuredClone(s);second.id='second';const base=createEmptyScheduleState();const merged=threeWayMerge(base,state,applyPracticeSession(base,second));assert.equal(merged.conflicts.length,0);assert.equal((merged.merged as typeof state).practiceSessions?.length,2);
+});
+test('mixed practice stores each question subject and credits Schedule by subject',()=>{
+  const s=session();s.mixed=true;s.subject='Mixed practice';s.questions[0].subjectName='Physics';s.questions[0].courseId='physics-id';s.questions[0].presetFamily='physics';s.questions[0].elapsedMs=60000;s.questions[0].result='correct';
+  const second=E.question(1,E.presets('cs')[0],'exam');second.id='cs-question';second.subjectName='Computer Science';second.courseId='cs-id';second.presetFamily='cs';second.elapsedMs=120000;second.result='wrong';s.questions.push(second);s.finished=true;
+  const state=applyPracticeSession(createEmptyScheduleState(),validateSession(s));
+  assert.deepEqual(state.timedPracticeRecords?.map(record=>record.subject).sort(),['Computer Science','Physics']);
+  assert.deepEqual(currentPracticeRecords(state).map(record=>record.subject).sort(),['Computer Science','Physics']);
+  const breakdown=practiceBreakdowns(state,s.date).subjects;
+  assert.deepEqual(breakdown.map(row=>[row.subject,row.attempted]).sort(),[['Computer Science',1],['Physics',1]]);
+  assert.throws(()=>validateSession({...s,questions:[{...s.questions[0],subjectName:'x'.repeat(101)}]}));
 });
 test('malformed sessions and configurations never overwrite good records',()=>{
   const s=session();s.questions[0].elapsedMs=-1;assert.throws(()=>validateSession(s));assert.throws(()=>validateConfig({subjects:{},green:10,red:30}));

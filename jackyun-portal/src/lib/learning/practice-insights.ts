@@ -1,6 +1,6 @@
 import type { ScheduleControlState } from './schedule-control.ts';
 import { inPracticeScope, practiceWeek, originalPracticeRecord, type PracticeMetricScope } from './timed-practice.ts';
-import { firstPracticeOutcome } from './practice-timer.ts';
+import { firstPracticeOutcome, practiceEvidenceRecordId, timerSessionId } from './practice-timer.ts';
 
 type Evidence = { subjectKey: string; subject: string; unit: string; subsection: string; attempted: number; onTime: number; overtime: number; failed: number; blocked: number; minutes: number; bottleneck: string };
 export interface PracticeBreakdown extends Omit<Evidence, 'bottleneck'> { key: string; onTimeRate: number; overtimeRate: number; bottlenecks: string[] }
@@ -16,14 +16,17 @@ export function practiceBreakdowns(state: ScheduleControlState, date: string, sc
     if (seen.has(record.id)) continue;
     seen.add(record.id);
     if (record.date < start || record.date > end || !inPracticeScope(record,scope)) continue;
-    const course = state.timetable?.courses.find(course => record.courseId ? course.id === record.courseId : course.name === record.subject);
-    const subject = course?.name ?? record.subject;
-    const common = { subjectKey: course?.id || record.courseId ? `course:${course?.id ?? record.courseId}` : `subject:${record.subject}`, subject };
-    const session = record.id.startsWith('timer-') ? sessions.get(record.id.slice(6)) : undefined;
+    const recordCourse=state.timetable?.courses.find(course=>record.courseId?course.id===record.courseId:course.name===record.subject);
+    const common={subjectKey:recordCourse?.id||record.courseId?`course:${recordCourse?.id??record.courseId}`:`subject:${record.subject}`,subject:recordCourse?.name??record.subject};
+    const session = record.id.startsWith('timer-') ? sessions.get(timerSessionId(record.id)) : undefined;
     if (session) {
       for (const original of session.questions) {
+        if(practiceEvidenceRecordId(session,original)!==record.id)continue;
         const question = {...original,...firstPracticeOutcome(original)};
         if (question.elapsedMs <= 0 || question.result === 'pending') continue;
+        const courseId=question.courseId??session.courseId,subjectName=question.subjectName??session.subject;
+        const course = state.timetable?.courses.find(course => courseId ? course.id === courseId : course.name === subjectName);
+        const subject=course?.name??subjectName,common={subjectKey:course?.id||courseId?`course:${course?.id??courseId}`:`subject:${subjectName}`,subject};
         const slow = question.elapsedMs > question.limitSeconds * 1000;
         const failed = question.result !== 'correct' || question.blocked;
         rows.push({ ...common, unit: question.unit?.trim() || session.unit?.trim() || '未填写单元', subsection: question.subsection?.trim() || session.subsection?.trim() || '未填写小节', attempted: 1, onTime: Number(!failed && !slow), overtime: Number(slow), failed: Number(failed), blocked: Number(failed && question.blocked), minutes: question.elapsedMs / 60000, bottleneck: question.cause.trim() });
@@ -59,8 +62,8 @@ export function practiceWeaknessTrends(state: ScheduleControlState) {
       seen.add(id);
       const node=q.node || q.subsection || q.unit || s.subsection || s.unit;
       if (!node) continue;
-      const key=JSON.stringify([s.courseId || s.subject,node]);
-      const row=groups.get(key) ?? {subject:s.subject,node,cause:'',entries:[]};
+      const questionSubject=q.subjectName||s.subject,key=JSON.stringify([q.courseId||s.courseId||questionSubject,node]);
+      const row=groups.get(key) ?? {subject:questionSubject,node,cause:'',entries:[]};
       if(q.cause && first.result!=='correct') row.cause=q.cause;
       row.entries.push({id,date:s.date,status:first.result!=='correct'||first.blocked?'repair':first.elapsedMs>first.limitSeconds*1000?'speed':'verified'});
       groups.set(key,row);
