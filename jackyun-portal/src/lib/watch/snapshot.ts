@@ -42,8 +42,8 @@ export function scheduleSnapshot(value:unknown,now=new Date(),timezone='Asia/Sha
   const lessons=[];
   for(const day=new Date(begin);day<end;day.setDate(day.getDate()+1)) {
     const key=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
-    for(const session of sessionsForDate(state.timetable,day))lessons.push({id:`${key}:${session.course.id}:${session.start}`,title:session.course.name,
-      startsAt:zonedEpoch(key,session.start,timezone),endsAt:zonedEpoch(key,session.end,timezone),location:session.location??'',teacher:session.teacher??''});
+    for(const session of sessionsForDate(state.timetable,day))lessons.push({id:`${key}:${session.course.id}:${session.start}`,title:watchText(session.course.name,120),
+      startsAt:zonedEpoch(key,session.start,timezone),endsAt:zonedEpoch(key,session.end,timezone),location:watchText(session.location,120),teacher:watchText(session.teacher,120)});
   }
   const agenda=[];
   for(let offset=0;offset<7;offset++) {
@@ -51,7 +51,7 @@ export function scheduleSnapshot(value:unknown,now=new Date(),timezone='Asia/Sha
     const shownDate=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
     for(const task of tasksForDate(state,day)) agenda.push({id:`${shownDate}:${task.key}`,title:watchText(task.title,240),date:shownDate,sourceDate:task.date,start:task.start??'',minutes:task.durationMinutes,subject:watchText(task.subjectName,120),detail:watchText(task.detail,1200)});
   }
-  return {lessons,agenda:agenda.slice(0,300),agendaHasMore:agenda.length>300,learningRecords:state.learningRecords.slice(0,30).map(record=>({id:record.id,title:record.taskTitle,subject:record.subjectName??'',completedAt:record.completedAt,status:record.status})),cue:{due:summary.due,learned:summary.learned,weak:summary.weak,subjects:summary.subjects}};
+  return {lessons,agenda:agenda.slice(0,300),agendaHasMore:agenda.length>300,learningRecords:state.learningRecords.slice(0,30).map(record=>({id:record.id,title:watchText(record.taskTitle,240),subject:watchText(record.subjectName,120),completedAt:record.completedAt,status:record.status})),cue:{due:summary.due,learned:summary.learned,weak:summary.weak,subjects:summary.subjects}};
 }
 
 const watchScheduleFields:Record<string,string[]>={
@@ -169,14 +169,14 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
     })(),
     load('tasks',async()=>{
       const {data,error}=await supabase.from('study_tasks').select('id,plan_id,title,completed,due_date,scheduled_at,priority,updated_at').eq('user_id',userId).order('completed').order('priority').order('due_date',{nullsFirst:false}).limit(500);
-      if(error)throw error;result.tasks=(data??[]).map(task=>({id:task.id,planId:task.plan_id,title:task.title,completed:task.completed,version:task.updated_at,
+      if(error)throw error;result.tasks=(data??[]).map(task=>({id:task.id,planId:task.plan_id,title:watchText(task.title,240),completed:task.completed,version:task.updated_at,
         dueLabel:task.due_date??'无截止时间',dueAt:task.due_date?zonedEpoch(task.due_date,'20:00'):0,priority:['最高','较高','普通','较低','最低'][Math.max(0,Math.min(4,Number(task.priority??3)-1))]}));
     }),
-    load('countdowns',async()=>{const {data,error}=await supabase.from('countdowns').select('id,title,target_date').eq('user_id',userId).order('target_date').limit(200);if(error)throw error;result.countdowns=(data??[]).map(item=>({id:item.id,title:item.title,targetAt:Date.parse(item.target_date)}));}),
+    load('countdowns',async()=>{const {data,error}=await supabase.from('countdowns').select('id,title,target_date').eq('user_id',userId).order('target_date').limit(200);if(error)throw error;result.countdowns=(data??[]).map(item=>({id:item.id,title:watchText(item.title,240),targetAt:Date.parse(item.target_date)}));}),
     load('plans',async()=>{
       const {data,error}=await supabase.from('study_plans').select('id,title,description,start_date,end_date').eq('user_id',userId).order('created_at',{ascending:false}).limit(100);
       if(error)throw error;
-      result.plans=(data??[]).map(plan=>({...plan,description:String(plan.description??'').slice(0,2000)}));
+      result.plans=(data??[]).map(plan=>({...plan,title:watchText(plan.title,240),description:watchText(plan.description,2000)}));
     }),
     load('activity',async()=>{
       const since=new Date(now.getTime()-6*86400000),today=calendarDate(now);
