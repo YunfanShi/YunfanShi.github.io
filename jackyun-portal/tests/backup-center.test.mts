@@ -5,8 +5,8 @@ import { getLocalBackupLimit } from '../src/lib/backup/local.ts';
 import { applyLocalPageImport, parseLocalPageBackup } from '../src/lib/backup/local-import.ts';
 import { attemptScheduledBackup } from '../src/lib/backup/scheduled-backup.ts';
 
-test('local backup retention stays at ten even with an older preference', () => {
-  assert.equal(getLocalBackupLimit(), 10);
+test('local backup retention keeps five versions per page', () => {
+  assert.equal(getLocalBackupLimit(), 5);
 });
 
 test('scheduled backup converts upstream failures to deferred retry results', async () => {

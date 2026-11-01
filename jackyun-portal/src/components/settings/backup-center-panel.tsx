@@ -4,17 +4,17 @@ import { captureRepositoryContext, workspaceStorage } from '@/lib/sync/repositor
 
 import { siteConfirm } from '@/lib/site-dialog';
 import { useCallback, useEffect, useState } from 'react';
-import { cancelBackupRestore, createBackupVersion, downloadBackupVersion, inspectBackupVersion, listBackupVersions, restoreBackupVersion, type BackupVersion } from '@/actions/backup-center';
+import { uploadLocalPageBackup, downloadBackupVersionAsLocalShare, listBackupVersions, type BackupVersion } from '@/actions/backup-center';
 import { BACKUP_PAGES, isBackupableLegacyKey, type BackupPage } from '@/lib/backup/pages';
-import { CLOUD_STATE_APPLIED_EVENT, storageValueToString } from '@/lib/local-workspace';
-import { getOutbox, getSetting, getSyncArchiveData, queueV5RestoreTargets, removeOperation, restoreSyncArchiveData, saveMetadata } from '@/lib/sync/outbox';
-import { resourceTargetsForStorageKeys } from '@/lib/sync/resource-model';
+import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
+import { getSetting, getSyncArchiveData, queueV5RestoreTargets, restoreSyncArchiveData } from '@/lib/sync/outbox';
 import { listLocalBackups, localPageValues, saveLocalBackup, type LocalBackup } from '@/lib/backup/local';
 import { SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
 import { inspectScheduleVersion, type BackupInspection } from '@/lib/backup/inspection';
-import { applyLocalPageImport, parseLocalPageBackup } from '@/lib/backup/local-import';
-import { applyV5WorkspaceArchive, createV5WorkspaceArchive, createV5WorkspaceArchiveFromSources, parseV5WorkspaceArchive } from '@/lib/backup/workspace-archive';
+import { applyLocalPageImport, localPageReplacementDeletes, parseLocalPageBackup } from '@/lib/backup/local-import';
+import { applyV5WorkspaceArchive, createV5WorkspaceArchiveFromSources, parseV5WorkspaceArchive } from '@/lib/backup/workspace-archive';
 import { exportOfflineWorkspaceArchiveData, restoreOfflineWorkspaceArchiveData } from '@/lib/offline/workspace';
+import { latestDataChange, type LocalShareBundle } from '@/lib/backup/local-share';
 
 const REASONS: Record<BackupVersion['reason'], string> = {
   automatic: '自动', baseline: '初始', before_restore: '恢复前', manual: '手动',
@@ -47,24 +47,21 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   const [versions, setVersions] = useState<BackupVersion[]>([]);
   const [localOwner, setLocalOwner] = useState(userId);
   const [localVersions, setLocalVersions] = useState<LocalBackup[]>([]);
-  const [preview, setPreview] = useState<{ id: number; source: 'cloud' | 'local'; inspection: BackupInspection } | null>(null);
+  const [preview, setPreview] = useState<{ id: number; source: 'local'; inspection: BackupInspection } | null>(null);
+  const [cloudPreview,setCloudPreview]=useState<{id:number;bundle:LocalShareBundle}|null>(null);
+  const [cloudListOpen,setCloudListOpen]=useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [pendingRestore,setPendingRestore]=useState<{requestId:string;key:string}|null>(null);
 
   const load = useCallback(async () => {
     const owner = userId === 'guest' ? await getSetting<string>('activeUserId').catch(() => null) ?? 'guest' : userId;
     setLocalOwner(owner);
-    const [local, cloud] = await Promise.allSettled([
-      listLocalBackups(owner, page),
-      cloudEnabled ? listBackupVersions(page) : Promise.resolve([]),
-    ]);
+    const local = await Promise.allSettled([listLocalBackups(owner,page)]).then(results=>results[0]);
     if (local.status === 'fulfilled') setLocalVersions(local.value);
-    if (cloud.status === 'fulfilled') setVersions(cloud.value);
-    const failure = [local, cloud].find((result) => result.status === 'rejected');
+    const failure = [local].find((result) => result.status === 'rejected');
     setError(failure?.status === 'rejected' ? String(failure.reason instanceof Error ? failure.reason.message : failure.reason) : '');
-  }, [page, userId, cloudEnabled]);
+  }, [page, userId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -79,19 +76,51 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
 
   async function download(id: number) {
     await run(async () => {
-      const archive = await downloadBackupVersion(id);
-      const url = URL.createObjectURL(new Blob([JSON.stringify(archive, null, 2)], { type: 'application/json' }));
+      const bundle = cloudPreview?.id===id?cloudPreview.bundle:await downloadBackupVersionAsLocalShare(id);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(bundle)], { type: 'application/json' }));
       const link = document.createElement('a');
       link.href = url;
-      link.download = `jackyun-${page}-${id}.json`;
+      link.download = `jackyun-local-share-cloud-${page}-${id}.json`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
   }
 
-  async function inspect(id: number) {
-    await run(async () => {
-      setPreview({ id, source: 'cloud', inspection: await inspectBackupVersion(id) });
+  async function inspectCloud(id:number){
+    await run(async()=>{const bundle=await downloadBackupVersionAsLocalShare(id);setCloudPreview({id,bundle});setMessage('已读取所选服务器备份用于本机对比；没有写入本机。');});
+  }
+
+  async function openCloudList(){
+    if(!cloudEnabled)return;
+    await run(async()=>{setVersions(await listBackupVersions(page));setCloudListOpen(true);setCloudPreview(null);setMessage('服务器备份列表已按需读取；页面内容仍未下载或修改。');});
+  }
+
+  async function replaceFromCloud(){
+    if(!cloudPreview)return;
+    const remote=cloudPreview.bundle.pages.find(item=>item.page===page);
+    if(!remote){setError('服务器备份页面与当前选择不一致。');return;}
+    const current=localPageValues(workspaceStorage.snapshot(),page);
+    const deletedKeys=localPageReplacementDeletes(page,current,remote.values);
+    const localChangedAt=latestDataChange(current);
+    const same=JSON.stringify(Object.entries(current).sort(([a],[b])=>a.localeCompare(b)))===JSON.stringify(Object.entries(remote.values).sort(([a],[b])=>a.localeCompare(b)));
+    const recency=remote.dataChangedAt&&localChangedAt
+      ?remote.dataChangedAt===localChangedAt?'两边记录时间相同':remote.dataChangedAt>localChangedAt?'云端记录时间较新':'本机记录时间较新'
+      :'记录正文没有可比较的完整修改时间';
+    const label=BACKUP_PAGES.find(item=>item.id===page)?.label??page;
+    if(!(await siteConfirm(`将服务器备份 #${cloudPreview.id} 的“${label}”整体替换本机此页面？${same?'云端与本机数据相同。':'云端与本机数据有差异。'}${recency}。本机缺少的 ${deletedKeys.length} 项会被删除；导入前会先保存本机恢复点。其他页面不受影响。`)))return;
+    await run(async()=>{
+      const repository=await captureRepositoryContext();
+      if(repository.owner!==(localOwner==='guest'?null:localOwner))throw Error('本机账号已变化，云端备份尚未写入。');
+      const currentSnapshot=workspaceStorage.snapshot(),current=localPageValues(currentSnapshot,page);
+      const removed=localPageReplacementDeletes(page,current,remote.values);
+      const keys=await applyLocalPageImport({page,owner:localOwner,values:remote.values,deletedKeys:removed,expectedCurrent:current,storage:{
+        keys:()=>Object.keys(workspaceStorage.snapshot()),getItem:key=>workspaceStorage.getItem(key),
+        setItem:(key,value)=>workspaceStorage.setItem(key,value),removeItem:key=>workspaceStorage.removeItem(key),flush:()=>workspaceStorage.flush(),
+      },saveRecoveryPoint:saveLocalBackup});
+      repository.assertCurrent();
+      if(keys.length)window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{keys,source:'manual-cloud-backup-import'}}));
+      setMessage(`已将服务器备份 #${cloudPreview.id} 的“${label}”替换到本机，并保存了替换前恢复点。`);
+      setCloudPreview(null);await load();
     });
   }
 
@@ -101,45 +130,6 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
       ? inspectScheduleVersion(item.values[SCHEDULE_STORAGE_KEY], current)
       : { facts: [`此设备保存了 ${Object.keys(item.values).length} 份页面数据`], comparison: [], warning: '此页面暂无逐条对比；可先下载文件检查。' };
     setPreview({ id: item.id, source: 'local', inspection });
-  }
-
-  async function restore(id: number) {
-    if (!(await siteConfirm('将这个页面的备份数据合并回当前账户？系统会先保存当前页面版本，新增于备份之后的记录会保留。'))) return;
-    await run(async () => {
-      const values:Record<string,string>={};
-      for(let n=0;n<workspaceStorage.length;n++){const key=workspaceStorage.key(n);if(key)values[key]=workspaceStorage.getItem(key)??'';}
-      await saveLocalBackup(localOwner,page,localPageValues(values,page));
-      const originalPending=await getOutbox();
-      const requestKey=`backup-restore:${userId}:${id}`;
-      const requestId=sessionStorage.getItem(requestKey)??crypto.randomUUID();
-      sessionStorage.setItem(requestKey,requestId);
-      setPendingRestore({requestId,key:requestKey});
-      const result = await restoreBackupVersion(id,requestId);
-      const activeOwner=await getSetting<string>('activeUserId');
-      if(activeOwner&&activeOwner!==userId) throw Error('云端恢复已完成，账号已切换，本机数据未修改。');
-      const pending = await getOutbox();
-      const keys: string[] = [];
-      for (const record of result.legacyRecords) {
-        // Preserve edits made while the cloud restore was running.
-        if(workspaceStorage.getItem(record.key)!==(values[record.key]??null)
-          ||pending.some(operation=>operation.key===record.key&&!originalPending.some(old=>old.id===operation.id))) continue;
-        for (const operation of pending) if (operation.key === record.key) await removeOperation(operation.id);
-        if (record.deleted) workspaceStorage.removeItem(record.key);
-        else workspaceStorage.setItem(record.key, storageValueToString(record.value));
-        await saveMetadata(record);
-        keys.push(record.key);
-      }
-      await workspaceStorage.flush();
-      await queueV5RestoreTargets(resourceTargetsForStorageKeys(keys));
-      sessionStorage.removeItem(requestKey);
-      setPendingRestore(null);
-      if (keys.length) {
-        window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys } }));
-        window.dispatchEvent(new Event('jackyun-sync-retry'));
-      }
-      setMessage(`已恢复${BACKUP_PAGES.find((item) => item.id === result.page)?.label ?? '页面'}，恢复前版本已保存。刷新页面可查看结果。`);
-      await load();
-    });
   }
 
   async function applyLocal(item: LocalBackup) {
@@ -160,12 +150,12 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
     });
     window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT, { detail: { keys } }));
     window.dispatchEvent(new Event('jackyun-sync-retry'));
-    setMessage('本地页面已恢复到所选版本，原状态已先保存；联网后会按现有同步规则处理。');
+    setMessage('本地页面已恢复到所选版本，原状态已先保存。');
     await load();
   }
 
   async function restoreLocal(item: LocalBackup) {
-    if (!(await siteConfirm('把这个浏览器中的页面版本恢复到当前设备？当前本地页面会先保存，修改随后按现有同步规则上传。'))) return;
+    if (!(await siteConfirm('把这个浏览器中的页面版本恢复到当前设备？当前本地页面会先保存，数据只会写入此设备。'))) return;
     await run(() => applyLocal(item));
   }
 
@@ -247,16 +237,21 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
     });
   }
 
+  const currentPageValues=localPageValues(workspaceStorage.snapshot(),page);
+  const currentPageChangedAt=latestDataChange(currentPageValues);
+  const selectedCloudPage=cloudPreview?.bundle.pages.find(item=>item.page===page);
+  const cloudMatchesLocal=selectedCloudPage&&JSON.stringify(Object.entries(currentPageValues).sort(([a],[b])=>a.localeCompare(b)))===JSON.stringify(Object.entries(selectedCloudPage.values).sort(([a],[b])=>a.localeCompare(b)));
+
   return <div className="space-y-4">
-    <p className="text-sm leading-6 text-[var(--muted-foreground)]">只有内容发生修改才会备份。累计约 4 MB 修改或等待 15 分钟，任一条件先到就保存，并重新计数。此设备每页留 10 个版本，云端每页留 5 个新版本；故障排查时已有的历史版本暂时额外保留。点击“对比当前数据”查看数量和具体差异，再决定是否恢复。</p>
+    <p className="text-sm leading-6 text-[var(--muted-foreground)]">页面数据有修改后最多 30 秒自动保存一次本地恢复点，每页保留最近五个版本。登录后可手动把当前页面上传为服务器备份；服务器备份不会自动下载到本机。</p>
     <p className="text-sm leading-6 text-[var(--muted-foreground)]">本机归档包含工作区记录、离线任务队列、同步 outbox 与冲突，并按当前账号隔离。导入会合并未确认操作，不覆盖本机已有修改；云端专属且未下载的数据不在本机归档内。</p>
     <div className="flex flex-wrap items-end gap-3">
       <label className="grid gap-1 text-sm">页面
-        <select value={page} onChange={(event) => { setPage(event.target.value as BackupPage); setVersions([]); setPreview(null); setError(''); }} className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2">
+        <select value={page} onChange={(event) => { setPage(event.target.value as BackupPage); setVersions([]); setPreview(null); setCloudPreview(null); setCloudListOpen(false); setError(''); }} className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-2">
           {BACKUP_PAGES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
-      {cloudEnabled && <button type="button" disabled={busy} onClick={() => void run(async () => { await createBackupVersion(page); await load(); setMessage('已保存当前页面版本。'); })} className="rounded-lg bg-[#4285F4] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">立即备份此页面</button>}
+      {cloudEnabled && <button type="button" disabled={busy} onClick={() => void run(async () => { const values=localPageValues(workspaceStorage.snapshot(),page); if(!(await siteConfirm(`把“${BACKUP_PAGES.find(item=>item.id===page)?.label??page}”的 ${Object.keys(values).length} 项本地数据上传到服务器，保存为备份？此操作不会改动本机或触发下载。`)))return; await uploadLocalPageBackup(page,values); await load(); setMessage('当前本地页面已上传为服务器备份；本机数据未改动。'); })} className="rounded-lg bg-[#4285F4] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">上传本地页面到服务器备份</button>}
       <button type="button" disabled={busy} onClick={() => void exportAllLocalData()} className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm disabled:opacity-50">导出本机数据与待同步队列</button>
       <label className={`cursor-pointer rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm ${busy ? 'pointer-events-none opacity-50' : ''}`}>导入本机恢复归档<input type="file" accept="application/json,.json" disabled={busy} className="hidden" onChange={(event) => { void importAllLocalData(event.target.files?.[0]); event.target.value = ''; }} /></label>
       <button type="button" disabled={busy} onClick={() => void run(async () => {
@@ -273,23 +268,16 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
       })} className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm disabled:opacity-50">保存本地版本</button>
       <button type="button" disabled={busy} onClick={() => void load()} className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm disabled:opacity-50">刷新</button>
     </div>
-    {cloudEnabled && <div className="space-y-2"><h3 className="text-sm font-semibold">云端版本 · 与当前云端数据比较</h3>{versions.length ? <div className="max-h-80 divide-y divide-[var(--card-border)] overflow-y-auto rounded-xl border border-[var(--card-border)]">
-      {versions.map((item, index) => <div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-        <span className="min-w-0 flex-1"><strong>{new Date(item.created_at).toLocaleString()}</strong><span className="ml-2 text-xs text-[var(--muted-foreground)]">{REASONS[item.reason]}{index === 0 ? ' · 最新版本' : ''}{item.retention_exempt ? ' · 故障排查时保留的历史' : ''}</span></span>
-        <button type="button" disabled={busy} onClick={() => void inspect(item.id)} className="font-medium text-[var(--brand)] disabled:opacity-50">对比当前数据</button>
-        <button type="button" disabled={busy} onClick={() => void download(item.id)} className="text-[var(--brand)] disabled:opacity-50">下载</button>
-        <button type="button" disabled={busy} onClick={() => void restore(item.id)} className="text-[var(--brand)] disabled:opacity-50">恢复</button>
-      </div>)}
-    </div> : <p className="text-sm text-[var(--muted-foreground)]">此页面暂无云端备份版本。</p>}</div>}
-    {preview?.source === 'cloud' && <InspectionPanel title={`云端版本 #${preview.id} · 与当前云端比较`} value={preview.inspection} />}
+    {cloudEnabled&&<section className="space-y-3 rounded-xl border border-[var(--card-border)] p-4"><div className="flex flex-wrap items-center gap-3"><div className="mr-auto"><h3 className="text-sm font-semibold">服务器页面备份</h3><p className="mt-1 text-xs text-[var(--muted-foreground)]">只在点击后查看。可以比较内容、下载 JSON，或确认后整体替换本机所选页面。</p></div><button type="button" disabled={busy} onClick={()=>void openCloudList()} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50">{cloudListOpen?'刷新服务器备份':'查看服务器备份'}</button></div>
+      {cloudListOpen&&(versions.length?<div className="max-h-80 divide-y divide-[var(--card-border)] overflow-y-auto rounded-xl border border-[var(--card-border)]">
+        {versions.map((item,index)=><div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm"><span className="min-w-0 flex-1"><strong>备份 #{item.id}</strong><span className="ml-2 text-xs text-[var(--muted-foreground)]">备份时间 {new Date(item.created_at).toLocaleString()} · {REASONS[item.reason]}{index===0?' · 最新备份':''}{item.retention_exempt?' · 保留历史':''}</span></span><button type="button" disabled={busy} onClick={()=>void inspectCloud(item.id)} className="text-[var(--brand)] disabled:opacity-50">查看内容</button><button type="button" disabled={busy} onClick={()=>void download(item.id)} className="text-[var(--brand)] disabled:opacity-50">下载 JSON</button></div>)}
+      </div>:<p className="text-sm text-[var(--muted-foreground)]">此页面暂无服务器备份版本。</p>)}
+      {selectedCloudPage&&<div className="space-y-2 rounded-lg bg-[var(--background)] p-3 text-sm"><strong>服务器备份 #{cloudPreview!.id} · {selectedCloudPage.label}</strong><p>云端数据最后修改：{selectedCloudPage.dataChangedAt?new Date(selectedCloudPage.dataChangedAt).toLocaleString():'记录未提供修改时间'} · {Object.keys(selectedCloudPage.values).length} 项</p><p>本机数据最后修改：{currentPageChangedAt?new Date(currentPageChangedAt).toLocaleString():'记录未提供修改时间'} · {Object.keys(currentPageValues).length} 项</p><p>{cloudMatchesLocal?'云端与本机内容相同。':'云端与本机内容有差异；数据时间仅按记录正文中的时间字段比较。'}</p><button type="button" disabled={busy} onClick={()=>void replaceFromCloud()} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">确认后整体替换本机此页</button></div>}
+    </section>}
     <div className="space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">此设备的本地版本</h3><label className="cursor-pointer text-sm text-[var(--brand)]">上传编辑后的页面 JSON<input type="file" accept="application/json,.json" className="hidden" onChange={(event) => { void uploadLocal(event.target.files?.[0]); event.target.value = ''; }} /></label></div>
       {localVersions.length ? <div className="max-h-60 divide-y divide-[var(--card-border)] overflow-y-auto rounded-xl border border-[var(--card-border)]">{localVersions.map((item) => <div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm"><span className="min-w-0 flex-1"><strong>{new Date(item.createdAt).toLocaleString()}</strong>{scheduleSummary(item.values[SCHEDULE_STORAGE_KEY]) ? ` · ${scheduleSummary(item.values[SCHEDULE_STORAGE_KEY])}` : ` · ${Object.keys(item.values).length} 份数据`}</span><button type="button" disabled={busy} onClick={() => inspectLocal(item)} className="font-medium text-[var(--brand)] disabled:opacity-50">对比当前设备</button><button type="button" disabled={busy} onClick={() => downloadLocal(item)} className="text-[var(--brand)] disabled:opacity-50">下载</button><button type="button" disabled={busy} onClick={() => void restoreLocal(item)} className="text-[var(--brand)] disabled:opacity-50">恢复</button></div>)}</div> : <p className="text-sm text-[var(--muted-foreground)]">此设备暂无该页面的本地版本。</p>}</div>
     {preview?.source === 'local' && <InspectionPanel title={`本地版本 #${preview.id} · 与此设备当前数据比较`} value={preview.inspection} />}
     {error && <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{error}</p>}
-    {pendingRestore&&error&&<button type="button" disabled={busy} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50" onClick={async ()=>{
-      if(!(await siteConfirm('停止重试本次恢复？已经恢复的云端数据和后来的修改会保留，恢复前版本也会保留；这不会自动回滚。')))return;
-      void run(async()=>{await cancelBackupRestore(pendingRestore.requestId);sessionStorage.removeItem(pendingRestore.key);setPendingRestore(null);setMessage('本次恢复已停止，当前数据和恢复前版本已保留。');});
-    }}>停止本次恢复</button>}
     {message && <p className="rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-700">{message}</p>}
   </div>;
 }

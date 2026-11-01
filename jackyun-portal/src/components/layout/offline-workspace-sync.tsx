@@ -3,6 +3,7 @@
 import { BEFORE_SLEEP_EVENT, WAKE_EVENT, isWorkspaceSleeping, type SleepRequest } from '@/lib/workspace-idle';
 import { fetchSyncWithTimeout } from '@/lib/request-timeout';
 import {runScheduledSync} from '@/lib/sync/scheduler';
+import {SYNC_SYSTEM_PAUSED} from '@/lib/sync/pause';
 import {initializeRepository} from '@/lib/sync/repository';
 import { useEffect, useState } from 'react';
 import { bindOfflineWorkspaceUser, deferOfflineMutation, listOfflineMutations, submitOfflineOperation, blockOfflineMutation, offlineEntity, saveRemoteSnapshot,mutationScope } from '@/lib/offline/workspace';
@@ -17,7 +18,7 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
     let bound = false;
     let signingOut = false;
 
-    async function refresh(includeSnapshot=true,manual=false){if(userId)await runScheduledSync('business',userId,()=>refreshNow(includeSnapshot),manual);}
+    async function refresh(includeSnapshot=true,manual=false):Promise<void>{if(SYNC_SYSTEM_PAUSED)return;if(userId)await runScheduledSync('business',userId,()=>refreshNow(includeSnapshot),manual);}
     async function refreshNow(includeSnapshot = true) {
       if (!userId || !bound || signingOut || cancelled || !navigator.onLine || running || isWorkspaceSleeping()) return false;
       running = true;
@@ -90,7 +91,7 @@ export default function OfflineWorkspaceSync({ userId }: { userId: string | null
     };
     window.addEventListener(BEFORE_SLEEP_EVENT, onSleep);
     window.addEventListener(WAKE_EVENT, onOnline);
-    const onQueued = () => {setNotice('已记录，联网后同步');if(bound&&!running)activeWork=refresh(false).catch(()=>{});};
+    const onQueued = () => {setNotice(SYNC_SYSTEM_PAUSED?'已记录在本机；云端同步已暂停':'已记录，联网后同步');if(bound&&!running)activeWork=refresh(false).catch(()=>{});};
     window.addEventListener('online', onOnline);
     window.addEventListener('jackyun-offline-queued', onQueued);
     return () => {

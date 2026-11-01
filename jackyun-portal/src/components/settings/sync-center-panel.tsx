@@ -16,7 +16,7 @@ import {createConflictBatch} from '@/lib/sync/conflict-batch';
 import {listOfflineMutations} from '@/lib/offline/workspace';
 import {getLatestLaneStates,type LaneState} from '@/lib/sync/scheduler';
 import {useLocalSaveState,downloadLocalRecovery} from '@/components/layout/local-durability';
-import {getSyncPauseUntil,pauseSync,resumeSync,SYNC_PAUSE_CHANGED_EVENT} from '@/lib/sync/pause';
+import {getSyncPauseUntil,pauseSync,resumeSync,SYNC_PAUSE_CHANGED_EVENT,SYNC_SYSTEM_PAUSED} from '@/lib/sync/pause';
 import type { SyncConflict, SyncDevice, SyncStatusDetail,SyncOperation,SyncResolutionRequest } from '@/types/sync';
 
 function v5ConflictText(value:unknown,deleted:boolean){
@@ -80,6 +80,7 @@ export default function SyncCenterPanel() {
     }
   },[]);
   async function refreshAllV5(){
+    if(SYNC_SYSTEM_PAUSED)return;
     if(!signedIn||detail.state==='syncing')return;
     if(!(await siteConfirm('先下载包含待上传修改和冲突的本机恢复副本，再校验 V5 全部资源并重建同步游标。失败时本机数据会保留；确认与 V5 云端内容完全相同的旧冲突会归档。继续吗？')))return;
     try{if(await downloadLocalRecovery())window.dispatchEvent(new Event('jackyun-sync-v5-refresh'));}
@@ -87,6 +88,7 @@ export default function SyncCenterPanel() {
   }
 
   const load = useCallback(async () => {
+    if(SYNC_SYSTEM_PAUSED)return;
     setError('');
     try {
       const deviceId = await getOrCreateDeviceId();
@@ -151,11 +153,13 @@ export default function SyncCenterPanel() {
   }
 
   function submitResolution(request:SyncResolutionRequest) {
+    if(SYNC_SYSTEM_PAUSED)return;
     setDetail(current=>({...current,state:'syncing',error:undefined,progress:'正在核对版本并上传合并结果…'}));
     window.dispatchEvent(new CustomEvent('jackyun-sync-resolve',{detail:request}));
   }
 
   async function resolveAll(choice:'local'|'remote'){
+    if(SYNC_SYSTEM_PAUSED)return;
     const count=reviews.length+v5Conflicts.length;
     if(!count)return;
     const batch=createConflictBatch(crypto.randomUUID(),choice,reviews,v5Conflicts);
@@ -167,6 +171,7 @@ export default function SyncCenterPanel() {
   const openDevices = useMemo(() => devices.filter((device) => !device.revokedAt), [devices]);
 
   async function rename(device: SyncDevice) {
+    if(SYNC_SYSTEM_PAUSED)return;
     const name = (await sitePrompt('设备名称', device.name))?.trim();
     if (!name) return;
     const response = await fetchSyncWithTimeout('/api/sync/devices', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: device.id, name }) });
@@ -174,6 +179,7 @@ export default function SyncCenterPanel() {
   }
 
   async function revoke(device: SyncDevice) {
+    if(SYNC_SYSTEM_PAUSED)return;
     if (device.id === currentDeviceId || !(await siteConfirm(`撤销设备“${device.name}”？`))) return;
     const response = await fetchSyncWithTimeout('/api/sync/devices', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: device.id }) });
     if (response.ok) await load(); else setError('撤销设备失败');
@@ -182,7 +188,7 @@ export default function SyncCenterPanel() {
   const local=useLocalSaveState();
   const pauseSeconds=pauseUntil?Math.max(0,Math.ceil((pauseUntil-pauseNow)/1000)):0;
   const pauseCountdown=`${Math.floor(pauseSeconds/60)}:${String(pauseSeconds%60).padStart(2,'0')}`;
-  const status = local==='storage_error'?'本机保存未完成，请下载恢复副本':local==='saving'?'正在保存到本机':detail.state === 'guest'
+  const status = SYNC_SYSTEM_PAUSED?'云端同步已暂停；数据和五个本地版本仅保存在此设备':local==='storage_error'?'本机保存未完成，请下载恢复副本':local==='saving'?'正在保存到本机':detail.state === 'guest'
     ? '当前为本机模式，登录后才能同步'
     : detail.state === 'auth_required'?'等待重新登录，本机内容和队列保留'
     : detail.state === 'access_denied'?'账号或设备权限需要处理，已暂停上传'
@@ -202,8 +208,8 @@ export default function SyncCenterPanel() {
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-4">
       <div><p className="font-semibold">{status}</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">待上传 {detail.pending} 项 · 待处理冲突 {detail.conflicts} 项{detail.lastSyncedAt ? ` · 最近成功 ${new Date(detail.lastSyncedAt).toLocaleString()}` : ''}</p></div>
       <div className="flex flex-wrap items-center gap-2">
-        {pauseUntil&&pauseSeconds>0?<><span role="status" className="text-xs text-amber-700">同步已暂停 · {pauseCountdown} 后恢复</span><button type="button" onClick={()=>changeSyncPause(null)} className="rounded-lg border px-3 py-2 text-sm">恢复同步</button></>:signedIn&&<><button type="button" onClick={()=>changeSyncPause(15)} className="rounded-lg border px-3 py-2 text-sm">暂停 15 分钟</button><button type="button" onClick={()=>changeSyncPause(30)} className="rounded-lg border px-3 py-2 text-sm">暂停 30 分钟</button></>}
-        <button type="button" disabled={!signedIn || detail.state === 'syncing'} onClick={() => { setDetail((current) => ({ ...current, state: 'syncing', error: undefined, progress: '已收到立即同步请求…' })); window.dispatchEvent(new Event('jackyun-sync-retry')); }} className="rounded-lg bg-[#1a73e8] px-3 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{detail.state === 'syncing' ? '同步中…' : '立即同步'}</button>
+        {SYNC_SYSTEM_PAUSED?<span role="status" className="text-xs text-amber-700">同步系统已暂停，待上传队列原样保留</span>:pauseUntil&&pauseSeconds>0?<><span role="status" className="text-xs text-amber-700">同步已暂停 · {pauseCountdown} 后恢复</span><button type="button" onClick={()=>changeSyncPause(null)} className="rounded-lg border px-3 py-2 text-sm">恢复同步</button></>:signedIn&&<><button type="button" onClick={()=>changeSyncPause(15)} className="rounded-lg border px-3 py-2 text-sm">暂停 15 分钟</button><button type="button" onClick={()=>changeSyncPause(30)} className="rounded-lg border px-3 py-2 text-sm">暂停 30 分钟</button></>}
+        <button type="button" disabled={!signedIn || detail.state === 'syncing' || SYNC_SYSTEM_PAUSED} onClick={() => { setDetail((current) => ({ ...current, state: 'syncing', error: undefined, progress: '已收到立即同步请求…' })); window.dispatchEvent(new Event('jackyun-sync-retry')); }} className="rounded-lg bg-[#1a73e8] px-3 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{SYNC_SYSTEM_PAUSED?'同步已暂停':detail.state === 'syncing' ? '同步中…' : '立即同步'}</button>
         <button type="button" disabled={!signedIn||detail.state==='syncing'} onClick={()=>void refreshAllV5()} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50">设为新设备并重新获取 V5 数据</button>
       </div>
     </div>
@@ -216,14 +222,14 @@ export default function SyncCenterPanel() {
     {blockedCount>0&&<p role="status" className="text-sm text-amber-700">{blockedCount} 项操作需要检查，原内容已保留，其他项目继续同步。请下载恢复副本后检查账号权限或操作内容。</p>}
     {detail.error ? <p className="rounded-lg bg-[#fce8e6] px-3 py-2 text-sm text-[#c5221f]">{detail.error}</p> : null}
     {reviews.length+v5Conflicts.length>0&&<section aria-label="批量处理同步冲突" className="flex flex-wrap items-center gap-3 border-y border-amber-500/40 py-3"><h2 className="mr-auto text-sm font-semibold">{reviews.length+v5Conflicts.length} 项冲突</h2><button type="button" disabled={!signedIn||detail.state==='syncing'} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={()=>void resolveAll('remote')}><span aria-hidden="true" className="material-icons-round text-base">cloud_download</span>全部使用云端</button><button type="button" disabled={!signedIn||detail.state==='syncing'} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={()=>void resolveAll('local')}><span aria-hidden="true" className="material-icons-round text-base">computer</span>全部使用本地</button></section>}
-    {reviews.length>0&&<div className="flex items-center justify-between gap-3"><h2 className="font-semibold">检查差异并决定合并结果</h2><button type="button" disabled={detail.state==='syncing'} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50" onClick={()=>{void refreshReview();window.dispatchEvent(new Event('jackyun-sync-retry'));}}>刷新对比</button></div>}
-    {reviews.map(({conflict,raw,generation})=><SyncConflictReview key={`${conflict.operationId}:${generation}`} conflict={conflict} localRaw={raw} disabled={!signedIn||detail.state==='syncing'} onSubmit={submitResolution}/>)}
+    {reviews.length>0&&<div className="flex items-center justify-between gap-3"><h2 className="font-semibold">检查差异并决定合并结果</h2><button type="button" disabled={SYNC_SYSTEM_PAUSED||detail.state==='syncing'} className="rounded-lg border border-[var(--card-border)] px-3 py-2 text-sm disabled:opacity-50" onClick={()=>{void refreshReview();window.dispatchEvent(new Event('jackyun-sync-retry'));}}>刷新对比</button></div>}
+    {reviews.map(({conflict,raw,generation})=><SyncConflictReview key={`${conflict.operationId}:${generation}`} conflict={conflict} localRaw={raw} disabled={SYNC_SYSTEM_PAUSED||!signedIn||detail.state==='syncing'} onSubmit={submitResolution}/>)}
     {v5Conflicts.length>0&&<section aria-label="v5 资源冲突" className="space-y-3"><h2 className="font-semibold">资源修改需要确认</h2>{v5Conflicts.map(conflict=><article key={conflict.operationId} className="rounded-lg border border-amber-500/50 p-3"><p className="font-medium">{conflict.scope} · {conflict.recordId}</p><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">共同基线：版本 {conflict.baseRevision} · 哈希 {conflict.baseHash?.slice(0,12)??'无'}；云端当前：版本 {conflict.remoteRevision} · 哈希 {conflict.remoteHash?.slice(0,12)??'无'} · {conflict.remoteDeleted?'已删除':'存在'}。本机操作：{conflict.localDeleted?'删除':'修改'} · 检测时间 {new Date(conflict.createdAt).toLocaleString()}。</p><p className="mt-1 text-xs text-[var(--muted-foreground)]">系统确认本机与云端目标内容不同，因此保留两份供你选择；选择前可下载完整副本。</p><div className="mt-2 grid gap-2 sm:grid-cols-2"><div><p className="mb-1 text-xs font-semibold">本机内容</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-[var(--background)] p-2 text-xs">{v5ConflictText(conflict.localValue,conflict.localDeleted)}</pre></div><div><p className="mb-1 text-xs font-semibold">云端内容</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-[var(--background)] p-2 text-xs">{v5ConflictText(conflict.remoteValue,conflict.remoteDeleted)}</pre></div></div><div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={!signedIn||detail.state==='syncing'} className="rounded border px-3 py-1.5 text-sm" onClick={()=>window.dispatchEvent(new CustomEvent('jackyun-sync-v5-resolve',{detail:{operationId:conflict.operationId,choice:'local'}}))}>保留本机并重试</button><button type="button" disabled={!signedIn||detail.state==='syncing'} className="rounded border px-3 py-1.5 text-sm" onClick={()=>window.dispatchEvent(new CustomEvent('jackyun-sync-v5-resolve',{detail:{operationId:conflict.operationId,choice:'remote'}}))}>使用云端版本</button><button type="button" className="text-sm underline" onClick={()=>downloadV5ConflictValue(conflict,'local')}>下载本机副本</button><button type="button" className="text-sm underline" onClick={()=>downloadV5ConflictValue(conflict,'remote')}>下载云端副本</button></div></article>)}</section>}
     {(pending.length>0||v5Pending.length>0)&&<details className="rounded-xl border border-[var(--card-border)] p-4 text-sm"><summary className="cursor-pointer font-semibold">查看待上传项目（V5 {v5Pending.length} · 旧队列 {pending.length}）</summary><div className="mt-3 space-y-2">{v5Pending.slice(0,100).map(operation=>{const field=operation.recordId.slice(0,operation.recordId.indexOf(':'));const resumable=operation.scope==='cue'&&field==='cueStudyDrafts'&&!operation.recordId.endsWith(':$keys');return <div key={`v5:${operation.id}`} className="flex flex-wrap justify-between gap-2 rounded-lg bg-[var(--background)] p-3"><div className="min-w-0"><p>{resumable?'未完成的 CUE 学习草稿':`V5 ${operation.scope} 资源`}</p><p className="break-all text-xs text-[var(--muted-foreground)]">{operation.recordId}</p></div><p className="text-xs text-[var(--muted-foreground)]">{operation.deleted?'删除待云端确认':'修改待云端确认'} · 基线版本 {operation.baseRevision}</p></div>;})}{v5Pending.length>100&&<p className="text-xs text-[var(--muted-foreground)]">另有 {v5Pending.length-100} 项 V5 操作仍保留在本机队列中。</p>}{pending.map(operation=><div key={operation.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-[var(--background)] p-3"><div className="min-w-0"><p>{BACKUP_PAGES.find(item=>item.id===legacyBackupPage(operation.key))?.label}</p><p className="break-all text-xs text-[var(--muted-foreground)]">{operation.key}</p></div><p className="text-xs text-[var(--muted-foreground)]">{reviews.some(row=>row.conflict.key===operation.key)?'等待选择合并结果':operation.resolvesOperationId?'合并结果待云端确认':operation.deleted?'删除待确认':'修改待上传'} · 基线版本 {operation.baseRevision}</p></div>)}</div></details>}
     <div className="rounded-xl border border-[var(--card-border)] p-4 text-sm leading-6">
       <h3 className="font-semibold">同步范围</h3>
       <p className="mt-1 text-[var(--muted-foreground)]">Cue、复习状态、学习记录、课表、计划、答题卡草稿、写作与阅读进度、刷题数据和界面偏好会随账号同步。</p>
-      <p className="mt-2 text-xs text-[var(--muted-foreground)]">可见页面每30秒检查其他设备的新修改；隐藏页面暂停普通轮询。暂停期间，本机编辑和待上传队列仍会保存，到期自动恢复。暂停只作用于当前浏览器和账号；“立即同步”可提前执行，正在进行的请求会先完成。</p>
+      <p className="mt-2 text-xs text-[var(--muted-foreground)]">{SYNC_SYSTEM_PAUSED?'当前版本已全局暂停云端同步。待上传操作和冲突仍保存在本机；页面数据每30秒自动保存本地副本，每个页面保留最近五个版本。':'可见页面每30秒检查其他设备的新修改；隐藏页面暂停普通轮询。暂停期间，本机编辑和待上传队列仍会保存，到期自动恢复。暂停只作用于当前浏览器和账号；“立即同步”可提前执行，正在进行的请求会先完成。'}</p>
       <p className="mt-2 text-xs text-[var(--muted-foreground)]">安全例外：密码、登录令牌、个人 API Key、诊断日志不会上传；本地导入的小说正文和音频文件属于设备文件，需在目标设备重新导入。</p>
     </div>
     <div><h3 className="font-semibold">网页与 PWA 设备</h3><div className="mt-2 divide-y divide-[var(--card-border)] rounded-xl border border-[var(--card-border)]">{openDevices.map((device) => <div key={device.id} className="flex items-center gap-3 p-3"><span className="material-icons-round text-[var(--muted-foreground)]">{device.platform === 'pwa' ? 'install_mobile' : 'devices'}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{device.name}{device.id === currentDeviceId ? '（当前）' : ''}</p><p className="text-xs text-[var(--muted-foreground)]">最后活动 {new Date(device.lastSeenAt).toLocaleString()}</p></div><button onClick={() => rename(device)} className="text-xs text-[#1a73e8]">改名</button>{device.id !== currentDeviceId ? <button onClick={() => revoke(device)} className="text-xs text-[#d93025]">撤销</button> : null}</div>)}</div></div>

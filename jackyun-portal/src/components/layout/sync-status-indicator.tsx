@@ -10,7 +10,7 @@ import Link from 'next/link';
 
 const LABELS = {
   auth_required:['login','等待登录'],access_denied:['lock','账号权限需处理'],
-  guest: ['save', '已保存'], synced: ['cloud_done', '已同步'], syncing: ['sync', '同步中'],
+  guest: ['save', '已保存'], synced: ['cloud_done', '已同步'], syncing: ['sync', '同步中'], paused: ['cloud_off','云端同步已暂停'],
   offline_pending: ['cloud_upload', '待同步'], server_unavailable: ['cloud_upload', '待同步'], conflict: ['difference', '有冲突'], error: ['sync_problem', '同步失败'],
 } as const;
 
@@ -58,12 +58,12 @@ export default function SyncStatusIndicator({ signedIn }: { signedIn: boolean })
   const [,baseLabel]=local==='saving'?['save','正在保存到本机']:local==='storage_error'?['warning','本机写入需要检查']:LABELS[detail.state];
   const label=detail.state==='synced'&&detail.progress?.startsWith('当前页面所需资源已核对')?'本页已核对':baseLabel;
   const needsAttention=local==='storage_error'||local==='projection_degraded'||detail.conflicts>0||['conflict','error','access_denied','auth_required'].includes(detail.state);
-  const detailStatus=local==='storage_error'?'本机保存尚未完成':local==='projection_degraded'?'本机内容已保存，旧缓存空间不足':detail.state==='auth_required'?'等待重新登录，本机队列已保留':detail.state==='access_denied'?'账号或设备权限需处理':detail.state==='server_unavailable'?'服务暂不可用，后台会继续重试':detail.state==='offline_pending'?'修改保留在本机，联网后继续同步':detail.state==='conflict'?'有修改需要确认，两份内容均已保留':detail.state==='error'?'同步遇到需要检查的问题，本机内容仍保留':detail.state==='syncing'?'正在同步':'数据已自动同步';
+  const detailStatus=local==='storage_error'?'本机保存尚未完成':local==='projection_degraded'?'本机内容已保存，旧缓存空间不足':detail.state==='paused'?'云端同步已关闭；修改和备份仅保存在此设备':detail.state==='auth_required'?'等待重新登录，本机队列已保留':detail.state==='access_denied'?'账号或设备权限需处理':detail.state==='server_unavailable'?'服务暂不可用，后台会继续重试':detail.state==='offline_pending'?'修改保留在本机，联网后继续同步':detail.state==='conflict'?'有修改需要确认，两份内容均已保留':detail.state==='error'?'同步遇到需要检查的问题，本机内容仍保留':detail.state==='syncing'?'正在同步':'数据已自动同步';
   const detailError=detail.state==='auth_required'?'登录状态已失效。':detail.state==='access_denied'?'当前账号或设备没有同步权限。':detail.state==='server_unavailable'?'网络或服务暂时不可用，修改仍在本机队列。':detail.state==='error'?'请查看完整客户端日志中的错误码、请求阶段和请求 ID。':undefined;
   return <div className="flex shrink-0 items-center">
     <details ref={detailsRef} className="group" onToggle={(event) => { const open = event.currentTarget.open; setDetailsOpen(open); if (!open) setPanelPosition(null); }}>
       <summary ref={summaryRef} aria-label={`同步状态与详情：${label}`} aria-expanded={detailsOpen} title={`${label} · 查看同步详情`} className="relative grid h-10 w-10 cursor-pointer list-none place-items-center rounded-lg text-[var(--muted-foreground)] hover:bg-black/[.05] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 dark:hover:bg-white/[.08] [&::-webkit-details-marker]:hidden">
-        <span aria-hidden="true" className="material-icons-round text-xl">{detail.state==='guest'?'save':detail.state==='synced'&&!needsAttention?'cloud_done':'cloud'}</span>
+        <span aria-hidden="true" className="material-icons-round text-xl">{detail.state==='guest'?'save':detail.state==='paused'?'cloud_off':detail.state==='synced'&&!needsAttention?'cloud_done':'cloud'}</span>
         {needsAttention&&<span data-sync-attention aria-hidden="true" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-600"/>}
       </summary>
       {detailsOpen&&panelPosition&&createPortal(<div ref={panelRef} data-sync-details className="fixed z-[100] max-h-[calc(100dvh-5rem)] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto rounded-lg border border-[var(--card-border)] bg-[var(--card)] p-3 text-sm shadow-lg" style={panelPosition}>
@@ -79,7 +79,7 @@ export default function SyncStatusIndicator({ signedIn }: { signedIn: boolean })
         </div>
         <div className="my-2 border-t border-[var(--card-border)]" />
         <div className="flex flex-wrap gap-x-4 gap-y-2 px-2 text-xs font-medium">
-          {detail.state!=='guest'&&<button type="button" className="text-[var(--brand)]" onClick={()=>window.dispatchEvent(new Event('jackyun-sync-retry'))}>立即重试同步</button>}
+          {detail.state!=='guest'&&detail.state!=='paused'&&<button type="button" className="text-[var(--brand)]" onClick={()=>window.dispatchEvent(new Event('jackyun-sync-retry'))}>立即重试同步</button>}
           <Link className="text-[var(--brand)]" href="/settings?section=companion">打开同步中心</Link>
           <Link className="text-[var(--brand)]" href="/settings?section=advanced">完整客户端日志</Link>
         </div>

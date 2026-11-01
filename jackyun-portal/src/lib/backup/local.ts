@@ -2,7 +2,7 @@
 import { workspaceStorage } from '../sync/repository.ts';
 
 
-import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './pages.ts';
+import { ALL_BACKUP_PAGES, isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './pages.ts';
 
 const DB_NAME = 'jackyun-page-backups-v1';
 
@@ -39,7 +39,7 @@ function transaction<T>(mode: IDBTransactionMode, operation: (store: IDBObjectSt
 }
 
 export function getLocalBackupLimit(): number {
-  return 10;
+  return 5;
 }
 
 function samePageValues(left: Record<string, string>, right: Record<string, string>): boolean {
@@ -85,20 +85,41 @@ export function listLocalBackups(userId: string, page: BackupPage): Promise<Loca
   });
 }
 
-export async function saveLocalBackup(userId: string, page: BackupPage, values: Record<string, string>): Promise<void> {
-  if (!Object.keys(values).length) return;
+export async function saveLocalBackup(userId: string, page: BackupPage, values: Record<string, string>, forceDuplicate = false): Promise<void> {
   await transaction<void>('readwrite', (store, finish) => {
     const index = store.index('ownerPage');
     const range = IDBKeyRange.only([userId, page]);
     const request = index.openCursor(range, 'prev');
     request.onsuccess = () => {
       const latest = request.result?.value as LocalBackup | undefined;
-      if (latest && samePageValues(latest.values, values)) { finish(); return; }
+      if (!forceDuplicate && latest && samePageValues(latest.values, values)) { finish(); return; }
       const keys = index.getAllKeys(range);
       keys.onsuccess = () => {
         const ids = (keys.result as number[]).sort((a, b) => b - a);
         store.add({ userId, page, values, createdAt: new Date().toISOString() });
         for (const id of ids.slice(Math.max(0, getLocalBackupLimit() - 1))) store.delete(id);
+        finish();
+      };
+    };
+  });
+}
+
+/** Ensure every page can be restored even before it has user data or a change history. */
+export async function ensureFiveLocalBackups(userId: string, page: BackupPage, values: Record<string, string>): Promise<void> {
+  await transaction<void>('readwrite',(store,finish)=>{
+    const index=store.index('ownerPage'),range=IDBKeyRange.only([userId,page]);
+    const latestRequest=index.openCursor(range,'prev');
+    latestRequest.onsuccess=()=>{
+      const latest=latestRequest.result?.value as LocalBackup|undefined;
+      const addLatest=!latest||!samePageValues(latest.values,values);
+      const keys=index.getAllKeys(range);
+      keys.onsuccess=()=>{
+        const ids=(keys.result as number[]).sort((a,b)=>b-a);
+        if(!addLatest&&ids.length>=getLocalBackupLimit()){finish();return;}
+        const insertCount=addLatest?Math.max(1,getLocalBackupLimit()-ids.length):getLocalBackupLimit()-ids.length;
+        for(let i=0;i<insertCount;i++)store.add({userId,page,values,createdAt:new Date().toISOString()});
+        // Keep historical rows intact when merely initializing an unchanged page.
+        if(addLatest&&ids.length>=getLocalBackupLimit())for(const id of ids.slice(getLocalBackupLimit()-1))store.delete(id);
         finish();
       };
     };
@@ -114,6 +135,5 @@ export async function saveCurrentLocalBackups(userId: string): Promise<void> {
     const value = workspaceStorage.getItem(key);
     if (value !== null) snapshot[key] = value;
   }
-  const pages = new Set(Object.keys(snapshot).map(legacyBackupPage));
-  for (const page of pages) await saveLocalBackup(userId, page, localPageValues(snapshot, page));
+  for (const page of ALL_BACKUP_PAGES) await ensureFiveLocalBackups(userId, page, localPageValues(snapshot, page));
 }

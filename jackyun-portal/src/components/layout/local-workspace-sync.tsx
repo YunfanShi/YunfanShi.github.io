@@ -12,18 +12,23 @@ import {runConflictBatch,type ConflictBatch} from '@/lib/sync/conflict-batch';
 import {announceSyncStatus as announce,getLatestSyncStatus} from '@/lib/sync/status';
 import {CLOUD_STATE_APPLIED_EVENT,MAX_SYNC_VALUE_CHARACTERS,isSyncableStorageKey} from '@/lib/local-workspace';
 import * as syncStore from '@/lib/sync/outbox';
-import {archiveV5CoveredLegacyConflicts,getConflicts,getSetting,getV5Conflicts,getV5Outbox,getV5Resources,migrateLegacyConflictToV5} from '@/lib/sync/outbox';
+import {archiveV5CoveredLegacyConflicts,getConflicts,getDocuments,getOutbox,getSetting,getV5Conflicts,getV5Outbox,getV5Resources,migrateLegacyConflictToV5} from '@/lib/sync/outbox';
 import {createWorkspaceSync} from '@/lib/sync/engine';
 import {createV5ResourceSync,resourceFieldsForPath,retainV5ScheduleAuthority} from '@/lib/sync/resource-engine';
 import {allV5ResourceTargets,legacyWorkspaceRecordId,SYNC_V5_SCOPES,SYNC_V5_SCHEDULE_SCOPES} from '@/lib/sync/resource-model';
 import {canonicalJson} from '@/lib/sync/hash';
 import {isBackupableLegacyKey,legacyBackupPage,type BackupPage} from '@/lib/backup/pages';
-import {localPageValues,saveLocalBackup} from '@/lib/backup/local';
+import {ensureFiveLocalBackups,listLocalBackups,localPageValues,saveLocalBackup} from '@/lib/backup/local';
+import {ALL_BACKUP_PAGES} from '@/lib/backup/pages';
+import {SYNC_SYSTEM_PAUSED} from '@/lib/sync/pause';
 import {backupIsDue,recordBackupChange,type PendingBackup} from '@/lib/backup/cadence';
 import {createDueBackupVersions} from '@/actions/backup-center';
 import {emitDiagnostic,errorDetails} from '@/lib/diagnostic-events';
 import {syncFailureStatus} from '@/lib/sync/service-error';
 import {reportSyncFailure} from '@/lib/sync/report-failure';
+import {siteConfirm} from '@/lib/site-dialog';
+import {scheduleHasContent} from '@/lib/sync/schedule-safety';
+import {listOfflineMutations} from '@/lib/offline/workspace';
 import type {SyncStatus,SyncResolutionRequest} from '@/types/sync';
 
 async function runScheduledBackup(userId: string): Promise<boolean> {
@@ -106,9 +111,31 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       return pending;
     };
     pending = pending.then(async () => {
+      await initializeRepository(userId);
       owner = userId ?? await getSetting<string>('activeUserId') ?? 'guest';
-      for (const page of new Set(Object.keys(previous).filter(isBackupableLegacyKey).map(legacyBackupPage))) {
-        await saveLocalBackup(owner, page, localPageValues(previous, page));
+      previous=localSnapshot(true);
+      for (const page of ALL_BACKUP_PAGES) await ensureFiveLocalBackups(owner,page,localPageValues(previous,page));
+      if(userId){
+        const promptKey=`jackyun-empty-device-cloud-prompt:${userId}`;
+        if(!sessionStorage.getItem(promptKey)){
+          const [documents,legacyOutbox,legacyConflicts,v5Outbox,v5Conflicts,offline,backups,resources]=await Promise.all([
+            getDocuments(),getOutbox(),getConflicts(),getV5Outbox(),getV5Conflicts(),listOfflineMutations(userId),
+            Promise.all(ALL_BACKUP_PAGES.map(page=>listLocalBackups(owner,page))),
+            Promise.all(SYNC_V5_SCOPES.map(scope=>getV5Resources(scope))),
+          ]);
+          const hasPageData=Object.entries(previous).some(([key,value])=>{
+            if(!isBackupableLegacyKey(key)||legacyBackupPage(key)==='settings'||!value)return false;
+            if(key==='jackyun_schedule_control_v1'){try{return scheduleHasContent(JSON.parse(value));}catch{return true;}}
+            return value!=='{}'&&value!=='[]'&&value!=='null';
+          });
+          const hasStoredData=documents.some(row=>isBackupableLegacyKey(row.key)&&row.value!==null&&legacyBackupPage(row.key)!=='settings')
+            ||backups.some(rows=>rows.some(row=>Object.keys(row.values).some(key=>legacyBackupPage(key)!=='settings')))
+            ||offline.length>0||legacyOutbox.length>0||legacyConflicts.length>0||v5Outbox.length>0||v5Conflicts.length>0
+            ||resources.some(rows=>rows.some(row=>!row.deleted));
+          sessionStorage.setItem(promptKey,'shown');
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- A full reload rechecks the empty-device cloud prompt after settings hydration.
+          if(!hasPageData&&!hasStoredData&&await siteConfirm('此设备尚未发现本地学习数据。要前往设置查看可用的云端备份吗？不会自动下载；云端内容只会在你选择 JSON 并确认导入后写入本机。'))window.location.assign('/settings?section=data');
+        }
       }
     }).catch((error) => { baselineFailed = true; console.error('[Backup] Local baseline failed', error); });
     // Repository transactions persist edits before updating the projection. This fallback discovers
@@ -134,6 +161,14 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
   }, [userId]);
 
   useEffect(() => {
+    if(SYNC_SYSTEM_PAUSED){
+      if(!userId){announce({state:'guest',pending:0,conflicts:0,lastSyncedAt:null,progress:'云端同步已暂停；学习数据和备份只保存在此设备。'});return;}
+      const accountStore=syncStore.accountSyncStore(userId);
+      void Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),getV5Outbox(undefined,`jackyun-sync-v2:${userId}`),getV5Conflicts(`jackyun-sync-v2:${userId}`)])
+        .then(([outbox,conflicts,v5Outbox,v5Conflicts])=>announce({state:'paused',pending:outbox.length+v5Outbox.length,conflicts:conflicts.length+v5Conflicts.length,lastSyncedAt:null,progress:'云端同步已暂停；待处理记录保留在此设备，不会上传或下载。'}))
+        .catch(()=>announce({state:'paused',pending:0,conflicts:0,lastSyncedAt:null,progress:'云端同步已暂停；本机数据不会上传或下载。'}));
+      return;
+    }
     if (!userId) { void initializeRepository(null).catch(()=>{});announce({state:'guest',pending:0,conflicts:0,lastSyncedAt:null}); return; }
     let cancelled=false, signingOut=false, bound=false, failures=0, authPaused=false, lastBackupCheck=0;
     const controller=new AbortController(), gate=createSyncRunGate();

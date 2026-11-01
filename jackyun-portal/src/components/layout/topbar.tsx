@@ -16,8 +16,6 @@ import { useLanguage } from '@/components/language-provider';
 import { saveSettingsField } from '@/actions/settings';
 import { t } from '@/lib/i18n';
 import NotificationInbox from '@/components/modules/notification-inbox';
-import SyncStatusIndicator from '@/components/layout/sync-status-indicator';
-import OfflineQueueStatus from '@/components/layout/offline-queue-status';
 import GlobalSearch, { OPEN_GLOBAL_SEARCH_EVENT } from '@/components/layout/global-search';
 import { APP_VERSION } from '@/lib/utils';
 import LogoutButton from '@/components/auth/logout-button';
@@ -145,13 +143,11 @@ export default function Topbar({ user, betaActive = false, isAdmin = false }: To
         <Button type="button" variant="ghost" size="icon" aria-label={lang === 'zh' ? '全站搜索' : 'Search everywhere'} title={lang === 'zh' ? '搜索页面、任务和错题（Ctrl K）' : 'Search pages, tasks, and reviews (Ctrl K)'} onClick={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}>
           <span aria-hidden="true" className="material-icons-round text-lg">search</span>
         </Button>
-        <OfflineQueueStatus userId={user?.id ?? null} />
         {betaActive && (
           <Link href="/beta" prefetch={false} className="hidden rounded-full bg-[#7f56d9] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-sm transition hover:bg-[#6941c6] lg:inline-flex sm:text-xs" title="打开 BETA 测试中心">
             BETA v{APP_VERSION}
           </Link>
         )}
-        <SyncStatusIndicator signedIn={Boolean(user)} />
         <div className="portal-desktop-actions hidden lg:flex items-center gap-2"><Button
           variant="ghost" size="icon"
           onClick={toggleTheme}
