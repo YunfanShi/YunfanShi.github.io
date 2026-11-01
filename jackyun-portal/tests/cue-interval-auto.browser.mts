@@ -63,6 +63,37 @@ try {
 
   assert.deepEqual(errors, []);
   await context.close();
+
+  const exitContext=await browser.newContext({viewport:{width:820,height:1180},hasTouch:true,timezoneId:'Asia/Shanghai'});
+  await exitContext.addInitScript(value=>{
+    localStorage.setItem('jackyun_schedule_control_v1',JSON.stringify(value));
+    localStorage.setItem('jackyun_settings_learning_preferences',JSON.stringify({cueGameEnabled:true,cueShuffle:false}));
+  },seed);
+  const exitPage=await exitContext.newPage();
+  await exitPage.clock.install({time:new Date('2026-10-30T12:00:00+08:00')});
+  await exitPage.goto(`${base}/schedule?view=cue&subject=math&filter=due`);
+  await exitPage.getByRole('region',{name:'CUE 学习预览'}).getByRole('button',{name:'开始学习',exact:true}).click({timeout:60_000});
+  const exitSession=exitPage.getByRole('dialog').filter({has:exitPage.locator('[data-cue-study-page]')});
+  const exitSettings=exitSession.locator('[data-cue-practice-settings]');
+  await exitSettings.locator('summary').click();
+  await exitSettings.getByRole('combobox',{name:'重练触发方式'}).selectOption('time');
+  await exitSettings.getByRole('spinbutton',{name:'间隔分钟'}).fill('1');
+  await exitSettings.locator('summary').click();
+  await exitPage.keyboard.press('3'); await exitPage.keyboard.press('3');
+  await exitPage.clock.fastForward(60_000);
+  await exitPage.keyboard.press('3');
+  await exitPage.waitForFunction(() => Object.values(JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}').cueStudyDrafts || {})
+    .some((draft:unknown)=>(draft as {practice?:{active?:string}}).practice?.active==='cue0'));
+  await exitSession.getByRole('button',{name:'返回本轮'}).click();
+  await exitPage.waitForFunction(() => Object.values(JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}').cueStudyDrafts || {})
+    .some((draft:unknown)=>{
+      const practice=(draft as {practice?:{active?:string;automaticReturnCueId?:string}}).practice;
+      return practice?.automaticReturnCueId==='cue1'&&!practice.active;
+    }));
+  assert.equal(await exitSession.locator('[data-cue-practice-mode="automatic"]').count(),0,'returning from an automatic retry exits the mode');
+  await exitPage.clock.fastForward(120_000);
+  assert.equal(await exitSession.locator('[data-cue-practice-mode="automatic"]').count(),0,'the same due retry does not immediately re-enter after exit');
+  await exitContext.close();
 } finally {
   await browser.close();
 }

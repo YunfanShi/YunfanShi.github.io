@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, prioritizeCuePracticeIds, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, dueCuePractice, enterCuePractice, finishAutomaticCuePractice } from '../src/lib/learning/cue-practice.ts';
+import { emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, prioritizeCuePracticeIds, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, dueCuePractice, enterCuePractice, finishAutomaticCuePractice, cuePracticeAdaptiveQuestions, deferCuePracticeAfterManual } from '../src/lib/learning/cue-practice.ts';
 import { createEmptyScheduleState, recordCueStudyAssessment, planCueReview, saveCueStudyDraft, reorderCueStudy, type StudyCue, type CueStudyDraft } from '../src/lib/learning/schedule-control.ts';
 import { cueGameProgress } from '../src/lib/learning/cue-game.ts';
 import { bufferedCueAnswer } from '../src/lib/learning/cue-answer-card.ts';
@@ -145,6 +145,24 @@ test('a repaired red retains more next-day risk than a repaired yellow', () => {
   }
   const legacy=normalizeCuePractice({completed:3,pending:[{cueId:'a',after:4,availableAt:60_000}]},{a:'unclear'},100,()=>0);
   assert.equal(legacy.pending[0].after,7); assert.equal(legacy.pending[0].availableAt,300_100);
+});
+test('adaptive retry gaps scale with the unfinished directory and never exceed ten questions', () => {
+  assert.equal(cuePracticeAdaptiveQuestions(1,'partial',()=>0),3);
+  assert.equal(cuePracticeAdaptiveQuestions(32,'partial',()=>0.999999),10);
+  for(let count=1;count<=100;count++) {
+    assert.ok(cuePracticeAdaptiveQuestions(count,'unclear',()=>0)>=3);
+    assert.ok(cuePracticeAdaptiveQuestions(count,'partial',()=>0.999999)<=10);
+  }
+});
+test('leaving manual practice reschedules retries and respects spacing after the primary round', () => {
+  const policy={trigger:'adaptive' as const,questions:5,minutes:5};
+  const state={completed:10,pending:[{cueId:'a',after:10,availableAt:0,policy:2 as const},{cueId:'b',after:10,availableAt:0,policy:2 as const}],results:{a:{status:'partial' as const,attempts:1,reviewedAt:0},b:{status:'unclear' as const,attempts:1,reviewedAt:0}}};
+  const deferred=deferCuePracticeAfterManual(state,100,policy,()=>0.5);
+  assert.equal(deferred.respectIntervalsAfterManual,true);
+  assert.ok(deferred.pending.every(item=>item.after>deferred.completed));
+  assert.equal(dueCuePractice(deferred,100,undefined,true,policy),undefined);
+  const ready={...deferred,completed:deferred.pending[0].after};
+  assert.ok(dueCuePractice(ready,100,undefined,true,policy));
 });
 test('retry returns to the same unreviewed Cue after shuffle and can leave an exhausted queue', () => {
   let state=rateCuePractice(emptyCuePractice(),'a','unclear',true,0,()=>0);

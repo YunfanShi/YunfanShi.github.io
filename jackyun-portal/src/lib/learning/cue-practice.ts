@@ -1,18 +1,24 @@
 import type { CueReview, LearningStatus } from './schedule-control.ts';
 
-export type CuePracticePolicy = { trigger: 'questions' | 'time'; questions: number; minutes: number };
+export type CuePracticePolicy = { trigger: 'questions' | 'time' | 'adaptive'; questions: number; minutes: number };
 export const defaultCuePracticePolicy: CuePracticePolicy = { trigger: 'questions', questions: 5, minutes: 5 };
 export function cuePracticeIsDue(state: CuePracticeState, item: CuePracticeItem, now: number, policy?: CuePracticePolicy) {
-  return policy ? policy.trigger === 'questions' ? state.completed >= item.after : now >= item.availableAt : state.completed >= item.after || now >= item.availableAt;
+  return policy ? policy.trigger === 'time' ? now >= item.availableAt : state.completed >= item.after : state.completed >= item.after || now >= item.availableAt;
 }
 export function rescheduleCuePractice(state: CuePracticeState, now: number, policy: CuePracticePolicy): CuePracticeState {
-  return { ...state, pending: state.pending.map(item => ({ ...item, after: state.completed + policy.questions, availableAt: now + policy.minutes * 60_000 })) };
+  return { ...state, pending: state.pending.map(item => ({ ...item, after: state.completed + (policy.trigger === 'adaptive' ? cuePracticeAdaptiveQuestions(state.pending.length, state.results?.[item.cueId]?.status ?? 'partial') : policy.questions), availableAt: now + policy.minutes * 60_000, policy: policy.trigger === 'adaptive' ? 3 : 2 })) };
 }
-export type CuePracticeItem = { cueId: string; after: number; availableAt: number; policy?: 2 };
+export type CuePracticeItem = { cueId: string; after: number; availableAt: number; policy?: 2 | 3 };
 export type CuePracticeResult = { status: LearningStatus; attempts: number; reviewedAt: number; passes?: number };
-export type CuePracticeState = { completed: number; pending: CuePracticeItem[]; active?: string; rating?: LearningStatus; returnCueId?: string; automaticReturnCueId?: string; mode?: boolean; lastCueId?: string; results?: Record<string, CuePracticeResult> };
+export type CuePracticeState = { completed: number; pending: CuePracticeItem[]; active?: string; rating?: LearningStatus; returnCueId?: string; automaticReturnCueId?: string; respectIntervalsAfterManual?: boolean; mode?: boolean; lastCueId?: string; results?: Record<string, CuePracticeResult> };
 export const emptyCuePractice = (): CuePracticeState => ({ completed: 0, pending: [] });
 const integer = (min: number, max: number, random: () => number) => min + Math.floor(Math.min(.999999999, Math.max(0, random())) * (max - min + 1));
+/** Scale the next gap with the unfinished retry queue, add only one question of jitter, and cap at ten. */
+export function cuePracticeAdaptiveQuestions(pendingCount: number, status: LearningStatus, random = Math.random) {
+  const base = Math.min(9, 4 + Math.ceil(Math.log2(Math.max(1, pendingCount))));
+  const urgency = status === 'unclear' ? -1 : 0;
+  return Math.min(10, Math.max(3, base + urgency + integer(-1, 1, random)));
+}
 const schedule = (cueId: string, status: LearningStatus, completed: number, now: number, random: () => number): CuePracticeItem => ({
   cueId, after: completed + (status === 'unclear' ? integer(4, 6, random) : integer(6, 10, random)),
   availableAt: now + integer(300_000, 600_000, random), policy: 2,
@@ -20,14 +26,17 @@ const schedule = (cueId: string, status: LearningStatus, completed: number, now:
 
 /** Upgrade old short waits once; saved random windows remain stable across reloads. */
 export function normalizeCuePractice(state: CuePracticeState, assessments: Record<string, LearningStatus>, now: number, random = Math.random): CuePracticeState {
-  return { ...state, pending: state.pending.map(item => item.policy === 2 ? item : schedule(item.cueId, assessments[item.cueId] ?? 'partial', state.completed, now, random)) };
+  return { ...state, pending: state.pending.map(item => item.policy === 2 || item.policy === 3 ? item : schedule(item.cueId, assessments[item.cueId] ?? 'partial', state.completed, now, random)) };
 }
 /** Count a retrieval once. Editing its color cannot erase or reroll delayed confirmation. */
 export function rateCuePractice(state: CuePracticeState, cueId: string, status: LearningStatus, fresh: boolean, now: number, random = Math.random, policy?: CuePracticePolicy): CuePracticeState {
   const completed = state.completed + Number(fresh);
   const previous = state.pending.find(item => item.cueId === cueId);
   const pending = state.pending.filter(item => item.cueId !== cueId);
-  if (status !== 'stable') pending.push(!fresh && previous ? previous : policy ? { cueId, after: completed + policy.questions, availableAt: now + policy.minutes * 60_000, policy: 2 } : schedule(cueId, status, completed, now, random));
+  if (status !== 'stable') pending.push(!fresh && previous ? previous : policy?.trigger === 'adaptive'
+    ? { cueId, after: completed + cuePracticeAdaptiveQuestions(pending.length + 1, status, random), availableAt: now + policy.minutes * 60_000, policy: 3 }
+    : policy ? { cueId, after: completed + policy.questions, availableAt: now + policy.minutes * 60_000, policy: 2 }
+      : schedule(cueId, status, completed, now, random));
   else if (previous && state.active !== cueId) pending.push(previous);
   const result = state.results?.[cueId];
   const passedNow = status === 'stable' && (fresh || result?.status !== 'stable');
@@ -53,6 +62,8 @@ export function dueCuePractice(state: CuePracticeState, now: number, exclude?: s
     const ordered = prioritizeCuePracticeIds(state);
     return ordered.find(id => id !== exclude) ? { cueId: ordered.find(id => id !== exclude)!, after: state.completed, availableAt: now, policy: 2 as const } : ordered[0] ? { cueId: ordered[0], after: state.completed, availableAt: now, policy: 2 as const } : undefined;
   }
+  // After leaving a manually started queue, keep the completed round's automatic path on the new spacing too.
+  if (roundComplete && state.respectIntervalsAfterManual) return state.pending.find(item => item.cueId !== exclude && cuePracticeIsDue(state, item, now, policy) && (state.pending.length <= 1 || item.cueId !== state.lastCueId));
   // Once all primary Cues are rated, rotate the remaining weak items without a dead-end wait.
   if (roundComplete) return state.pending.find(item => item.cueId !== exclude) ?? state.pending[0];
   return state.pending.find(item => item.cueId !== exclude && (state.pending.length <= 1 || item.cueId !== state.lastCueId) && cuePracticeIsDue(state, item, now, policy));
@@ -78,8 +89,19 @@ export function cuePracticeLabel(state: CuePracticeState, cueId: string, now: nu
   if (result) return '未通过 · 优先重练';
   const item = state.pending.find(item => item.cueId === cueId);
   if (!item) return '仍需重练';
-  const due = roundComplete || cuePracticeIsDue(state, item, now, policy);
+  const due = (roundComplete && !state.respectIntervalsAfterManual) || cuePracticeIsDue(state, item, now, policy);
   return due ? '待重练' : state.results?.[cueId] ? '仍需重练 · 等待间隔' : '等待间隔';
+}
+
+/** Manual practice keeps its own queue; returning gives remaining automatic retries a fresh gap. */
+export function deferCuePracticeAfterManual(state: CuePracticeState, now: number, policy: CuePracticePolicy, random = Math.random): CuePracticeState {
+  const pending = state.pending.map(item => ({
+    ...item,
+    after: state.completed + (policy.trigger === 'adaptive' ? cuePracticeAdaptiveQuestions(state.pending.length, state.results?.[item.cueId]?.status ?? 'partial', random) : policy.questions),
+    availableAt: now + policy.minutes * 60_000,
+    policy: policy.trigger === 'adaptive' ? 3 as const : 2 as const,
+  }));
+  return { ...state, pending, respectIntervalsAfterManual: true };
 }
 
 /** A newer primary review supersedes an older retry badge. */
