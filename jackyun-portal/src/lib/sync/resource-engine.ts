@@ -167,7 +167,7 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     }
     throw Error('v5 增量积压超过单轮上限。');
   }
-  async function captureLocalChanges(scope:SyncV5Scope,field:string){
+  async function captureLocalChanges(scope:SyncV5Scope,field:string,explicitScheduleReplacement=false){
     const cursor=await getV5Cursor(scope,e.databaseScope,field);if(!cursor||cursor.mode!=='changes')return;
     if(scope==='workspace'){
       await e.flushLocalWrites?.();assertCurrent();
@@ -198,14 +198,14 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
       return;
     }
     const raw=e.readSchedule();
-    if(raw===null||raw==='null'||raw==='')return;
-    const schedule=parse(raw);
+    if(!explicitScheduleReplacement&&(raw===null||raw==='null'||raw===''))return;
+    const schedule=raw===null||raw==='null'||raw===''?{}:parse(raw);
     // Missing storage/fields are not an explicit item deletion or an empty collection.
-    if(field!=='__root'&&!Object.hasOwn(schedule,field))return;
-    if(field==='__root'&&!Object.keys(schedule).length)return;
+    if(!explicitScheduleReplacement&&field!=='__root'&&!Object.hasOwn(schedule,field))return;
+    if(!explicitScheduleReplacement&&field==='__root'&&!Object.keys(schedule).length)return;
     // An empty collection can be an unhydrated local cache, not an explicit delete-all intent.
     // Individual removals remain inferable from a non-empty collection; bulk deletion must be explicit.
-    if(field!=='__root'&&isEmptyScheduleCollection(field,schedule[field]))return;
+    if(!explicitScheduleReplacement&&field!=='__root'&&isEmptyScheduleCollection(field,schedule[field]))return;
     const wanted=scheduleToResources(schedule).filter(row=>row.scope===scope&&row.field===field),remote=(await getV5Resources(scope,e.databaseScope)).filter(row=>row.recordId.slice(0,row.recordId.indexOf(':'))===field),byId=new Map(remote.map(row=>[row.recordId,row])),pending=await getV5Outbox(scope,e.databaseScope),conflicts=await getV5Conflicts(e.databaseScope);
     const blocked=new Set(conflicts.filter(row=>row.scope===scope&&row.recordId.slice(0,row.recordId.indexOf(':'))===field).map(row=>row.recordId)),pendingIds=new Set(pending.filter(row=>row.scope===scope&&row.recordId.slice(0,row.recordId.indexOf(':'))===field).map(row=>row.recordId));
     const wantedById=new Map(wanted.map(row=>[row.recordId,row]));
@@ -295,7 +295,7 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     return {enabled,authoritativeSchedule:enabled&&SYNC_V5_SCHEDULE_SCOPES.every(scope=>scopes.includes(scope)),scopes,
       writingCollections:enabled&&flags?.writingCollections===true&&scopes.includes('workspace')};
   }
-  async function synchronize(requestedScopes:readonly (SyncV5Scope|SyncV5ResourceTarget)[],options:{resetCursors?:boolean;requireAllTargets?:boolean}={}){
+  async function synchronize(requestedScopes:readonly (SyncV5Scope|SyncV5ResourceTarget)[],options:{resetCursors?:boolean;requireAllTargets?:boolean;explicitScheduleReplacement?:boolean}={}){
     const authority=await refreshAuthority();if(!authority.enabled)return {enabled:false,authoritativeSchedule:false,scopes:authority.scopes,conflicts:await getV5Conflicts(e.databaseScope)};
     const {scopes}=authority;
     // Snapshot current local edits before remote pages can replace their resource rows.
@@ -305,7 +305,7 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     const requiredTargetKeys=new Set(requestedTargets.filter(item=>!WRITING_COLLECTIONS.some(collection=>collection.field===item.field)||authority.writingCollections).map(item=>`${item.scope}\0${item.field}`));
     if(options.requireAllTargets&&uniqueTargets.length!==requiredTargetKeys.size)
       throw Object.assign(Error('V5 云端尚未启用全部资源范围；本机缓存和同步游标均未清理。'),{code:'SYNC_V5_SCOPE_INCOMPLETE'});
-    for(const target of uniqueTargets)await captureLocalChanges(target.scope,target.field);
+    for(const target of uniqueTargets)await captureLocalChanges(target.scope,target.field,options.explicitScheduleReplacement===true);
     // Capture edits against their existing confirmed checkpoints first. Reset
     // only after the capability response proves every requested scope is available.
     if(options.resetCursors)for(const target of uniqueTargets)await setV5Cursor(target.scope,null,e.databaseScope,target.field);
@@ -318,7 +318,7 @@ export function createV5ResourceSync(environment:ResourceSyncEnvironment){
     }
     const workspaceFields=uniqueTargets.filter(target=>target.scope==='workspace').map(target=>target.field);
     if(workspaceFields.length){const preparation=await prepareV5WorkspaceAuthority(workspaceFields,e.databaseScope);await e.setWorkspaceAuthorityKeys?.(preparation.authoritativeKeys);}
-    for(const target of uniqueTargets)await captureLocalChanges(target.scope,target.field);
+    for(const target of uniqueTargets)await captureLocalChanges(target.scope,target.field,options.explicitScheduleReplacement===true);
     const written=new Set<SyncV5Scope>();
     for(const scope of scopes)if(await push(scope,authority.writingCollections))written.add(scope);
     for(const target of uniqueTargets)if(written.has(target.scope))await pull(target);

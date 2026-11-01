@@ -157,6 +157,30 @@ test('empty local collections do not become cloud delete-all operations',async()
   }
 });
 
+test('an explicit resolved Schedule replacement durably queues tombstones for empty or missing fields',async()=>{
+  for(const value of [{schemaVersion:1,cues:[]},{schemaVersion:1}]){
+    const databaseScope=id(),cue={id:'cloud-cue',prompt:'review'},hash=(row:unknown)=>createHash('sha256').update(canonicalJson(row)).digest('hex');
+    const records=[
+      {scope:'cue' as const,recordId:'cues:%24order',revision:5,contentHash:hash(['cloud-cue']),deleted:false,updatedAt:'now',value:['cloud-cue']},
+      {scope:'cue' as const,recordId:'cues:cloud-cue',revision:6,contentHash:hash(cue),deleted:false,updatedAt:'now',value:cue},
+    ];
+    await commitV5ResourcePage('cue',records,{scope:'cue',field:'cues',mode:'changes',after:'',cursor:9,head:9},databaseScope);
+    await seed(databaseScope,JSON.stringify(value));
+    const engine=createV5ResourceSync({databaseScope,request:async url=>{
+      const parsed=new URL(url,'https://sync.test');
+      if(parsed.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:['cue']});
+      throw Error('stop after explicit resolution intent is persisted');
+    },deviceId:async()=>crypto.randomUUID(),readSchedule:()=>JSON.stringify(value),projectSchedule:async()=>{},setAuthority:()=>{},uuid:()=>crypto.randomUUID()});
+    await assert.rejects(engine.synchronize([{scope:'cue',field:'cues'}],{explicitScheduleReplacement:true}),/explicit resolution intent/);
+    const queued=await getV5Outbox('cue',databaseScope);
+    assert.deepEqual(queued.map(row=>[row.recordId,row.deleted]).sort(),[['cues:%24order',!Object.hasOwn(value,'cues')],['cues:cloud-cue',true]].sort());
+    const order=queued.find(row=>row.recordId==='cues:%24order');
+    assert.equal(order?.baseRevision,5);
+    if(Object.hasOwn(value,'cues'))assert.deepEqual(order?.value,[]);
+    assert.equal(queued.find(row=>row.recordId==='cues:cloud-cue')?.baseRevision,6);
+  }
+});
+
 test('confirmed removal of the last CUE study draft remains queued with an empty draft map',async()=>{
   const databaseScope=id(),recordId='cueStudyDrafts:subject-1',draft={id:'draft-1',task:{key:'task-1'}},hash=createHash('sha256').update(canonicalJson(draft)).digest('hex');
   await commitV5ResourcePage('cue',[{scope:'cue',recordId,revision:4,contentHash:hash,deleted:false,updatedAt:'now',value:draft}],

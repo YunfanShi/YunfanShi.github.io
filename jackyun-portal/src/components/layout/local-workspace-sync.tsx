@@ -188,6 +188,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
         if(!cancelled&&!signingOut&&queuedRouteSync)void sync(false,false,undefined,'route');
       },delay);
     };
+    async function resolveLegacyConflict(request:SyncResolutionRequest){
+      const conflict=(await accountStore.getConflicts()).find(row=>row.operationId===request.operationId);
+      await engine.resolve(request.operationId,request.choice,request.review);
+      if(conflict?.key!=='jackyun_schedule_control_v1'||!v5Authority)return;
+      const operation=(await accountStore.getOutbox()).find(row=>row.key===conflict.key&&row.resolvesOperationId===conflict.operationId);
+      if(!operation)throw Error('Schedule 合并结果已变化；旧冲突队列仍保留，请重新查看后处理。');
+    }
     async function sync(manual=false,allowHidden=false,resolution?:SyncResolutionRequest,reason=manual?'manual':'periodic') {
       if(cancelled||signingOut)return;
       if(reason==='route')queuedRouteSync=true;
@@ -213,13 +220,13 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           if(queuedBatches.length){
             const batch=queuedBatches.shift()!;
             if(batch.legacy.length)v5ReconcileRequested=true;
-            const result=await runConflictBatch(batch,request=>engine.resolve(request.operationId,request.choice,request.review),
+            const result=await runConflictBatch(batch,resolveLegacyConflict,
               (conflict,choice)=>v5Sync.resolveConflict(conflict.operationId,choice,conflict));
             if(result.failures.length)throw Error(`已处理 ${result.completed} 项，${result.failures.length} 项未完成并保留：${result.failures[0].message}`);
           }
           while(queuedResolutions.length){
             const resolution=queuedResolutions.shift()!;
-            await engine.resolve(resolution.operationId,resolution.choice,resolution.review);
+            await resolveLegacyConflict(resolution);
           }
           await flushLocalWrites();await engine.capture();
           if(!navigator.onLine){await publish('offline_pending');return false;}
@@ -234,9 +241,17 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           const fullTargets=allV5ResourceTargets();
           const fullV5Run=reason==='v5-refresh'||v5ReconcileRequested||!bootstrapComplete;
           const requestedTargets=bootstrapComplete&&!fullV5Run?[...resourceFieldsForPath(routeForRun),...restoreTargets]:fullTargets;
-          const v5Result=await v5Sync.synchronize(requestedTargets,{resetCursors:reason==='v5-refresh',requireAllTargets:fullV5Run});
+          const resolvedScheduleOperations=(await accountStore.getOutbox()).filter(row=>row.key==='jackyun_schedule_control_v1'&&Boolean(row.resolvesOperationId));
+          const v5Result=await v5Sync.synchronize(requestedTargets,{resetCursors:reason==='v5-refresh',requireAllTargets:fullV5Run,explicitScheduleReplacement:resolvedScheduleOperations.length>0});
           v5Enabled=v5Result.enabled;
           if(!v5Result.enabled)throw Object.assign(Error('V5 云端同步暂不可用，本机数据与待上传队列已保留。'),{status:503,code:'SYNC_V5_UNAVAILABLE'});
+          if(resolvedScheduleOperations.length){
+            for(const scheduledResolution of resolvedScheduleOperations){
+              const operation=(await accountStore.getOutbox()).find(row=>row.id===scheduledResolution.id);
+              if(operation&&!await accountStore.replaceOperation(operation,null))throw Error('V5 资源已处理，但旧 Schedule 冲突队列刚被其他标签页修改；该队列已保留，请重新同步。');
+            }
+            resolvedScheduleOperations.length=0;
+          }
           const fullScopeSet=SYNC_V5_SCOPES.every(scope=>v5Result.scopes?.includes(scope));
           const fullTargetSet=fullTargets.filter(target=>v5Result.writingCollectionsEnabled||!['writingEssays','writingErrorHistory','writingArchive'].includes(target.field))
             .every(target=>v5Result.processedTargets?.some(row=>row.scope===target.scope&&row.field===target.field));
