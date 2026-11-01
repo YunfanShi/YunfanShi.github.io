@@ -239,9 +239,9 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           const restoreTargets=await syncStore.getV5RestoreTargets(accountStore.databaseScope);
           const bootstrapComplete=await accountStore.getSetting<boolean>('v5FullBootstrapComplete')===true;
           const fullTargets=allV5ResourceTargets();
-          const fullV5Run=reason==='v5-refresh'||v5ReconcileRequested||!bootstrapComplete;
-          const requestedTargets=bootstrapComplete&&!fullV5Run?[...resourceFieldsForPath(routeForRun),...restoreTargets]:fullTargets;
           const resolvedScheduleOperations=(await accountStore.getOutbox()).filter(row=>row.key==='jackyun_schedule_control_v1'&&Boolean(row.resolvesOperationId));
+          const fullV5Run=reason==='v5-refresh'||v5ReconcileRequested||!bootstrapComplete||resolvedScheduleOperations.length>0;
+          const requestedTargets=bootstrapComplete&&!fullV5Run?[...resourceFieldsForPath(routeForRun),...restoreTargets]:fullTargets;
           const v5Result=await v5Sync.synchronize(requestedTargets,{resetCursors:reason==='v5-refresh',requireAllTargets:fullV5Run,explicitScheduleReplacement:resolvedScheduleOperations.length>0});
           v5Enabled=v5Result.enabled;
           if(!v5Result.enabled)throw Object.assign(Error('V5 云端同步暂不可用，本机数据与待上传队列已保留。'),{status:503,code:'SYNC_V5_UNAVAILABLE'});
