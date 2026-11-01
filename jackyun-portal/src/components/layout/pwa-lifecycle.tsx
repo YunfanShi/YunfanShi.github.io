@@ -11,6 +11,7 @@ export default function PwaLifecycle() {
   const [dismissed, setDismissed] = useState(false);
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const reloadRequested = useRef(false);
+  const dismissedFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') return;
@@ -42,6 +43,7 @@ export default function PwaLifecycle() {
         const newer = latest.length === 3 && current.length === 3 && latest.every(Number.isInteger) && current.every(Number.isInteger)
           && latest.some((part, index) => part > current[index] && latest.slice(0, index).every((prior, priorIndex) => prior === current[priorIndex]));
         setLatestVersion(newer ? result.version : null);
+        if (newer && dismissedFor.current !== result.version) setDismissed(false);
       } catch {
         // Version checks are best effort; offline access and local data stay untouched.
       }
@@ -120,7 +122,7 @@ export default function PwaLifecycle() {
         <p className="text-sm font-semibold text-[var(--foreground)]">JackYun 已有新版本{latestVersion ? ` v${latestVersion}` : ''}</p>
         <p className="text-xs text-[var(--muted-foreground)]">刷新后即可使用，当前数据不会丢失。</p>
       </div>
-      <button type="button" onClick={() => setDismissed(true)} className="rounded-lg px-2 py-2 text-xs text-[var(--muted-foreground)]">稍后</button>
+      <button type="button" onClick={() => { dismissedFor.current = latestVersion ?? 'service-worker'; setDismissed(true); }} className="rounded-lg px-2 py-2 text-xs text-[var(--muted-foreground)]">稍后</button>
       <button type="button" onClick={() => { reloadRequested.current = true; if (waitingWorker) { waitingWorker.postMessage({ type: 'SKIP_WAITING' }); window.setTimeout(() => { if (reloadRequested.current) window.location.reload(); }, 4000); } else { const url = new URL(window.location.href); url.searchParams.set('_jackyun_reopen', String(Date.now())); window.location.assign(url.href); } }} className="rounded-lg bg-[var(--brand)] px-3 py-2 text-xs font-semibold text-white dark:text-[#202124]">刷新</button>
     </div>
   );
