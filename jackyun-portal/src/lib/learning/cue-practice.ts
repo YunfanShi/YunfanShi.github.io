@@ -10,7 +10,7 @@ export function rescheduleCuePractice(state: CuePracticeState, now: number, poli
 }
 export type CuePracticeItem = { cueId: string; after: number; availableAt: number; policy?: 2 };
 export type CuePracticeResult = { status: LearningStatus; attempts: number; reviewedAt: number; passes?: number };
-export type CuePracticeState = { completed: number; pending: CuePracticeItem[]; active?: string; rating?: LearningStatus; returnCueId?: string; mode?: boolean; lastCueId?: string; results?: Record<string, CuePracticeResult> };
+export type CuePracticeState = { completed: number; pending: CuePracticeItem[]; active?: string; rating?: LearningStatus; returnCueId?: string; automaticReturnCueId?: string; mode?: boolean; lastCueId?: string; results?: Record<string, CuePracticeResult> };
 export const emptyCuePractice = (): CuePracticeState => ({ completed: 0, pending: [] });
 const integer = (min: number, max: number, random: () => number) => min + Math.floor(Math.min(.999999999, Math.max(0, random())) * (max - min + 1));
 const schedule = (cueId: string, status: LearningStatus, completed: number, now: number, random: () => number): CuePracticeItem => ({
@@ -87,7 +87,10 @@ export function latestCuePracticeAttempt(reviews: CueReview[], cueId: string) {
   return reviews.filter(review => review.cueId === cueId).toSorted((left, right) => right.reviewedAt.localeCompare(left.reviewedAt))[0]?.practiceAttempts?.at(-1);
 }
 
-/** An inserted retry returns to its saved normal Cue immediately on success. */
+/** An inserted automatic retry returns to its saved normal Cue after any rating. */
 export function finishAutomaticCuePractice(state: CuePracticeState, status: LearningStatus): CuePracticeState {
-  return state.active && !state.mode && status === 'stable' ? { ...state, active: undefined, rating: undefined, returnCueId: undefined } : state;
+  const hasRating = status === 'stable' || status === 'partial' || status === 'unclear';
+  return state.active && !state.mode && hasRating
+    ? { ...state, active: undefined, rating: undefined, automaticReturnCueId: state.returnCueId, returnCueId: undefined }
+    : state;
 }
