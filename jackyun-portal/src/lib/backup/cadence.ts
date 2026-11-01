@@ -1,7 +1,7 @@
 // A checkpoint happens after enough changed data OR enough time with changes.
 // Both counters restart after a successful checkpoint.
 export const BACKUP_CHANGE_BYTES = 4 * 1024 * 1024;
-export const BACKUP_MAX_WAIT_MS = 15 * 60_000;
+export const BACKUP_MAX_WAIT_MS = 30_000;
 export const BACKUP_CHANGE_CAP_BYTES = 1024 * 1024;
 
 export type PendingBackup = { bytes: number; firstChangedAt: number };

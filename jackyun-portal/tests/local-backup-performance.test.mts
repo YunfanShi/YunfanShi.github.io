@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { IDBFactory, IDBKeyRange, IDBIndex, IDBObjectStore } from 'fake-indexeddb';
-import { listLocalBackups, pruneLocalBackups, saveLocalBackup } from '../src/lib/backup/local.ts';
+import { ensureFiveLocalBackups, listLocalBackups, pruneLocalBackups, saveLocalBackup } from '../src/lib/backup/local.ts';
+import { ALL_BACKUP_PAGES } from '../src/lib/backup/pages.ts';
 import { applyLocalPageImport, parseLocalPageBackup } from '../src/lib/backup/local-import.ts';
 
 function installDatabase() {
@@ -31,7 +32,7 @@ function countMaterializedVersions() {
   } };
 }
 
-test('saving a large page reads only its latest snapshot and preserves the newest ten versions', async () => {
+test('saving a large page reads only its latest snapshot and preserves the newest five versions', async () => {
   installDatabase();
   const large = '课表笔记'.repeat(100_000);
   for (let i = 0; i < 10; i++) await saveLocalBackup('alice', 'schedule', { large, revision: String(i) });
@@ -41,9 +42,24 @@ test('saving a large page reads only its latest snapshot and preserves the newes
     assert.equal(reads.count, 1, 'Do not deserialize ten historical payloads to retain ten IDs');
   } finally { reads.restore(); }
   const rows = await listLocalBackups('alice', 'schedule');
-  assert.equal(rows.length, 10);
+  assert.equal(rows.length, 5);
   assert.equal(rows[0].values.revision, '10');
-  assert.equal(rows.at(-1)!.values.revision, '1');
+  assert.equal(rows.at(-1)!.values.revision, '6');
+});
+
+test('every backup page starts with five restore points, including pages with no saved keys', async () => {
+  installDatabase();
+  for(const page of ALL_BACKUP_PAGES)await ensureFiveLocalBackups('alice',page,page==='schedule'?{schedule:'current'}:{});
+  for(const page of ALL_BACKUP_PAGES){
+    const rows=await listLocalBackups('alice',page);
+    assert.equal(rows.length,5,page);
+    assert.deepEqual(rows[0].values,page==='schedule'?{schedule:'current'}:{});
+  }
+  await ensureFiveLocalBackups('alice','schedule',{schedule:'new'});
+  const schedule=await listLocalBackups('alice','schedule');
+  assert.equal(schedule.length,5);
+  assert.equal(schedule[0].values.schedule,'new');
+  assert.equal(schedule[1].values.schedule,'current');
 });
 
 test('unchanged snapshots with a different property order do not create duplicate backups', async () => {
@@ -73,8 +89,8 @@ test('retention scans keys without reading snapshots and never prunes another ac
   });
   const reads = countMaterializedVersions();
   try { await pruneLocalBackups('alice'); assert.equal(reads.count, 0); } finally { reads.restore(); }
-  assert.equal((await listLocalBackups('alice', 'schedule')).length, 10);
-  assert.equal((await listLocalBackups('alice', 'quiz')).length, 10);
+  assert.equal((await listLocalBackups('alice', 'schedule')).length, 5);
+  assert.equal((await listLocalBackups('alice', 'quiz')).length, 5);
   assert.equal((await listLocalBackups('bob', 'schedule')).length, 14);
 });
 
@@ -89,8 +105,8 @@ test('a failed insertion aborts pruning and leaves all previous versions intact'
   try { await assert.rejects(saveLocalBackup('alice', 'schedule', { revision: 'failed' })); }
   finally { IDBObjectStore.prototype.add = original; }
   const rows = await listLocalBackups('alice', 'schedule');
-  assert.equal(rows.length, 10);
-  assert.deepEqual(rows.map(row => row.values.revision), ['9', '8', '7', '6', '5', '4', '3', '2', '1', '0']);
+  assert.equal(rows.length, 5);
+  assert.deepEqual(rows.map(row => row.values.revision), ['9', '8', '7', '6', '5']);
 });
 
 test('large local Schedule import saves a durable recovery point before writing and waits for IndexedDB flush', async () => {

@@ -2,7 +2,8 @@
 
 import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
-import { ALL_BACKUP_PAGES, normalizeBackupPages, type BackupPage, type BackupTable } from '@/lib/backup/pages';
+import { ALL_BACKUP_PAGES, isBackupableLegacyKey, legacyBackupPage, normalizeBackupPages, type BackupPage, type BackupTable } from '@/lib/backup/pages';
+import { createLocalShare } from '@/lib/backup/local-share';
 import { canonicalJson } from '@/lib/sync/hash';
 import { inspectCloudBackup, type BackupInspection } from '@/lib/backup/inspection';
 import type { DataArchiveV2, SyncRecord } from '@/types/sync';
@@ -49,6 +50,29 @@ export async function createBackupVersion(page: BackupPage): Promise<number> {
   return data;
 }
 
+/** Store an explicitly selected local page snapshot as a server backup only. */
+export async function uploadLocalPageBackup(page: BackupPage, values: Record<string,string>): Promise<number> {
+  normalizeBackupPages([page]);
+  if(!values||typeof values!=='object'||Array.isArray(values)||Object.keys(values).length>20_000)throw new Error('页面备份数据格式无效。');
+  for(const [key,value] of Object.entries(values)){
+    if(typeof value!=='string'||!isBackupableLegacyKey(key)||legacyBackupPage(key)!==page)throw new Error(`不允许上传的页面数据键：${key}`);
+  }
+  const now=new Date().toISOString();
+  const sync_records=Object.entries(values).map(([storage_key,storage_value])=>({
+    user_id:'',storage_key,storage_value,revision:1,
+    content_hash:createHash('sha256').update(canonicalJson(storage_value)).digest('hex'),
+    deleted_at:null,client_updated_at:now,updated_at:now,
+  }));
+  const {supabase,user}=await context();
+  for(const row of sync_records)row.user_id=user.id;
+  if(Buffer.byteLength(JSON.stringify(sync_records),'utf8')>64*1024*1024)throw new Error('所选页面超过服务器备份大小限制，请改用本地 JSON 文件。');
+  const {data,error}=await supabase.rpc('create_backup_page_with_sync',{
+    target_page:page,sync_records,backup_reason:'manual',
+  });
+  if(error||typeof data!=='number'||!Number.isSafeInteger(data)||data<=0)throw new Error(`服务器备份未保存：${error?.message??'没有返回版本编号'}`);
+  return data;
+}
+
 export async function createDueBackupVersions() {
   return attemptScheduledBackup(async () => {
     const { supabase,user } = await context();
@@ -73,6 +97,25 @@ export async function downloadBackupVersion(id: number): Promise<DataArchiveV2<B
   const tables = data.snapshot as DataArchiveV2<BackupTable>['tables'];
   const checksum = createHash('sha256').update(canonicalJson(tables)).digest('hex');
   return { version: 2, schema_version: 'sync-v2', exported_at: data.created_at, checksum, tables };
+}
+
+/** Export a server backup as the portable, page-labeled JSON used by Local Share. */
+export async function downloadBackupVersionAsLocalShare(id:number):Promise<ReturnType<typeof createLocalShare>>{
+  if(!Number.isSafeInteger(id)||id<=0)throw new Error('备份编号无效。');
+  const {supabase,user}=await context();
+  const {data,error}=await supabase.from('backup_center_versions').select('page,snapshot').eq('user_id',user.id).eq('id',id).maybeSingle();
+  if(error||!data||!ALL_BACKUP_PAGES.includes(data.page))throw new Error('云端备份不存在或无法读取。');
+  const tables=data.snapshot as Partial<Record<BackupTable,Array<Record<string,unknown>>>>;
+  const rows=tables.legacy_sync_data??[];
+  const values:Record<string,string>={};
+  for(const row of rows){
+    const key=row.storage_key??row.key;
+    const value=row.storage_value??row.value;
+    if(typeof key==='string'&&typeof value==='string'&&isBackupableLegacyKey(key)&&legacyBackupPage(key)===data.page){
+      values[key]=value;
+    }
+  }
+  return createLocalShare(values,[data.page as BackupPage]);
 }
 
 export async function inspectBackupVersion(id: number): Promise<BackupInspection> {

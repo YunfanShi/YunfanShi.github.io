@@ -1,4 +1,6 @@
 export const SYNC_PAUSE_CHANGED_EVENT = 'jackyun-sync-pause-changed';
+/** Emergency local-only mode. Flip only after a reviewed and approved resume. */
+export const SYNC_SYSTEM_PAUSED = true;
 const STORAGE_PREFIX = 'jackyun_sync_pause_until_v1:';
 
 function storageKey(userId: string) {

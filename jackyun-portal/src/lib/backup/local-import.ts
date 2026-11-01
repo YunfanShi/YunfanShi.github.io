@@ -16,10 +16,16 @@ type LocalPageImportOptions = {
   owner: string;
   values: Record<string, string>;
   deletedKeys?: string[];
+  expectedCurrent?:Record<string,string>;
   storage: LocalPageImportStorage;
   saveRecoveryPoint: (owner: string, page: BackupPage, values: Record<string, string>) => Promise<void>;
   queueV5Targets?: (targets: ReturnType<typeof resourceTargetsForStorageKeys>) => Promise<void>;
 };
+
+/** Keys omitted from a selected page snapshot are removed only for that page. */
+export function localPageReplacementDeletes(page:BackupPage,current:Record<string,string>,incoming:Record<string,string>):string[]{
+  return Object.keys(current).filter(key=>isBackupableLegacyKey(key)&&legacyBackupPage(key)===page&&!Object.hasOwn(incoming,key));
+}
 
 function validateValues(values: Record<string, string>, page: BackupPage): void {
   for (const [key, value] of Object.entries(values)) {
@@ -60,6 +66,8 @@ export async function applyLocalPageImport(options: LocalPageImportOptions): Pro
     const value = storage.getItem(key);
     if (value !== null) current[key] = value;
   }
+
+  if(options.expectedCurrent&&JSON.stringify(Object.entries(current).sort(([a],[b])=>a.localeCompare(b)))!==JSON.stringify(Object.entries(options.expectedCurrent).sort(([a],[b])=>a.localeCompare(b))))throw new Error('本机页面在导入期间发生了变化，已停止替换。');
 
   await saveRecoveryPoint(owner, page, localPageValues(current, page));
   for (const [key, value] of Object.entries(values)) storage.setItem(key, value);
