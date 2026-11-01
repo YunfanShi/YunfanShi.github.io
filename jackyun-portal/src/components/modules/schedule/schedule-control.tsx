@@ -348,6 +348,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   const practiceIds = cuePracticeDirectory(practice);
   const practiceCues = practiceIds.flatMap(id => { const cue = allCues.find(item => item.id === id); return cue ? [cue] : []; });
   const passedPracticeCount = Object.values(practice.results ?? {}).filter(result => result.status === 'stable').length;
+  const practiceMode = practice.active && !practice.mode ? 'automatic' : practice.mode ? 'manual' : undefined;
   const returnToRound = () => {
     setIndex(cuePracticeReturnIndex(practice, cues.map(cue => cue.id), currentIndex));
     setPractice(state => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined, automaticReturnCueId: undefined }));
@@ -563,6 +564,13 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
 
       <main data-cue-study-page data-cue-study-content key={`${current?.id}:${practice.active ?? "initial"}`} data-revealed={revealed} className={`${styles.studyMain} ${styles.studyTransition} mx-auto flex min-h-[calc(100dvh-110px)] min-w-0 max-w-[1440px] flex-col px-3 py-3 sm:px-8 sm:py-4`}>
         {saveError && <p role="alert" className="p-3">{saveError}</p>}
+        {practiceMode && <div data-cue-practice-mode={practiceMode} role="status" aria-live="polite" className={`mb-4 flex items-start gap-3 rounded-2xl border-l-4 p-4 shadow-sm ${practiceMode === 'automatic' ? 'border-amber-500 bg-amber-50 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100' : 'border-violet-500 bg-violet-50 text-violet-950 dark:bg-violet-950/50 dark:text-violet-100'}`}>
+          <span aria-hidden="true" className="material-icons-round mt-0.5 text-xl">{practiceMode === 'automatic' ? 'schedule' : 'playlist_play'}</span>
+          <div className="min-w-0">
+            <p className="font-bold">{practiceMode === 'automatic' ? '自动到期重练' : '手动到期重练'}</p>
+            <p className="mt-1 text-sm leading-5">{practiceMode === 'automatic' ? '系统按间隔插入了这道题；判定后会回到刚才正在学习的题。' : '你主动进入了重练队列；完成本题后仍留在队列中，可随时点“返回本轮”。'}</p>
+          </div>
+        </div>}
         {groupSummaryIndex === groupIndex && !practice.active && !practice.mode ? <section data-cue-group-summary role="status" aria-labelledby="cue-group-summary-title" className="m-auto flex min-h-[58dvh] w-full max-w-6xl flex-col justify-center rounded-[28px] border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl sm:p-10">
           <div className="text-center"><p className="text-xs font-semibold uppercase tracking-[.18em] text-[var(--brand)]">本组学习总结</p><h2 id="cue-group-summary-title" className="mt-3 text-2xl font-semibold sm:text-4xl">第 {groupIndex + 1} 组完成</h2><p className="mt-2 text-sm text-[var(--muted-foreground)]">这组共检索 {groupCues.length} 条，结果已自动保存。</p></div>
           <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-4">

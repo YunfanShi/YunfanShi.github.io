@@ -35,6 +35,7 @@ try {
   await repeatButton.waitFor({timeout:10_000});
   assert.equal(await repeatButton.isEnabled(),true);
   await repeatButton.click();
+  assert.ok((await session.locator('[data-cue-practice-mode="manual"]').innerText()).includes('手动到期重练'), 'learner-started retries are clearly labeled separately');
   assert.ok((await prompt.innerText()).includes('循环重练题 1'));
   const directory=session.locator('details[data-cue-practice-directory]');
   await directory.locator('summary').click();
