@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { editCueAnswerCard, compareCueAnswerCard, checkCueAnswerPoint, cueAnswerCardId } from '../src/lib/learning/cue-answer-card.ts';
+import { checkpointCueAnswerDraft, moveCueAnswerDraftHistory, parseCueAnswerDraftHistory, writeCueAnswerDraftHistory, readCueAnswerDraftHistory } from '../src/lib/learning/cue-answer-draft-history.ts';
 import { createEmptyScheduleState, type StudyCue } from '../src/lib/learning/schedule-control.ts';
 const cue = { id: 'c', prompt: 'Mean?', answer: 'sum / n', markingPoints: ['Sum values', 'Divide by count'], version: 2 } as StudyCue;
 test('comparison automatically checks local matches once and preserves manual adjustments', () => {
@@ -39,6 +40,24 @@ test('answers persist per session with unambiguous identities and bounded input'
   assert.notEqual(cueAnswerCardId('a:b', 'c'), cueAnswerCardId('a', 'b:c'));
   const restored = JSON.parse(JSON.stringify({ ...createEmptyScheduleState(), cueAnswerCards: cards }));
   assert.deepEqual(restored.cueAnswerCards, cards);
+});
+
+test('local answer drafts checkpoint five recoverable versions, branch after restore, and survive serialization', () => {
+  const storage = new Map<string, string>();
+  const adapter = { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value) };
+  let history = parseCueAnswerDraftHistory(undefined, 'start', 't0');
+  for (let index = 1; index <= 6; index++) {
+    history = { ...history, text: `version ${index}` };
+    history = checkpointCueAnswerDraft(history, `t${index}`);
+  }
+  assert.deepEqual(history.versions.map((version) => version.text), ['version 2', 'version 3', 'version 4', 'version 5', 'version 6']);
+  history = moveCueAnswerDraftHistory(history, -1);
+  assert.equal(history.text, 'version 5');
+  history = { ...history, text: 'revised from v5' };
+  history = checkpointCueAnswerDraft(history, 't7');
+  assert.deepEqual(history.versions.map((version) => version.text), ['version 2', 'version 3', 'version 4', 'version 5', 'revised from v5']);
+  assert.equal(writeCueAnswerDraftHistory('session', 'cue', history, adapter), true);
+  assert.deepEqual(readCueAnswerDraftHistory('session', 'cue', '', adapter), history);
 });
 
 test('single answer-card shortcut insertions close without changing saved answers', async () => {

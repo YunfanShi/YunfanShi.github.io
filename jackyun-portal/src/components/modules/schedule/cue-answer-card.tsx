@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { StudyCue } from '@/lib/learning/schedule-control';
-import { bufferedCueAnswer, cueAnswerInput, isCueAnswerShortcut, type CueAnswerCard } from '@/lib/learning/cue-answer-card';
+import { cueAnswerInput, isCueAnswerShortcut, type CueAnswerCard } from '@/lib/learning/cue-answer-card';
+import { checkpointCueAnswerDraft, CUE_ANSWER_DRAFT_HISTORY_DELAY, moveCueAnswerDraftHistory, readCueAnswerDraftHistory, writeCueAnswerDraftHistory, type CueAnswerDraftHistory } from '@/lib/learning/cue-answer-draft-history';
 import LatexRenderer from '../latex-renderer';
 import styles from './schedule-control.module.css';
 import { callAiApi } from '@/lib/ai-config';
@@ -13,26 +14,56 @@ function SharedText({ text, other }: { text: string; other: string }) {
   return <p className="whitespace-pre-wrap break-words text-sm">{sharedCueSpans(text, other).map((span, index) => span.matched ? <mark key={index} className="rounded bg-amber-200 text-black dark:bg-amber-300">{span.text}</mark> : <span key={index}>{span.text}</span>)}</p>;
 }
 
-export default function CueAnswerCardPanel({ cue, card, previousCards, legacyMemo, inputRef, onText, onCompare, onCheck, onClose }: {
-  cue: StudyCue; card?: CueAnswerCard; previousCards: CueAnswerCard[]; legacyMemo?: string; inputRef: RefObject<HTMLTextAreaElement | null>;
-  onText: (text: string) => void; onCompare: () => void; onCheck: (index: number, checked: boolean) => void; onClose: () => void;
+export default function CueAnswerCardPanel({ sessionId, cue, card, previousCards, legacyMemo, inputRef, onCompare, onCheck, onClose }: {
+  sessionId: string; cue: StudyCue; card?: CueAnswerCard; previousCards: CueAnswerCard[]; legacyMemo?: string; inputRef: RefObject<HTMLTextAreaElement | null>;
+  onCompare: (text: string) => void; onCheck: (index: number, checked: boolean) => void; onClose: () => void;
 }) {
-  const [buffer] = useState(() => bufferedCueAnswer(onText));
-  useEffect(() => { buffer.setSave(onText); }, [buffer, onText]);
   const [text, setText] = useState(card?.text ?? '');
-  useEffect(() => { if (!buffer.pending) queueMicrotask(() => setText(card?.text ?? '')); }, [buffer, card?.text]);
-  const prompt = useMemo(() => <LatexRenderer content={cue.prompt} />, [cue.prompt]);
-  const close = () => { buffer.flush(); onClose(); };
+  const [history, setHistory] = useState<CueAnswerDraftHistory>(() => ({ text: card?.text ?? '', versions: [{ text: card?.text ?? '', savedAt: '' }], activeIndex: 0 }));
+  const [savedLocally, setSavedLocally] = useState(true);
+  const historyRef = useRef(history);
+  const checkpointTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hydrated = useRef(false);
+  const updateHistory = useCallback((next: CueAnswerDraftHistory, persist = true) => {
+    historyRef.current = next;
+    setHistory(next);
+    if (persist) setSavedLocally(writeCueAnswerDraftHistory(sessionId, cue.id, next));
+  }, [sessionId, cue.id]);
+  const checkpoint = useCallback(() => {
+    if (checkpointTimer.current) clearTimeout(checkpointTimer.current);
+    checkpointTimer.current = null;
+    updateHistory(checkpointCueAnswerDraft(historyRef.current, new Date().toISOString()));
+  }, [updateHistory]);
+  const saveDraft = useCallback((value: string) => {
+    const branch = historyRef.current.versions.slice(0, historyRef.current.activeIndex + 1);
+    const next = { ...historyRef.current, text: value.slice(0, 10_000), versions: branch, activeIndex: branch.length - 1 };
+    updateHistory(next);
+    setText(next.text);
+    if (checkpointTimer.current) clearTimeout(checkpointTimer.current);
+    checkpointTimer.current = setTimeout(() => {
+      checkpointTimer.current = null;
+      updateHistory(checkpointCueAnswerDraft(historyRef.current, new Date().toISOString()));
+    }, CUE_ANSWER_DRAFT_HISTORY_DELAY);
+  }, [updateHistory]);
   useEffect(() => {
-    const flush = () => buffer.flush();
+    if (hydrated.current) return;
+    hydrated.current = true;
+    const restored = readCueAnswerDraftHistory(sessionId, cue.id, card?.text ?? '');
+    updateHistory(restored, false);
+    setText(restored.text);
+  }, [sessionId, cue.id, card?.text, updateHistory]);
+  const prompt = useMemo(() => <LatexRenderer content={cue.prompt} />, [cue.prompt]);
+  const close = () => { checkpoint(); onClose(); };
+  useEffect(() => {
+    const flush = () => checkpoint();
     window.addEventListener('pagehide', flush);
-    return () => { window.removeEventListener('pagehide', flush); flush(); };
-  }, [buffer]);
+    return () => { window.removeEventListener('pagehide', flush); if (checkpointTimer.current) clearTimeout(checkpointTimer.current); };
+  }, [checkpoint]);
   const [compositionText, setCompositionText] = useState<string | null>(null);
   const acceptInput = (value: string, inserted?: string | null) => {
     const result = cueAnswerInput(compositionText ?? text, value, inserted);
     if (result.close) close();
-    else { setText(result.text); buffer.write(result.text); }
+    else saveDraft(result.text);
   };
   const comparison = text.trim() && text === card?.text ? card.comparison : undefined;
   const local = useMemo(() => comparison ? localCueSelfCheck(text, comparison.answer, comparison.markingPoints) : null, [text, comparison]);
@@ -76,12 +107,12 @@ export default function CueAnswerCardPanel({ cue, card, previousCards, legacyMem
       if (!event.repeat) close();
     }
   }}>
-    <header className="flex items-start gap-3 border-b border-[var(--card-border)] p-4"><span className="material-icons-round text-[var(--brand)]">edit_note</span><div className="min-w-0 flex-1"><h2 className="font-semibold">CUE 答题卡</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">自动保存 · 按 ～ / · 收起</p></div><button aria-label="关闭答题卡" className="h-11 w-11 shrink-0 rounded-xl border border-[var(--card-border)]" onClick={close}>×</button></header>
-    <div className="space-y-4 overflow-y-auto p-4"><p className="text-sm font-semibold">{prompt}</p><label className="block text-sm">我的作答<textarea ref={inputRef} aria-label="CUE 我的作答" rows={4} maxLength={10_000} className={styles.answerInput} value={compositionText ?? text} onCompositionStart={() => setCompositionText(text)} onCompositionEnd={(event) => { setCompositionText(null); acceptInput(event.currentTarget.value, event.data); }} onBlur={() => buffer.flush()} onChange={(event) => {
-        if (compositionText !== null || (event.nativeEvent as InputEvent).isComposing) setCompositionText(event.target.value);
+    <header className="flex items-start gap-3 border-b border-[var(--card-border)] p-4"><span className="material-icons-round text-[var(--brand)]">edit_note</span><div className="min-w-0 flex-1"><h2 className="font-semibold">CUE 答题卡</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">草稿仅保存在本机 · 最多 5 个版本 · 按 ～ / · 收起</p></div><button aria-label="关闭答题卡" className="h-11 w-11 shrink-0 rounded-xl border border-[var(--card-border)]" onClick={close}>×</button></header>
+    <div className="space-y-4 overflow-y-auto p-4"><p className="text-sm font-semibold">{prompt}</p><label className="block text-sm">我的作答<textarea ref={inputRef} aria-label="CUE 我的作答" rows={4} maxLength={10_000} className={styles.answerInput} value={compositionText ?? text} onCompositionStart={() => setCompositionText(text)} onCompositionEnd={(event) => { setCompositionText(null); acceptInput(event.currentTarget.value, event.data); }} onBlur={checkpoint} onChange={(event) => {
+        if (compositionText !== null || (event.nativeEvent as InputEvent).isComposing) { setCompositionText(event.target.value); saveDraft(event.target.value); }
         else acceptInput(event.target.value, (event.nativeEvent as InputEvent).data);
       }} placeholder="先独立回忆，再写下答案或解题过程。支持 LaTeX。" /></label>
-      <div className="flex flex-wrap items-center gap-2"><button disabled={!text.trim()} onClick={() => { buffer.flush(); onCompare(); }} className="min-h-11 rounded-xl bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-40">{comparison ? '重新对照答案' : '写完了，对照答案'}</button><span className="text-xs text-[var(--muted-foreground)]">{text ? `${text.length} 字符 · ${buffer.pending ? '正在保存' : '已保存'}` : '空白时不比较'}</span></div>
+      <div className="flex flex-wrap items-center gap-2"><button type="button" aria-label="恢复较旧版本" title="恢复较旧版本" disabled={history.activeIndex <= 0} onClick={() => { if (checkpointTimer.current) clearTimeout(checkpointTimer.current); checkpointTimer.current = null; const next = moveCueAnswerDraftHistory(historyRef.current, -1); updateHistory(next); setText(next.text); }} className="min-h-11 rounded-xl border border-[var(--card-border)] px-3 text-sm disabled:opacity-40">较旧版本</button><button type="button" aria-label="恢复较新版本" title="恢复较新版本" disabled={history.activeIndex >= history.versions.length - 1} onClick={() => { if (checkpointTimer.current) clearTimeout(checkpointTimer.current); checkpointTimer.current = null; const next = moveCueAnswerDraftHistory(historyRef.current, 1); updateHistory(next); setText(next.text); }} className="min-h-11 rounded-xl border border-[var(--card-border)] px-3 text-sm disabled:opacity-40">较新版本</button><span className="text-xs text-[var(--muted-foreground)]">本机版本 {history.activeIndex + 1}/{history.versions.length}</span><button disabled={!text.trim()} onClick={() => { checkpoint(); onCompare(text); }} className="min-h-11 rounded-xl bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-40">{comparison ? '重新对照答案' : '写完了，对照答案'}</button><span className="text-xs text-[var(--muted-foreground)]">{text ? `${text.length} 字符 · ${savedLocally ? '本机已保存' : '本机保存失败'}` : '空白时不比较'}</span></div>
       {comparison && <section className={styles.answerComparison} aria-label="作答对照">
         <p className="text-xs text-[var(--muted-foreground)]">本地已自动对比 · 可调整 MS · 掌握状态仍由你选择{comparison.version !== (cue.version ?? 1) ? ` · 参考内容为提交时 v${comparison.version}，可重新对照最新版本` : ''}</p>
         <div className="mt-3 flex flex-wrap gap-2">

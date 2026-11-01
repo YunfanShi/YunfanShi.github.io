@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.66.2",
+  "version": "3.66.3",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -13,6 +13,7 @@
     "check:error-system": "node scripts/build-error-system.mjs --check",
     "build:error-system": "node scripts/build-error-system.mjs",
     "test:tablet-cue-ui": "node tests/tablet-cue-study.browser.mts",
+    "test:cue-answer-draft-ui": "node tests/cue-answer-draft.browser.mts",
     "test:ielts-timer-ui": "node tests/ielts-timer.browser.mts",
     "test:timed-practice": "node --test tests/ielts-timer.test.mts tests/timed-practice.test.mts tests/practice-timer.test.mts tests/alevel-presets.test.mts tests/practice-course-binding.test.mts tests/practice-insights.test.mts tests/practice-cloud-offline.test.mts tests/practice-cloud-frame.test.mts tests/practice-cloud-route.test.mts",
     "test:watch": "node --test tests/watch-domain.test.mts tests/watch-features.test.mts",
