@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, dueCuePractice, enterCuePractice } from '../src/lib/learning/cue-practice.ts';
+import { emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, prioritizeCuePracticeIds, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, dueCuePractice, enterCuePractice } from '../src/lib/learning/cue-practice.ts';
 import { createEmptyScheduleState, recordCueStudyAssessment, planCueReview, saveCueStudyDraft, reorderCueStudy, type StudyCue, type CueStudyDraft } from '../src/lib/learning/schedule-control.ts';
 import { cueGameProgress } from '../src/lib/learning/cue-game.ts';
 import { bufferedCueAnswer } from '../src/lib/learning/cue-answer-card.ts';
@@ -175,8 +175,40 @@ test('a failed retry rotates through every other due item, retaining passed item
   assert.deepEqual(visited,ids);
   assert.equal(state.pending.length,1);
   assert.equal(cuePracticeDirectory(state).length,12);
-  assert.equal(cuePracticeLabel(state,ids[1],600_000),'重练已通过');
+  assert.equal(cuePracticeLabel(state,ids[1],600_000),'重练已通过 X1');
   assert.equal(state.results?.[ids[0]].status,'unclear');
+});
+
+test('completed rounds can keep practicing passed Cues, prioritize failures, then the lowest pass count', () => {
+  let state = emptyCuePractice();
+  for (const id of ['failed', 'one', 'two']) state = rateCuePractice(state, id, 'unclear', true, 0, () => 0);
+
+  state = enterCuePractice(state, 600_000, undefined, undefined, true, true);
+  assert.equal(state.active, 'failed');
+  state = rateCuePractice(state, 'failed', 'unclear', true, 600_000, () => 0);
+  state = enterCuePractice(state, 600_000, 'failed', undefined, true, true, undefined, true);
+  assert.equal(state.active, 'one');
+  state = rateCuePractice(state, 'one', 'stable', true, 600_000);
+  state = enterCuePractice(state, 600_000, 'one', undefined, true, true, undefined, true);
+  assert.equal(state.active, 'two', 'an untouched failed Cue is ahead of a failed retry');
+  state = rateCuePractice(state, 'two', 'stable', true, 600_000);
+  state = enterCuePractice(state, 600_000, 'two', undefined, true, true, undefined, true);
+  assert.equal(state.active, 'failed');
+  state = rateCuePractice(state, 'failed', 'stable', true, 600_000);
+
+  assert.deepEqual(prioritizeCuePracticeIds(state), ['failed', 'one', 'two']);
+  assert.equal(cuePracticeLabel(state, 'one', 600_000), '重练已通过 X1');
+  assert.equal(dueCuePractice(state, 600_000, undefined, true), undefined, 'automatic retry still does not loop through passed Cues');
+  assert.equal(dueCuePractice(state, 600_000, undefined, true, undefined, true)?.cueId, 'failed');
+
+  state = enterCuePractice(state, 600_000, undefined, undefined, true, true, undefined, true);
+  state = rateCuePractice(state, state.active!, 'stable', true, 600_000);
+  assert.equal(state.results?.failed?.passes, 2);
+  assert.equal(cuePracticeLabel(state, 'failed', 600_000), '重练已通过 X2');
+  assert.deepEqual(prioritizeCuePracticeIds(state), ['one', 'two', 'failed']);
+
+  state = enterCuePractice(state, 600_000, undefined, undefined, true, true, undefined, true);
+  assert.equal(state.active, 'one', 'X1 is selected before X2');
 });
 test('the most recently practiced item waits when other queued items are not due', () => {
   let state=rateCuePractice(emptyCuePractice(),'a','unclear',true,0,()=>0);
@@ -204,7 +236,7 @@ test('retry recoloring edits one attempt, preserves primary red and records a pa
   assert.equal(cueGameProgress(record.cueReviews,at).todayEffortCount,2);
   assert.equal(practice.pending.length,0);assert.equal(practice.results?.a.attempts,1);
   const restored=JSON.parse(JSON.stringify(practice));
-  assert.equal(cuePracticeLabel(restored,'a',at.getTime()),'重练已通过');
+  assert.equal(cuePracticeLabel(restored,'a',at.getTime()),'重练已通过 X1');
   assert.deepEqual(cuePracticeDirectory(restored),['a']);
   assert.equal(enterCuePractice(restored,at.getTime(),'a').mode,true);
   // A normal primary rating still changes the primary color.

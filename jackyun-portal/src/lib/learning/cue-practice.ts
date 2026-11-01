@@ -9,7 +9,7 @@ export function rescheduleCuePractice(state: CuePracticeState, now: number, poli
   return { ...state, pending: state.pending.map(item => ({ ...item, after: state.completed + policy.questions, availableAt: now + policy.minutes * 60_000 })) };
 }
 export type CuePracticeItem = { cueId: string; after: number; availableAt: number; policy?: 2 };
-export type CuePracticeResult = { status: LearningStatus; attempts: number; reviewedAt: number };
+export type CuePracticeResult = { status: LearningStatus; attempts: number; reviewedAt: number; passes?: number };
 export type CuePracticeState = { completed: number; pending: CuePracticeItem[]; active?: string; rating?: LearningStatus; returnCueId?: string; mode?: boolean; lastCueId?: string; results?: Record<string, CuePracticeResult> };
 export const emptyCuePractice = (): CuePracticeState => ({ completed: 0, pending: [] });
 const integer = (min: number, max: number, random: () => number) => min + Math.floor(Math.min(.999999999, Math.max(0, random())) * (max - min + 1));
@@ -30,16 +30,35 @@ export function rateCuePractice(state: CuePracticeState, cueId: string, status: 
   if (status !== 'stable') pending.push(!fresh && previous ? previous : policy ? { cueId, after: completed + policy.questions, availableAt: now + policy.minutes * 60_000, policy: 2 } : schedule(cueId, status, completed, now, random));
   else if (previous && state.active !== cueId) pending.push(previous);
   const result = state.results?.[cueId];
-  return { ...state, completed, pending, ...(state.active === cueId ? { rating: status, results: { ...state.results, [cueId]: { status, attempts: (result?.attempts ?? 0) + Number(fresh), reviewedAt: now } } } : {}) };
+  const passedNow = status === 'stable' && (fresh || result?.status !== 'stable');
+  return { ...state, completed, pending, ...(state.active === cueId ? { rating: status, results: { ...state.results, [cueId]: { status, attempts: (result?.attempts ?? 0) + Number(fresh), reviewedAt: now, passes: (result?.passes ?? Number(result?.status === 'stable')) + Number(passedNow) } } } : {}) };
+}
+/** Failed retries always come first; passed Cues return in ascending pass count. */
+export function prioritizeCuePracticeIds(state: CuePracticeState) {
+  const pending = new Set(state.pending.map(item => item.cueId));
+  return [...new Set([...state.pending.map(item => item.cueId), ...Object.keys(state.results ?? {})])].sort((left, right) => {
+    const a = state.results?.[left];
+    const b = state.results?.[right];
+    const aFailed = Number(Boolean((pending.has(left) && !a) || (a && a.status !== 'stable')));
+    const bFailed = Number(Boolean((pending.has(right) && !b) || (b && b.status !== 'stable')));
+    return bFailed - aFailed
+      || (aFailed ? (a?.attempts ?? 0) - (b?.attempts ?? 0) : (a?.passes ?? Number(a?.status === 'stable')) - (b?.passes ?? Number(b?.status === 'stable')))
+      || (a?.reviewedAt ?? 0) - (b?.reviewedAt ?? 0)
+      || left.localeCompare(right);
+  });
 }
 /** Either enough other retrievals or enough time makes a practice due. */
-export function dueCuePractice(state: CuePracticeState, now: number, exclude?: string, roundComplete = false, policy?: CuePracticePolicy) {
+export function dueCuePractice(state: CuePracticeState, now: number, exclude?: string, roundComplete = false, policy?: CuePracticePolicy, includePassed = false) {
+  if (roundComplete && includePassed) {
+    const ordered = prioritizeCuePracticeIds(state);
+    return ordered.find(id => id !== exclude) ? { cueId: ordered.find(id => id !== exclude)!, after: state.completed, availableAt: now, policy: 2 as const } : ordered[0] ? { cueId: ordered[0], after: state.completed, availableAt: now, policy: 2 as const } : undefined;
+  }
   // Once all primary Cues are rated, rotate the remaining weak items without a dead-end wait.
   if (roundComplete) return state.pending.find(item => item.cueId !== exclude) ?? state.pending[0];
   return state.pending.find(item => item.cueId !== exclude && (state.pending.length <= 1 || item.cueId !== state.lastCueId) && cuePracticeIsDue(state, item, now, policy));
 }
-export function enterCuePractice(state: CuePracticeState, now: number, exclude?: string, returnCueId?: string, mode = state.mode ?? false, roundComplete = false, policy?: CuePracticePolicy): CuePracticeState {
-  const item = dueCuePractice(state, now, exclude, roundComplete, policy);
+export function enterCuePractice(state: CuePracticeState, now: number, exclude?: string, returnCueId?: string, mode = state.mode ?? false, roundComplete = false, policy?: CuePracticePolicy, includePassed = false): CuePracticeState {
+  const item = dueCuePractice(state, now, exclude, roundComplete, policy, includePassed);
   return { ...state, pending: item ? [...state.pending.filter(candidate => candidate.cueId !== item.cueId), item] : state.pending, mode, active: item?.cueId, lastCueId: item?.cueId ?? state.lastCueId, rating: undefined, returnCueId: item || mode ? state.returnCueId ?? returnCueId : undefined };
 }
 /** Resolve by identity after shuffling/filtering, including an exhausted main queue. */
@@ -50,11 +69,13 @@ export function cuePracticeReturnIndex(state: CuePracticeState, cueIds: string[]
 
 /** Complete directory: passed attempts remain visible after leaving the pending queue. */
 export function cuePracticeDirectory(state: CuePracticeState) {
-  return [...new Set([...state.pending.map(item => item.cueId), ...Object.keys(state.results ?? {})])];
+  return prioritizeCuePracticeIds(state);
 }
 export function cuePracticeLabel(state: CuePracticeState, cueId: string, now: number, roundComplete = false, policy?: CuePracticePolicy): string {
   if (state.active === cueId && state.rating === undefined) return '正在重练';
-  if (state.results?.[cueId]?.status === 'stable') return '重练已通过';
+  const result = state.results?.[cueId];
+  if (result?.status === 'stable') return `重练已通过 X${result.passes ?? 1}`;
+  if (result) return '未通过 · 优先重练';
   const item = state.pending.find(item => item.cueId === cueId);
   if (!item) return '仍需重练';
   const due = roundComplete || cuePracticeIsDue(state, item, now, policy);
