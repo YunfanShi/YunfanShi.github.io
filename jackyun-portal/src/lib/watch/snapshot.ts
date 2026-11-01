@@ -11,6 +11,10 @@ export function calendarDate(at: Date, timezone='Asia/Shanghai') {
   const part=(name:string)=>parts.find(p=>p.type===name)!.value;
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
+function watchText(value:unknown,max:number) {
+  const text=String(value??'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').trim();
+  return text.length>max?`${text.slice(0,max-1)}…`:text;
+}
 export function zonedEpoch(date:string,time:string,timezone='Asia/Shanghai') {
   const desired=Date.parse(`${date}T${time}:00Z`);let result=desired;
   for(let i=0;i<3;i++) {
@@ -45,19 +49,24 @@ export function scheduleSnapshot(value:unknown,now=new Date(),timezone='Asia/Sha
   for(let offset=0;offset<7;offset++) {
     const day=new Date(localNow);day.setDate(day.getDate()+offset);
     const shownDate=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
-    for(const task of tasksForDate(state,day)) agenda.push({id:`${shownDate}:${task.key}`,title:task.title,date:shownDate,sourceDate:task.date,start:task.start??'',minutes:task.durationMinutes,subject:task.subjectName??'',detail:task.detail});
+    for(const task of tasksForDate(state,day)) agenda.push({id:`${shownDate}:${task.key}`,title:watchText(task.title,240),date:shownDate,sourceDate:task.date,start:task.start??'',minutes:task.durationMinutes,subject:watchText(task.subjectName,120),detail:watchText(task.detail,1200)});
   }
   return {lessons,agenda:agenda.slice(0,300),agendaHasMore:agenda.length>300,learningRecords:state.learningRecords.slice(0,30).map(record=>({id:record.id,title:record.taskTitle,subject:record.subjectName??'',completedAt:record.completedAt,status:record.status})),cue:{due:summary.due,learned:summary.learned,weak:summary.weak,subjects:summary.subjects}};
 }
 
 const watchScheduleFields:Record<string,string[]>={
   timetable:['timetable'],
-  learning:['manualTasks','completions','cancellations','reviewProgress','learningRecords','learningCatalog','learningReminders'],
-  cue:['cues','cueReviews','cueGameAccount','cueCollectionUpdates','cueChangeHistory','cueSimilarityDecisions','cueMemos','cueAnswerCards','cueStudyDraft','cueStudyDrafts'],
-  practice:['timedPracticeRecords','examDiagnoses','practiceFrequencies'],
-  timer:['practiceSessions','practiceTimerConfig'],
-  settings:['settings','cueScheduleRevision','dailyLearningAdvice','studyReports','importedAt','schemaVersion','__root'],
+  learning:['manualTasks','completions','cancellations','reviewProgress','learningRecords','learningCatalog'],
+  cue:['cues','cueReviews','cueCollectionUpdates','cueStudyDraft','cueStudyDrafts'],
+  settings:['settings','schemaVersion'],
 };
+async function mapConcurrent<T,R>(items:T[],limit:number,action:(item:T,index:number)=>Promise<R>):Promise<R[]> {
+  const output=new Array<R>(items.length);let next=0;
+  await Promise.all(Array.from({length:Math.min(limit,items.length)},async()=>{
+    while(true){const index=next++;if(index>=items.length)return;output[index]=await action(items[index],index);}
+  }));
+  return output;
+}
 export async function readV5Schedule(token:string,fetchImpl:typeof fetch=fetch):Promise<Record<string,unknown>> {
   const endpoint=process.env.AZURE_SYNC_API_URL;
   if(!endpoint)throw Error('V5 sync backend unavailable');
@@ -74,30 +83,34 @@ export async function readV5Schedule(token:string,fetchImpl:typeof fetch=fetch):
   const capabilities=capability.capabilities as Record<string,unknown>|undefined;
   const scopes=Array.isArray(capability.scopes)?capability.scopes:[];
   if(capability.syncProtocol!==5||capabilities?.v5!==true||!SYNC_V5_SCHEDULE_SCOPES.every(scope=>scopes.includes(scope)))throw Error('V5 schedule scopes unavailable');
-  const rows:Array<Record<string,unknown>>=[];
-  for(const [scope,fields] of Object.entries(watchScheduleFields))for(const field of fields){
+  const targets=Object.entries(watchScheduleFields).flatMap(([scope,fields])=>fields.map(field=>({scope,field})));
+  const manifests=await mapConcurrent(targets,4,async({scope,field})=>{
     let after='',head:number|undefined;
+    const descriptors:Array<Record<string,unknown>>=[];
     for(let page=0;page<100;page++){
       const manifest=await request(`/api/sync/v5/manifest?scope=${encodeURIComponent(scope)}&field=${encodeURIComponent(field)}&after=${encodeURIComponent(after)}`);
       if(manifest.syncProtocol!==5||!Array.isArray(manifest.records)||manifest.records.length>100||!Number.isSafeInteger(manifest.head))throw Error('V5 manifest invalid');
       head??=Number(manifest.head);if(Number(manifest.head)!==head)throw Error('V5 manifest changed during read');
-      const descriptors=manifest.records as Array<Record<string,unknown>>;
-      if(descriptors.some(row=>row.scope!==scope||typeof row.recordId!=='string'||!row.recordId.startsWith(`${field}:`)))throw Error('V5 manifest scope invalid');
-      for(let offset=0;offset<descriptors.length;offset+=50){
-        const ids=descriptors.slice(offset,offset+50).map(row=>`id=${encodeURIComponent(String(row.recordId))}`).join('&');
-        const records=await request(`/api/sync/v5/records?scope=${encodeURIComponent(scope)}&${ids}`);
-        if(records.syncProtocol!==5||!Array.isArray(records.records))throw Error('V5 records invalid');
-        const returned=records.records as Array<Record<string,unknown>>;
-        if(returned.length!==descriptors.slice(offset,offset+50).length||returned.some(row=>row.scope!==scope||!descriptors.slice(offset,offset+50).some(item=>item.recordId===row.recordId)))throw Error('V5 records incomplete');
-        rows.push(...returned);
-      }
+      const pageRecords=manifest.records as Array<Record<string,unknown>>;
+      if(pageRecords.some(row=>row.scope!==scope||typeof row.recordId!=='string'||!row.recordId.startsWith(`${field}:`)))throw Error('V5 manifest scope invalid');
+      descriptors.push(...pageRecords);
       const next=manifest.next;
       if(next===null)break;
-      if(typeof next!=='string'||!descriptors.length||next!==descriptors.at(-1)?.recordId||next<=after)throw Error('V5 manifest cursor invalid');
+      if(typeof next!=='string'||!pageRecords.length||next!==pageRecords.at(-1)?.recordId||next<=after)throw Error('V5 manifest cursor invalid');
       after=next;
       if(page===99)throw Error('V5 manifest page limit exceeded');
     }
-  }
+    return {scope,descriptors};
+  });
+  const chunks=manifests.flatMap(({scope,descriptors})=>Array.from({length:Math.ceil(descriptors.length/50)},(_,index)=>({scope,descriptors:descriptors.slice(index*50,index*50+50)})));
+  const rows=(await mapConcurrent(chunks,4,async({scope,descriptors})=>{
+    const ids=descriptors.map(row=>`id=${encodeURIComponent(String(row.recordId))}`).join('&');
+    const records=await request(`/api/sync/v5/records?scope=${encodeURIComponent(scope)}&${ids}`);
+    if(records.syncProtocol!==5||!Array.isArray(records.records))throw Error('V5 records invalid');
+    const returned=records.records as Array<Record<string,unknown>>;
+    if(returned.length!==descriptors.length||returned.some(row=>row.scope!==scope||!descriptors.some(item=>item.recordId===row.recordId)))throw Error('V5 records incomplete');
+    return returned;
+  })).flat();
   return resourcesToSchedule(rows.filter(row=>row.deleted!==true) as never);
 }
 export async function snapshot(supabase:SupabaseClient,userId:string,token:string,now=new Date()) {
@@ -176,7 +189,7 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
     load('notifications',async()=>{
       const {data,error}=await supabase.rpc('notification_snapshot',{include_history:true,page_offset:0});if(error)throw error;
       result.unreadCount=data?.unreadCount??0;result.notificationHasMore=Boolean(data?.hasMore);
-      result.notifications=(data?.items??[]).map((item:Record<string,unknown>)=>({id:item.id,title:item.title,read:item.is_read,version:item.updated_at,text:String(item.content??'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').slice(0,12000)}));
+      result.notifications=(data?.items??[]).map((item:Record<string,unknown>)=>({id:item.id,title:watchText(item.title,240),read:item.is_read,version:item.updated_at,text:watchText(item.content,2000)}));
     }),
   ]);
   return mergeWatchDidaTasks(result,modules,didaTasks,now);
@@ -189,8 +202,8 @@ export function normalizeWatchSeiueTodos(todos:SeiueTodo[],now:Date) {
   const candidates=todos.filter(todo=>todo.status==='pending').map(todo=>{
     const parsed=todo.deadline?parseSeiueDeadline(todo.deadline):null;
     const dueDate=parsed?.date??today;
-    const detail=[todo.kind==='assignment'?(todo.assignmentType??'作业/资料'):'选课截止',todo.courseName,todo.creatorName?`布置人：${todo.creatorName}`:null,parsed?`截止：${todo.deadline}`:'未提供截止时间',todo.description].filter(Boolean).join('\n');
-    return {id:`seiue:${todo.id}`,title:todo.title,date:dueDate<today?today:dueDate,sourceDate:dueDate,start:parsed?.time??'',minutes:0,subject:todo.courseName??'SEIUE',detail,source:'seiue',status:'pending',deadlineLabel:todo.deadline??'未提供截止时间',dueAt:parsed?zonedEpoch(parsed.date,parsed.time):0};
+    const detail=watchText([todo.kind==='assignment'?(todo.assignmentType??'作业/资料'):'选课截止',todo.courseName,todo.creatorName?`布置人：${todo.creatorName}`:null,parsed?`截止：${todo.deadline}`:'未提供截止时间',todo.description].filter(Boolean).join('\n'),1200);
+    return {id:`seiue:${todo.id}`,title:watchText(todo.title,240),date:dueDate<today?today:dueDate,sourceDate:dueDate,start:parsed?.time??'',minutes:0,subject:watchText(todo.courseName??'SEIUE',120),detail,source:'seiue',status:'pending',deadlineLabel:todo.deadline??'未提供截止时间',dueAt:parsed?zonedEpoch(parsed.date,parsed.time):0};
   }).filter(todo=>!todo.dueAt||todo.sourceDate<=end).sort((a,b)=>(a.dueAt||Number.MAX_SAFE_INTEGER)-(b.dueAt||Number.MAX_SAFE_INTEGER)||a.id.localeCompare(b.id));
   return {items:candidates.slice(0,200),hasMore:candidates.length>200};
 }

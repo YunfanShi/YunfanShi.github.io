@@ -68,21 +68,28 @@ test('Watch schedule snapshot reads authenticated V5 resources and never falls b
 test('Watch V5 resource reader assembles authoritative schedule and rejects unavailable V5',async()=>{
   const prior=process.env.AZURE_SYNC_API_URL;process.env.AZURE_SYNC_API_URL='https://jackyun-sync-9d26b2cc.azurewebsites.net';
   try {
-    const requests:string[]=[];
+    const requests:string[]=[];let active=0,maxActive=0;
     const fetchImpl:typeof fetch=async(input,init)=>{
+      active++;maxActive=Math.max(maxActive,active);
+      try {
       const url=new URL(String(input));requests.push(url.pathname+url.search);
       if(url.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:['timetable','learning','cue','practice','timer','settings']});
       if(url.pathname.endsWith('/manifest')){
+        await new Promise(resolve=>setTimeout(resolve,5));
         const scope=url.searchParams.get('scope'),field=url.searchParams.get('field');
         const rows=scope==='timetable'&&field==='timetable'?[{scope,recordId:'timetable:$value',revision:1,contentHash:'a'.repeat(64),deleted:false,updatedAt:'2026-10-31T00:00:00Z'}]:[];
         return Response.json({syncProtocol:5,records:rows,head:1,next:null});
       }
       if(url.pathname.endsWith('/records'))return Response.json({syncProtocol:5,records:[{scope:'timetable',field:'timetable',recordId:'timetable:$value',itemId:'$value',revision:1,deleted:false,value:{version:1,name:'V5',courses:[]}}]});
       throw Error('unexpected V5 path');
+      } finally { active--; }
     };
     const value=await readV5Schedule('test-watch-token',fetchImpl);
     assert.deepEqual(value.timetable,{version:1,name:'V5',courses:[]});
     assert.ok(requests.some(path=>path.startsWith('/api/sync/v5/manifest')));
+    const requestedFields=requests.filter(path=>path.includes('/manifest?')).map(path=>new URL(path,'https://example.test').searchParams.get('field'));
+    assert.deepEqual(new Set(requestedFields),new Set(['timetable','manualTasks','completions','cancellations','reviewProgress','learningRecords','learningCatalog','cues','cueReviews','cueCollectionUpdates','cueStudyDraft','cueStudyDrafts','settings','schemaVersion']));
+    assert.ok(maxActive>1&&maxActive<=4,`expected bounded parallel reads, observed ${maxActive}`);
     await assert.rejects(()=>readV5Schedule('test-watch-token',async()=>Response.json({syncProtocol:4,capabilities:{v5:false},scopes:[]})),/V5 schedule scopes unavailable/);
   } finally { if(prior===undefined)delete process.env.AZURE_SYNC_API_URL;else process.env.AZURE_SYNC_API_URL=prior; }
 });
