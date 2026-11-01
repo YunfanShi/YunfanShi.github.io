@@ -174,7 +174,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       },
       setWorkspaceAuthorityKeys:async keys=>{if(cancelled||signingOut)return;v5WorkspaceKeys=new Set(keys);setV5WorkspaceAuthorityKeys(keys);await accountStore.setSetting('v5WorkspaceAuthorityKeys',[...new Set(keys)].sort());},
       databaseScope:accountStore.databaseScope,isCurrent:()=>!cancelled&&!signingOut,uuid:()=>crypto.randomUUID()});
-    let queuedResolution: SyncResolutionRequest | undefined;
+    const queuedResolutions: SyncResolutionRequest[]=[];
     let queuedV5Resolution:{operationId:string;choice:'local'|'remote'}|undefined;
     let v5ReconcileRequested=false;
     const queuedBatches:ConflictBatch[]=[];
@@ -191,9 +191,17 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     async function sync(manual=false,allowHidden=false,resolution?:SyncResolutionRequest,reason=manual?'manual':'periodic') {
       if(cancelled||signingOut)return;
       if(reason==='route')queuedRouteSync=true;
-      if(!bound||isWorkspaceSleeping())return;
+      if(!bound||isWorkspaceSleeping()){
+        if(manual){const current=getLatestSyncStatus();announce({...current??{state:'syncing',pending:0,conflicts:0,lastSyncedAt:null},state:'syncing',error:undefined,progress:'正在准备同步…'});}
+        return;
+      }
       if(!manual&&!allowHidden&&document.visibilityState!=='visible'){await engine.capture();return;}
-      if(resolution){queuedResolution=resolution;v5ReconcileRequested=true;}
+      if(resolution){queuedResolutions.push(resolution);v5ReconcileRequested=true;}
+      if(manual){
+        const current=getLatestSyncStatus();
+        announce({...current??{state:'syncing',pending:0,conflicts:0,lastSyncedAt:null},state:'syncing',error:undefined,
+          progress:gate.isRunning()?'已有同步正在执行；本次手动同步已加入队列。':'正在准备同步…'});
+      }
       if(!gate.begin(manual)){if(reason==='route')queuedRouteSync=true;return;}
       const routeForRun=activePathname;
       requestReason=reason;
@@ -205,18 +213,21 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           if(queuedBatches.length){
             const batch=queuedBatches.shift()!;
             if(batch.legacy.length)v5ReconcileRequested=true;
-            const result=await runConflictBatch({...batch,legacy:[]},async()=>{},
+            const result=await runConflictBatch(batch,request=>engine.resolve(request.operationId,request.choice,request.review),
               (conflict,choice)=>v5Sync.resolveConflict(conflict.operationId,choice,conflict));
             if(result.failures.length)throw Error(`已处理 ${result.completed} 项，${result.failures.length} 项未完成并保留：${result.failures[0].message}`);
+          }
+          while(queuedResolutions.length){
+            const resolution=queuedResolutions.shift()!;
+            await engine.resolve(resolution.operationId,resolution.choice,resolution.review);
           }
           await flushLocalWrites();await engine.capture();
           if(!navigator.onLine){await publish('offline_pending');return false;}
           if(authPaused)return false;
           const [pending,conflicts,lastRead,v5Pending,queuedRestoreTargets]=await Promise.all([accountStore.getOutbox(),accountStore.getConflicts(),accountStore.getSetting<number>('lastAutomaticPull'),v5Enabled?getV5Outbox(undefined,accountStore.databaseScope):Promise.resolve([]),syncStore.getV5RestoreTargets(accountStore.databaseScope)]);
           const blocked=new Set(conflicts.map(c=>c.key));
-          if(!manual&&!queuedResolution&&!v5ReconcileRequested&&!pending.some(op=>!blocked.has(op.key))&&!v5Pending.length&&!queuedRestoreTargets.length&&requestReason!=='edit'&&requestReason!=='route'&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
+          if(!manual&&!queuedResolutions.length&&!v5ReconcileRequested&&!pending.some(op=>!blocked.has(op.key))&&!v5Pending.length&&!queuedRestoreTargets.length&&requestReason!=='edit'&&requestReason!=='route'&&Date.now()-(lastRead??0)<30_000){await publish('synced');return false;}
           await publish('syncing',undefined,'正在核对云端版本，本机原始数据会保留…');
-          if(queuedResolution)queuedResolution=undefined;
           if(queuedV5Resolution){const choice=queuedV5Resolution;await v5Sync.resolveConflict(choice.operationId,choice.choice);if(queuedV5Resolution===choice)queuedV5Resolution=undefined;}
           const restoreTargets=await syncStore.getV5RestoreTargets(accountStore.databaseScope);
           const bootstrapComplete=await accountStore.getSetting<boolean>('v5FullBootstrapComplete')===true;
@@ -260,7 +271,6 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
             }
             await v5Sync.flushPending();
             v5ReconcileRequested=false;
-            queuedResolution=undefined;
           }
           if(v5Result.enabled&&v5Result.processedTargets?.length)await syncStore.acknowledgeV5RestoreTargets(v5Result.processedTargets,accountStore.databaseScope);
           await flushLocalWrites();await engine.capture();
@@ -279,7 +289,6 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       } catch(error) {
         if(cancelled||signingOut)return;
         if(error instanceof Error && error.name==='SyncReviewChangedError') {
-          queuedResolution=undefined;
           await publish('conflict',undefined,error.message);return;
         }
         failures++;
@@ -290,7 +299,11 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
           await publish(status,undefined,'本机已保存，网络恢复后自动同步。');
         }else{
           void reportSyncFailure(error,'cycle');
-          await publish(status,error instanceof Error?error.message:'同步需要处理');
+          const detail=error as {code?:unknown;status?:unknown;details?:{scope?:unknown;field?:unknown}};
+          const message=detail.code==='INVALID_RESOURCE_FIELD'
+            ?`服务器拒绝资源目标${typeof detail.details?.scope==='string'&&typeof detail.details?.field==='string'?` ${detail.details.scope}/${detail.details.field}`:''}（HTTP ${String(detail.status??400)}，INVALID_RESOURCE_FIELD）。自动重试已暂停；本机数据与待上传队列已保留。`
+            :error instanceof Error?error.message:'同步需要处理';
+          await publish(status,message,authPaused?'自动同步已暂停，请检查诊断信息后手动重试。':undefined);
         }
       } finally {
         const manualQueued=gate.finish();

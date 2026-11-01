@@ -14,6 +14,10 @@ test('revoked devices pause retry and service failures use capped exponential ba
   assert.equal(shouldPauseSync(new SyncRequestError('Device revoked', 403)), true);
   assert.equal(shouldPauseSync(new SyncRequestError('Unauthorized', 401)), true);
   assert.equal(shouldPauseSync(new SyncRequestError('Unavailable', 503)), false);
+  assert.equal(shouldPauseSync(new SyncRequestError('Invalid resource field', 400)), true);
+  assert.equal(shouldPauseSync(new SyncRequestError('Conflict review changed', 409)), true);
+  assert.equal(shouldPauseSync(new SyncRequestError('Rate limited', 429)), false);
+  assert.equal(shouldPauseSync(new SyncRequestError('Request timeout', 408)), false);
   assert.deepEqual([1, 2, 3, 4, 5, 100].map(syncRetryDelay), [30000, 60000, 120000, 240000, 300000, 300000]);
 });
 

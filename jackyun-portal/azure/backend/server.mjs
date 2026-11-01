@@ -80,7 +80,8 @@ export function createApiHandler({ authenticate, handle, allowedOrigins = ['http
       const failureClass=expected?'application':['42P01','42883','42703'].includes(error.code)?'database_schema'
         :['28P01','28000'].includes(error.code)?'database_credentials'
         :['ECONNRESET','ECONNREFUSED','ETIMEDOUT','ENOTFOUND','EAI_AGAIN'].includes(error.code)?'database_connection':'database_unavailable';
-      if (!response.headersSent) send(status, { ok: false, error: code, code,failureClass,siteCode:resolveErrorCode({code,status}) });
+      if (!response.headersSent) send(status, { ok: false, error: code, code,failureClass,siteCode:resolveErrorCode({code,status}),
+        ...(expected&&error.details?{details:error.details}:{}) });
       else response.end();
     } finally {
       if(route.startsWith('/api/'))logger.info?.(JSON.stringify({service:'azure-sync-api',requestId,route,status:httpStatus,

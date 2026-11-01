@@ -60,7 +60,8 @@ export function resourceFieldsForPath(pathname:string):SyncV5ResourceTarget[]{
 async function readJson(request:ResourceSyncEnvironment['request'],url:string,init?:RequestInit):Promise<Result>{
   const response=await request(url,init);let body:Result;
   try{body=await response.json() as Result;}catch{throw Object.assign(new Error('v5 同步响应格式无效。'),{status:response.status});}
-  if(!response.ok)throw Object.assign(new Error(typeof body.error==='string'?body.error:'v5 同步暂不可用。'),{status:response.status,code:body.code});
+  if(!response.ok)throw Object.assign(new Error(typeof body.error==='string'?body.error:'v5 同步暂不可用。'),
+    {status:response.status,code:body.code,details:body.details});
   return body;
 }
 function validDescriptor(row:Result,scope:SyncV5Scope):Descriptor{

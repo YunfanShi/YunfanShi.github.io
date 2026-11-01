@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {createHash,randomUUID} from 'node:crypto';
-import {handleSyncV5,readScheduleProjection,scheduleProjectionState,syncV5Rollout} from '../sync-v5.mjs';
-import {legacyWorkspaceRecordId} from '../../../src/lib/sync/resource-model.ts';
+import {handleSyncV5,readScheduleProjection,scheduleProjectionState,syncV5Rollout,validResourceField} from '../sync-v5.mjs';
+import {allV5ResourceTargets,legacyWorkspaceRecordId} from '../../../src/lib/sync/resource-model.ts';
 import {createApiHandler} from '../server.mjs';
+import {ApiError} from '../errors.mjs';
 import {canonicalJson} from '../../../src/lib/sync/hash.ts';
 import {readFile} from 'node:fs/promises';
 import {estimateSqlParameterBytes} from '../database.mjs';
@@ -112,6 +113,17 @@ test('Azure HTTP entrypoint exposes every v5 route to the sync handler',async t=
     assert.equal((await response.json()).route,path.split('?')[0]);
   }
   assert.equal(seen.length,6);
+});
+
+test('invalid field errors expose only the stable code and bounded resource target details',async t=>{
+  const server=createServer(createApiHandler({authenticate:async()=>({sub:'test-user'}),handle:async()=>{throw new ApiError(400,'INVALID_RESOURCE_FIELD','INVALID_RESOURCE_FIELD',{scope:'cue',field:'timetable'});},logger:{info(){},error(){}}}));
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const address=server.address();assert.ok(address&&typeof address==='object');
+  const response=await fetch(`http://127.0.0.1:${address.port}/api/sync/v5/manifest?scope=cue&field=timetable`,{headers:{Authorization:'Bearer test-token'}});
+  const body=await response.json();
+  assert.equal(response.status,400);assert.equal(body.code,'INVALID_RESOURCE_FIELD');
+  assert.deepEqual(body.details,{scope:'cue',field:'timetable'});assert.equal(typeof body.requestId,'string');
 });
 
 test('v5 stays disabled without an explicit account rollout',()=>{
@@ -259,7 +271,16 @@ test('manifest and changes can page a single resource field without consuming an
   assert.deepEqual(manifest.records.map(row=>row.recordId),['cues:cue-1']);
   const changes=await handleSyncV5(db,identity,'GET',url('/changes','?scope=cue&field=cues&cursor=0'),null,['cue']);
   assert.deepEqual(changes.records.map(row=>row.recordId),['cues:cue-1']);assert.equal(changes.cursor,2);
-  await assert.rejects(handleSyncV5(db,identity,'GET',url('/manifest','?scope=cue&field=timetable'),null,['cue']),{status:400,code:'INVALID_RESOURCE_FIELD'});
+  await assert.rejects(handleSyncV5(db,identity,'GET',url('/manifest','?scope=cue&field=timetable'),null,['cue']),error=>
+    error.status===400&&error.code==='INVALID_RESOURCE_FIELD'&&error.details?.scope==='cue'&&error.details?.field==='timetable');
+});
+
+test('every declared client resource target is accepted by the server field validator',async()=>{
+  for(const target of allV5ResourceTargets()){
+    assert.equal(validResourceField(target.field,target.scope),true,`${target.scope}/${target.field}`);
+  }
+  for(const [scope,field] of [['cue','timetable'],['workspace','cues'],['settings','legacySettings'],['learning','__root']])
+    assert.equal(validResourceField(field,scope),false,`${scope}/${field} must be rejected`);
 });
 
 test('workspace bootstrap migrates eligible legacy keys with hashes, tombstones, ownership and idempotency',async()=>{

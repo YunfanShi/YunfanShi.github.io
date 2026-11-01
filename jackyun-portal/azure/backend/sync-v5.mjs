@@ -11,12 +11,12 @@ const ROLLOUT_MODES=new Set(['disabled','test-users','canary','percentage','glob
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH=/^[a-f0-9]{64}$/i;
 const MAX_OPERATIONS=100,MAX_BODY_BYTES=1_000_000,MAX_RECORD_BYTES=900_000;
-const fail=(status,code)=>{throw new ApiError(status,code);};
+const fail=(status,code,details)=>{throw new ApiError(status,code,code,details);};
 const json=value=>JSON.stringify(value??null);
 const digest=(value,deleted=false)=>createHash('sha256').update(deleted?'__deleted__':canonicalJson(value)).digest('hex');
 const integer=value=>{const n=Number(value);if(!Number.isSafeInteger(n)||n<0)fail(400,'INVALID_CURSOR');return n;};
 const validScope=value=>typeof value==='string'&&SYNC_V5_SCOPES.has(value);
-const validField=(field,scope)=>typeof field==='string'&&field.length<=64
+export const validResourceField=(field,scope)=>typeof field==='string'&&field.length<=64
   &&(scope==='workspace'?LEGACY_WORKSPACE_FIELDS.includes(field):resourceScopeForRecordId(field==='__root'?'__root:value':`${field}:$value`)===scope);
 const descriptor=row=>({scope:row.scope,recordId:row.record_id,revision:Number(row.revision),contentHash:row.content_hash,
   deleted:Boolean(row.deleted_at),updatedAt:row.updated_at instanceof Date?row.updated_at.toISOString():row.updated_at,
@@ -325,7 +325,7 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
     const after=url.searchParams.get('after')??'';
     const field=url.searchParams.get('field');
     if(after.length>240)fail(400,'INVALID_CURSOR');
-    if(field!==null&&!validField(field,scope))fail(400,'INVALID_RESOURCE_FIELD');
+    if(field!==null&&!validResourceField(field,scope))fail(400,'INVALID_RESOURCE_FIELD',{scope:scope.slice(0,64),field:field.slice(0,64)});
     const filter=field===null?'':' AND r.record_id COLLATE "C">=$4 COLLATE "C" AND r.record_id COLLATE "C"<$5 COLLATE "C"';
     const params=field===null?[identity.sub,scope,after]:[identity.sub,scope,after,`${field}:`,`${field};`];
     const rows=(await client.query(`WITH state AS (
@@ -344,7 +344,7 @@ export async function handleSyncV5(client,identity,method,url,body,enabledScopes
     if(method!=='GET')fail(405,'METHOD_NOT_ALLOWED');
     const cursor=integer(url.searchParams.get('cursor')??0);
     const field=url.searchParams.get('field');
-    if(field!==null&&!validField(field,scope))fail(400,'INVALID_RESOURCE_FIELD');
+    if(field!==null&&!validResourceField(field,scope))fail(400,'INVALID_RESOURCE_FIELD',{scope:scope.slice(0,64),field:field.slice(0,64)});
     const filter=field===null?'':' AND r.record_id COLLATE "C">=$4 COLLATE "C" AND r.record_id COLLATE "C"<$5 COLLATE "C"';
     const params=field===null?[identity.sub,scope,cursor]:[identity.sub,scope,cursor,`${field}:`,`${field};`];
     const rows=(await client.query(`WITH state AS (

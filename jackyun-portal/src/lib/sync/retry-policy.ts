@@ -6,7 +6,9 @@ export class SyncRequestError extends Error {
   constructor(message: string, status: number) { super(message); this.status = status; }
 }
 export function shouldPauseSync(error: unknown): boolean {
-  return error instanceof Error && 'status' in error && (error.status === 401 || error.status === 403);
+  if (!(error instanceof Error) || !('status' in error) || typeof error.status !== 'number') return false;
+  return error.status === 401 || error.status === 403
+    || (error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429);
 }
 export function retryAfterMilliseconds(value:string|null,now=Date.now()):number {
   if(!value)return 0;const seconds=Number(value);return Math.max(0,Number.isFinite(seconds)?seconds*1000:Date.parse(value)-now)||0;

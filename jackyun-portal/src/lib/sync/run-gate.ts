@@ -4,6 +4,7 @@ export function createSyncRunGate() {
   const waiters: (() => void)[] = [];
   let manualQueued = false;
   return {
+    isRunning() { return running; },
     async waitForIdle() {
       while (running) await new Promise<void>((resolve) => waiters.push(resolve));
     },
