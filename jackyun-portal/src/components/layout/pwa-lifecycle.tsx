@@ -13,7 +13,7 @@ export default function PwaLifecycle() {
   const reloadRequested = useRef(false);
 
   useEffect(() => {
-    if (!('serviceWorker' in navigator) || process.env.NODE_ENV !== 'production') return;
+    if (process.env.NODE_ENV !== 'production') return;
 
     let registration: ServiceWorkerRegistration | null = null;
 
@@ -54,6 +54,7 @@ export default function PwaLifecycle() {
     };
 
     const register = async () => {
+      if (!('serviceWorker' in navigator)) { refreshUpdateStatus(); return; }
       try {
         registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
         if (registration.waiting && navigator.serviceWorker.controller) setWaitingWorker(registration.waiting);
@@ -64,7 +65,7 @@ export default function PwaLifecycle() {
       }
     };
 
-    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+    if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
     const poll = window.setInterval(refreshUpdateStatus, 5 * 60 * 1000);
     window.addEventListener('focus', refreshUpdateStatus);
     window.addEventListener('online', refreshUpdateStatus);
@@ -73,7 +74,7 @@ export default function PwaLifecycle() {
     if (document.readyState === 'complete') void register();
 
     return () => {
-      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+      if ('serviceWorker' in navigator) navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
       window.clearInterval(poll);
       window.removeEventListener('focus', refreshUpdateStatus);
       window.removeEventListener('online', refreshUpdateStatus);
