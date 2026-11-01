@@ -12,7 +12,7 @@ import CuePracticeControls from './cue-practice-controls';
 import studyLayout from './cue-study-layout.module.css';
 import DidaScheduleSync from './dida-schedule-sync';
 import SeiueScheduleSync from './seiue-schedule-sync';
-import { defaultCuePracticePolicy, cuePracticeIsDue, rescheduleCuePractice, finishAutomaticCuePractice, emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, enterCuePractice, dueCuePractice } from '@/lib/learning/cue-practice';
+import { defaultCuePracticePolicy, cuePracticeIsDue, rescheduleCuePractice, deferCuePracticeAfterManual, finishAutomaticCuePractice, emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, enterCuePractice, dueCuePractice } from '@/lib/learning/cue-practice';
 import dynamic from 'next/dynamic';
 import CueGamePanel from './cue-game-panel';
 import { reconcileCueGameAccount, purchaseCueShopItem, equipCueShopItem, type CueGameAccount, type CueShopAction } from '@/lib/learning/cue-shop';
@@ -350,8 +350,13 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   const passedPracticeCount = Object.values(practice.results ?? {}).filter(result => result.status === 'stable').length;
   const practiceMode = practice.active && !practice.mode ? 'automatic' : practice.mode ? 'manual' : undefined;
   const returnToRound = () => {
-    setIndex(cuePracticeReturnIndex(practice, cues.map(cue => cue.id), currentIndex));
-    setPractice(state => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined, automaticReturnCueId: undefined }));
+    const returnIndex = cuePracticeReturnIndex(practice, cues.map(cue => cue.id), currentIndex);
+    setIndex(returnIndex);
+    setPractice(state => {
+      const next = state.mode ? deferCuePracticeAfterManual(state, Date.now(), practicePolicy) : state;
+      const pauseAutomaticRetryAt = state.active && !state.mode ? state.returnCueId ?? cues[returnIndex]?.id : undefined;
+      return { ...next, mode: false, active: undefined, rating: undefined, returnCueId: undefined, automaticReturnCueId: pauseAutomaticRetryAt };
+    });
     setRatingFeedback(null); setRevealed(false); setSelectedChoice(undefined);
     queueMicrotask(() => studyRef.current?.focus());
   };
@@ -414,7 +419,10 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
     const fresh = saved === undefined;
     const finishesGroup = !practice.active && fresh && groupCues.every((cue) => cue.id === current.id || assessments[cue.id]);
     onAssessment(current.id, status, Boolean(practice.active), Boolean(practice.active && !fresh));
-    setPractice((state) => { const rated = rateCuePractice(state, current.id, status, fresh, Date.now(), Math.random, practicePolicy); return finishAutomaticCuePractice(rated, status); });
+    setPractice((state) => {
+      const rated = finishAutomaticCuePractice(rateCuePractice(state, current.id, status, fresh, Date.now(), Math.random, practicePolicy), status);
+      return !practice.active && state.automaticReturnCueId === current.id ? { ...rated, automaticReturnCueId: undefined } : rated;
+    });
     if (practice.active && !practice.mode) { setIndex(cuePracticeReturnIndex(practice, cues.map(cue => cue.id), currentIndex)); setRevealed(false); setSelectedChoice(undefined); }
     if (!practice.active) setAssessments((previous) => ({ ...previous, [current.id]: status }));
     if (finishesGroup) { setGroupSummaryIndex(groupIndex); setRatingFeedback(null); setStudyToolsOpen(false); }
@@ -471,10 +479,15 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
     };
   }, []);
   useEffect(() => {
-    const rail = document.querySelector('[aria-label="Cue 学习进度"]');
+    const rail = document.querySelector<HTMLElement>('[aria-label="Cue 学习进度"]');
     const item = rail?.children[currentIndex];
-    if (item instanceof HTMLElement) item.scrollIntoView({ behavior: animations && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'instant', block: 'nearest', inline: 'center' });
-  }, [currentIndex, animations]);
+    if (rail && item instanceof HTMLElement) {
+      const railBounds = rail.getBoundingClientRect();
+      const itemBounds = item.getBoundingClientRect();
+      if (itemBounds.left < railBounds.left) rail.scrollTo({ left: Math.max(0, rail.scrollLeft + itemBounds.left - railBounds.left - 8), behavior: 'instant' });
+      else if (itemBounds.right > railBounds.right) rail.scrollTo({ left: rail.scrollLeft + itemBounds.right - railBounds.right + 8, behavior: 'instant' });
+    }
+  }, [currentIndex]);
   useEffect(() => { if (memoOpen) queueMicrotask(() => memoRef.current?.focus()); }, [index, memoOpen]);
   useEffect(() => {
     onProgress({ id: draft.id, task, cueIds: allCues.map((cue) => cue.id), index: currentIndex, revealed, ...(selectedChoice !== undefined ? { selectedChoice } : {}), assessments: activeAssessments, priorStatuses: draft.priorStatuses, startedAt: draft.startedAt, shuffled, hiddenCueIds, practice, updatedAt: new Date().toISOString() });
@@ -544,7 +557,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
       {ratingFeedback && <div key={`${current?.id}:${ratingFeedback}`} data-cue-rating-feedback role="status" className={styles.ratingFeedback} data-rating={ratingFeedback}>{statusMark(ratingFeedback)} {practice.active && ratingFeedback === 'stable' ? '重练已通过，原评价保留' : ratingFeedback === 'stable' ? '这条已掌握' : ratingFeedback === 'partial' ? '找到需要巩固的部分了' : '记下了，继续修复这条'} · 已保存</div>}
       {assessedCount > 0 && assessedCount === allCues.length && <div data-cue-round-complete className={styles.roundComplete} role="status"><span aria-hidden="true">✦</span> 本轮全部评价完成，记得保存学习记录 <span aria-hidden="true">✦</span></div>}
       {(practiceIds.length > 0 || practice.mode || practice.active) && <section data-cue-practice-directory className="relative z-10 mx-auto max-w-5xl px-3 py-2 text-xs text-[var(--muted-foreground)]" aria-label="本轮重练目录">
-        <div className="flex flex-wrap items-center justify-center gap-3"><span>重练已通过 {passedPracticeCount} / {practiceIds.length} · 待重练 {practice.pending.length} 条 · 原评价保留</span>
+        <div className="flex flex-wrap items-center justify-center gap-3"><span data-cue-practice-remaining className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">还需重练 {practice.pending.length} 条</span><span>重练已通过 {passedPracticeCount} / {practiceIds.length} · 原评价保留</span>
           <button type="button" disabled={Boolean(practice.active) || !dueCuePractice(practice, practiceNow, undefined, roundComplete, practicePolicy, roundComplete)} onClick={() => { setPractice(state => enterCuePractice(state, Date.now(), undefined, cues[currentIndex]?.id, true, roundComplete, practicePolicy, roundComplete)); setRatingFeedback(null); setRevealed(false); setSelectedChoice(undefined); }} className="rounded-full border border-[var(--card-border)] px-3 py-1 disabled:opacity-40">{roundComplete ? '继续重练全部题' : practice.mode ? '继续到期重练' : '进入到期重练'}</button>
           {(practice.mode || practice.active) && <button type="button" onClick={returnToRound} className="rounded-full border border-[var(--card-border)] px-3 py-1">返回本轮</button>}
         </div>
@@ -552,7 +565,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
           <nav className="mt-2 flex max-h-28 flex-wrap justify-center gap-2 overflow-y-auto" aria-label="全部重练 CUE">{practiceCues.map(cue => {
             const label = cuePracticeLabel(practice, cue.id, practiceNow, roundComplete, practicePolicy);
             const item = practice.pending.find(item => item.cueId === cue.id);
-            const eligible = item && (roundComplete || cuePracticeIsDue(practice, item, practiceNow, practicePolicy));
+            const eligible = item && ((roundComplete && !practice.respectIntervalsAfterManual) || cuePracticeIsDue(practice, item, practiceNow, practicePolicy));
             const result = practice.results?.[cue.id];
             const passed = result?.status === 'stable';
             const failed = Boolean(result && !passed);
