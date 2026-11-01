@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, prioritizeCuePracticeIds, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, dueCuePractice, enterCuePractice } from '../src/lib/learning/cue-practice.ts';
+import { emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, prioritizeCuePracticeIds, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, dueCuePractice, enterCuePractice, finishAutomaticCuePractice } from '../src/lib/learning/cue-practice.ts';
 import { createEmptyScheduleState, recordCueStudyAssessment, planCueReview, saveCueStudyDraft, reorderCueStudy, type StudyCue, type CueStudyDraft } from '../src/lib/learning/schedule-control.ts';
 import { cueGameProgress } from '../src/lib/learning/cue-game.ts';
 import { bufferedCueAnswer } from '../src/lib/learning/cue-answer-card.ts';
@@ -156,6 +156,23 @@ test('retry returns to the same unreviewed Cue after shuffle and can leave an ex
   assert.equal(state.pending.length,0);
   assert.equal(enterCuePractice(state,300_000,'a').active,undefined);
   assert.equal(cuePracticeReturnIndex(state,[]),0);
+});
+
+test('an automatic retry returns to its saved Cue after any rating and pauses re-entry', () => {
+  for (const status of ['stable','partial','unclear'] as const) {
+    let state=rateCuePractice(emptyCuePractice(),'retry','unclear',true,0,()=>0);
+    state=rateCuePractice(state,'other','unclear',true,0,()=>0);
+    state=enterCuePractice(state,300_000,'other','original');
+    state=rateCuePractice(state,'retry',status,false,300_000);
+    state=finishAutomaticCuePractice(state,status);
+    assert.equal(state.active,undefined,status);
+    assert.equal(state.returnCueId,undefined,status);
+    assert.equal(state.automaticReturnCueId,'original',status);
+    assert.equal(JSON.parse(JSON.stringify(state)).automaticReturnCueId,'original',
+      'the pause survives the draft persistence round trip');
+    if (status === 'stable') assert.equal(state.pending.some(item => item.cueId === 'retry'),false);
+    else assert.equal(state.pending.some(item => item.cueId === 'retry'),true,'a failed retry remains scheduled');
+  }
 });
 
 

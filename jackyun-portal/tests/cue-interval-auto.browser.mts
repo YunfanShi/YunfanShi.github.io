@@ -46,9 +46,22 @@ try {
   await page.waitForFunction(() => Object.values(JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}').cueStudyDrafts || {})
     .some((draft: unknown) => (draft as { practice?: { active?: string } }).practice?.active === 'cue0'));
   assert.ok((await prompt.innerText()).includes('间隔回归题 1'), 'the due retry opens automatically after the active Cue is rated');
+
+  await page.clock.fastForward(60_000);
+  await page.keyboard.press('3');
+  await page.waitForFunction(() => Object.values(JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}').cueStudyDrafts || {})
+    .some((draft: unknown) => {
+      const practice = (draft as { practice?: { active?: string; automaticReturnCueId?: string } }).practice;
+      return practice?.automaticReturnCueId === 'cue1' && !practice.active;
+    }));
+  assert.ok((await prompt.innerText()).includes('间隔回归题 2'), 'a failed retry returns to the Cue being answered when the timer expired');
+  assert.ok(await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}').cueStudyDrafts || {})
+    .some((draft: unknown) => (draft as { practice?: { pending?: { cueId: string }[] } }).practice?.pending?.some(item => item.cueId === 'cue0'))),
+    'a failed retry stays in the pending queue after returning');
+
   assert.deepEqual(errors, []);
   await context.close();
 } finally {
   await browser.close();
 }
-console.log('PASS: time-based CUE retries open automatically at the next safe point after the interval expires.');
+console.log('PASS: time-based CUE retries return to the interrupted Cue after a failed rating and remain pending.');

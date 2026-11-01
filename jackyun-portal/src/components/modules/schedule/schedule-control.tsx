@@ -350,7 +350,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   const passedPracticeCount = Object.values(practice.results ?? {}).filter(result => result.status === 'stable').length;
   const returnToRound = () => {
     setIndex(cuePracticeReturnIndex(practice, cues.map(cue => cue.id), currentIndex));
-    setPractice(state => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined }));
+    setPractice(state => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined, automaticReturnCueId: undefined }));
     setRatingFeedback(null); setRevealed(false); setSelectedChoice(undefined);
     queueMicrotask(() => studyRef.current?.focus());
   };
@@ -361,7 +361,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   const assessedCount = Object.keys(activeAssessments).length;
   const roundComplete = allCues.length > 0 && assessedCount === allCues.length;
   useEffect(() => {
-    if (!automaticPractice || practice.active || practice.mode) return;
+    if (!automaticPractice || practice.active || practice.mode || practice.automaticReturnCueId === current?.id) return;
     // A timer becoming due must not take the card away while the learner is
     // still working on it. Start the retry as soon as that card is rated.
     if (!roundComplete && current && !assessments[current.id]) return;
@@ -369,7 +369,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
     queueMicrotask(() => {
       setPractice(state => {
         if (!automaticPractice || state.active || state.mode || (!roundComplete && current && !assessments[current.id])) return state;
-        return enterCuePractice(state, Date.now(), current?.id, current?.id, false, roundComplete, practicePolicy);
+        return enterCuePractice({ ...state, automaticReturnCueId: undefined }, Date.now(), current?.id, current?.id, false, roundComplete, practicePolicy);
       });
       setRatingFeedback(null);
       setRevealed(false);
@@ -397,7 +397,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   }, [allCues, onComplete, task]);
   const advance = useCallback((destination: number) => {
     const target = practice.active ? cuePracticeReturnIndex(practice, cues.map(cue => cue.id), destination) : destination;
-    setPractice((state) => automaticPractice || state.mode ? enterCuePractice(state, Date.now(), current?.id, cues[target]?.id, state.mode, state.mode && roundComplete, practicePolicy, state.mode && roundComplete) : { ...state, active: undefined, rating: undefined, returnCueId: undefined });
+    setPractice((state) => automaticPractice || state.mode ? enterCuePractice({ ...state, automaticReturnCueId: undefined }, Date.now(), current?.id, cues[target]?.id, state.mode, state.mode && roundComplete, practicePolicy, state.mode && roundComplete) : { ...state, active: undefined, rating: undefined, returnCueId: undefined, automaticReturnCueId: undefined });
     setRatingFeedback(null); setIndex(target); setRevealed(false); setSelectedChoice(undefined);
     queueMicrotask(() => studyRef.current?.focus());
   }, [current?.id, practice, cues, roundComplete, automaticPractice, practicePolicy]);
@@ -414,7 +414,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
     const finishesGroup = !practice.active && fresh && groupCues.every((cue) => cue.id === current.id || assessments[cue.id]);
     onAssessment(current.id, status, Boolean(practice.active), Boolean(practice.active && !fresh));
     setPractice((state) => { const rated = rateCuePractice(state, current.id, status, fresh, Date.now(), Math.random, practicePolicy); return finishAutomaticCuePractice(rated, status); });
-    if (practice.active && !practice.mode && status === 'stable') { setIndex(cuePracticeReturnIndex(practice, cues.map(cue => cue.id), currentIndex)); setRevealed(false); setSelectedChoice(undefined); }
+    if (practice.active && !practice.mode) { setIndex(cuePracticeReturnIndex(practice, cues.map(cue => cue.id), currentIndex)); setRevealed(false); setSelectedChoice(undefined); }
     if (!practice.active) setAssessments((previous) => ({ ...previous, [current.id]: status }));
     if (finishesGroup) { setGroupSummaryIndex(groupIndex); setRatingFeedback(null); setStudyToolsOpen(false); }
     setRatingFeedback(status);
@@ -426,7 +426,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
     if (!await siteConfirm('标记后 10 天内不再安排这条 Cue。到期再次答对后，间隔依次增加至 12、14、16、18 天；答错或内容更新后恢复正常复习。', { title: '标记为已熟练掌握？', confirmLabel: '已熟练掌握', cancelLabel: '继续练习' })) return;
     onMastered(id);
     setAssessments(previous => ({ ...previous, [id]: 'stable' }));
-    setPractice(previous => ({ ...previous, pending: previous.pending.filter(item => item.cueId !== id), active: previous.active === id ? undefined : previous.active, mode: false, rating: undefined }));
+    setPractice(previous => ({ ...previous, pending: previous.pending.filter(item => item.cueId !== id), active: previous.active === id ? undefined : previous.active, mode: false, rating: undefined, returnCueId: undefined, automaticReturnCueId: undefined }));
     setHiddenCueIds(previous => [...new Set([...previous, id])]);
     setIndex(Math.min(currentIndex, Math.max(0, cues.length - 2))); setRevealed(false); setSelectedChoice(undefined); setRatingFeedback(null); setGroupSummaryIndex(null);
   }, [current, currentIndex, cues.length, onMastered]);
@@ -449,7 +449,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
     if (practice.active || practice.mode) { advance(practice.active ? currentIndex : Math.min(cues.length - 1, currentIndex + offset)); return; }
     if (offset > 0 && currentIndex === groupEnd - 1 && groupComplete && groupIndex < groupCount - 1) { setIndex(groupEnd); setRevealed(false); setSelectedChoice(undefined); queueMicrotask(() => studyRef.current?.focus()); return; }
     if (offset < 0 && currentIndex === groupStart && groupIndex > 0) { setIndex(groupStart - 1); setRevealed(false); setSelectedChoice(undefined); queueMicrotask(() => studyRef.current?.focus()); return; }
-    setPractice((state) => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined }));
+    setPractice((state) => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined, automaticReturnCueId: undefined }));
     setIndex((value) => Math.min(groupEnd - 1, Math.max(groupStart, value + offset)));
     setRevealed(false);
     setSelectedChoice(undefined);
@@ -537,7 +537,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
 
       {studyToolsOpen && <div id="schedule-mobile-tools" data-feature="study-help" className={styles.studyTools}>
         <p className={styles.studyToolDetails}>快捷键帮助：空格翻面；← / → / ↑ / ↓ 切换；C / P / X 或 1 / 2 / 3 评价；K 熟练掌握；~ / · 答题卡；Enter / Backspace 确认退出；Esc 保存并退出。输入框中保留正常输入。</p>
-        <nav aria-label="触屏题目目录">{cues.map((cue, cueIndex) => <button key={cue.id} type="button" disabled={!canEnterGroup(Math.floor(cueIndex / batchSize))} aria-current={cueIndex === currentIndex ? 'step' : undefined} onClick={() => { setGroupSummaryIndex(null); setPractice((state) => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined })); setRatingFeedback(null); setIndex(cueIndex); setRevealed(false); setSelectedChoice(undefined); setStudyToolsOpen(false); }}>{cueIndex + 1}{assessments[cue.id] ? ` ${statusMark(assessments[cue.id])}` : ''}</button>)}</nav>
+        <nav aria-label="触屏题目目录">{cues.map((cue, cueIndex) => <button key={cue.id} type="button" disabled={!canEnterGroup(Math.floor(cueIndex / batchSize))} aria-current={cueIndex === currentIndex ? 'step' : undefined} onClick={() => { setGroupSummaryIndex(null); setPractice((state) => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined, automaticReturnCueId: undefined })); setRatingFeedback(null); setIndex(cueIndex); setRevealed(false); setSelectedChoice(undefined); setStudyToolsOpen(false); }}>{cueIndex + 1}{assessments[cue.id] ? ` ${statusMark(assessments[cue.id])}` : ''}</button>)}</nav>
       </div>}
       {cueGameEnabled && <CueGamePanel compact account={gameAccount} onShopAction={onShopAction} sessionKey={draft.id} sessionStartedAt={draft.startedAt} sessionCount={Math.max(practice.completed, assessedCount)} reviews={reviews} cues={starCues} records={starRecords} feedback={starFeedback} animations={motionEnabled && !reducedMotion} />}
       {ratingFeedback && <div key={`${current?.id}:${ratingFeedback}`} data-cue-rating-feedback role="status" className={styles.ratingFeedback} data-rating={ratingFeedback}>{statusMark(ratingFeedback)} {practice.active && ratingFeedback === 'stable' ? '重练已通过，原评价保留' : ratingFeedback === 'stable' ? '这条已掌握' : ratingFeedback === 'partial' ? '找到需要巩固的部分了' : '记下了，继续修复这条'} · 已保存</div>}
@@ -575,7 +575,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
             {groupIndex < groupCount - 1 ? <button type="button" onClick={() => { setGroupSummaryIndex(null); setIndex(groupEnd); setRevealed(false); setSelectedChoice(undefined); queueMicrotask(() => studyRef.current?.focus()); }} className="min-h-11 rounded-full bg-[var(--brand)] px-6 text-sm font-semibold text-white dark:text-[#202124]">进入第 {groupIndex + 2} 组 <span aria-hidden="true">→</span></button> : <button type="button" onClick={() => submit(activeAssessments)} className="min-h-11 rounded-full bg-[var(--brand)] px-6 text-sm font-semibold text-white dark:text-[#202124]">完成学习并保存总结</button>}
           </div>
         </section> : !current ? <div className="m-auto max-w-lg rounded-3xl border border-dashed border-[var(--card-border)] p-10 text-center"><span aria-hidden="true" className="material-icons-round text-4xl text-[var(--brand)]">quiz</span><h2 className="mt-3 text-xl font-semibold">{practice.mode ? practice.pending.length ? '等待其他 CUE 到期' : '本轮重练全部通过' : allCues.length ? '本轮已完成' : '这个任务暂时没有 Cue'}</h2><p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">{practice.mode ? practice.pending.length ? '本轮学习中按间隔开放重练；全部 CUE 评价完成后，可直接重练未掌握项。原评价和重练结果均已保存。' : '重练通过已单独标记，原来的黄色 / 红色继续保留。' : allCues.length ? '已完成的内容已隐藏，评价和进度仍然保留。' : '请先在 CUE 工作台添加内容，再回来学习。'}</p><button type="button" onClick={() => practice.mode ? returnToRound() : allCues.length ? submit(activeAssessments) : onClose()} className="mt-5 rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white dark:text-[#202124]">{practice.mode ? '返回本轮' : allCues.length ? '完成学习' : '返回 Schedule'}</button></div> : <>
-          <div className={`${practice.mode ? 'hidden' : 'hidden md:flex'} mb-4 gap-2 overflow-x-auto py-1 sm:flex-wrap`} aria-label="Cue 学习进度">{cues.map((cue, cueIndex) => { const saved = assessments[cue.id]; return <button key={cue.id} type="button" disabled={!canEnterGroup(Math.floor(cueIndex / batchSize))} onClick={() => { setPractice((state) => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined })); setRatingFeedback(null); setIndex(cueIndex); setRevealed(false); setSelectedChoice(undefined); queueMicrotask(() => studyRef.current?.focus()); }} aria-label={`第 ${cueIndex + 1} 条${saved ? `，已标记 ${statusMark(saved)}` : '，未标记'}`} className={`grid h-11 min-w-11 shrink-0 place-items-center rounded-full border px-2 text-xs font-bold ${cue.id === current.id ? 'border-[var(--brand)] ring-2 ring-[var(--brand)]/20' : 'border-[var(--card-border)]'} ${saved === 'stable' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : saved === 'partial' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : saved === 'unclear' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200' : 'bg-[var(--card)] text-[var(--muted-foreground)]'}`}>{saved ? statusMark(saved) : cueIndex + 1}</button>; })}</div>
+          <div className={`${practice.mode ? 'hidden' : 'hidden md:flex'} mb-4 gap-2 overflow-x-auto py-1 sm:flex-wrap`} aria-label="Cue 学习进度">{cues.map((cue, cueIndex) => { const saved = assessments[cue.id]; return <button key={cue.id} type="button" disabled={!canEnterGroup(Math.floor(cueIndex / batchSize))} onClick={() => { setPractice((state) => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined, automaticReturnCueId: undefined })); setRatingFeedback(null); setIndex(cueIndex); setRevealed(false); setSelectedChoice(undefined); queueMicrotask(() => studyRef.current?.focus()); }} aria-label={`第 ${cueIndex + 1} 条${saved ? `，已标记 ${statusMark(saved)}` : '，未标记'}`} className={`grid h-11 min-w-11 shrink-0 place-items-center rounded-full border px-2 text-xs font-bold ${cue.id === current.id ? 'border-[var(--brand)] ring-2 ring-[var(--brand)]/20' : 'border-[var(--card-border)]'} ${saved === 'stable' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : saved === 'partial' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : saved === 'unclear' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200' : 'bg-[var(--card)] text-[var(--muted-foreground)]'}`}>{saved ? statusMark(saved) : cueIndex + 1}</button>; })}</div>
           <div data-cue-study-meta data-feature="study-meta" className="flex flex-wrap items-start justify-between gap-3"><div className="flex flex-wrap gap-2"><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">{current.subjectName}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs font-semibold dark:bg-white/10">{current.unit}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs uppercase text-[var(--muted-foreground)] dark:bg-white/10">{current.type}</span><span className="rounded-full bg-black/5 px-3 py-1 text-xs text-[var(--muted-foreground)] dark:bg-white/10">{CUE_DISPLAY_OPTIONS.find((item) => item.value === (current.display ?? 'standard'))?.label}</span><button type="button" onClick={() => setMemoOpen(true)} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${currentMemo ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200' : 'border border-[var(--card-border)] text-[var(--muted-foreground)]'}`}><span aria-hidden="true" className="material-icons-round text-sm">edit_note</span>{currentAnswer?.text.trim() ? '查看作答' : '填写答题卡'}</button></div><div className="text-right"><div className="flex flex-wrap items-center justify-end gap-2"><CueStatusHistory previous={priorStatus} current={assessments[current.id]} /><CueActivityBadge cue={current} /><span className="text-xs font-semibold text-[var(--foreground)]">{cueRevisionLabel(current)}</span></div><p className="mt-1 text-xs text-[var(--muted-foreground)]">先闭卷作答，再揭示证据并判定</p></div></div>
           <details data-cue-extra-info><summary className="cursor-pointer text-xs font-semibold">学习明细与难度</summary><div className="mt-2"><p className="text-xs text-[var(--muted-foreground)]">{current.type} · {CUE_DISPLAY_OPTIONS.find(item => item.value === (current.display ?? 'standard'))?.label}</p><details data-feature="study-history" className="my-3 rounded-xl border border-[var(--card-border)] p-3 text-xs">
             <summary className="cursor-pointer font-semibold">测试历史与学习明细</summary>
