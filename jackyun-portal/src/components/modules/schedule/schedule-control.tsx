@@ -335,7 +335,10 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   const [automaticPractice, setAutomaticPractice] = useState(true);
   const [practicePolicy, setPracticePolicy] = useState(defaultCuePracticePolicy);
   const currentIndex = Math.min(index, Math.max(0, cues.length - 1));
-  const batchSize = cues.length > 20 ? 20 : Math.max(1, cues.length);
+  const [batchSize, setBatchSize] = useState(() => {
+    const requested = Number.isInteger(draft.batchSize) && draft.batchSize! > 0 ? draft.batchSize! : 20;
+    return Math.min(Math.max(1, cues.length), requested);
+  });
   const groupCount = Math.ceil(cues.length / batchSize);
   const groupIndex = Math.floor(currentIndex / batchSize);
   const groupStart = groupIndex * batchSize;
@@ -350,7 +353,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
     unclear: groupCues.filter((cue) => assessments[cue.id] === 'unclear').length,
   };
   const firstWeakCueIndex = groupCues.findIndex((cue) => assessments[cue.id] === 'partial' || assessments[cue.id] === 'unclear');
-  const canEnterGroup = (target: number) => target <= groupIndex || cues.slice(0, target * batchSize).every((cue) => assessments[cue.id]);
+  const canEnterGroup = (target: number) => target >= 0 && target < groupCount;
   const [practice, setPractice] = useState(() => normalizeCuePractice(draft.practice ?? emptyCuePractice(), draft.assessments, Date.now()));
   const [practiceNow, setPracticeNow] = useState(() => Date.now());
   useEffect(() => { if (!practice.pending.length) return; const timer = setInterval(() => setPracticeNow(Date.now()), 1000); return () => clearInterval(timer); }, [practice.pending.length]);
@@ -515,8 +518,8 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   }, [currentIndex]);
   useEffect(() => { if (memoOpen) queueMicrotask(() => memoRef.current?.focus()); }, [index, memoOpen]);
   useEffect(() => {
-    onProgress({ id: draft.id, task, cueIds: allCues.map((cue) => cue.id), index: currentIndex, revealed, revealedStepCount, ...(selectedChoice !== undefined ? { selectedChoice } : {}), assessments: activeAssessments, priorStatuses: draft.priorStatuses, startedAt: draft.startedAt, shuffled, hiddenCueIds, practice, updatedAt: new Date().toISOString() });
-  }, [activeAssessments, allCues, hiddenCueIds, currentIndex, draft.id, draft.priorStatuses, draft.startedAt, onProgress, revealed, revealedStepCount, selectedChoice, shuffled, task, practice]);
+    onProgress({ id: draft.id, task, cueIds: allCues.map((cue) => cue.id), batchSize, index: currentIndex, revealed, revealedStepCount, ...(selectedChoice !== undefined ? { selectedChoice } : {}), assessments: activeAssessments, priorStatuses: draft.priorStatuses, startedAt: draft.startedAt, shuffled, hiddenCueIds, practice, updatedAt: new Date().toISOString() });
+  }, [activeAssessments, allCues, hiddenCueIds, currentIndex, batchSize, draft.id, draft.priorStatuses, draft.startedAt, onProgress, revealed, revealedStepCount, selectedChoice, shuffled, task, practice]);
   useEffect(() => {
     const onKeyDown = async (event: KeyboardEvent) => {
       if (isSiteDialogOpen()) return;
@@ -567,11 +570,15 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
           <button type="button" aria-label="打开题目目录与帮助" title="目录与帮助" aria-expanded={studyToolsOpen} aria-controls="schedule-mobile-tools" onClick={() => setStudyToolsOpen((open) => !open)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--card-border)]"><span aria-hidden="true" className="material-icons-round">toc</span></button>
         </div>
         <div className="mx-auto mt-2 h-1 max-w-[1440px] overflow-hidden rounded-full bg-black/10 dark:bg-white/10" role="progressbar" aria-label="本轮总体学习进度" aria-valuemin={0} aria-valuemax={allCues.length} aria-valuenow={assessedCount}><div className="h-full rounded-full bg-[var(--brand)] transition-[width]" style={{ width: `${allCues.length ? (assessedCount / allCues.length) * 100 : 0}%` }} /></div>
-        {groupCount > 1 && !practice.active && !practice.mode && <nav aria-label="CUE 学习分组" className="mx-auto mt-1 flex max-w-[1440px] items-center gap-2 text-xs text-[var(--muted-foreground)]">
+        {cues.length > 1 && !practice.active && !practice.mode && <nav aria-label="CUE 学习分组" className="mx-auto mt-1 flex max-w-[1440px] items-center gap-2 text-xs text-[var(--muted-foreground)]">
           <button type="button" disabled={groupIndex === 0} aria-label="上一组" title="上一组" onClick={() => { setGroupSummaryIndex(null); setIndex(groupStart - batchSize); setRevealed(false); setSelectedChoice(undefined); }} className="grid h-8 w-8 place-items-center rounded-full hover:bg-black/5 disabled:invisible dark:hover:bg-white/10"><span aria-hidden="true" className="material-icons-round text-base">chevron_left</span></button>
           <span aria-live="polite" className="shrink-0 tabular-nums">第 {groupIndex + 1} / {groupCount} 组</span>
           <div className="h-1 min-w-12 flex-1 overflow-hidden rounded-full bg-black/10 dark:bg-white/10" role="progressbar" aria-label="本组学习进度" aria-valuemin={0} aria-valuemax={groupCues.length} aria-valuenow={groupAssessedCount}><div className="h-full rounded-full bg-[var(--brand)]" style={{ width: `${groupCues.length ? (groupAssessedCount / groupCues.length) * 100 : 0}%` }} /></div>
-          <button type="button" disabled={groupIndex >= groupCount - 1 || !groupComplete} aria-label="查看本组总结" title={groupComplete ? '查看本组总结' : '完成本组后继续'} onClick={() => setGroupSummaryIndex(groupIndex)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-black/5 disabled:invisible dark:hover:bg-white/10"><span aria-hidden="true" className="material-icons-round text-base">chevron_right</span></button>
+          <label className="flex shrink-0 items-center gap-1">每组
+            <input aria-label="每组 CUE 数量" type="number" min={1} max={Math.max(1, cues.length)} step={1} value={batchSize} onChange={(event) => { const value = Number(event.target.value); if (!Number.isInteger(value)) return; setGroupSummaryIndex(null); setBatchSize(Math.min(Math.max(1, value), Math.max(1, cues.length))); }} className="w-16 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2 py-1 text-center text-xs text-[var(--foreground)]" />
+            条
+          </label>
+          <button type="button" disabled={groupIndex >= groupCount - 1} aria-label={groupComplete ? '查看本组总结' : '跳过本组并进入下一组'} title={groupComplete ? '查看本组总结' : '跳过本组并进入下一组'} onClick={() => { if (groupComplete) { setGroupSummaryIndex(groupIndex); return; } setGroupSummaryIndex(null); setIndex(groupEnd); setRevealed(false); setSelectedChoice(undefined); queueMicrotask(() => studyRef.current?.focus()); }} className="flex h-8 shrink-0 items-center gap-1 rounded-full border border-[var(--card-border)] px-2 hover:bg-black/5 disabled:invisible dark:hover:bg-white/10"><span aria-hidden="true" className="material-icons-round text-base">chevron_right</span><span>{groupComplete ? '本组总结' : '跳过本组'}</span></button>
         </nav>}
       </header>
 

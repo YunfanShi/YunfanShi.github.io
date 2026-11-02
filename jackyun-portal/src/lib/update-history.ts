@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
+  { version: '3.74.0', date: '2026-11-02', dateLabel: '2026 年 11 月 2 日', title: '自定义 CUE 分组学习', summary: '按自己的节奏设置每组 CUE 数量；还没完成当前组时也可以跳到下一组，未完成进度仍会保存。', categories: ['学习体验'], accent: 'blue', featured: true, highlights: ['每组数量可在学习过程中调整，并随未完成学习草稿保存。', '可直接跳过未完成的组继续学习，之后仍能返回查看；不会自动补记掌握评价。'] },
   { version: '3.73.0', date: '2026-11-02', dateLabel: '2026 年 11 月 2 日', title: '逐条记忆与安全数据交换', summary: 'CUE 新增逐条揭示的实用记忆模板、外部数据冲突对比与分块备份；同时改善特效开关、浏览器 Cookie 容错和 Schedule 空闲占用。', categories: ['学习体验', '稳定性', '平台体验'], accent: 'blue', featured: true, highlights: ['知识要点、注意事项、条件结果和操作流程可逐条揭示与自测，评价仍记录在整张 CUE。', '外部 CUE 导入先对比版本、更新时间、学习进度与未完成草稿；更新正文时保留本地进度。', 'Schedule 可独立导出或恢复 CUE、复习历史、学习记录、任务、草稿、课表和题库数据块。', 'Cookie 被拒绝或格式损坏时显示兼容说明，减少认证初始化异常导致的网站崩溃。'] },
   { version: '3.72.0', date: '2026-11-02', dateLabel: '2026 年 11 月 2 日', title: '按顺序拆分内容进行步骤背诵', summary: '新增步骤背诵，把多个定义要点、设备操作流程和课文内容按行整理，再逐条遮挡与揭示。', categories: ['学习体验'], accent: 'blue', featured: true, highlights: ['每组内容可包含多条按顺序排列的要点或步骤，不再限定为一个术语对应一段定义。', '支持创建、编辑与删除背诵组；粘贴带编号的清单时会自动整理条目序号。', '背诵时可逐条揭示、单独隐藏内容，或一次隐藏和显示全部条目。'] },
   { version: '3.71.0', date: '2026-11-02', dateLabel: '2026 年 11 月 2 日', title: 'CUE 学习队列稍后再学', summary: '遇到暂时不想学的复杂 CUE，可以按 I 或点击“稍后学习”，把它移到本次学习队列末尾。', categories: ['学习体验'], accent: 'violet', featured: true, highlights: ['跳过后保持当前位置，继续学习下一条，并自动保存新的队列顺序。', '跳过不写入评价，不改变 CUE 的熟练状态或复习历史。', '桌面和触屏设备均可操作；间隔重练和分组总结时不跳过。'] },

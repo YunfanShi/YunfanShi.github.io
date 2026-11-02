@@ -406,6 +406,8 @@ export interface CueStudyDraft {
   id: string;
   task: LearningTask;
   cueIds: string[];
+  /** User-selected number of CUEs in each study group. */
+  batchSize?: number;
   index: number;
   revealed: boolean;
   revealedStepCount?: number;
