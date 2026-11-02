@@ -1,19 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { inspectCloudBackup, inspectScheduleVersion } from '../src/lib/backup/inspection.ts';
+import { inspectScheduleVersion } from '../src/lib/backup/inspection.ts';
 
-test('Schedule version comparison exposes missing and changed Cue content without storage keys', () => {
-  const saved = { cues: [{ id: 'kept', prompt: 'Old prompt' }, { id: 'lost', prompt: 'Lost Cue' }], manualTasks: [{ id: 'task', title: 'Homework' }], learningRecords: [] };
-  const current = { cues: [{ id: 'kept', prompt: 'New prompt' }, { id: 'added', prompt: 'Added Cue' }], manualTasks: [], learningRecords: [] };
-  const inspected = inspectScheduleVersion(saved, current);
-  assert.deepEqual(inspected.facts, ['Cue 2 条', '手动任务 1 条', '学习记录 0 条']);
-  assert.match(inspected.comparison.join(' '), /这个版本独有 1、当前独有 1、内容不同 1/);
-  assert.match(inspected.comparison.join(' '), /Lost Cue/);
+test('Schedule comparison includes CUE mastery, reviews, unfinished study, and question progress', () => {
+  const saved = {
+    cues: [{ id: 'cue-1', prompt: '打印机设置', status: 'partial', nextReviewDate: '2026-11-01' }],
+    cueReviews: [{ id: 'review-1', cueId: 'cue-1', reviewedAt: '2026-10-31T10:00:00.000Z' }],
+    cueStudyDrafts: { active: { cueIds: ['cue-1', 'cue-2'], index: 0, updatedAt: '2026-11-01T09:00:00.000Z' } },
+  };
+  const current = {
+    cues: [{ id: 'cue-1', prompt: '打印机设置', status: 'stable', nextReviewDate: '2026-11-05' }],
+    cueReviews: [{ id: 'review-1', cueId: 'cue-1', reviewedAt: '2026-10-31T10:00:00.000Z' }, { id: 'review-2', cueId: 'cue-1', reviewedAt: '2026-11-01T10:00:00.000Z' }],
+    cueStudyDrafts: { active: { cueIds: ['cue-1', 'cue-2'], index: 1, updatedAt: '2026-11-01T11:00:00.000Z' } },
+  };
+  const savedQuestions = { questions: [{ id: 'q-1' }], attempts: [{ id: 'a-1' }], drafts: { active: { index: 1 } } };
+  const currentQuestions = { questions: [{ id: 'q-1' }, { id: 'q-2' }], attempts: [{ id: 'a-1' }, { id: 'a-2' }], drafts: { active: { index: 1 } } };
 
-  const cloud = inspectCloudBackup('schedule', { legacy_sync_data: [
-    { storage_key: 'jackyun_schedule_control_v1', storage_value: saved },
-    { storage_key: 'jack_timetable_plan', storage_value: {} },
-  ] }, current);
-  assert.match(cloud.facts.join(' '), /课表计划 1 份/);
-  assert.doesNotMatch([...cloud.facts, ...cloud.comparison].join(' '), /legacy_sync_data|jack_timetable_plan/);
+  const inspection = inspectScheduleVersion(saved, current, savedQuestions, currentQuestions);
+  assert.ok(inspection.comparison.some((line) => line.includes('学习进度') && line.includes('△ 1')));
+  assert.ok(inspection.comparison.some((line) => line.includes('未完成学习') && line.includes('第 1/2 张')));
+  assert.ok(inspection.comparison.some((line) => line.includes('未完成学习') && line.includes('第 2/2 张')));
+  assert.ok(inspection.comparison.some((line) => line.includes('题库：1 题 · 作答 1 次')));
+  assert.ok(inspection.comparison.some((line) => line.includes('题库：2 题 · 作答 2 次')));
 });

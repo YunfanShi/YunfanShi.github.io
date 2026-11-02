@@ -11,12 +11,21 @@ export default function ClassTimeline({ sessions, selectedDate, mode, name, init
   const [now, setNow] = useState(initialNow);
   const layout = useWorkspaceLayout();
   useEffect(() => {
+    let timer: number | undefined;
     const refresh = () => { if (!document.hidden) setNow(new Date()); };
-    const timer = window.setInterval(refresh, 1000);
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', refresh);
-    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
-  }, []);
+    const syncTimer = () => {
+      if (timer !== undefined) window.clearInterval(timer);
+      timer = undefined;
+      if (!document.hidden && mode !== 'holiday' && sessions.length > 0 && selectedDate === dateKey(new Date())) {
+        refresh();
+        timer = window.setInterval(refresh, 1000);
+      }
+    };
+    syncTimer();
+    window.addEventListener('focus', syncTimer);
+    document.addEventListener('visibilitychange', syncTimer);
+    return () => { if (timer !== undefined) window.clearInterval(timer); window.removeEventListener('focus', syncTimer); document.removeEventListener('visibilitychange', syncTimer); };
+  }, [mode, selectedDate, sessions.length]);
   const timeline = classTimeline(sessions, selectedDate, now);
   const lesson = timeline.active ?? timeline.next;
   const today = selectedDate === dateKey(now);

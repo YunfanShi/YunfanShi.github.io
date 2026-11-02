@@ -14,14 +14,16 @@ const AUTO_REGISTER_OAUTH_PROVIDERS = ['github', 'google', 'apple'];
 const SUPABASE_COOKIE_PREFIXES = ['sb-', 'supabase-auth-'];
 
 function hasSupabaseCookies(request: NextRequest): boolean {
-  const allCookies = request.cookies.getAll();
-  return allCookies.some((cookie) =>
-    SUPABASE_COOKIE_PREFIXES.some((prefix) => cookie.name.startsWith(prefix)),
-  );
+  try {
+    return request.cookies.getAll().some((cookie) => SUPABASE_COOKIE_PREFIXES.some((prefix) => cookie.name.startsWith(prefix)));
+  } catch {
+    return false;
+  }
 }
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (pathname === '/cookie-compatibility') return NextResponse.next();
   if (pathname === '/techempire' || pathname.startsWith('/techempire/')) {
     const canonical = request.nextUrl.clone();
     canonical.pathname = pathname.replace(/^\/techempire/, '/Techempire');
@@ -50,7 +52,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const session = await createClient(request);
+  let session: Awaited<ReturnType<typeof createClient>>;
+  try { session = await createClient(request); }
+  catch (error) {
+    console.warn('[proxy] Cookie-backed session could not be initialized', error instanceof Error ? error.name : 'unknown');
+    return NextResponse.redirect(new URL('/cookie-compatibility', request.url));
+  }
   const { supabase } = session;
   // Keep rotated cookies on redirects and errors as well as normal responses.
   function withSessionCookies(target: NextResponse) {

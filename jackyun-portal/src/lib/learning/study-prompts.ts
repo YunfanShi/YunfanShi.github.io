@@ -9,7 +9,7 @@ export const CUE_RULES = [
   'prompt：明确任务、对象和必要条件；隐藏 answer 和 markingPoints 后仍可独立作答。可使用 Define、State、Explain why、Calculate、Compare，但陌生英文术语应附中文含义或明确范围，不只写 State the index laws. 等含糊指令。数学可说明要回忆哪些运算下的规则和适用条件，或提供具体待化简表达式；不泄露待回忆公式或答案。',
   'subtitle：仅补充必要方向、已知条件、符号含义和限制，不重复答案；简单卡可省略。answer：简洁可核对，定义保持准确限定词；解释题通常用 1–3 个清楚逻辑步骤。markingPoints：独立得分要点、关系和限定条件，匹配题干，不拆成大量孤立词语。公式保留笔记要求的表达式、符号、单位及条件；确需计算练习才另设计算 CUE。不虚构答案或缺图数值。',
   '操作：先查当前 CUE，避免重复。已覆盖但质量不足时 update 真实 id，仅输出变动字段；不要为了更新改无关字段，不删除知识或历史。create 必须有 action、unit、prompt、type、display、markingPoints，尽可能有 answer；需要时明确 subjectName。create 不输出 subsection，update 仅有依据才改。学科与单元按资料和目录填写，逐字使用，不自行编造或翻译名称。',
-  '输出：严格有效 JSON {"version":1,"operations":[...]}，最多 200 条。action 仅 create/update。内容字段：subjectName、unit、subsection（仅 update）、prompt、subtitle、answer、type、display、choices、correctChoice、markingPoints。type：general、definition、state、explain、calculate、formula、derivation、proof、compare、process、application、diagram、multiple-choice。display：standard、headline、formula、steps、comparison、scenario、definition-card、multiple-choice。选择题确有必要才使用，2–6 项，correctChoice 零起始。',
+  '输出：严格有效 JSON {"version":1,"operations":[...]}，最多 200 条。action 仅 create/update。内容字段：subjectName、unit、subsection（仅 update）、prompt、subtitle、answer、type、display、choices、correctChoice、markingPoints。type：general、definition、state、explain、calculate、formula、derivation、proof、compare、process、application、diagram、multiple-choice、knowledge-point、caution、condition-result。display：standard、headline、formula、steps、stepwise、comparison、scenario、definition-card、multiple-choice。知识点、注意事项、条件结果、流程的独立回忆步骤放在 markingPoints，每行一个；选择题确有必要才使用，2–6 项，correctChoice 零起始。',
   '只读：不写 status、难度、复习日期、间隔、评分、version 或 updatedAt。公式支持 KaTeX，JSON 反斜杠必须转义。生成前检查分类、核心覆盖、无重复、题干可作答且不泄露答案、答案可核对、得分点有效、字段及 JSON 正确；最终只输出 JSON，无代码块、开头或结尾说明。缺少必填信息先问，不输出无效 JSON。',
 ].join('\n');
 
@@ -37,7 +37,7 @@ export function cueImportPrompt(subjectName: string, knownUnits: string[], cues:
   return [CUE_RULES,
     '只输出 {"version":1,"operations":[...]}；create 必须有 unit、prompt；update 必须用当前真实 id，只写要改的字段，省略不变，空字符串清空可选文本。',
     '字段：subjectName、unit、subsection、prompt、subtitle、answer、type、display、choices、correctChoice、markingPoints。',
-    'type：general、definition、state、explain、calculate、formula、derivation、proof、compare、process、application、diagram、multiple-choice。display：standard、headline、formula、steps、comparison、scenario、definition-card、multiple-choice。选择题 2–6 选项，correctChoice 从 0 开始。',
+    'type：general、definition、state、explain、calculate、formula、derivation、proof、compare、process、application、diagram、multiple-choice、knowledge-point、caution、condition-result。display：standard、headline、formula、steps、stepwise、comparison、scenario、definition-card、multiple-choice。知识要点、注意事项、条件结果和操作步骤可把 markingPoints 按顺序逐条呈现。选择题 2–6 选项，correctChoice 从 0 开始。',
     '公式支持 $...$、$$...$$ 和 KaTeX；严格 JSON 中反斜杠必须转义。version、updatedAt、掌握状态、难度、日期及复习间隔只读，不能修改。',
     `当前学科：${subjectName}；允许单元：${JSON.stringify(knownUnits)}。逐字使用，除非用户明确要求，不创建或翻译单元；不确定先询问。`,
     '格式示例：' + JSON.stringify(cueBulkImportTemplate(cues[0]?.id)),

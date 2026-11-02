@@ -11,10 +11,12 @@ import { getSetting, getSyncArchiveData, queueV5RestoreTargets, restoreSyncArchi
 import { listLocalBackups, localPageValues, saveLocalBackup, type LocalBackup } from '@/lib/backup/local';
 import { SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
 import { inspectScheduleVersion, type BackupInspection } from '@/lib/backup/inspection';
+import { QUESTION_BANK_KEY } from '@/lib/learning/question-bank';
 import { applyLocalPageImport, localPageReplacementDeletes, parseLocalPageBackup } from '@/lib/backup/local-import';
 import { applyV5WorkspaceArchive, createV5WorkspaceArchiveFromSources, parseV5WorkspaceArchive } from '@/lib/backup/workspace-archive';
 import { exportOfflineWorkspaceArchiveData, restoreOfflineWorkspaceArchiveData } from '@/lib/offline/workspace';
 import { latestDataChange, type LocalShareBundle } from '@/lib/backup/local-share';
+import ScheduleDataBlocksPanel from './schedule-data-blocks-panel';
 
 const REASONS: Record<BackupVersion['reason'], string> = {
   automatic: '自动', baseline: '初始', before_restore: '恢复前', manual: '手动',
@@ -127,7 +129,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   function inspectLocal(item: LocalBackup) {
     const current = workspaceStorage.getItem(SCHEDULE_STORAGE_KEY);
     const inspection = page === 'schedule'
-      ? inspectScheduleVersion(item.values[SCHEDULE_STORAGE_KEY], current)
+      ? inspectScheduleVersion(item.values[SCHEDULE_STORAGE_KEY], current, item.values[QUESTION_BANK_KEY], workspaceStorage.getItem(QUESTION_BANK_KEY))
       : { facts: [`此设备保存了 ${Object.keys(item.values).length} 份页面数据`], comparison: [], warning: '此页面暂无逐条对比；可先下载文件检查。' };
     setPreview({ id: item.id, source: 'local', inspection });
   }
@@ -240,9 +242,13 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   const currentPageValues=localPageValues(workspaceStorage.snapshot(),page);
   const currentPageChangedAt=latestDataChange(currentPageValues);
   const selectedCloudPage=cloudPreview?.bundle.pages.find(item=>item.page===page);
+  const cloudScheduleInspection = page === 'schedule' && selectedCloudPage
+    ? inspectScheduleVersion(selectedCloudPage.values[SCHEDULE_STORAGE_KEY], workspaceStorage.getItem(SCHEDULE_STORAGE_KEY), selectedCloudPage.values[QUESTION_BANK_KEY], workspaceStorage.getItem(QUESTION_BANK_KEY))
+    : null;
   const cloudMatchesLocal=selectedCloudPage&&JSON.stringify(Object.entries(currentPageValues).sort(([a],[b])=>a.localeCompare(b)))===JSON.stringify(Object.entries(selectedCloudPage.values).sort(([a],[b])=>a.localeCompare(b)));
 
   return <div className="space-y-4">
+    {page === 'schedule' && <ScheduleDataBlocksPanel owner={localOwner} />}
     <p className="text-sm leading-6 text-[var(--muted-foreground)]">页面数据有修改后最多 30 秒自动保存一次本地恢复点，每页保留最近五个版本。登录后可手动把当前页面上传为服务器备份；服务器备份不会自动下载到本机。</p>
     <p className="text-sm leading-6 text-[var(--muted-foreground)]">本机归档包含工作区记录、离线任务队列、同步 outbox 与冲突，并按当前账号隔离。导入会合并未确认操作，不覆盖本机已有修改；云端专属且未下载的数据不在本机归档内。</p>
     <div className="flex flex-wrap items-end gap-3">
@@ -272,7 +278,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
       {cloudListOpen&&(versions.length?<div className="max-h-80 divide-y divide-[var(--card-border)] overflow-y-auto rounded-xl border border-[var(--card-border)]">
         {versions.map((item,index)=><div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm"><span className="min-w-0 flex-1"><strong>备份 #{item.id}</strong><span className="ml-2 text-xs text-[var(--muted-foreground)]">备份时间 {new Date(item.created_at).toLocaleString()} · {REASONS[item.reason]}{index===0?' · 最新备份':''}{item.retention_exempt?' · 保留历史':''}</span></span><button type="button" disabled={busy} onClick={()=>void inspectCloud(item.id)} className="text-[var(--brand)] disabled:opacity-50">查看内容</button><button type="button" disabled={busy} onClick={()=>void download(item.id)} className="text-[var(--brand)] disabled:opacity-50">下载 JSON</button></div>)}
       </div>:<p className="text-sm text-[var(--muted-foreground)]">此页面暂无服务器备份版本。</p>)}
-      {selectedCloudPage&&<div className="space-y-2 rounded-lg bg-[var(--background)] p-3 text-sm"><strong>服务器备份 #{cloudPreview!.id} · {selectedCloudPage.label}</strong><p>云端数据最后修改：{selectedCloudPage.dataChangedAt?new Date(selectedCloudPage.dataChangedAt).toLocaleString():'记录未提供修改时间'} · {Object.keys(selectedCloudPage.values).length} 项</p><p>本机数据最后修改：{currentPageChangedAt?new Date(currentPageChangedAt).toLocaleString():'记录未提供修改时间'} · {Object.keys(currentPageValues).length} 项</p><p>{cloudMatchesLocal?'云端与本机内容相同。':'云端与本机内容有差异；数据时间仅按记录正文中的时间字段比较。'}</p><button type="button" disabled={busy} onClick={()=>void replaceFromCloud()} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">确认后整体替换本机此页</button></div>}
+      {selectedCloudPage&&<div className="space-y-2 rounded-lg bg-[var(--background)] p-3 text-sm"><strong>服务器备份 #{cloudPreview!.id} · {selectedCloudPage.label}</strong><p>云端数据最后修改：{selectedCloudPage.dataChangedAt?new Date(selectedCloudPage.dataChangedAt).toLocaleString():'记录未提供修改时间'} · {Object.keys(selectedCloudPage.values).length} 项</p><p>本机数据最后修改：{currentPageChangedAt?new Date(currentPageChangedAt).toLocaleString():'记录未提供修改时间'} · {Object.keys(currentPageValues).length} 项</p><p>{cloudMatchesLocal?'云端与本机内容相同。':'云端与本机内容有差异；数据时间仅按记录正文中的时间字段比较。'}</p>{cloudScheduleInspection&&<InspectionPanel title="Schedule 数据块、学习进度与未完成草稿对比" value={cloudScheduleInspection} />}<button type="button" disabled={busy} onClick={()=>void replaceFromCloud()} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">确认后整体替换本机此页</button></div>}
     </section>}
     <div className="space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">此设备的本地版本</h3><label className="cursor-pointer text-sm text-[var(--brand)]">上传编辑后的页面 JSON<input type="file" accept="application/json,.json" className="hidden" onChange={(event) => { void uploadLocal(event.target.files?.[0]); event.target.value = ''; }} /></label></div>
       {localVersions.length ? <div className="max-h-60 divide-y divide-[var(--card-border)] overflow-y-auto rounded-xl border border-[var(--card-border)]">{localVersions.map((item) => <div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm"><span className="min-w-0 flex-1"><strong>{new Date(item.createdAt).toLocaleString()}</strong>{scheduleSummary(item.values[SCHEDULE_STORAGE_KEY]) ? ` · ${scheduleSummary(item.values[SCHEDULE_STORAGE_KEY])}` : ` · ${Object.keys(item.values).length} 份数据`}</span><button type="button" disabled={busy} onClick={() => inspectLocal(item)} className="font-medium text-[var(--brand)] disabled:opacity-50">对比当前设备</button><button type="button" disabled={busy} onClick={() => downloadLocal(item)} className="text-[var(--brand)] disabled:opacity-50">下载</button><button type="button" disabled={busy} onClick={() => void restoreLocal(item)} className="text-[var(--brand)] disabled:opacity-50">恢复</button></div>)}</div> : <p className="text-sm text-[var(--muted-foreground)]">此设备暂无该页面的本地版本。</p>}</div>

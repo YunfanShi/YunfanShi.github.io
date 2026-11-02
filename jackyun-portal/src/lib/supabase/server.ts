@@ -24,7 +24,7 @@ export const createClient = cache(async (response?: NextResponse, timeoutMs = 8_
       global: { fetch: (input: RequestInfo | URL, init?: RequestInit) => fetchWithReadRecovery(input, init, timeoutMs) },
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          try { return cookieStore.getAll(); } catch { return []; }
         },
         setAll(cookiesToSet: Parameters<SetAllCookies>[0]) {
           if (response) {
@@ -38,9 +38,7 @@ export const createClient = cache(async (response?: NextResponse, timeoutMs = 8_
             // Use cookieStore.set() — errors can be ignored if middleware
             // handles session refreshing
             try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options);
-              });
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
             } catch {
               // The `setAll` method is called from a Server Component.
               // This can be ignored if you have middleware refreshing

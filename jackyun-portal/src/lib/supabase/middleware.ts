@@ -12,9 +12,10 @@ export async function createClient(request: NextRequest) {
       global: { fetch: fetchWithReadRecovery },
       cookies: {
         getAll() {
-          return request.cookies.getAll();
+          try { return request.cookies.getAll(); } catch { return []; }
         },
         setAll(cookiesToSet: Parameters<SetAllCookies>[0]) {
+          try {
           // NextResponse snapshots request headers. Rebuild AFTER updating the
           // request, otherwise downstream rendering still sees the old token.
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
@@ -24,6 +25,7 @@ export async function createClient(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) => {
             supabaseResponse.cookies.set(name, value, options);
           });
+          } catch { /* Invalid or unavailable cookies must not break public pages. */ }
         },
       },
     }

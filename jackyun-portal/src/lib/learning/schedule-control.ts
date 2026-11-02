@@ -15,8 +15,8 @@ export type ScheduleMode = 'term' | 'holiday';
 export type TimetableRole = 'primary' | 'temporary';
 export type LearningTaskType = 'course-review' | 'interval-review' | 'weekly-review' | 'cue-review' | 'completeness-audit' | 'unit-review' | 'cumulative-review' | 'study' | 'self-study' | 'practice' | 'repair' | 'preview' | 'special' | 'exam' | 'custom';
 export type LearningStatus = 'stable' | 'partial' | 'unclear';
-export type CueType = 'general' | 'definition' | 'explain' | 'state' | 'calculate' | 'formula' | 'derivation' | 'proof' | 'compare' | 'process' | 'application' | 'diagram' | 'multiple-choice';
-export type CueDisplayPreset = 'standard' | 'headline' | 'formula' | 'steps' | 'comparison' | 'scenario' | 'definition-card' | 'multiple-choice';
+export type CueType = 'general' | 'definition' | 'explain' | 'state' | 'calculate' | 'formula' | 'derivation' | 'proof' | 'compare' | 'process' | 'application' | 'diagram' | 'multiple-choice' | 'knowledge-point' | 'caution' | 'condition-result';
+export type CueDisplayPreset = 'standard' | 'headline' | 'formula' | 'steps' | 'stepwise' | 'comparison' | 'scenario' | 'definition-card' | 'multiple-choice';
 export type LearningMaterialCode = 'B' | 'PQ' | 'BW' | 'N' | 'BQ' | 'PPT' | 'HW' | 'OTHER';
 
 export interface LearningMaterialProgress {
@@ -408,6 +408,7 @@ export interface CueStudyDraft {
   cueIds: string[];
   index: number;
   revealed: boolean;
+  revealedStepCount?: number;
   selectedChoice?: number;
   assessments: Record<string, LearningStatus>;
   priorStatuses?: Record<string, LearningStatus | null>;
@@ -1063,8 +1064,8 @@ export function parseCueBulkImport(value: unknown): CueBulkImport {
   if (!source || !Array.isArray(source.operations)) throw new Error('Cue 配置必须包含 operations 数组。');
   if (!source.operations.length) throw new Error('至少需要一条创建或修改操作。');
   if (source.operations.length > 200) throw new Error('一次最多处理 200 条 Cue。');
-  const allowedTypes = new Set<CueType>(['general', 'definition', 'explain', 'state', 'calculate', 'formula', 'derivation', 'proof', 'compare', 'process', 'application', 'diagram', 'multiple-choice']);
-  const allowedDisplays = new Set<CueDisplayPreset>(['standard', 'headline', 'formula', 'steps', 'comparison', 'scenario', 'definition-card', 'multiple-choice']);
+  const allowedTypes = new Set<CueType>(['general', 'definition', 'explain', 'state', 'calculate', 'formula', 'derivation', 'proof', 'compare', 'process', 'application', 'diagram', 'multiple-choice', 'knowledge-point', 'caution', 'condition-result']);
+  const allowedDisplays = new Set<CueDisplayPreset>(['standard', 'headline', 'formula', 'steps', 'stepwise', 'comparison', 'scenario', 'definition-card', 'multiple-choice']);
   const operations = source.operations.map((rawOperation, index): CueBulkOperation => {
     const operation = record(rawOperation);
     if (!operation) throw new Error(`第 ${index + 1} 条 Cue 操作格式错误。`);

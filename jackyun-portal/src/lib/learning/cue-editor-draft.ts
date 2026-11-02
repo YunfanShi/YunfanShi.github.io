@@ -17,8 +17,8 @@ export interface CueManagerEditorDraft {
   markingPoints: string;
 }
 
-const cueTypes: CueType[] = ['general', 'definition', 'explain', 'state', 'calculate', 'formula', 'derivation', 'proof', 'compare', 'process', 'application', 'diagram', 'multiple-choice'];
-const displayPresets: CueDisplayPreset[] = ['standard', 'headline', 'formula', 'steps', 'comparison', 'scenario', 'definition-card', 'multiple-choice'];
+const cueTypes: CueType[] = ['general', 'definition', 'explain', 'state', 'calculate', 'formula', 'derivation', 'proof', 'compare', 'process', 'application', 'diagram', 'multiple-choice', 'knowledge-point', 'caution', 'condition-result'];
+const displayPresets: CueDisplayPreset[] = ['standard', 'headline', 'formula', 'steps', 'stepwise', 'comparison', 'scenario', 'definition-card', 'multiple-choice'];
 
 export function readCueManagerEditorDraft(storage: Pick<Storage, 'getItem'>): CueManagerEditorDraft | null {
   try {
