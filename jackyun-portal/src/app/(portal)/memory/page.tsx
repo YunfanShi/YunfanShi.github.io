@@ -26,6 +26,15 @@ const TOOLS = [
     href: '/poem',
   },
   {
+    id: 'steps',
+    title: '步骤背诵',
+    description: '把多个定义要点或操作流程拆成顺序条目，逐条回想与揭示。',
+    icon: 'format_list_numbered',
+    color: '#6941c6',
+    background: '#f2ebff',
+    href: '/steps',
+  },
+  {
     id: 'properties',
     title: '对比记忆',
     description: '先逐项确认掌握，再用同一横行的内容完成选择。',
@@ -50,10 +59,10 @@ export default function MemoryPage() {
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">Choose a memory mode</p>
           <h2 className="mt-1 text-xl font-medium tracking-[-0.025em] text-[var(--foreground)]">选择背诵方式</h2>
         </div>
-        <span className="shrink-0 text-sm text-[var(--muted-foreground)]">3 个工具</span>
+        <span className="shrink-0 text-sm text-[var(--muted-foreground)]">4 个工具</span>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {TOOLS.map((tool) => (
           <Link key={tool.id} href={tool.href} className="group relative min-h-56 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--surface-shadow)]">
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105" style={{ background: tool.background }}>
@@ -71,7 +80,7 @@ export default function MemoryPage() {
       <div className="mt-8 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-6">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--muted-foreground)]">One place for recall</p>
         <h3 className="mt-2 text-base font-medium text-[var(--foreground)]">先尝试回忆，再揭示答案</h3>
-        <p className="mt-1 text-sm leading-relaxed text-[var(--muted-foreground)]">三个工具都保留原有独立页面；侧边栏只显示一个「记忆 Memory」入口，减少分散。</p>
+        <p className="mt-1 text-sm leading-relaxed text-[var(--muted-foreground)]">先尝试回忆，再按条目揭示答案。定义卡片、语文遮挡和步骤背诵各自适合不同内容。</p>
       </div>
     </div>
   );
