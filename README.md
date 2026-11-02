@@ -4,7 +4,9 @@
 >
 > Built with Next.js 16 + Supabase + Tailwind CSS 4 + TypeScript 5
 >
-> 当前版本：**v3.40.0**
+> 当前版本：**v3.71.0**
+
+2026-11-02 CUE 学习队列稍后再学（v3.71.0）：遇到暂时不想学的复杂 CUE，可按 I 或点击“稍后学习”将它移到本次学习队列末尾；进度自动保存，评级与熟练状态不变。详见 [详细 DOCX 任务说明](jackyun-portal/docs/cue-skip-3.71.0/CUE复杂内容稍后学习说明3.71.0.docx)。
 
 2026-10-13 手机与平板工作区（v3.11.0）：按屏幕空间与主要指针能力区分电脑、手机、平板；全站触控导航、旧模块触控适配、Schedule 今日/周课表导航与学习底栏专门适配。详见 [实施 DOCX](jackyun-portal/docs/JackYun-3.11.0-Device-Workspace-20261013.docx)。
 
