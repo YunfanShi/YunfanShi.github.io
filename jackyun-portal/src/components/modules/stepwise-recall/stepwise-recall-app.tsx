@@ -79,7 +79,7 @@ export default function StepwiseRecallApp() {
       workspaceStorage.setItem(STORAGE_KEY, JSON.stringify(sequences));
     } catch (error) {
       console.error('[stepwise-recall] save failed', error);
-      setMessage('保存失败，请检查设备存储空间后重试。');
+      queueMicrotask(() => setMessage('保存失败，请检查设备存储空间后重试。'));
     }
   }, [ready, sequences]);
 
