@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
+  { version: '3.72.0', date: '2026-11-02', dateLabel: '2026 年 11 月 2 日', title: '按顺序拆分内容进行步骤背诵', summary: '新增步骤背诵，把多个定义要点、设备操作流程和课文内容按行整理，再逐条遮挡与揭示。', categories: ['学习体验'], accent: 'blue', featured: true, highlights: ['每组内容可包含多条按顺序排列的要点或步骤，不再限定为一个术语对应一段定义。', '支持创建、编辑与删除背诵组；粘贴带编号的清单时会自动整理条目序号。', '背诵时可逐条揭示、单独隐藏内容，或一次隐藏和显示全部条目。'] },
   { version: '3.71.0', date: '2026-11-02', dateLabel: '2026 年 11 月 2 日', title: 'CUE 学习队列稍后再学', summary: '遇到暂时不想学的复杂 CUE，可以按 I 或点击“稍后学习”，把它移到本次学习队列末尾。', categories: ['学习体验'], accent: 'violet', featured: true, highlights: ['跳过后保持当前位置，继续学习下一条，并自动保存新的队列顺序。', '跳过不写入评价，不改变 CUE 的熟练状态或复习历史。', '桌面和触屏设备均可操作；间隔重练和分组总结时不跳过。'] },
   { version: '3.70.0', date: '2026-11-01', dateLabel: '2026 年 11 月 1 日', title: '本地页面备份、分享与按需云端恢复', summary: '关闭自动同步并提供页面级 JSON 分享；云端版本只在用户主动查看和确认后导入。', categories: ['稳定性', '平台体验'], accent: 'amber', featured: true, highlights: ['14 个学习页面各自自动保留五个本地恢复版本。', '可选择页面导出或导入 JSON；选中页面按整页覆盖，导入前自动留恢复点。', '服务器仅作为备份：查看、下载与覆盖都由用户发起并确认，不会自动覆盖本地数据。'] },
   { version: '3.66.1', date: '2026-10-31', dateLabel: '2026 年 10 月 31 日', title: '修复重复课程提醒被误去重', summary: 'Watch 3.3.1-beta.1 将课程的开始与结束时间加入提醒标识，确保同一门每周重复课程在每次发生时都能再次提醒。', categories: ['稳定性'], accent: 'blue', featured: true, highlights: ['同一课程 ID 的不同上课日期拥有各自的提醒标识，不再被上周的已送达记录跳过。', '上课提醒与下课提醒分别按实际课程开始或结束时间去重。', '保留原有 V5 同步、缓存保护、全屏阅读、书架分页和提醒权限设置。'] },
