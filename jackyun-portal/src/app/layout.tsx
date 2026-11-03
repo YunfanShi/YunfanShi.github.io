@@ -31,7 +31,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: "try{var p=Document.prototype,d;while(p&&!d){d=Object.getOwnPropertyDescriptor(p,'cookie');p=Object.getPrototypeOf(p)}if(d&&d.get&&d.set)Object.defineProperty(document,'cookie',{configurable:true,get:function(){try{return d.get.call(document)}catch(e){return ''}},set:function(v){try{d.set.call(document,v)}catch(e){}}});var n='jy_cookie_probe';document.cookie=n+'=1; Path=/; SameSite=Lax';document.documentElement.dataset.cookieSupport=document.cookie.split(';').some(function(c){return c.trim().indexOf(n+'=')===0})?'true':'false';document.cookie=n+'=; Path=/; Max-Age=0; SameSite=Lax'}catch(e){document.documentElement.dataset.cookieSupport='false'}" }} />
         <script
           dangerouslySetInnerHTML={{
-            __html: "try{var s=workspaceStorage.getItem('jackyun_theme'),t=s==='gray'||s==='dark'?s:'light';document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t==='light'?'light':'dark'}catch(e){}",
+            __html: "try{var s=localStorage.getItem('jackyun_theme'),t=s==='gray'||s==='dark'?s:'light';document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t==='light'?'light':'dark'}catch(e){}",
           }}
         />
         <script

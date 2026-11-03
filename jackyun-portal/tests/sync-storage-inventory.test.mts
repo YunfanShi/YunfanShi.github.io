@@ -68,10 +68,7 @@ test('machine-readable coverage matrix preserves unresolved and independent Inde
   assert.match(rowFor('jackyun:seiue-course-review:v1:${dynamic}').data_class, /privacy/i);
   assert.ok(matrix.inventory_rows.every(row => typeof row.runtime_sampling_or_test_method === 'string' && row.runtime_sampling_or_test_method.length > 20));
   const restoreKey = matrix.inventory_rows.find(row => row.key_or_pattern === '? pendingRestore.key');
-  assert.equal(restoreKey.should_cloud_sync, false);
-  assert.match(restoreKey.data_class, /backup or recovery/i);
-  assert.match(restoreKey.runtime_sampling_or_test_method, /restore-control key stays local/i);
-  assert.doesNotMatch(restoreKey.runtime_sampling_or_test_method, /authenticated v5 create\/read\/update\/delete/i);
+  assert.equal(restoreKey, undefined, 'retired session-only restore marker is not an application localStorage data key');
   const credentialRows = ['ai_key', 'warden_key', 'warden_ai_key', 'llm_key', 'deepseek_api_key', 'llm_config', 'jack_ai_config', 'jack_sk_ds'].map(rowFor).filter(Boolean);
   assert.ok(credentialRows.length >= 4);
   for (const row of credentialRows) assert.match(row.data_class, /credential/i, `${row.key_or_pattern} must remain excluded as a credential`);

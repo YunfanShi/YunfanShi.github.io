@@ -63,6 +63,26 @@ try {
     }
     await page.waitForFunction(() => document.documentElement.dataset.theme === 'gray');
     assert.equal(await page.evaluate(() => localStorage.getItem('jackyun_theme')), 'gray');
+    await page.evaluate(() => {
+      localStorage.setItem('jackyun_theme', 'dark');
+      window.dispatchEvent(new CustomEvent('jackyun-cloud-state-applied', { detail: { keys: ['jackyun_theme'] } }));
+    });
+    await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
+    await page.evaluate(() => {
+      localStorage.setItem('jackyun_theme', 'gray');
+      window.dispatchEvent(new CustomEvent('jackyun-cloud-state-applied', { detail: { keys: ['jackyun_theme'] } }));
+    });
+    await page.waitForFunction(() => document.documentElement.dataset.theme === 'gray');
+    await page.evaluate(() => {
+      localStorage.setItem('jackyun_theme', 'dark');
+      window.dispatchEvent(new CustomEvent('jackyun-cloud-state-applied', { detail: { keys: ['jackyun_theme'] } }));
+    });
+    await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
+    await page.evaluate(() => {
+      localStorage.setItem('jackyun_theme', 'gray');
+      window.dispatchEvent(new CustomEvent('jackyun-cloud-state-applied', { detail: { keys: ['jackyun_theme'] } }));
+    });
+    await page.waitForFunction(() => document.documentElement.dataset.theme === 'gray');
     await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
     const nextTheme = width < 1024 ? page.getByRole('menuitem', { name: '切换到亮色主题' }) : page.getByRole('button', { name: '切换到亮色主题' });
     if (width < 1024) await menu.click();
