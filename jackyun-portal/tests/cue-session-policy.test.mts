@@ -20,7 +20,7 @@ test('time policy ignores retrieval count and opens exactly at the selected minu
   state = { ...state, completed: 100 };
   assert.equal(dueCuePractice(state, 119_999, undefined, false, policy), undefined);
   assert.equal(dueCuePractice(state, 120_000, undefined, false, policy)?.cueId, 'wrong');
-  assert.equal(cuePracticeLabel(state, 'wrong', 119_999, false, policy), '等待间隔');
+  assert.equal(cuePracticeLabel(state, 'wrong', 119_999, false, policy), '可手动重练 · 自动等待间隔');
 });
 test('switching policy resets pending windows without losing passed history', () => {
   const policy = { ...defaultCuePracticePolicy, trigger: 'time' as const, minutes: 7, questions: 3 };

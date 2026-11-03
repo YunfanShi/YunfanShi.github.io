@@ -28,6 +28,8 @@ try {
   const settings=session.locator('[data-cue-practice-settings]');
   await settings.locator('summary').click();
   await settings.getByRole('checkbox',{name:'自动进入间隔重练'}).setChecked(false);
+  await settings.getByRole('combobox',{name:'重练触发方式'}).selectOption('time');
+  await settings.getByRole('spinbutton',{name:'间隔分钟'}).fill('5');
   await settings.locator('summary').click();
   const prompt=session.getByRole('region',{name:'触屏学习卡片'});
   const rail=session.locator('[aria-label="Cue 学习进度"]');
@@ -39,12 +41,24 @@ try {
   await rail.locator('button').nth(0).evaluate((button:HTMLButtonElement)=>button.click());
   await page.waitForFunction(() => Object.values(JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}').cueStudyDrafts || {})
     .some((draft: unknown) => (draft as { index?: number }).index === 0));
-  for(let i=0;i<3;i++){await page.keyboard.press('3');await page.keyboard.press('3');}
+  await page.keyboard.press('3');
+  await page.keyboard.press('3');
+  const earlyDirectory=session.locator('details[data-cue-practice-directory]');
+  await earlyDirectory.locator('summary').click();
+  const earlyRetry=earlyDirectory.getByRole('button',{name:/循环重练题 1.*可手动重练/});
+  assert.equal(await earlyRetry.isEnabled(),true,'a learner can manually enter a pending retry before its interval');
+  await earlyRetry.click();
+  assert.ok((await session.locator('[data-cue-practice-mode="manual"]').innerText()).includes('不受间隔限制'));
+  await session.getByRole('button',{name:'返回本轮'}).click();
+  await page.waitForFunction(() => Object.values(JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}').cueStudyDrafts || {})
+    .some((draft: unknown) => (draft as { practice?: { respectIntervalsAfterManual?: boolean } }).practice?.respectIntervalsAfterManual));
+  await earlyDirectory.locator('summary').click();
+  for(let i=0;i<2;i++){await page.keyboard.press('3');await page.keyboard.press('3');}
   const repeatButton=session.getByRole('button',{name:'继续重练全部题'});
   await repeatButton.waitFor({timeout:10_000});
   assert.equal(await repeatButton.isEnabled(),true);
   await repeatButton.click();
-  assert.ok((await session.locator('[data-cue-practice-mode="manual"]').innerText()).includes('手动到期重练'), 'learner-started retries are clearly labeled separately');
+  assert.ok((await session.locator('[data-cue-practice-mode="manual"]').innerText()).includes('手动重练'), 'learner-started retries are clearly labeled separately');
   assert.equal(await session.locator('[data-cue-practice-remaining]').innerText(),'还需重练 3 条');
   assert.ok((await prompt.innerText()).includes('循环重练题 1'));
   const directory=session.locator('details[data-cue-practice-directory]');
@@ -65,13 +79,13 @@ try {
   await page.waitForFunction(() => {
     const saved=JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}');
     const drafts=[...Object.values(saved.cueStudyDrafts || {}),...(saved.cueStudyDraft ? [saved.cueStudyDraft] : [])] as {practice?:{respectIntervalsAfterManual?:boolean}}[];
-    return drafts.some(draft=>draft.practice?.respectIntervalsAfterManual);
+    return drafts.some(draft=>draft.practice?.respectIntervalsAfterManual&&!draft.practice.mode);
   });
   const deferred=await page.evaluate(() => {
     const saved=JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}');
     return [...Object.values(saved.cueStudyDrafts || {}),...(saved.cueStudyDraft ? [saved.cueStudyDraft] : [])]
       .map((draft: unknown) => (draft as { practice?: { completed?: number; pending?: { after: number }[]; mode?: boolean; active?: string; respectIntervalsAfterManual?: boolean } }).practice)
-      .find(practice => practice?.respectIntervalsAfterManual);
+      .find(practice => practice?.respectIntervalsAfterManual&&!practice.mode);
   });
   assert.ok(!deferred?.mode,'returning from manual practice restores ordinary study');
   assert.equal(deferred?.active,undefined);

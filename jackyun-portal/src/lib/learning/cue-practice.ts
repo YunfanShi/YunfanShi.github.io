@@ -68,8 +68,11 @@ export function dueCuePractice(state: CuePracticeState, now: number, exclude?: s
   if (roundComplete) return state.pending.find(item => item.cueId !== exclude) ?? state.pending[0];
   return state.pending.find(item => item.cueId !== exclude && (state.pending.length <= 1 || item.cueId !== state.lastCueId) && cuePracticeIsDue(state, item, now, policy));
 }
-export function enterCuePractice(state: CuePracticeState, now: number, exclude?: string, returnCueId?: string, mode = state.mode ?? false, roundComplete = false, policy?: CuePracticePolicy, includePassed = false): CuePracticeState {
-  const item = dueCuePractice(state, now, exclude, roundComplete, policy, includePassed);
+export function enterCuePractice(state: CuePracticeState, now: number, exclude?: string, returnCueId?: string, mode = state.mode ?? false, roundComplete = false, policy?: CuePracticePolicy, includePassed = false, ignoreInterval = false): CuePracticeState {
+  const item = mode && ignoreInterval && !roundComplete
+    ? state.pending.find(candidate => candidate.cueId !== exclude && (state.pending.length <= 1 || candidate.cueId !== state.lastCueId))
+      ?? state.pending.find(candidate => candidate.cueId !== exclude)
+    : dueCuePractice(state, now, exclude, roundComplete, policy, includePassed);
   return { ...state, pending: item ? [...state.pending.filter(candidate => candidate.cueId !== item.cueId), item] : state.pending, mode, active: item?.cueId, lastCueId: item?.cueId ?? state.lastCueId, rating: undefined, returnCueId: item || mode ? state.returnCueId ?? returnCueId : undefined };
 }
 /** Resolve by identity after shuffling/filtering, including an exhausted main queue. */
@@ -90,7 +93,7 @@ export function cuePracticeLabel(state: CuePracticeState, cueId: string, now: nu
   const item = state.pending.find(item => item.cueId === cueId);
   if (!item) return '仍需重练';
   const due = (roundComplete && !state.respectIntervalsAfterManual) || cuePracticeIsDue(state, item, now, policy);
-  return due ? '待重练' : state.results?.[cueId] ? '仍需重练 · 等待间隔' : '等待间隔';
+  return due ? '待重练' : state.mode ? '可继续手动重练 · 自动等待间隔' : '可手动重练 · 自动等待间隔';
 }
 
 /** Manual practice keeps its own queue; returning gives remaining automatic retries a fresh gap. */
