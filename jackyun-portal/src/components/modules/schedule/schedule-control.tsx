@@ -12,7 +12,7 @@ import CuePracticeControls from './cue-practice-controls';
 import studyLayout from './cue-study-layout.module.css';
 import DidaScheduleSync from './dida-schedule-sync';
 import SeiueScheduleSync from './seiue-schedule-sync';
-import { defaultCuePracticePolicy, cuePracticeIsDue, rescheduleCuePractice, deferCuePracticeAfterManual, finishAutomaticCuePractice, emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, enterCuePractice, dueCuePractice } from '@/lib/learning/cue-practice';
+import { defaultCuePracticePolicy, rescheduleCuePractice, deferCuePracticeAfterManual, finishAutomaticCuePractice, emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, enterCuePractice, dueCuePractice } from '@/lib/learning/cue-practice';
 import dynamic from 'next/dynamic';
 import CueGamePanel from './cue-game-panel';
 import { reconcileCueGameAccount, purchaseCueShopItem, equipCueShopItem, type CueGameAccount, type CueShopAction } from '@/lib/learning/cue-shop';
@@ -590,19 +590,18 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
       {assessedCount > 0 && assessedCount === allCues.length && <div data-cue-round-complete className={styles.roundComplete} role="status"><span aria-hidden="true">✦</span> 本轮全部评价完成，记得保存学习记录 <span aria-hidden="true">✦</span></div>}
       {(practiceIds.length > 0 || practice.mode || practice.active) && <section data-cue-practice-directory className="relative z-10 mx-auto max-w-5xl px-3 py-2 text-xs text-[var(--muted-foreground)]" aria-label="本轮重练目录">
         <div className="flex flex-wrap items-center justify-center gap-3"><span data-cue-practice-remaining className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">还需重练 {practice.pending.length} 条</span><span>重练已通过 {passedPracticeCount} / {practiceIds.length} · 原评价保留</span>
-          <button type="button" disabled={Boolean(practice.active) || !dueCuePractice(practice, practiceNow, undefined, roundComplete, practicePolicy, roundComplete)} onClick={() => { setPractice(state => enterCuePractice(state, Date.now(), undefined, cues[currentIndex]?.id, true, roundComplete, practicePolicy, roundComplete)); setRatingFeedback(null); setRevealed(false); setSelectedChoice(undefined); }} className="rounded-full border border-[var(--card-border)] px-3 py-1 disabled:opacity-40">{roundComplete ? '继续重练全部题' : practice.mode ? '继续到期重练' : '进入到期重练'}</button>
+          <button type="button" disabled={Boolean(practice.active) || !practiceIds.length} onClick={() => { setPractice(state => enterCuePractice(state, Date.now(), undefined, cues[currentIndex]?.id, true, roundComplete, practicePolicy, roundComplete, true)); setRatingFeedback(null); setRevealed(false); setSelectedChoice(undefined); }} className="rounded-full border border-[var(--card-border)] px-3 py-1 disabled:opacity-40">{roundComplete ? '继续重练全部题' : practice.mode ? '继续手动重练' : '手动进入重练'}</button>
           {(practice.mode || practice.active) && <button type="button" onClick={returnToRound} className="rounded-full border border-[var(--card-border)] px-3 py-1">返回本轮</button>}
         </div>
         <details data-cue-practice-directory className="mt-2"><summary className="cursor-pointer text-center">重练目录 · {practiceIds.length} 条</summary>
           <nav className="mt-2 flex max-h-28 flex-wrap justify-center gap-2 overflow-y-auto" aria-label="全部重练 CUE">{practiceCues.map(cue => {
             const label = cuePracticeLabel(practice, cue.id, practiceNow, roundComplete, practicePolicy);
             const item = practice.pending.find(item => item.cueId === cue.id);
-            const eligible = item && ((roundComplete && !practice.respectIntervalsAfterManual) || cuePracticeIsDue(practice, item, practiceNow, practicePolicy));
             const result = practice.results?.[cue.id];
             const passed = result?.status === 'stable';
             const failed = Boolean(result && !passed);
             const original = assessments[cue.id] ?? cue.status ?? 'unclear';
-            return <button key={cue.id} type="button" disabled={!passed && (!eligible || practice.active === cue.id)} aria-current={practice.active === cue.id ? 'step' : undefined} onClick={() => { setPractice(state => ({ ...state, mode: true, active: cue.id, lastCueId: cue.id, rating: undefined, returnCueId: state.returnCueId ?? cues[currentIndex]?.id })); setRatingFeedback(null); setRevealed(false); setSelectedChoice(undefined); }} className={`max-w-64 rounded-xl border px-3 py-2 text-left disabled:opacity-60 ${failed || original === 'unclear' ? 'border-rose-300 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/30' : passed || original === 'stable' ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30' : 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30'}`}><span className="block truncate">{statusMark(original)} · {cue.prompt}</span><span className={`block font-semibold ${passed ? 'text-emerald-700 dark:text-emerald-300' : failed ? 'text-rose-700 dark:text-rose-300' : ''}`}>{label}</span></button>;
+            return <button key={cue.id} type="button" disabled={!passed && (!item || practice.active === cue.id)} aria-current={practice.active === cue.id ? 'step' : undefined} onClick={() => { setPractice(state => ({ ...state, mode: true, active: cue.id, lastCueId: cue.id, rating: undefined, returnCueId: state.returnCueId ?? cues[currentIndex]?.id })); setRatingFeedback(null); setRevealed(false); setSelectedChoice(undefined); }} className={`max-w-64 rounded-xl border px-3 py-2 text-left disabled:opacity-60 ${failed || original === 'unclear' ? 'border-rose-300 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/30' : passed || original === 'stable' ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30' : 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30'}`}><span className="block truncate">{statusMark(original)} · {cue.prompt}</span><span className={`block font-semibold ${passed ? 'text-emerald-700 dark:text-emerald-300' : failed ? 'text-rose-700 dark:text-rose-300' : ''}`}>{label}</span></button>;
           })}</nav>
         </details>
       </section>}
@@ -612,8 +611,8 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
         {practiceMode && <div data-cue-practice-mode={practiceMode} role="status" aria-live="polite" className={`mb-4 flex items-start gap-3 rounded-2xl border-l-4 p-4 shadow-sm ${practiceMode === 'automatic' ? 'border-amber-500 bg-amber-50 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100' : 'border-violet-500 bg-violet-50 text-violet-950 dark:bg-violet-950/50 dark:text-violet-100'}`}>
           <span aria-hidden="true" className="material-icons-round mt-0.5 text-xl">{practiceMode === 'automatic' ? 'schedule' : 'playlist_play'}</span>
           <div className="min-w-0">
-            <p className="font-bold">{practiceMode === 'automatic' ? '自动到期重练' : '手动到期重练'}</p>
-            <p className="mt-1 text-sm leading-5">{practiceMode === 'automatic' ? '系统按间隔插入了这道题；判定后会回到刚才正在学习的题。' : '你主动进入了重练队列；完成本题后仍留在队列中，可随时点“返回本轮”。'}</p>
+            <p className="font-bold">{practiceMode === 'automatic' ? '自动到期重练' : '手动重练'}</p>
+            <p className="mt-1 text-sm leading-5">{practiceMode === 'automatic' ? '系统按间隔插入了这道题；判定后会回到刚才正在学习的题。' : '你主动进入了重练队列，不受间隔限制；完成后可随时点“返回本轮”。'}</p>
           </div>
         </div>}
         {groupSummaryIndex === groupIndex && !practice.active && !practice.mode ? <section data-cue-group-summary role="status" aria-labelledby="cue-group-summary-title" className="m-auto flex min-h-[58dvh] w-full max-w-6xl flex-col justify-center rounded-[28px] border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl sm:p-10">

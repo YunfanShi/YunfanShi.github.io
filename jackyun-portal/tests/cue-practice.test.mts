@@ -56,6 +56,15 @@ test('small decks use time, never immediately show the same Cue; retry failures 
   state = rateCuePractice(state, 'a', 'stable', true, 600_000);
   assert.equal(state.pending.length, 0);
 });
+test('manual CUE retries bypass the interval while automatic retries still wait', () => {
+  const policy = { trigger: 'time' as const, questions: 5, minutes: 5 };
+  const pending = rateCuePractice(emptyCuePractice(), 'a', 'unclear', true, 0, () => 0, policy);
+  assert.equal(dueCuePractice(pending, 1, undefined, false, policy), undefined);
+  assert.equal(enterCuePractice(pending, 1, undefined, undefined, false, false, policy).active, undefined);
+  const manual = enterCuePractice(pending, 1, undefined, undefined, true, false, policy, false, true);
+  assert.equal(manual.active, 'a');
+  assert.equal(cuePracticeLabel(manual, 'a', 1, false, policy), '正在重练');
+});
 test('delayed practice persists with the draft; shuffle preserves all session evidence', () => {
   const practice = rateCuePractice(emptyCuePractice(), 'a', 'partial', true, 0);
   const draft = { id:'session',task:{subjectName:'Physics'},cueIds:['a','b','c'],index:1,revealed:false,assessments:{a:'partial',b:'stable'},practice,updatedAt:at.toISOString() } as CueStudyDraft;
