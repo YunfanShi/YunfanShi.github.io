@@ -7,6 +7,7 @@ import {getDocuments,getOutbox} from '../src/lib/sync/outbox.ts';
 import {isSyncableStorageKey} from '../src/lib/local-workspace.ts';
 import {legacyWorkspaceRecordId} from '../src/lib/sync/resource-model.ts';
 import {readLocalData} from '../src/lib/sync/local-data.ts';
+import {parseLocalPageBackup,applyLocalPageImport} from '../src/lib/backup/local-import.ts';
 
 const values=new Map<string,string>();
 class StorageMock {
@@ -21,11 +22,26 @@ Object.assign(globalThis,{indexedDB:new IDBFactory(),Storage:StorageMock,Broadca
 
 test('navigation analytics stays local and cannot block durable learning writes',async()=>{
   const key='jackyun_nav_usage_queue_v2';
+  const legacyTypoKey='jackyun_nav_usage_qeue_v2';
+  const legacyTypoValue='[{"path":"/schedule","count":4}]';
   assert.equal(isSyncableStorageKey('jackyun-continue-pref-test'),false);
   values.set('jackyun-continue-pref-test','{"theme":"dark"}');
+  values.set(legacyTypoKey,legacyTypoValue);
   assert.equal(isSyncableStorageKey(key),false);
+  assert.equal(isSyncableStorageKey(legacyTypoKey),false,'historical typo is also local-only');
   assert.equal(legacyWorkspaceRecordId(key),null);
+  assert.equal(legacyWorkspaceRecordId(legacyTypoKey),null);
   await initializeRepository('navigation-test');
+  assert.equal(workspaceStorage.getItem(legacyTypoKey),legacyTypoValue,'legacy value remains readable after migration');
+  assert.equal((await readLocalData()).find(row=>row.key===legacyTypoKey)?.value,legacyTypoValue,'legacy value is verified in IndexedDB');
+  assert.equal(values.has(legacyTypoKey),false,'legacy copy is removed only after verification');
+  const scheduleKey='jackyun_schedule_control_v1';
+  const scheduleJson=JSON.stringify({cues:[{id:'restored-cue',title:'Recovered from local JSON'}]});
+  const pageJson=parseLocalPageBackup(JSON.stringify({version:1,page:'schedule',values:{[scheduleKey]:scheduleJson}}),'schedule');
+  await applyLocalPageImport({page:'schedule',owner:'navigation-test',...pageJson,storage:{...workspaceStorage,keys:()=>Object.keys(workspaceStorage.snapshot())},
+    saveRecoveryPoint:async()=>{},queueV5Targets:async()=>{}});
+  assert.equal(workspaceStorage.getItem(scheduleKey),scheduleJson,'page JSON imports after legacy migration completes');
+  assert.equal((await getDocuments()).find(row=>row.key===scheduleKey)?.value,scheduleJson,'imported Schedule JSON persists in IndexedDB');
   const oversized='x'.repeat(1_500_000);
   window.localStorage.setItem('jackyun-debug-on-save',oversized);
   await workspaceStorage.flush();
