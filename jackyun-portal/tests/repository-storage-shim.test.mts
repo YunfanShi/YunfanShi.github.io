@@ -30,6 +30,7 @@ Object.assign(globalThis, {
 const { initializeRepository, workspaceStorage } = await import('../src/lib/sync/repository.ts');
 const { getDocuments } = await import('../src/lib/sync/outbox.ts');
 const { readLocalData } = await import('../src/lib/sync/local-data.ts');
+localStorage.setItem('jackyun_theme', 'light');
 const localOnlyValues = {
   'jackyun_cue_answer_draft_v1:["session","cue"]': '{"text":"old draft"}',
   'jackyun_sync_pause_until_v1:test-user': '2000000000000',
@@ -40,7 +41,7 @@ for (const [key, value] of Object.entries(localOnlyValues)) values.set(key, valu
 test('legacy localStorage API reads and writes durable application data through IndexedDB', async () => {
   await initializeRepository('storage-shim-test');
 
-  assert.equal(localStorage.getItem('jackyun_theme'), 'dark');
+  assert.equal(localStorage.getItem('jackyun_theme'), 'light');
   assert.equal(values.has('jackyun_theme'), false, 'legacy theme is removed only after its IndexedDB copy verifies');
   for (const [key, value] of Object.entries(localOnlyValues)) {
     assert.equal(localStorage.getItem(key), value, `${key} remains readable through the old API`);
@@ -48,6 +49,7 @@ test('legacy localStorage API reads and writes durable application data through 
   }
   const localRows = new Map((await readLocalData()).map((row) => [row.key, row.value]));
   for (const [key, value] of Object.entries(localOnlyValues)) assert.equal(localRows.get(key), value, `${key} is kept in the local-only IndexedDB store`);
+  assert([...localRows.values()].some((value) => value.includes('"sourceKey":"jackyun_theme"') && value.includes('"value":"dark"')), 'native legacy theme is preserved when a newer startup write exists');
 
   const largeSchedule = JSON.stringify({ cues: [{ id: 'restored-cue', body: 'x'.repeat(1_500_000) }] });
   localStorage.setItem('jackyun_schedule_control_v1', largeSchedule);
@@ -60,3 +62,4 @@ test('legacy localStorage API reads and writes durable application data through 
   localStorage.setItem('sb-project-auth-token', 'session-token');
   assert.equal(values.get('sb-project-auth-token'), 'session-token', 'authentication state remains in native browser storage');
 });
+
