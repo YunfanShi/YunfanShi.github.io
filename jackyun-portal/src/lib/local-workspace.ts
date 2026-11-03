@@ -35,6 +35,7 @@ const LOCAL_ONLY_KEYS = new Set([
   'jackyun_ai_music_command',
   'jackyun_pomodoro_launch',
   'jackyun_schedule_output',
+  'jackyun_stepwise_recitations_v1',
   'quizwise_ai_command',
   'warden_ai_command',
   'sync_position',
@@ -44,7 +45,7 @@ const LOCAL_ONLY_KEYS = new Set([
   'sme_v30_autoclose',
   'jackyun-browser-ai-conversation-target',
 ]);
-const LOCAL_ONLY_PREFIXES = ['jy_tr3000_', 'jackyun-browser-ai-recent-choice:', 'jackyun-savepoint-', 'jackyun-continue-', 'jackyun_novel_position_v2:', 'jackyun:seiue-course-review:v1:', 'jackyun_migration_conflict_v1:'];
+const LOCAL_ONLY_PREFIXES = ['jy_tr3000_', 'jackyun-browser-ai-recent-choice:', 'jackyun-savepoint-', 'jackyun-continue-', 'jackyun_novel_position_v2:', 'jackyun:seiue-course-review:v1:', 'jackyun_migration_conflict_v1:', 'jackyun_cue_answer_draft_v1:', 'jackyun_sync_pause_until_v1:'];
 const BLOCKED_KEY = /(password|passwd|secret|auth|supabase|api[_-]?key|(?:^|[_-])(?:llm|ds|deepseek|openai)[_-]?(?:api[_-]?)?key(?:$|[_-])|access[_-]?token|refresh[_-]?token|service[_-]?role|(^|[_-])sk([_-]|$)|deviceid|broadcast|cookie|guest_mode|debug)/i;
 // A dated subject such as Biology is learning data, not a diagnostic log.
 const DATED_SUBJECT_KEY = /^(check|prog)_\d{4}-\d{2}-\d{2}_.+$/i;

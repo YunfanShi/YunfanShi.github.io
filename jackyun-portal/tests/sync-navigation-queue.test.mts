@@ -3,7 +3,7 @@ import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {IDBFactory} from 'fake-indexeddb';
 import {initializeRepository,workspaceStorage,LEGACY_MIGRATION_CONFLICT_PREFIX} from '../src/lib/sync/repository.ts';
-import {getDocuments,getOutbox} from '../src/lib/sync/outbox.ts';
+import {getDocuments,getOutbox,persistDocument} from '../src/lib/sync/outbox.ts';
 import {isSyncableStorageKey} from '../src/lib/local-workspace.ts';
 import {legacyWorkspaceRecordId} from '../src/lib/sync/resource-model.ts';
 import {readLocalData,writeLocalData} from '../src/lib/sync/local-data.ts';
@@ -27,7 +27,17 @@ test('navigation analytics stays local and cannot block durable learning writes'
   const conflictingLogsKey='jackyun_client_logs';
   const oldLogs='[{"message":"legacy local copy"}]';
   const indexedDbLogs='[{"message":"newer IndexedDB copy"}]';
+  const legacyTheme='dark';
+  values.set('jackyun_theme',legacyTheme);
+  values.set('jackyun_schedule_control_v1',JSON.stringify({cues:[{id:'legacy-schedule-cue'}]}));
+  values.set('jackyun-ai-config','{"provider":"legacy-local"}');
+  values.set('jackyun_definition_learning_session_v1','{"active":true}');
+  values.set('jackyun_goal_data','{"target":12}');
+  await persistDocument('jackyun_goal_data','{"target":10}',false);
   assert.equal(isSyncableStorageKey('jackyun-continue-pref-test'),false);
+  assert.equal(isSyncableStorageKey('jackyun_cue_answer_draft_v1:["session","cue"]'),false,'CUE answer undo history stays local-only');
+  assert.equal(isSyncableStorageKey('jackyun_sync_pause_until_v1:navigation-test'),false,'sync pause controls stay local-only');
+  assert.equal(isSyncableStorageKey('jackyun_stepwise_recitations_v1'),false,'stepwise recitation data stays local until it has an explicit cloud contract');
   values.set('jackyun-continue-pref-test','{"theme":"dark"}');
   values.set(legacyTypoKey,legacyTypoValue);
   values.set(conflictingLogsKey,oldLogs);
@@ -36,6 +46,9 @@ test('navigation analytics stays local and cannot block durable learning writes'
   assert.equal(isSyncableStorageKey(legacyTypoKey),false,'historical typo is also local-only');
   assert.equal(legacyWorkspaceRecordId(key),null);
   assert.equal(legacyWorkspaceRecordId(legacyTypoKey),null);
+  // Startup components may set a preference before IndexedDB has finished
+  // loading. Buffer the write so migration can preserve the old value first.
+  workspaceStorage.setItem('jackyun_theme','gray');
   await initializeRepository('navigation-test');
   assert.equal(workspaceStorage.getItem(legacyTypoKey),legacyTypoValue,'legacy value remains readable after migration');
   assert.equal((await readLocalData()).find(row=>row.key===legacyTypoKey)?.value,legacyTypoValue,'legacy value is verified in IndexedDB');
@@ -48,6 +61,18 @@ test('navigation analytics stays local and cannot block durable learning writes'
   assert.equal(conflictSnapshot.sourceKey,conflictingLogsKey);
   assert.equal(conflictSnapshot.value,oldLogs);
   assert.equal(typeof conflictSnapshot.capturedAt,'string');
+  assert.equal(workspaceStorage.getItem('jackyun_theme'),'gray','startup preference is applied only after the old theme has been migrated');
+  assert.equal((await getDocuments()).find(row=>row.key==='jackyun_theme')?.value,'gray','latest theme preference is stored in the syncable IndexedDB repository');
+  assert.equal(values.has('jackyun_theme'),false,'legacy theme source is removed after IndexedDB verification');
+  const preservedTheme=(await readLocalData()).map(row=>({row,safe:(()=>{try{return JSON.parse(row.value) as {sourceKey?:string;value?:string};}catch{return null;}})()})).find(item=>item.safe?.sourceKey==='jackyun_theme');
+  assert.equal(preservedTheme?.safe?.value,legacyTheme,'old theme remains recoverable if startup changed the preference before migration completed');
+  assert.equal(workspaceStorage.getItem('jackyun_schedule_control_v1'),JSON.stringify({cues:[{id:'legacy-schedule-cue'}]}));
+  assert.equal((await readLocalData()).find(row=>row.key==='jackyun-ai-config')?.value,'{"provider":"legacy-local"}','sensitive local configuration is migrated locally without cloud sync');
+  assert.equal((await getDocuments()).find(row=>row.key==='jackyun_definition_learning_session_v1')?.value,'{"active":true}','learning drafts are migrated to the IndexedDB repository');
+  assert.equal(workspaceStorage.getItem('jackyun_goal_data'),' {"target":10}'.trim(),'the established IndexedDB value remains canonical when a syncable legacy key conflicts');
+  assert.equal(values.has('jackyun_goal_data'),false,'syncable legacy conflicts are removed only after their recovery copy is verified');
+  const preservedGoal=(await readLocalData()).map(row=>({row,safe:(()=>{try{return JSON.parse(row.value) as {sourceKey?:string;value?:string};}catch{return null;}})()})).find(item=>item.safe?.sourceKey==='jackyun_goal_data');
+  assert.equal(preservedGoal?.safe?.value,'{"target":12}','the conflicting old syncable value is retained in local IndexedDB');
   const scheduleKey='jackyun_schedule_control_v1';
   const scheduleJson=JSON.stringify({cues:[{id:'restored-cue',title:'Recovered from local JSON'}]});
   const pageJson=parseLocalPageBackup(JSON.stringify({version:1,page:'schedule',values:{[scheduleKey]:scheduleJson}}),'schedule');
