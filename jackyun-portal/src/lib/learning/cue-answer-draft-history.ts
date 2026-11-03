@@ -34,7 +34,7 @@ export function parseCueAnswerDraftHistory(value: unknown, fallbackText = '', sa
 
 export function readCueAnswerDraftHistory(sessionId: string, cueId: string, fallbackText = '', storage?: Pick<Storage, 'getItem'>): CueAnswerDraftHistory {
   try {
-    const target = storage ?? (typeof window === 'undefined' ? undefined : window.localStorage);
+    const target = storage ?? (typeof window === 'undefined' ? undefined : workspaceStorage);
     const serialized = target?.getItem(keyFor(sessionId, cueId));
     return serialized ? parseCueAnswerDraftHistory(JSON.parse(serialized), fallbackText) : emptyCueAnswerDraftHistory(fallbackText);
   } catch {
@@ -44,7 +44,7 @@ export function readCueAnswerDraftHistory(sessionId: string, cueId: string, fall
 
 export function writeCueAnswerDraftHistory(sessionId: string, cueId: string, history: CueAnswerDraftHistory, storage?: Pick<Storage, 'setItem'>): boolean {
   try {
-    const target = storage ?? (typeof window === 'undefined' ? undefined : window.localStorage);
+    const target = storage ?? (typeof window === 'undefined' ? undefined : workspaceStorage);
     if (!target) return false;
     target.setItem(keyFor(sessionId, cueId), JSON.stringify(parseCueAnswerDraftHistory(history)));
     return true;
@@ -64,3 +64,4 @@ export function moveCueAnswerDraftHistory(history: CueAnswerDraftHistory, offset
   const activeIndex = Math.max(0, Math.min(history.versions.length - 1, history.activeIndex + offset));
   return { ...history, activeIndex, text: history.versions[activeIndex]?.text ?? history.text };
 }
+import {workspaceStorage} from '../sync/repository.ts';

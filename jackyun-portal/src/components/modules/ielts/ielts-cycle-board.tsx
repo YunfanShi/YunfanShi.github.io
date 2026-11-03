@@ -91,7 +91,7 @@ export default function IeltsCycleBoard() {
   useEffect(() => {
     if (!cycle) return;
     try {
-      const merged=persistLocalEditNow(localStorage,STORAGE_KEY,cycleBase.current,cycle) as CycleState;
+      const merged=persistLocalEditNow(workspaceStorage,STORAGE_KEY,cycleBase.current,cycle) as CycleState;
       if(canonicalJson(merged)===canonicalJson(cycle))cycleBase.current=merged;
       else queueMicrotask(()=>setCycle(current=>{cycleBase.current=merged;return threeWayMerge(cycle,current,merged).merged as CycleState;}));
     } catch (error) {queueMicrotask(()=>setNotice(error instanceof Error?error.message:'保存失败，原计划已保留。'));}
@@ -100,7 +100,7 @@ export default function IeltsCycleBoard() {
   useEffect(() => {
     if (!historyReady) return;
     try {
-      const merged=persistLocalEditNow(localStorage,HISTORY_KEY,historyBase.current,history.slice(-12)) as CycleState[];
+      const merged=persistLocalEditNow(workspaceStorage,HISTORY_KEY,historyBase.current,history.slice(-12)) as CycleState[];
       if(canonicalJson(merged)===canonicalJson(history))historyBase.current=merged;
       else queueMicrotask(()=>setHistory(current=>{historyBase.current=merged;return threeWayMerge(history,current,merged).merged as CycleState[];}));
     } catch (error) {queueMicrotask(()=>setNotice(error instanceof Error?error.message:'历史保存失败，原历史已保留。'));}

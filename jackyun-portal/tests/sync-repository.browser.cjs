@@ -6,8 +6,8 @@ const assert=require('node:assert/strict');
 const ts=require('typescript');
 const packages=process.env.JACKYUN_ARTIFACT_PACKAGES||'C:/Users/syf26/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules';
 const {chromium}=require(path.join(packages,'playwright'));
-const names=['src/lib/local-workspace.ts','src/lib/offline/workspace.ts','src/lib/request-timeout.ts',...['repository','outbox','hash','batch','acknowledgment','merge','scheduler','session-transport'].map(n=>'src/lib/sync/'+n+'.ts')];
-const modules=Object.fromEntries(names.map(name=>[name,ts.transpileModule(fs.readFileSync(name,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText]));
+const names=['src/lib/local-workspace.ts','src/lib/offline/workspace.ts','src/lib/request-timeout.ts',...['repository','outbox','local-data','hash','batch','acknowledgment','merge','scheduler','session-transport','resource-model','writing-resource-model'].map(n=>'src/lib/sync/'+n+'.ts')];
+const modules=Object.fromEntries(names.map(name=>[name,ts.transpileModule(fs.readFileSync(name,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText]));
 const loader=`const sources=${JSON.stringify(modules)},cache={};function load(name,from=''){let id=name.startsWith('@/')?'src/'+name.slice(2):name.startsWith('.')?from.slice(0,from.lastIndexOf('/')+1)+name:name;const stack=[];for(const part of id.split('/')){if(part==='..')stack.pop();else if(part&&part!=='.')stack.push(part);}id=stack.join('/');if(!sources[id])id+='.ts';if(cache[id])return cache[id].exports;if(!sources[id])throw Error('Missing module '+id);const module={exports:{}};cache[id]=module;new Function('module','exports','require',sources[id])(module,module.exports,n=>load(n,id));return module.exports;}window.repository=load('src/lib/sync/repository.ts');window.store=load('src/lib/sync/outbox.ts');`;
 (async()=>{
  const server=http.createServer((_request,response)=>{response.writeHead(200,{'Content-Type':'text/html'});response.end('<html><body><script>'+loader.replaceAll('</script','<\\/script')+'</script></body></html>');});
