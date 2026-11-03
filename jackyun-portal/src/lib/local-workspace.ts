@@ -28,6 +28,8 @@ const SENSITIVE_STORAGE_KEYS = new Set([
 ]);
 const LOCAL_ONLY_KEYS = new Set([
   'jackyun_nav_usage_queue_v2',
+  // Historical typo emitted by older builds; migrate it as local-only data.
+  'jackyun_nav_usage_qeue_v2',
   'enforcer_sessions',
   'jackyun_ai_music_command',
   'jackyun_pomodoro_launch',
