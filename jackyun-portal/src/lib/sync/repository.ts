@@ -53,6 +53,19 @@ function markMigrationConflict(key:string,preservedKey:string):void {
 function readLegacyStorageValue(key:string):string|null {
   try{return nativeLocalGet?nativeLocalGet.call(window.localStorage,key):window.localStorage.getItem(key);}catch{return null;}
 }
+function readNativeLegacyEntries(storage:Storage):Array<[string,string]> {
+  const entries:Array<[string,string]>=[];
+  try{
+    const total=storage===window.localStorage?(nativeLocalLength?nativeLocalLength.call(storage):storage.length):storage.length;
+    for(let index=0;index<total;index++){
+      const key=storage===window.localStorage?(nativeLocalKey?nativeLocalKey.call(storage,index):storage.key(index)):storage.key(index);
+      if(!key||!isManagedLocalKey(key))continue;
+      const value=storage===window.localStorage?readLegacyStorageValue(key):storage.getItem(key);
+      if(value!==null)entries.push([key,value]);
+    }
+  }catch(error){throw error;}
+  return entries;
+}
 function removeLegacyStorageValue(storage:Storage,key:string):void {
   if(nativeLocalRemove)nativeLocalRemove.call(storage,key);else storage.removeItem(key);
 }
@@ -71,7 +84,7 @@ async function preserveLegacyValue(key:string,value:string,knownRows:Awaited<Ret
   localMemory.set(row.key,row.value);
   markMigrationConflict(key,row.key);
 }
-async function applyPreInitializationWrites(userId:string|null):Promise<void> {
+async function applyPreInitializationWrites():Promise<void> {
   while(preInitializationWrites.size){
     const batch=[...preInitializationWrites];
     for(const [key,value] of batch){
@@ -97,13 +110,17 @@ async function applyPreInitializationWrites(userId:string|null):Promise<void> {
       if(preInitializationWrites.get(key)===value)preInitializationWrites.delete(key);
     }
   }
-  await projectionOwner(userId??'guest');
 }
 export function initializeRepository(userId:string|null):Promise<void> {
   if(ready&&currentOwner===userId)return ready;
   const previous=ready,previousWrites=tail;currentOwner=userId;
   initialized=false;
   ready=(async()=>{
+    // Capture the actual browser values before awaiting anything. The compatibility
+    // shim may already be buffering app writes, so its getItem/key methods are not
+    // a valid source for the legacy migration snapshot.
+    const legacy=window.localStorage;
+    const startupLegacyEntries=readNativeLegacyEntries(legacy);
     if(previous)await previous;
     // Drain writes against their captured repository before changing the active DB.
     // A write cannot await this initialization while initialization waits for it.
@@ -112,9 +129,9 @@ export function initializeRepository(userId:string|null):Promise<void> {
     const projectedOwner=await projectionOwner();
     if(projectedOwner&&projectedOwner!==(userId??'guest')){
       await bindSyncUser(projectedOwner);
-      const legacy=window.localStorage,keys=Array.from({length:legacy.length},(_,index)=>legacy.key(index)).filter((key):key is string=>key!==null&&isManagedLocalKey(key));
+      const keys=startupLegacyEntries.map(([key])=>key);
       const oldDocuments=await getDocuments();
-      for(const key of keys){if(!isSyncableStorageKey(key))continue;const value=legacy.getItem(key);if(value===null)continue;
+      for(const key of keys){if(!isSyncableStorageKey(key))continue;const value=startupLegacyEntries.find(([candidate])=>candidate===key)?.[1];if(value===undefined)continue;
         const row=oldDocuments.find(candidate=>candidate.key===key);
         if(row&&row.value!==value&&row.projectedValue!==value){if(row.projectedValue===undefined)await preserveLegacyValue(key,value,await readLocalData());else await persistDocument(key,value,true,row.projectedValue);}
         else if(!row)await persistDocument(key,value,true);
@@ -128,12 +145,11 @@ export function initializeRepository(userId:string|null):Promise<void> {
     }
     if(userId)await bindSyncUser(userId);else activateGuestRepository();
     await projectionOwner(userId??'guest');
-    const legacy=window.localStorage,documents=await getDocuments(),known=new Map(documents.map(row=>[row.key,row.value]));
+    const documents=await getDocuments(),known=new Map(documents.map(row=>[row.key,row.value]));
     const localRows=await readLocalData();localMemory.clear();
     for(const row of localRows)localMemory.set(row.key,row.value);
-    const legacyKeys=Array.from({length:legacy.length},(_,index)=>legacy.key(index)).filter((key):key is string=>key!==null);
     const verifiedLegacyKeys=new Set<string>();
-    for(const key of legacyKeys){if(!isManagedLocalKey(key))continue;const value=legacy.getItem(key);if(value===null)continue;
+    for(const [key,value] of startupLegacyEntries){
       if(isSyncableStorageKey(key)){
         const row=documents.find(candidate=>candidate.key===key);
         let quarantinedLegacyValue=false;
@@ -156,14 +172,16 @@ export function initializeRepository(userId:string|null):Promise<void> {
       }
       verifiedLegacyKeys.add(key);
     }
-    await applyPreInitializationWrites(userId);
-    // Delete legacy copies only after every value has been confirmed in IndexedDB.
-    for(const key of verifiedLegacyKeys)removeLegacyStorageValue(legacy,key);
     await clearDocumentProjections();
     for(const row of await getDocuments())memory.set(row.key,row.value);
     await projectionOwner(userId??'guest');
+    await applyPreInitializationWrites();
+    // No asynchronous work may follow this handoff. Calls arriving after this line
+    // enqueue against the initialization promise; calls before it remain buffered.
     installStorageCompatibility();
     initialized=true;
+    // Delete legacy copies only after every value has been confirmed in IndexedDB.
+    for(const key of verifiedLegacyKeys)removeLegacyStorageValue(legacy,key);
     failed=failures.values().next().value?.error??null;
     if(!pending&&!failed)status('saved');
     window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source:'repository',keys:[...memory.keys()]}}));
@@ -191,7 +209,8 @@ function installStorageCompatibility():void {
   if(compatibilityInstalled||typeof Storage==='undefined')return;
   compatibilityInstalled=true;
   const prototype=Storage.prototype,nativeGet=prototype.getItem,nativeSet=prototype.setItem,nativeRemove=prototype.removeItem,nativeClear=prototype.clear,nativeKey=prototype.key;
-  const local=window.localStorage;
+  let local:Storage;
+  try{local=window.localStorage;}catch{compatibilityInstalled=false;return;}
   const nativeLength=Object.getOwnPropertyDescriptor(prototype,'length')?.get;
   nativeLocalRemove=nativeRemove;nativeLocalGet=nativeGet;nativeLocalKey=nativeKey;
   nativeLocalLength=nativeLength?()=>nativeLength.call(local):undefined;
@@ -275,3 +294,4 @@ export function exportLocalRecovery():string {
   return JSON.stringify({version:2,exportedAt:new Date().toISOString(),values:Object.fromEntries([...localMemory,...memory]),failedDrafts:Object.fromEntries([...failures].map(([key,draft])=>[key,{value:draft.value,expected:draft.expected}])),compatibilityProjection:{}},null,2);
 }
 if(typeof window!=='undefined')installStorageCompatibility();
+
