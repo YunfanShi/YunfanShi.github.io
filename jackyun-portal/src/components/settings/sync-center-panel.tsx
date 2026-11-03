@@ -188,7 +188,7 @@ export default function SyncCenterPanel() {
   const local=useLocalSaveState();
   const pauseSeconds=pauseUntil?Math.max(0,Math.ceil((pauseUntil-pauseNow)/1000)):0;
   const pauseCountdown=`${Math.floor(pauseSeconds/60)}:${String(pauseSeconds%60).padStart(2,'0')}`;
-  const status = SYNC_SYSTEM_PAUSED?'云端同步已暂停；数据和五个本地版本仅保存在此设备':local==='storage_error'?'本机保存未完成，请下载恢复副本':local==='saving'?'正在保存到本机':detail.state === 'guest'
+  const status = SYNC_SYSTEM_PAUSED?'云端同步已暂停；数据和最多十个本地增量版本仅保存在此设备':local==='storage_error'?'本机保存未完成，请下载恢复副本':local==='saving'?'正在保存到本机':detail.state === 'guest'
     ? '当前为本机模式，登录后才能同步'
     : detail.state === 'auth_required'?'等待重新登录，本机内容和队列保留'
     : detail.state === 'access_denied'?'账号或设备权限需要处理，已暂停上传'
@@ -229,7 +229,7 @@ export default function SyncCenterPanel() {
     <div className="rounded-xl border border-[var(--card-border)] p-4 text-sm leading-6">
       <h3 className="font-semibold">同步范围</h3>
       <p className="mt-1 text-[var(--muted-foreground)]">Cue、复习状态、学习记录、课表、计划、答题卡草稿、写作与阅读进度、刷题数据和界面偏好会随账号同步。</p>
-      <p className="mt-2 text-xs text-[var(--muted-foreground)]">{SYNC_SYSTEM_PAUSED?'当前版本已全局暂停云端同步。待上传操作和冲突仍保存在本机；页面数据每30秒自动保存本地副本，每个页面保留最近五个版本。':'可见页面每30秒检查其他设备的新修改；隐藏页面暂停普通轮询。暂停期间，本机编辑和待上传队列仍会保存，到期自动恢复。暂停只作用于当前浏览器和账号；“立即同步”可提前执行，正在进行的请求会先完成。'}</p>
+      <p className="mt-2 text-xs text-[var(--muted-foreground)]">{SYNC_SYSTEM_PAUSED?'当前版本已全局暂停云端同步。待上传操作和冲突仍保存在本机；有实际数据的页面自动保留最多十个本地增量恢复版本。':'可见页面每30秒检查其他设备的新修改；隐藏页面暂停普通轮询。暂停期间，本机编辑和待上传队列仍会保存，到期自动恢复。暂停只作用于当前浏览器和账号；“立即同步”可提前执行，正在进行的请求会先完成。'}</p>
       <p className="mt-2 text-xs text-[var(--muted-foreground)]">安全例外：密码、登录令牌、个人 API Key、诊断日志不会上传；本地导入的小说正文和音频文件属于设备文件，需在目标设备重新导入。</p>
     </div>
     <div><h3 className="font-semibold">网页与 PWA 设备</h3><div className="mt-2 divide-y divide-[var(--card-border)] rounded-xl border border-[var(--card-border)]">{openDevices.map((device) => <div key={device.id} className="flex items-center gap-3 p-3"><span className="material-icons-round text-[var(--muted-foreground)]">{device.platform === 'pwa' ? 'install_mobile' : 'devices'}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{device.name}{device.id === currentDeviceId ? '（当前）' : ''}</p><p className="text-xs text-[var(--muted-foreground)]">最后活动 {new Date(device.lastSeenAt).toLocaleString()}</p></div><button onClick={() => rename(device)} className="text-xs text-[#1a73e8]">改名</button>{device.id !== currentDeviceId ? <button onClick={() => revoke(device)} className="text-xs text-[#d93025]">撤销</button> : null}</div>)}</div></div>

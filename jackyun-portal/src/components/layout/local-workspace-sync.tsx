@@ -5,7 +5,7 @@ import {usePathname} from 'next/navigation';
 import {fetchAuthenticatedSync as fetchSyncWithTimeout} from '@/lib/sync/session-transport';
 import {shouldPauseSync} from '@/lib/sync/retry-policy';
 import {runScheduledSync,createEditTrigger} from '@/lib/sync/scheduler';
-import {workspaceStorage,initializeRepository,flushLocalWrites,applyRepositoryRecord,projectCommittedRepositoryRecord,projectLegacyCloudBaseline,setV5ScheduleAuthority,setV5WorkspaceAuthorityKeys} from '@/lib/sync/repository';
+import {workspaceStorage,initializeRepository,flushLocalWrites,applyRepositoryRecord,projectCommittedRepositoryRecord,projectLegacyCloudBaseline,setV5ScheduleAuthority,setV5WorkspaceAuthorityKeys,getLegacyMigrationConflicts} from '@/lib/sync/repository';
 import {BEFORE_SLEEP_EVENT,LOCAL_SLEEP_SAVE_EVENT,WAKE_EVENT,isWorkspaceSleeping,type SleepRequest} from '@/lib/workspace-idle';
 import {createSyncRunGate} from '@/lib/sync/run-gate';
 import {runConflictBatch,type ConflictBatch} from '@/lib/sync/conflict-batch';
@@ -18,7 +18,7 @@ import {createV5ResourceSync,resourceFieldsForPath,retainV5ScheduleAuthority} fr
 import {allV5ResourceTargets,legacyWorkspaceRecordId,SYNC_V5_SCOPES,SYNC_V5_SCHEDULE_SCOPES} from '@/lib/sync/resource-model';
 import {canonicalJson} from '@/lib/sync/hash';
 import {isBackupableLegacyKey,legacyBackupPage,type BackupPage} from '@/lib/backup/pages';
-import {ensureFiveLocalBackups,listLocalBackups,localPageValues,saveLocalBackup} from '@/lib/backup/local';
+import {ensureLocalBackupBaseline,listLocalBackups,localPageValues,pruneLocalBackups,saveLocalBackup} from '@/lib/backup/local';
 import {ALL_BACKUP_PAGES} from '@/lib/backup/pages';
 import {SYNC_SYSTEM_PAUSED} from '@/lib/sync/pause';
 import {backupIsDue,recordBackupChange,type PendingBackup} from '@/lib/backup/cadence';
@@ -26,7 +26,7 @@ import {createDueBackupVersions} from '@/actions/backup-center';
 import {emitDiagnostic,errorDetails} from '@/lib/diagnostic-events';
 import {syncFailureStatus} from '@/lib/sync/service-error';
 import {reportSyncFailure} from '@/lib/sync/report-failure';
-import {siteConfirm} from '@/lib/site-dialog';
+import {siteAlert,siteConfirm} from '@/lib/site-dialog';
 import {scheduleHasContent} from '@/lib/sync/schedule-safety';
 import {listOfflineMutations} from '@/lib/offline/workspace';
 import type {SyncStatus,SyncResolutionRequest} from '@/types/sync';
@@ -70,6 +70,7 @@ function WorkspaceRouteSyncTrigger() {
 }
 
 export default function LocalWorkspaceSync({ userId }: { userId: string | null }) {
+  const migrationNoticeShown = useRef(false);
   useEffect(() => {
     let owner = userId ?? 'guest';
     let previous = localSnapshot(true);
@@ -114,7 +115,8 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
       await initializeRepository(userId);
       owner = userId ?? await getSetting<string>('activeUserId') ?? 'guest';
       previous=localSnapshot(true);
-      for (const page of ALL_BACKUP_PAGES) await ensureFiveLocalBackups(owner,page,localPageValues(previous,page));
+      await pruneLocalBackups(owner);
+      for (const page of ALL_BACKUP_PAGES) await ensureLocalBackupBaseline(owner,page,localPageValues(previous,page));
       if(userId){
         const promptKey=`jackyun-empty-device-cloud-prompt:${userId}`;
         if(!sessionStorage.getItem(promptKey)){
@@ -338,6 +340,7 @@ export default function LocalWorkspaceSync({ userId }: { userId: string | null }
     workspaceStorage.removeItem('jackyun_guest_mode');
     void publish('syncing',undefined,'正在初始化 V5 同步…');
     const initialize=()=>initializeRepository(userId).then(async()=>{v5Authority=await storedV5Authority;bound=true;
+      const conflicts=getLegacyMigrationConflicts();if(conflicts.length&&!migrationNoticeShown.current){migrationNoticeShown.current=true;void siteAlert(`已自动迁移旧设备数据。检测到 ${conflicts.join('、')} 在旧存储与新存储中内容不同，旧副本已完整保存在此设备的恢复数据中；当前 IndexedDB 版本保持为主版本。请在备份中心下载设备本地恢复数据后再导入需要的内容。`,{title:'旧设备数据已安全迁移'}).catch(()=>{});}
       // Let pages hydrate and paint the restored IndexedDB projection before the first cloud request.
       await new Promise<void>(resolve=>window.setTimeout(resolve,50));if(cancelled)return;
       return sync(false,false,undefined,queuedRouteSync?'route':'periodic');}).catch(error=>{

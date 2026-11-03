@@ -29,6 +29,9 @@ let crossTabChannel:BroadcastChannel|undefined;
 let nativeLocalRemove:Storage['removeItem']|undefined;
 let nativeLocalGet:Storage['getItem']|undefined;
 const isManagedLocalKey=(key:string)=>!/^sb-.+-auth-token(?:-code-verifier)?$/.test(key);
+export const LEGACY_MIGRATION_CONFLICT_PREFIX='jackyun_migration_conflict_v1:';
+const migrationConflicts:string[]=[];
+export function getLegacyMigrationConflicts():string[]{return [...migrationConflicts];}
 export const LOCAL_DURABILITY_EVENT='jackyun-local-durability';
 function status(state:'saving'|'saved'|'storage_error'|'projection_degraded') {
   saveState=state;
@@ -79,7 +82,17 @@ export function initializeRepository(userId:string|null):Promise<void> {
         if(stored===undefined)throw Error(`旧数据迁移未验证：${key}`);
         memory.set(key,stored);
       }else{
-        if(localMemory.has(key)&&localMemory.get(key)!==value)throw Error(`本机旧副本与 IndexedDB 不一致，已保留原数据供恢复：${key}`);
+        if(localMemory.has(key)&&localMemory.get(key)!==value){
+          const suffix=typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():`${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const preservedKey=`${LEGACY_MIGRATION_CONFLICT_PREFIX}${encodeURIComponent(key)}:${suffix}`;
+          const preservedValue=JSON.stringify({sourceKey:key,value,capturedAt:new Date().toISOString()});
+          await writeLocalData(preservedKey,preservedValue);
+          const preserved=(await readLocalData()).find(row=>row.key===preservedKey)?.value;
+          if(preserved!==preservedValue)throw Error(`本机旧副本与 IndexedDB 不一致，原数据已保留供恢复：${key}`);
+          localMemory.set(preservedKey,preservedValue);
+          migrationConflicts.push(key);
+          window.dispatchEvent(new CustomEvent('jackyun-local-migration-conflict',{detail:{key,preservedKey}}));
+        }
         if(!localMemory.has(key))await writeLocalData(key,value);
         const verified=(await readLocalData()).find(row=>row.key===key)?.value;
         if(verified!==value&&!localRows.some(row=>row.key===key&&row.value===verified))throw Error(`旧数据迁移未验证：${key}`);

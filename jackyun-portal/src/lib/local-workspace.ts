@@ -28,7 +28,8 @@ const SENSITIVE_STORAGE_KEYS = new Set([
 ]);
 const LOCAL_ONLY_KEYS = new Set([
   'jackyun_nav_usage_queue_v2',
-  // Historical typo emitted by older builds; migrate it as local-only data.
+  // Historical typo emitted by older builds. Keep routing it to local IndexedDB
+  // so legacy migration can verify and remove its localStorage copy safely.
   'jackyun_nav_usage_qeue_v2',
   'enforcer_sessions',
   'jackyun_ai_music_command',
@@ -43,7 +44,7 @@ const LOCAL_ONLY_KEYS = new Set([
   'sme_v30_autoclose',
   'jackyun-browser-ai-conversation-target',
 ]);
-const LOCAL_ONLY_PREFIXES = ['jy_tr3000_', 'jackyun-browser-ai-recent-choice:', 'jackyun-savepoint-', 'jackyun-continue-', 'jackyun_novel_position_v2:', 'jackyun:seiue-course-review:v1:'];
+const LOCAL_ONLY_PREFIXES = ['jy_tr3000_', 'jackyun-browser-ai-recent-choice:', 'jackyun-savepoint-', 'jackyun-continue-', 'jackyun_novel_position_v2:', 'jackyun:seiue-course-review:v1:', 'jackyun_migration_conflict_v1:'];
 const BLOCKED_KEY = /(password|passwd|secret|auth|supabase|api[_-]?key|(?:^|[_-])(?:llm|ds|deepseek|openai)[_-]?(?:api[_-]?)?key(?:$|[_-])|access[_-]?token|refresh[_-]?token|service[_-]?role|(^|[_-])sk([_-]|$)|deviceid|broadcast|cookie|guest_mode|debug)/i;
 // A dated subject such as Biology is learning data, not a diagnostic log.
 const DATED_SUBJECT_KEY = /^(check|prog)_\d{4}-\d{2}-\d{2}_.+$/i;

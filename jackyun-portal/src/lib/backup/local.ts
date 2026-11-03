@@ -1,10 +1,10 @@
 'use client';
 import { workspaceStorage } from '../sync/repository.ts';
-
-
+import { scheduleHasContent, SCHEDULE_STORAGE_KEY } from '../sync/schedule-safety.ts';
 import { ALL_BACKUP_PAGES, isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './pages.ts';
 
 const DB_NAME = 'jackyun-page-backups-v1';
+const FULL_CHECKPOINT_INTERVAL = 5;
 
 export type LocalBackup = {
   id: number;
@@ -12,8 +12,10 @@ export type LocalBackup = {
   page: BackupPage;
   createdAt: string;
   values: Record<string, string>;
+  encoding?: 'full' | 'delta';
   deletedKeys?: string[];
 };
+type MaterializedBackup = Omit<LocalBackup, 'id' | 'encoding' | 'deletedKeys'> & { id?: number };
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -38,35 +40,85 @@ function transaction<T>(mode: IDBTransactionMode, operation: (store: IDBObjectSt
   }));
 }
 
-export function getLocalBackupLimit(): number {
-  return 5;
-}
+export function getLocalBackupLimit(): number { return 10; }
 
 function samePageValues(left: Record<string, string>, right: Record<string, string>): boolean {
   const keys = Object.keys(left);
   return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key]);
 }
 
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.some(hasMeaningfulValue);
+  if (typeof value === 'object') return Object.values(value as Record<string, unknown>).some(hasMeaningfulValue);
+  return true;
+}
+
+/** Empty page snapshots waste slots; malformed data is retained so it can still be recovered. */
+export function hasLocalPageData(page: BackupPage, values: Record<string, string>): boolean {
+  return Object.entries(values).some(([key, raw]) => {
+    if (key === SCHEDULE_STORAGE_KEY) {
+      try { return scheduleHasContent(JSON.parse(raw)); } catch { return raw.trim().length > 0; }
+    }
+    try { return hasMeaningfulValue(JSON.parse(raw)); } catch { return raw.trim().length > 0; }
+  });
+}
+
+function materialize(rows: LocalBackup[]): MaterializedBackup[] {
+  const current: Record<string, string> = {};
+  let hasBase = false;
+  return [...rows].sort((a, b) => a.id - b.id).map((row) => {
+    if (row.encoding !== 'delta') {
+      for (const key of Object.keys(current)) delete current[key];
+      Object.assign(current, row.values);
+      hasBase = true;
+    } else {
+      if (!hasBase) throw new Error('本机备份缺少完整恢复点，原备份已保留。');
+      for (const key of row.deletedKeys ?? []) delete current[key];
+      Object.assign(current, row.values);
+    }
+    return { ...row, values: { ...current }, encoding: 'full', deletedKeys: undefined };
+  });
+}
+
+/** Re-encode with two complete restore points at most; deltas never span over four versions. */
+function encode(rows: MaterializedBackup[]): LocalBackup[] {
+  let previous: Record<string, string> = {};
+  return rows.map((row, index) => {
+    const full = index === 0 || index % FULL_CHECKPOINT_INTERVAL === 0;
+    if (full) {
+      previous = { ...row.values };
+      return { ...row, encoding: 'full', values: { ...row.values }, deletedKeys: [] } as LocalBackup;
+    }
+    const values = Object.fromEntries(Object.entries(row.values).filter(([key, value]) => previous[key] !== value));
+    const deletedKeys = Object.keys(previous).filter((key) => !Object.hasOwn(row.values, key));
+    previous = { ...row.values };
+    return { ...row, encoding: 'delta', values, deletedKeys } as LocalBackup;
+  });
+}
+
+function writeEncodedRows(store: IDBObjectStore, prior: LocalBackup[], rows: MaterializedBackup[]): void {
+  const encoded = encode(rows);
+  const retainedIds = new Set<number>();
+  for (const row of encoded) {
+    if (row.id === undefined) store.add(row);
+    else { retainedIds.add(row.id); store.put(row); }
+  }
+  for (const row of prior) if (!retainedIds.has(row.id)) store.delete(row.id);
+}
+
 export function pruneLocalBackups(userId: string): Promise<void> {
   return transaction<void>('readwrite', (store, finish) => {
-    // Retention needs only ownership and primary keys, never snapshot contents.
-    const request = store.index('ownerPage').openKeyCursor();
-    const byPage = new Map<BackupPage, number[]>();
+    const request = store.getAll();
     request.onsuccess = () => {
-      const cursor = request.result;
-      if (cursor) {
-        const [owner, page] = cursor.key as [string, BackupPage];
-        if (owner === userId) {
-          const ids = byPage.get(page) ?? [];
-          ids.push(cursor.primaryKey as number);
-          byPage.set(page, ids);
-        }
-        cursor.continue();
-        return;
-      }
-      for (const ids of byPage.values()) {
-        ids.sort((a, b) => b - a);
-        for (const id of ids.slice(getLocalBackupLimit())) store.delete(id);
+      const owned = (request.result as LocalBackup[]).filter((row) => row.userId === userId);
+      const byPage = new Map<BackupPage, LocalBackup[]>();
+      for (const row of owned) byPage.set(row.page, [...(byPage.get(row.page) ?? []), row]);
+      for (const [page, rows] of byPage) {
+        const snapshots = materialize(rows).filter((row) => hasLocalPageData(page, row.values));
+        const retained = snapshots.slice(-getLocalBackupLimit());
+        writeEncodedRows(store, rows, retained);
       }
       finish();
     };
@@ -80,50 +132,31 @@ export function localPageValues(snapshot: Record<string, string>, page: BackupPa
 export function listLocalBackups(userId: string, page: BackupPage): Promise<LocalBackup[]> {
   return transaction('readonly', (store, finish) => {
     const request = store.index('ownerPage').getAll(IDBKeyRange.only([userId, page]));
-    request.onsuccess = () => finish((request.result as LocalBackup[])
-      .sort((a, b) => b.id - a.id));
+    request.onsuccess = () => finish(materialize(request.result as LocalBackup[]).sort((a, b) => (b.id ?? 0) - (a.id ?? 0)).map((row) => row as LocalBackup));
   });
 }
 
 export async function saveLocalBackup(userId: string, page: BackupPage, values: Record<string, string>, forceDuplicate = false): Promise<void> {
+  if (!hasLocalPageData(page, values)) return;
   await transaction<void>('readwrite', (store, finish) => {
-    const index = store.index('ownerPage');
-    const range = IDBKeyRange.only([userId, page]);
-    const request = index.openCursor(range, 'prev');
+    const request = store.index('ownerPage').getAll(IDBKeyRange.only([userId, page]));
     request.onsuccess = () => {
-      const latest = request.result?.value as LocalBackup | undefined;
+      const prior = request.result as LocalBackup[];
+      const snapshots = materialize(prior);
+      const latest = snapshots.at(-1);
       if (!forceDuplicate && latest && samePageValues(latest.values, values)) { finish(); return; }
-      const keys = index.getAllKeys(range);
-      keys.onsuccess = () => {
-        const ids = (keys.result as number[]).sort((a, b) => b - a);
-        store.add({ userId, page, values, createdAt: new Date().toISOString() });
-        for (const id of ids.slice(Math.max(0, getLocalBackupLimit() - 1))) store.delete(id);
-        finish();
-      };
+      snapshots.push({ userId, page, values: { ...values }, createdAt: new Date().toISOString() });
+      writeEncodedRows(store, prior, snapshots.slice(-getLocalBackupLimit()));
+      finish();
     };
   });
 }
 
-/** Ensure every page can be restored even before it has user data or a change history. */
-export async function ensureFiveLocalBackups(userId: string, page: BackupPage, values: Record<string, string>): Promise<void> {
-  await transaction<void>('readwrite',(store,finish)=>{
-    const index=store.index('ownerPage'),range=IDBKeyRange.only([userId,page]);
-    const latestRequest=index.openCursor(range,'prev');
-    latestRequest.onsuccess=()=>{
-      const latest=latestRequest.result?.value as LocalBackup|undefined;
-      const addLatest=!latest||!samePageValues(latest.values,values);
-      const keys=index.getAllKeys(range);
-      keys.onsuccess=()=>{
-        const ids=(keys.result as number[]).sort((a,b)=>b-a);
-        if(!addLatest&&ids.length>=getLocalBackupLimit()){finish();return;}
-        const insertCount=addLatest?Math.max(1,getLocalBackupLimit()-ids.length):getLocalBackupLimit()-ids.length;
-        for(let i=0;i<insertCount;i++)store.add({userId,page,values,createdAt:new Date().toISOString()});
-        // Keep historical rows intact when merely initializing an unchanged page.
-        if(addLatest&&ids.length>=getLocalBackupLimit())for(const id of ids.slice(getLocalBackupLimit()-1))store.delete(id);
-        finish();
-      };
-    };
-  });
+/** Save one meaningful baseline when a page first has data; do not pad empty history slots. */
+export async function ensureLocalBackupBaseline(userId: string, page: BackupPage, values: Record<string, string>): Promise<void> {
+  if (!hasLocalPageData(page, values)) return;
+  const latest = (await listLocalBackups(userId, page))[0];
+  if (!latest || !samePageValues(latest.values, values)) await saveLocalBackup(userId, page, values);
 }
 
 /** Await this before an intentional sign-out; pagehide cannot await IndexedDB. */
@@ -135,5 +168,6 @@ export async function saveCurrentLocalBackups(userId: string): Promise<void> {
     const value = workspaceStorage.getItem(key);
     if (value !== null) snapshot[key] = value;
   }
-  for (const page of ALL_BACKUP_PAGES) await ensureFiveLocalBackups(userId, page, localPageValues(snapshot, page));
+  await pruneLocalBackups(userId);
+  for (const page of ALL_BACKUP_PAGES) await ensureLocalBackupBaseline(userId, page, localPageValues(snapshot, page));
 }

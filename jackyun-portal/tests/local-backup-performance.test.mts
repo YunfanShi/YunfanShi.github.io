@@ -4,8 +4,8 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
-import { IDBFactory, IDBKeyRange, IDBIndex, IDBObjectStore } from 'fake-indexeddb';
-import { ensureFiveLocalBackups, listLocalBackups, pruneLocalBackups, saveLocalBackup } from '../src/lib/backup/local.ts';
+import { IDBFactory, IDBKeyRange, IDBObjectStore } from 'fake-indexeddb';
+import { ensureLocalBackupBaseline, hasLocalPageData, listLocalBackups, pruneLocalBackups, saveLocalBackup } from '../src/lib/backup/local.ts';
 import { ALL_BACKUP_PAGES } from '../src/lib/backup/pages.ts';
 import { applyLocalPageImport, parseLocalPageBackup } from '../src/lib/backup/local-import.ts';
 
@@ -14,52 +14,48 @@ function installDatabase() {
   Object.defineProperty(globalThis, 'IDBKeyRange', { configurable: true, value: IDBKeyRange });
 }
 
-function countMaterializedVersions() {
-  let count = 0;
-  const getAll = IDBIndex.prototype.getAll;
-  const storeGetAll = IDBObjectStore.prototype.getAll;
-  const openCursor = IDBIndex.prototype.openCursor;
-  const trackAll = (request: IDBRequest) => { request.addEventListener('success', () => { count += request.result.length; }); return request; };
-  IDBIndex.prototype.getAll = function (...args) { return trackAll(getAll.apply(this, args)); };
-  IDBObjectStore.prototype.getAll = function (...args) { return trackAll(storeGetAll.apply(this, args)); };
-  IDBIndex.prototype.openCursor = function (...args) {
-    const request = openCursor.apply(this, args);
-    request.addEventListener('success', () => { if (request.result) count++; });
-    return request;
-  };
-  return { get count() { return count; }, restore() {
-    IDBIndex.prototype.getAll = getAll; IDBObjectStore.prototype.getAll = storeGetAll; IDBIndex.prototype.openCursor = openCursor;
-  } };
+async function readStoredRows(userId: string, page: string): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('jackyun-page-backups-v1');
+    request.onsuccess = () => {
+      const db = request.result, tx = db.transaction('versions', 'readonly');
+      const read = tx.objectStore('versions').index('ownerPage').getAll(IDBKeyRange.only([userId, page]));
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+      tx.oncomplete = () => db.close();
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    };
+    request.onerror = () => reject(request.error);
+  });
 }
 
-test('saving a large page reads only its latest snapshot and preserves the newest five versions', async () => {
+test('each page keeps ten recoverable versions as two full points and eight deltas', async () => {
   installDatabase();
   const large = '课表笔记'.repeat(100_000);
-  for (let i = 0; i < 10; i++) await saveLocalBackup('alice', 'schedule', { large, revision: String(i) });
-  const reads = countMaterializedVersions();
-  try {
-    await saveLocalBackup('alice', 'schedule', { large, revision: '10' });
-    assert.equal(reads.count, 1, 'Do not deserialize ten historical payloads to retain ten IDs');
-  } finally { reads.restore(); }
+  for (let i = 0; i < 12; i++) await saveLocalBackup('alice', 'schedule', { large, revision: String(i) });
   const rows = await listLocalBackups('alice', 'schedule');
-  assert.equal(rows.length, 5);
-  assert.equal(rows[0].values.revision, '10');
-  assert.equal(rows.at(-1)!.values.revision, '6');
+  assert.equal(rows.length, 10);
+  assert.deepEqual(rows.map(row => row.values.revision), ['11','10','9','8','7','6','5','4','3','2']);
+  assert.ok(rows.every(row => row.values.large === large), 'every restore point materializes to a complete page');
+  const stored = await readStoredRows('alice','schedule');
+  assert.equal(stored.filter(row => row.encoding === 'full').length, 2);
+  assert.equal(stored.filter(row => row.encoding === 'delta').length, 8);
+  assert.ok(JSON.stringify(stored.map(row => row.values)).length < JSON.stringify(rows.map(row => row.values)).length / 4,
+    'stable large page data is stored twice, with intervening edits represented as deltas');
 });
 
-test('every backup page starts with five restore points, including pages with no saved keys', async () => {
+test('empty pages and an empty Schedule do not create backups or consume retention slots', async () => {
   installDatabase();
-  for(const page of ALL_BACKUP_PAGES)await ensureFiveLocalBackups('alice',page,page==='schedule'?{schedule:'current'}:{});
-  for(const page of ALL_BACKUP_PAGES){
-    const rows=await listLocalBackups('alice',page);
-    assert.equal(rows.length,5,page);
-    assert.deepEqual(rows[0].values,page==='schedule'?{schedule:'current'}:{});
-  }
-  await ensureFiveLocalBackups('alice','schedule',{schedule:'new'});
-  const schedule=await listLocalBackups('alice','schedule');
-  assert.equal(schedule.length,5);
-  assert.equal(schedule[0].values.schedule,'new');
-  assert.equal(schedule[1].values.schedule,'current');
+  for(const page of ALL_BACKUP_PAGES) await ensureLocalBackupBaseline('alice',page,{});
+  await saveLocalBackup('alice','schedule',{jackyun_schedule_control_v1:JSON.stringify({cues:[]})});
+  await ensureLocalBackupBaseline('alice','schedule',{jackyun_schedule_control_v1:JSON.stringify({cues:[]})});
+  assert.equal(hasLocalPageData('schedule',{jackyun_schedule_control_v1:JSON.stringify({cues:[]})}),false);
+  assert.equal((await listLocalBackups('alice','schedule')).length,0);
+  const populated={jackyun_schedule_control_v1:JSON.stringify({cues:[{id:'cue-1'}]})};
+  await ensureLocalBackupBaseline('alice','schedule',populated);
+  assert.equal((await listLocalBackups('alice','schedule')).length,1,'first meaningful content creates one baseline');
+  await ensureLocalBackupBaseline('alice','schedule',populated);
+  assert.equal((await listLocalBackups('alice','schedule')).length,1,'unchanged content does not create a duplicate');
 });
 
 test('unchanged snapshots with a different property order do not create duplicate backups', async () => {
@@ -71,27 +67,29 @@ test('unchanged snapshots with a different property order do not create duplicat
   assert.equal((await listLocalBackups('alice', 'schedule')).length, 2);
 });
 
-test('retention scans keys without reading snapshots and never prunes another account', async () => {
+test('pruning cleans empty legacy points, keeps the latest ten, and rebases deltas for recovery', async () => {
   installDatabase();
-  await saveLocalBackup('alice', 'schedule', { revision: '0' });
-  // Seed an older installation with excess retained versions in two pages.
+  for(let i=0;i<12;i++) await saveLocalBackup('alice','schedule',{revision:String(i)});
+  for(let i=0;i<3;i++) await saveLocalBackup('bob','schedule',{revision:String(i)});
+  // Simulate empty padded versions written by the previous implementation.
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.open('jackyun-page-backups-v1');
     request.onsuccess = () => {
       const db = request.result, tx = db.transaction('versions', 'readwrite'), store = tx.objectStore('versions');
-      for (const [userId, page, count] of [['alice', 'schedule', 14], ['alice', 'quiz', 12], ['bob', 'schedule', 14]] as const) {
-        for (let i = 0; i < count; i++) store.add({ userId, page, values: { revision: String(i + 1) }, createdAt: '2026-10-11T00:00:00Z' });
-      }
+      store.add({ userId:'alice',page:'quiz',values:{},createdAt:'2026-10-11T00:00:00Z' });
       tx.oncomplete = () => { db.close(); resolve(); };
       tx.onerror = () => { db.close(); reject(tx.error); };
     };
     request.onerror = () => reject(request.error);
   });
-  const reads = countMaterializedVersions();
-  try { await pruneLocalBackups('alice'); assert.equal(reads.count, 0); } finally { reads.restore(); }
-  assert.equal((await listLocalBackups('alice', 'schedule')).length, 5);
-  assert.equal((await listLocalBackups('alice', 'quiz')).length, 5);
-  assert.equal((await listLocalBackups('bob', 'schedule')).length, 14);
+  await pruneLocalBackups('alice');
+  const schedule=await listLocalBackups('alice','schedule');
+  assert.equal(schedule.length,10);
+  assert.equal(schedule[0].values.revision,'11');
+  assert.equal(schedule.at(-1)!.values.revision,'2');
+  assert.equal((await listLocalBackups('alice','quiz')).length,0,'old empty padding is removed');
+  assert.equal((await listLocalBackups('bob','schedule')).length,3,'another account is untouched');
+  assert.equal((await readStoredRows('alice','schedule')).filter(row=>row.encoding==='full').length,2,'pruning rebuilds complete checkpoints at the start and midpoint');
 });
 
 test('a failed insertion aborts pruning and leaves all previous versions intact', async () => {
@@ -105,8 +103,8 @@ test('a failed insertion aborts pruning and leaves all previous versions intact'
   try { await assert.rejects(saveLocalBackup('alice', 'schedule', { revision: 'failed' })); }
   finally { IDBObjectStore.prototype.add = original; }
   const rows = await listLocalBackups('alice', 'schedule');
-  assert.equal(rows.length, 5);
-  assert.deepEqual(rows.map(row => row.values.revision), ['9', '8', '7', '6', '5']);
+  assert.equal(rows.length, 10);
+  assert.deepEqual(rows.map(row => row.values.revision), ['9', '8', '7', '6', '5', '4', '3', '2', '1', '0']);
 });
 
 test('large local Schedule import saves a durable recovery point before writing and waits for IndexedDB flush', async () => {
