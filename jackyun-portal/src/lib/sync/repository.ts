@@ -294,4 +294,3 @@ export function exportLocalRecovery():string {
   return JSON.stringify({version:2,exportedAt:new Date().toISOString(),values:Object.fromEntries([...localMemory,...memory]),failedDrafts:Object.fromEntries([...failures].map(([key,draft])=>[key,{value:draft.value,expected:draft.expected}])),compatibilityProjection:{}},null,2);
 }
 if(typeof window!=='undefined')installStorageCompatibility();
-

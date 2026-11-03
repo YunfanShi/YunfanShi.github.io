@@ -62,4 +62,3 @@ test('legacy localStorage API reads and writes durable application data through 
   localStorage.setItem('sb-project-auth-token', 'session-token');
   assert.equal(values.get('sb-project-auth-token'), 'session-token', 'authentication state remains in native browser storage');
 });
-

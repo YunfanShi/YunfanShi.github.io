@@ -24,4 +24,3 @@ test('repository module remains loadable when browser privacy settings deny loca
   const { initializeRepository } = await import('../src/lib/sync/repository.ts');
   await assert.rejects(initializeRepository(null), { name: 'SecurityError' });
 });
-
