@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { useLanguage } from '@/components/language-provider';
 import { Button } from '@/components/ui/button';
-import {CLOUD_STATE_APPLIED_EVENT,isSyncableStorageKey} from '@/lib/local-workspace';
+import {CLOUD_STATE_APPLIED_EVENT} from '@/lib/local-workspace';
 import {legacyStorageBridge} from '@/lib/sync/legacy-storage';
 import { legacyLanguageBridge } from '@/lib/legacy-i18n';
 
@@ -423,9 +423,8 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
 })();
 </script>
 `;
-        html = html.replace(/<\/head>/i, `${interceptScript}</head>`);
-
-        html = html.replace(/<\/head>/i, `${legacyStorageBridge}</head>`);
+        const snapshot=Object.fromEntries(Object.entries(workspaceStorage.snapshot()).filter(([key])=>html.includes(key)));
+        html = html.replace(/<\/head>/i, `${legacyStorageBridge(snapshot)}${interceptScript}</head>`);
 
         if (!cancelled) {
           setSrcdoc(html);
@@ -467,8 +466,8 @@ export default function LegacyFrame({ src, title = 'Legacy Page', userName, runt
   useEffect(()=>{
     const edit=(event:MessageEvent)=>{
       if(event.source!==iframeRef.current?.contentWindow || event.origin!==location.origin)return;
-      if(event.data?.type==='jackyun-storage-edit' && typeof event.data.key==='string' && isSyncableStorageKey(event.data.key)){
-        captureLegacyStorageEdit(event.data.key);
+      if(event.data?.type==='jackyun-storage-edit' && typeof event.data.key==='string' && (typeof event.data.value==='string'||event.data.value===null)){
+        captureLegacyStorageEdit(event.data.key,event.data.value);
         window.dispatchEvent(new Event('jackyun-sync-edit'));
       }
     };

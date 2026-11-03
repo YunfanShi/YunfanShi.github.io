@@ -849,7 +849,7 @@ export async function projectionOwner(userId?:string):Promise<string|null>{
 }
 
 const parseDocument=(value:string|null):unknown=>{if(value===null)return null;try{return JSON.parse(value);}catch{return value;}};
-/** The document and upload intent commit together; localStorage is only a projection. */
+/** The document and upload intent commit together in the account-scoped IndexedDB database. */
 export async function persistDocument(key:string,value:string|null,queue=true,expected?:string|null,options?:{onlyIfMissing?:boolean;databaseScope?:string}):Promise<boolean> {
   if(!isSyncableStorageKey(key))throw Error('此键不属于同步数据。');
   if(!queue&&account&&isSyncLeaseLost(`recovery:${account}:workspace`))throw Error('同步租约已过期，本机内容保留。');
@@ -869,7 +869,9 @@ export async function persistDocument(key:string,value:string|null,queue=true,ex
         value=merged.merged===undefined?null:typeof merged.merged==='string'?merged.merged:JSON.stringify(merged.merged);
       }
       const previous=current.result?.value??null;
-      docs.put({...current.result,key,value,...(writingProjection?{writingProjection:true}:{}),updatedAt:Date.now()});applied=true;
+      const document={...current.result,key,value,...(writingProjection?{writingProjection:true}:{}),updatedAt:Date.now()};
+      delete document.projectedValue;
+      docs.put(document);applied=true;
       if(!queue||previous===value)return;
       const metadata=base.result as SyncRecord|undefined;
       const same=(metadata?.deleted??true)===(value===null)&&canonicalJson(metadata?.deleted?null:metadata?.value??null)===canonicalJson(parseDocument(value));
@@ -888,11 +890,11 @@ export async function persistDocument(key:string,value:string|null,queue=true,ex
   });}finally{db.close();}
 }
 export const getDocuments=(scope?:string)=>storeRequest<Array<{key:string;value:string|null;projectedValue?:string|null;writingProjection?:boolean}>>('documents','readonly',store=>store.getAll(),scope);
-export async function markDocumentProjected(key:string,value:string|null):Promise<void>{
-  const db=await openDatabase();try{await new Promise<void>((resolve,reject)=>{
-    const tx=db.transaction('documents','readwrite'),store=tx.objectStore('documents'),read=store.get(key);
-    read.onsuccess=()=>{if(read.result?.value===value)store.put({...read.result,projectedValue:value});};
-    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+export async function clearDocumentProjections(scope?:string):Promise<void>{
+  const db=await openDatabase(scope);try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction('documents','readwrite'),store=tx.objectStore('documents'),request=store.getAll();
+    request.onsuccess=()=>{for(const row of request.result){if('projectedValue'in row){delete row.projectedValue;store.put(row);}}};
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('旧存储投影清理失败。'));
   });}finally{db.close();}
 }
 export async function evictDownloadCache():Promise<void>{

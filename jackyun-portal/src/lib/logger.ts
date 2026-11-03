@@ -2,6 +2,7 @@
 
 import { DIAGNOSTIC_EVENT, redactDiagnostic, type DiagnosticEvent } from './diagnostic-events.ts';
 import { classifyFetchFailure, classifyHttpFailure } from './network-failure.ts';
+import {workspaceStorage} from './sync/repository.ts';
 
 
 /**
@@ -78,7 +79,7 @@ function sanitizeValue(value: unknown, depth = 0, stringLimit = 800): unknown {
   return value;
 }
 function safeUrl(value: string): string { try { const url = new URL(value, window.location.origin); return `${url.origin}${url.pathname}`; } catch { return value.split('?')[0]; } }
-function storedLogs(): LogEntry[] { try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') as LogEntry[]; } catch { return []; } }
+function storedLogs(): LogEntry[] { try { return JSON.parse(workspaceStorage.getItem(LOCAL_KEY) || '[]') as LogEntry[]; } catch { return []; } }
 
 let persistTimer: number | null = null;
 let pendingEntries: LogEntry[] = [];
@@ -89,11 +90,11 @@ function flushPendingEntries() {
   pendingEntries = [];
   persistTimer = null;
   try {
-    const existing = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]') as LogEntry[];
+    const existing = JSON.parse(workspaceStorage.getItem(LOCAL_KEY) || '[]') as LogEntry[];
     const next = existing.concat(entries).slice(-MAX_LOCAL);
     while (next.length > 1 && new Blob([JSON.stringify(next)]).size > 1_048_576) next.shift();
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(next));
-  } catch { /* localStorage 不可用 */ }
+    workspaceStorage.setItem(LOCAL_KEY, JSON.stringify(next));
+  } catch { /* IndexedDB 尚不可用 */ }
 }
 
 function schedulePersistence() {
@@ -106,7 +107,7 @@ function storeEntry(entry: LogEntry) {
   if (_logs.length > MAX_MEMORY) {
     _logs.splice(0, _logs.length - MAX_MEMORY);
   }
-  // localStorage is synchronous. Batch writes so clicks and Next.js
+  // IndexedDB writes are batched so clicks and Next.js
   // navigation fetches do not repeatedly parse/stringify the whole log.
   pendingEntries.push(entry);
   schedulePersistence();
@@ -177,7 +178,7 @@ const logger = {
   /** 清空日志 */
   clearLogs: () => {
     _logs.length = 0; pendingEntries = []; if (persistTimer !== null) window.clearTimeout(persistTimer); persistTimer = null;
-    try { localStorage.removeItem(LOCAL_KEY); } catch { }
+    try { workspaceStorage.removeItem(LOCAL_KEY); } catch { }
   },
 
   /** 导出日志为 JSON */
