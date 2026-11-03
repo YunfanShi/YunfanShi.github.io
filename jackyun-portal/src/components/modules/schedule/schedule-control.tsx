@@ -56,7 +56,7 @@ import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import LearningRecordsView from '@/components/modules/schedule/learning-records-view';
 import LatexRenderer from '@/components/modules/latex-renderer';
 import { parseAiJson, readAiResponseContent } from '@/lib/ai-json';
-import { parseLocalValue, createLocalEditWriter, LOCAL_CONFLICT_PREFIX } from '@/lib/sync/local-edit';
+import { parseLocalValue, createLocalEditWriter, readLocalEditConflict } from '@/lib/sync/local-edit';
 import { threeWayMerge } from '@/lib/sync/merge';
 import { canonicalJson } from '@/lib/sync/hash';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
@@ -2097,7 +2097,7 @@ export default function ScheduleControl() {
 
   return (
     <div className={`${styles.root} mx-auto min-w-0 max-w-[1500px] break-words pb-10`}>
-      {persistenceError && <div role="alert" className="mb-4 rounded-xl border border-amber-500 p-4"><p>{persistenceError}</p><button type="button" className="mt-2 underline" onClick={()=>downloadStudyJson({schedule:parseLocalValue(workspaceStorage.getItem(LOCAL_CONFLICT_PREFIX+STORAGE_KEY))??state,questions:parseLocalValue(workspaceStorage.getItem(LOCAL_CONFLICT_PREFIX+QUESTION_BANK_KEY))??questionBank},'jackyun-unsaved-edits.json')}>下载两份内容与未保存修改</button></div>}
+      {persistenceError && <div role="alert" className="mb-4 rounded-xl border border-amber-500 p-4"><p>{persistenceError}</p><button type="button" className="mt-2 underline" onClick={async()=>downloadStudyJson({schedule:await readLocalEditConflict(workspaceStorage,STORAGE_KEY)??state,questions:await readLocalEditConflict(workspaceStorage,QUESTION_BANK_KEY)??questionBank},'jackyun-unsaved-edits.json')}>下载两份内容与未保存修改</button></div>}
       <header className={`${styles.header} overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--surface-shadow)]`}>
         <div className="relative px-4 py-4 sm:px-7 sm:py-6">
           <div className="pointer-events-none absolute -right-12 -top-20 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />
