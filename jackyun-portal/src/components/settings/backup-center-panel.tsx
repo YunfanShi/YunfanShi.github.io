@@ -249,7 +249,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
 
   return <div className="space-y-4">
     {page === 'schedule' && <ScheduleDataBlocksPanel owner={localOwner} />}
-    <p className="text-sm leading-6 text-[var(--muted-foreground)]">页面数据有修改后最多 30 秒自动保存一次本地恢复点，每页保留最近五个版本。登录后可手动把当前页面上传为服务器备份；服务器备份不会自动下载到本机。</p>
+    <p className="text-sm leading-6 text-[var(--muted-foreground)]">有实际数据的页面修改后会自动保存本机恢复点，每页保留最近十个版本；版本以增量记录为主，并定期加入完整恢复点。空页面不占用备份名额。登录后可手动把当前页面上传为服务器备份；服务器备份不会自动下载到本机。</p>
     <p className="text-sm leading-6 text-[var(--muted-foreground)]">本机归档包含工作区记录、离线任务队列、同步 outbox 与冲突，并按当前账号隔离。导入会合并未确认操作，不覆盖本机已有修改；云端专属且未下载的数据不在本机归档内。</p>
     <div className="flex flex-wrap items-end gap-3">
       <label className="grid gap-1 text-sm">页面

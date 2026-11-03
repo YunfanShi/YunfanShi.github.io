@@ -1,0 +1,65 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { NAVIGATION_ITEMS, navigationIdFromPath } from '@/lib/navigation';
+import { switchPageTabLock } from '@/lib/page-tab-lock';
+
+type GuardState = { page: string; status: 'checking' | 'ready' | 'blocked' | 'error' };
+
+const PAGE_LABELS: Record<string, string> = {
+  schedule: 'Schedule', 'study-plan': '学习计划', 'study-guide': 'StudyGuide',
+  dashboard: '首页', settings: '设置', memory: '记忆', vocab: '词汇',
+  quizwise: 'Quiz', 'answer-sheet': '答题卡', 'answer-sheet-sync': '答题卡同步',
+};
+
+function pageIdentity(pathname: string): string {
+  return navigationIdFromPath(pathname) ?? `route:${pathname.replace(/\/+$/, '') || '/'}`;
+}
+
+export default function PageTabLockGuard({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() ?? '/';
+  const router = useRouter();
+  const page = pageIdentity(pathname);
+  const [retry, setRetry] = useState(0);
+  const [guard, setGuard] = useState<GuardState>({ page: '', status: 'checking' });
+
+  useEffect(() => {
+    let active = true;
+    void switchPageTabLock(page, () => {
+      if (active) setGuard({ page, status: 'blocked' });
+    }).then((acquired) => {
+      if (active) setGuard({ page, status: acquired ? 'ready' : 'blocked' });
+    }).catch(() => {
+      if (active) setGuard({ page, status: 'error' });
+    });
+    return () => { active = false; };
+  }, [page, retry]);
+
+  const retryLock = useCallback(() => setRetry((value) => value + 1), []);
+  if (guard.page === page && guard.status === 'ready') return <>{children}</>;
+
+  const title = PAGE_LABELS[page] ?? NAVIGATION_ITEMS.find((item) => item.id === page)?.labelKey ?? page;
+  const unavailable = guard.page === page && guard.status === 'error';
+  return <section role={unavailable ? 'alert' : 'status'} aria-live="polite" className="mx-auto flex min-h-[min(60vh,34rem)] w-full max-w-2xl items-center justify-center p-5">
+    <div className="w-full rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-sm sm:p-8">
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className={`material-icons-round mt-0.5 text-2xl ${unavailable ? 'text-red-600' : 'text-amber-600'}`}>{unavailable ? 'error_outline' : guard.status === 'checking' || guard.page !== page ? 'hourglass_top' : 'tab'}</span>
+        <div>
+          <h1 className="text-lg font-semibold">{unavailable ? '无法确认页面占用状态' : guard.status === 'checking' || guard.page !== page ? '正在确认页面是否已打开' : '这个页面已在其他标签中打开'}</h1>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+            {unavailable
+              ? '本机页面锁存储暂不可用。为避免两个页面同时修改同一份数据，当前页面内容已暂停加载，请稍后重试。'
+              : guard.status === 'checking' || guard.page !== page
+                ? '确认完成前，本页编辑器不会加载。'
+                : `此设备的「${title}」页面已经在另一个标签中打开。请从左侧菜单进入其他页面；关闭另一个标签后，可以重试打开此页。`}
+          </p>
+        </div>
+      </div>
+      {guard.page === page && guard.status !== 'checking' && <div className="mt-5 flex flex-wrap gap-3">
+        <button type="button" onClick={retryLock} className="min-h-11 rounded-xl bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white">重试打开此页</button>
+        <button type="button" onClick={() => router.push('/dashboard')} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 py-2 text-sm font-semibold">打开首页</button>
+      </div>}
+    </div>
+  </section>;
+}

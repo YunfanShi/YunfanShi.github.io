@@ -18,6 +18,7 @@ import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES } from '@/l
 import CloudSettingsHydrator from '@/components/layout/cloud-settings-hydrator';
 import WorkspaceIdle from '@/components/layout/workspace-idle';
 import LocalWorkspaceSync from '@/components/layout/local-workspace-sync';
+import PageTabLockGuard from '@/components/layout/page-tab-lock-guard';
 import OfflineWorkspaceSync from '@/components/layout/offline-workspace-sync';
 import AuthModeProvider from '@/components/auth/auth-mode-provider';
 import BetaExperience from '@/components/modules/beta-experience';
@@ -72,7 +73,7 @@ function PortalShell({claims,claimsError,children,settings=null,navigationUsage=
           <Topbar user={user} betaActive={betaEnrollment?.status==='accepted'} isAdmin={isAdmin} />
           <ServerFailureNotice /><SiteNotificationModal />
           {claimsError&&<SessionRecovery />}
-          <main data-portal-main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
+          <main data-portal-main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8"><PageTabLockGuard>{children}</PageTabLockGuard></main>
         </div>
         <LegacyBridge /><KeyboardShortcuts /><DeferredAiChat /><MiniPlayer /><FlyingTimer />
         <BetaExperience status={betaEnrollment?.status??null} /><BrowserAiBridge />
