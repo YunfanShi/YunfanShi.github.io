@@ -18,7 +18,7 @@ test('concurrent field edits preserve insertion anchors on either device',()=>{
   }
  }
 });
-import {persistLocalEdit,createLocalEditWriter,parseLocalValue,LOCAL_CONFLICT_PREFIX,LocalEditConflict} from '../src/lib/sync/local-edit.ts';
+import {persistLocalEdit,createLocalEditWriter,parseLocalValue,LOCAL_CONFLICT_PREFIX,LocalEditConflict,readLocalEditConflict} from '../src/lib/sync/local-edit.ts';
 
 test('stale device with year 2999 clock retains additions on both devices',async()=>{
   const base=remote({cues:[{id:'a',text:'base'}]}),cloud=server(base),a=device(cloud,base),b=device(cloud,base);
@@ -199,6 +199,32 @@ test('stale React snapshot cannot erase another tab additions and conflicting dr
   storage.setItem(key,JSON.stringify({cues:[{id:'a',text:'other'}]}));
   await assert.rejects(persistLocalEdit(storage,key,base,{cues:[{id:'a',text:'local'}]}),LocalEditConflict);
   assert.ok(storage.getItem(LOCAL_CONFLICT_PREFIX+key));assert.equal((parseLocalValue(storage.getItem(key)) as Page).cues[0].text,'other');
+});
+test('a full localStorage quota saves the conflicting Schedule snapshot to IndexedDB',async()=>{
+  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'indexedDB');
+  const records=new Map<string,unknown>();
+  const database={createObjectStore:()=>({}),close:()=>{},transaction:()=>{
+    const tx:{oncomplete?:()=>void;onerror?:()=>void;onabort?:()=>void;error?:Error;objectStore:()=>{put:(value:{key:string})=>void;get:(key:string)=>{result?:unknown;onsuccess?:()=>void;onerror?:()=>void}}}={objectStore:()=>({
+      put(value){records.set(value.key,value);queueMicrotask(()=>tx.oncomplete?.());},
+      get(key){const request:{result?:unknown;onsuccess?:()=>void;onerror?:()=>void}={};queueMicrotask(()=>{request.result=records.get(key);request.onsuccess?.();tx.oncomplete?.();});return request;},
+    })};
+    return tx;
+  }};
+  const fakeIndexedDB={open:()=>{const request:{result?:typeof database;onupgradeneeded?:()=>void;onsuccess?:()=>void;onerror?:()=>void}={};queueMicrotask(()=>{request.result=database;request.onupgradeneeded?.();request.onsuccess?.();});return request;}};
+  Object.defineProperty(globalThis,'indexedDB',{configurable:true,value:fakeIndexedDB});
+  const values=new Map<string,string>(),storage={getItem:(k:string)=>values.get(k)??null,setItem:(k:string,v:string)=>{
+    if(k.startsWith(LOCAL_CONFLICT_PREFIX))throw new DOMException('storage full','QuotaExceededError');
+    values.set(k,v);
+  }};
+  const key='jackyun_schedule_control_v1',base={cues:[{id:'a',text:'base'}]},remote={cues:[{id:'a',text:'remote'}]},local={cues:[{id:'a',text:'local'}]};
+  storage.setItem(key,JSON.stringify(remote));
+  try {
+    await assert.rejects(persistLocalEdit(storage,key,base,local),error=>error instanceof LocalEditConflict&&error.message.includes('副本已保存到本机恢复存储'));
+    assert.deepEqual(parseLocalValue(storage.getItem(key)),remote);
+    assert.deepEqual(await readLocalEditConflict(storage,key),{base,local,remote,paths:['$.cues[a].text']});
+  } finally {
+    if(descriptor)Object.defineProperty(globalThis,'indexedDB',descriptor);else delete (globalThis as typeof globalThis&{indexedDB?:unknown}).indexedDB;
+  }
 });
 
 test('failed startup metadata read is retried without forgetting initial local intent',async()=>{
