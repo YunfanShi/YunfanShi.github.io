@@ -17,13 +17,14 @@ export const PAGE_PROFILES: Array<{ id: string; href: string; label?: string }> 
   { id: 'examcountdown', href: '/examcountdown', label: '考试倒计时' },
   { id: 'study-tasks', href: '/study/tasks', label: '学习任务' },
 ];
-export function sanitizePagePreferences(value: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = { intentPrefetch: value.intentPrefetch !== false };
+export function sanitizePagePreferences(value: unknown): Record<string, unknown> {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const result: Record<string, unknown> = { intentPrefetch: source.intentPrefetch !== false };
   for (const page of PAGE_PROFILES) {
-    result[`${page.id}:size`] = value[`${page.id}:size`] === 'large' ? 'large' : 'normal';
-    result[`${page.id}:width`] = value[`${page.id}:width`] === 'reading' ? 'reading' : 'full';
-    result[`${page.id}:spacing`] = value[`${page.id}:spacing`] === 'compact' ? 'compact' : 'comfortable';
-    result[`${page.id}:motion`] = value[`${page.id}:motion`] !== false;
+    result[`${page.id}:size`] = source[`${page.id}:size`] === 'large' ? 'large' : 'normal';
+    result[`${page.id}:width`] = source[`${page.id}:width`] === 'reading' ? 'reading' : 'full';
+    result[`${page.id}:spacing`] = source[`${page.id}:spacing`] === 'compact' ? 'compact' : 'comfortable';
+    result[`${page.id}:motion`] = source[`${page.id}:motion`] !== false;
   }
   return result;
 }

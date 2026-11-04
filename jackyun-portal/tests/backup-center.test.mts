@@ -47,6 +47,15 @@ test('local schedule restore accepts a complete 3.58 MB JSON export', () => {
   assert.equal(parseLocalPageBackup(text, 'schedule').values.jackyun_schedule_control_v1, schedule);
 });
 
+test('page JSON import accepts current page exports and multi-page share exports',()=>{
+  const schedule={jackyun_schedule_control_v1:JSON.stringify({cues:[{id:'portable-cue'}]})};
+  const pageJson=JSON.stringify({format:'jackyun-local-page-backup',version:3,page:'schedule',exportedAt:'2026-11-04T00:00:00.000Z',dataChangedAt:null,values:schedule,deletedKeys:[]});
+  assert.deepEqual(parseLocalPageBackup(pageJson,'schedule'),{values:schedule,deletedKeys:[]});
+  const shared=JSON.stringify({format:'jackyun-local-page-share',version:1,exportedAt:'2026-11-04T00:00:00.000Z',source:'JackYun Portal',pages:[{page:'schedule',label:'Schedule 与课表',dataChangedAt:null,values:schedule}]});
+  assert.deepEqual(parseLocalPageBackup(shared,'schedule'),{values:schedule,deletedKeys:[]});
+  assert.throws(()=>parseLocalPageBackup(shared,'study'),/不包含当前选择的页面/);
+});
+
 test('legacy Schedule JSON merge preserves missing question-bank progress; only explicit deletion removes it', async () => {
   const scheduleKey = 'jackyun_schedule_control_v1';
   const questionsKey = 'jackyun_schedule_questions_v1';

@@ -2,6 +2,7 @@ import { isBackupableLegacyKey, legacyBackupPage, type BackupPage } from './page
 import { scheduleHasContent, SCHEDULE_STORAGE_KEY } from '../sync/schedule-safety.ts';
 import { localPageValues } from './local.ts';
 import { resourceTargetsForStorageKeys } from '../sync/resource-model.ts';
+import { LOCAL_SHARE_FORMAT, parseLocalShare } from './local-share.ts';
 
 type LocalPageImportStorage = {
   keys: () => string[];
@@ -86,8 +87,16 @@ export function parseLocalPageBackup(text: string, page: BackupPage): { values: 
     throw new Error('JSON 文件格式错误。');
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('文件不是当前页面的本地备份。');
-  const backup = parsed as { version?: unknown; page?: unknown; values?: unknown; deletedKeys?: unknown };
-  if ((backup.version !== 1 && backup.version !== 2) || backup.page !== page || !backup.values || typeof backup.values !== 'object'
+  const backup = parsed as { format?: unknown; version?: unknown; page?: unknown; pages?: unknown; values?: unknown; deletedKeys?: unknown };
+  if (backup.format === LOCAL_SHARE_FORMAT) {
+    const share=parseLocalShare(text), row=share.pages.find(item=>item.page===page);
+    if(!row)throw new Error('分享文件不包含当前选择的页面。');
+    validateValues(row.values,page);
+    if(!Object.keys(row.values).length)throw new Error('分享文件中的页面没有可导入的数据。');
+    return {values:row.values,deletedKeys:[]};
+  }
+  const currentFormat=backup.format==='jackyun-local-page-backup'&&backup.version===3;
+  if ((!currentFormat&&backup.version!==1&&backup.version!==2) || backup.page !== page || !backup.values || typeof backup.values !== 'object'
     || Array.isArray(backup.values) || (backup.deletedKeys !== undefined && (!Array.isArray(backup.deletedKeys) || backup.deletedKeys.some((key) => typeof key !== 'string')))) throw new Error('文件不是当前页面的本地备份。');
 
   const values = backup.values as Record<string, unknown>;

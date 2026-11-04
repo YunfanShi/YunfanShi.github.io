@@ -61,11 +61,18 @@ export function isBackupableSettingKey(key: unknown): key is string {
 }
 
 export function isBackupableLegacyKey(key: unknown): key is string {
-  return typeof key === 'string' && isSyncableStorageKey(key)
+  return typeof key === 'string' && (isSyncableStorageKey(key) || isPortableLocalRecoveryKey(key))
     && !/^(?:eruda-|getItem$|setItem$|removeItem$|jackyun_nav_timestamps$|jackyun_nav_usage_pending$|jackyun_backup_local_limit$)/.test(key);
 }
 
+/** CUE answer undo drafts are local-only, but still need to travel in user-requested backups. */
+export function isPortableLocalRecoveryKey(key: unknown): boolean {
+  return typeof key === 'string' && key.startsWith('jackyun_cue_answer_draft_v1:')
+    && key.length <= 120 && /^jackyun_cue_answer_draft_v1:\["[A-Za-z0-9_-]{1,80}","[A-Za-z0-9_-]{1,80}"\]$/.test(key);
+}
+
 export function legacyBackupPage(key: string): BackupPage {
+  if (isPortableLocalRecoveryKey(key)) return 'study';
   if (key.startsWith('jackyun_reader_book_v1:')) return 'reader';
   if (/^(?:jackyun_schedule_|jack_timetable_|w3_schedule$)/.test(key)) return 'schedule';
   if (/^(?:studyguide_|caie_|jackyun_goal_|jackyun_daily_plan$|th2_|control_|jackyun_control_)/.test(key)) return 'study';

@@ -8,7 +8,7 @@ import { uploadLocalPageBackup, downloadBackupVersionAsLocalShare, listBackupVer
 import { BACKUP_PAGES, isBackupableLegacyKey, type BackupPage } from '@/lib/backup/pages';
 import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
 import { getSetting, getSyncArchiveData, queueV5RestoreTargets, restoreSyncArchiveData } from '@/lib/sync/outbox';
-import { listLocalBackups, localPageValues, saveLocalBackup, type LocalBackup } from '@/lib/backup/local';
+import { listIncompleteLocalBackups, listLocalBackups, localPageValues, saveLocalBackup, type LocalBackup } from '@/lib/backup/local';
 import { SCHEDULE_STORAGE_KEY } from '@/lib/sync/schedule-safety';
 import { inspectScheduleVersion, type BackupInspection } from '@/lib/backup/inspection';
 import { QUESTION_BANK_KEY } from '@/lib/learning/question-bank';
@@ -49,6 +49,7 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   const [versions, setVersions] = useState<BackupVersion[]>([]);
   const [localOwner, setLocalOwner] = useState(userId);
   const [localVersions, setLocalVersions] = useState<LocalBackup[]>([]);
+  const [incompleteLocalVersions,setIncompleteLocalVersions]=useState<LocalBackup[]>([]);
   const [preview, setPreview] = useState<{ id: number; source: 'local'; inspection: BackupInspection } | null>(null);
   const [cloudPreview,setCloudPreview]=useState<{id:number;bundle:LocalShareBundle}|null>(null);
   const [cloudListOpen,setCloudListOpen]=useState(false);
@@ -59,9 +60,10 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   const load = useCallback(async () => {
     const owner = userId === 'guest' ? await getSetting<string>('activeUserId').catch(() => null) ?? 'guest' : userId;
     setLocalOwner(owner);
-    const local = await Promise.allSettled([listLocalBackups(owner,page)]).then(results=>results[0]);
+    const [local,incomplete] = await Promise.allSettled([listLocalBackups(owner,page),listIncompleteLocalBackups(owner,page)]);
     if (local.status === 'fulfilled') setLocalVersions(local.value);
-    const failure = [local].find((result) => result.status === 'rejected');
+    if (incomplete.status === 'fulfilled') setIncompleteLocalVersions(incomplete.value);
+    const failure = [local,incomplete].find((result) => result.status === 'rejected');
     setError(failure?.status === 'rejected' ? String(failure.reason instanceof Error ? failure.reason.message : failure.reason) : '');
   }, [page, userId]);
 
@@ -162,12 +164,25 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   }
 
   function downloadLocal(item: LocalBackup) {
-    const url = URL.createObjectURL(new Blob([JSON.stringify({ version: 2, page: item.page, createdAt: item.createdAt, values: item.values, deletedKeys: item.deletedKeys ?? [] }, null, 2)], { type: 'application/json' }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ format: 'jackyun-local-page-backup', version: 3, page: item.page, exportedAt: new Date().toISOString(), dataChangedAt: latestDataChange(item.values), values: item.values, deletedKeys: item.deletedKeys ?? [] }, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = `jackyun-local-${item.page}-${item.id}.json`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function downloadIncompleteLocal() {
+    const partialValues:Record<string,string>={};
+    for(const row of incompleteLocalVersions){
+      for(const [key,value] of Object.entries(row.values??{})){
+        if(typeof value==='string'&&isBackupableLegacyKey(key)&&BACKUP_PAGES.some(item=>item.id===page)&&localPageValues({[key]:value},page)[key]!==undefined)partialValues[key]=value;
+      }
+    }
+    const bundle={version:1,page,values:partialValues,deletedKeys:[],recoveryNote:'此文件来自未能连接到完整恢复点的旧增量记录；values 仅含原记录实际保存的页面键，导入时会合并到当前页面，不删除其他本机数据。原始增量行随文件保留。',incompleteBackups:incompleteLocalVersions};
+    const url=URL.createObjectURL(new Blob([JSON.stringify(bundle,null,2)],{type:'application/json'}));
+    const link=document.createElement('a');link.href=url;link.download=`jackyun-local-${page}-incomplete-recovery.json`;link.click();
+    window.setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
 
   async function exportAllLocalData() {
@@ -281,7 +296,8 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
       {selectedCloudPage&&<div className="space-y-2 rounded-lg bg-[var(--background)] p-3 text-sm"><strong>服务器备份 #{cloudPreview!.id} · {selectedCloudPage.label}</strong><p>云端数据最后修改：{selectedCloudPage.dataChangedAt?new Date(selectedCloudPage.dataChangedAt).toLocaleString():'记录未提供修改时间'} · {Object.keys(selectedCloudPage.values).length} 项</p><p>本机数据最后修改：{currentPageChangedAt?new Date(currentPageChangedAt).toLocaleString():'记录未提供修改时间'} · {Object.keys(currentPageValues).length} 项</p><p>{cloudMatchesLocal?'云端与本机内容相同。':'云端与本机内容有差异；数据时间仅按记录正文中的时间字段比较。'}</p>{cloudScheduleInspection&&<InspectionPanel title="Schedule 数据块、学习进度与未完成草稿对比" value={cloudScheduleInspection} />}<button type="button" disabled={busy} onClick={()=>void replaceFromCloud()} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">确认后整体替换本机此页</button></div>}
     </section>}
     <div className="space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">此设备的本地版本</h3><label className="cursor-pointer text-sm text-[var(--brand)]">上传编辑后的页面 JSON<input type="file" accept="application/json,.json" className="hidden" onChange={(event) => { void uploadLocal(event.target.files?.[0]); event.target.value = ''; }} /></label></div>
-      {localVersions.length ? <div className="max-h-60 divide-y divide-[var(--card-border)] overflow-y-auto rounded-xl border border-[var(--card-border)]">{localVersions.map((item) => <div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm"><span className="min-w-0 flex-1"><strong>{new Date(item.createdAt).toLocaleString()}</strong>{scheduleSummary(item.values[SCHEDULE_STORAGE_KEY]) ? ` · ${scheduleSummary(item.values[SCHEDULE_STORAGE_KEY])}` : ` · ${Object.keys(item.values).length} 份数据`}</span><button type="button" disabled={busy} onClick={() => inspectLocal(item)} className="font-medium text-[var(--brand)] disabled:opacity-50">对比当前设备</button><button type="button" disabled={busy} onClick={() => downloadLocal(item)} className="text-[var(--brand)] disabled:opacity-50">下载</button><button type="button" disabled={busy} onClick={() => void restoreLocal(item)} className="text-[var(--brand)] disabled:opacity-50">恢复</button></div>)}</div> : <p className="text-sm text-[var(--muted-foreground)]">此设备暂无该页面的本地版本。</p>}</div>
+      {incompleteLocalVersions.length>0&&<div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm"><p className="min-w-0 flex-1">发现 {incompleteLocalVersions.length} 条旧增量备份缺少完整基点。原始记录已保留，不影响页面 JSON 导入；可导出其中实际保存的页面数据。</p><button type="button" disabled={busy} onClick={downloadIncompleteLocal} className="font-medium text-[var(--brand)] disabled:opacity-50">下载保留的数据片段</button></div>}
+      {localVersions.length ? <div className="max-h-60 divide-y divide-[var(--card-border)] overflow-y-auto rounded-xl border border-[var(--card-border)]">{localVersions.map((item) => <div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm"><span className="min-w-0 flex-1"><strong>{new Date(item.createdAt).toLocaleString()}</strong>{scheduleSummary(item.values[SCHEDULE_STORAGE_KEY]) ? ` · ${scheduleSummary(item.values[SCHEDULE_STORAGE_KEY])}` : ` · ${Object.keys(item.values).length} 份数据`}</span><button type="button" disabled={busy} onClick={() => inspectLocal(item)} className="font-medium text-[var(--brand)] disabled:opacity-50">对比当前设备</button><button type="button" disabled={busy} onClick={() => downloadLocal(item)} className="text-[var(--brand)] disabled:opacity-50">下载</button><button type="button" disabled={busy} onClick={() => void restoreLocal(item)} className="text-[var(--brand)] disabled:opacity-50">恢复</button></div>)}</div> : <p className="text-sm text-[var(--muted-foreground)]">此设备暂无完整的该页面本地版本；上传编辑后的页面 JSON 仍可直接导入。</p>}</div>
     {preview?.source === 'local' && <InspectionPanel title={`本地版本 #${preview.id} · 与此设备当前数据比较`} value={preview.inspection} />}
     {error && <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{error}</p>}
     {message && <p className="rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-700">{message}</p>}

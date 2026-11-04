@@ -41,12 +41,25 @@ export function parseLocalShare(text:string):LocalShareBundle{
   const bundle=raw as Partial<LocalShareBundle>;
   if(bundle.format!==LOCAL_SHARE_FORMAT||bundle.version!==1||!Array.isArray(bundle.pages)||!bundle.pages.length)throw new Error('这不是 JackYun Portal 本地分享文件。');
   const seen=new Set<BackupPage>();
+  const normalized=new Map<BackupPage,LocalSharePage>();
   for(const row of bundle.pages){
     if(!row||!BACKUP_PAGES.some(page=>page.id===row.page)||seen.has(row.page))throw new Error('分享文件包含无效或重复页面。');
     seen.add(row.page);
     if(!row.values||typeof row.values!=='object'||Array.isArray(row.values))throw new Error(`${LABELS.get(row.page)} 数据格式无效。`);
-    for(const [key,value] of Object.entries(row.values))if(typeof value!=='string'||!isBackupableLegacyKey(key)||legacyBackupPage(key)!==row.page)throw new Error(`${key} 不是该页面允许分享的数据。`);
+    const targetValues:Record<string,string>={},movedValues:Array<[BackupPage,string,string]>=[];
+    for(const [key,value] of Object.entries(row.values)){
+      if(typeof value!=='string'||!isBackupableLegacyKey(key))throw new Error(`${key} 不是允许分享的数据。`);
+      const targetPage=legacyBackupPage(key);
+      // Older bundles classified newly-local-only CUE answer drafts as "other".
+      if(targetPage!==row.page&&!(row.page==='other'&&targetPage==='study'&&key.startsWith('jackyun_cue_answer_draft_v1:')))throw new Error(`${key} 不是该页面允许分享的数据。`);
+      if(targetPage===row.page)targetValues[key]=value;else movedValues.push([targetPage,key,value]);
+    }
     if(row.dataChangedAt!==null&&row.dataChangedAt!==undefined&&!Number.isFinite(Date.parse(row.dataChangedAt)))throw new Error(`${LABELS.get(row.page)} 的数据修改时间无效。`);
+    const prior=normalized.get(row.page);
+    normalized.set(row.page,{...row,values:{...(prior?.values??{}),...targetValues}});
+    for(const [targetPage,key,value] of movedValues){
+      const moved=normalized.get(targetPage);normalized.set(targetPage,{page:targetPage,label:LABELS.get(targetPage)??targetPage,dataChangedAt:row.dataChangedAt??null,values:{...(moved?.values??{}),[key]:value}});
+    }
   }
-  return bundle as LocalShareBundle;
+  return {...bundle,pages:[...normalized.values()]} as LocalShareBundle;
 }

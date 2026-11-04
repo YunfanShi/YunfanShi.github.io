@@ -16,6 +16,7 @@ export type LocalBackup = {
   deletedKeys?: string[];
 };
 type MaterializedBackup = Omit<LocalBackup, 'id' | 'encoding' | 'deletedKeys'> & { id?: number };
+type MaterializationResult = { snapshots: MaterializedBackup[]; incomplete: LocalBackup[] };
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -65,21 +66,25 @@ export function hasLocalPageData(page: BackupPage, values: Record<string, string
   });
 }
 
-function materialize(rows: LocalBackup[]): MaterializedBackup[] {
+function materialize(rows: LocalBackup[]): MaterializationResult {
   const current: Record<string, string> = {};
   let hasBase = false;
-  return [...rows].sort((a, b) => a.id - b.id).map((row) => {
+  const snapshots: MaterializedBackup[] = [];
+  const incomplete: LocalBackup[] = [];
+  for (const row of [...rows].sort((a, b) => (a.id ?? 0) - (b.id ?? 0))) {
+    const rowValues = row.values && typeof row.values === 'object' && !Array.isArray(row.values) ? row.values : {};
     if (row.encoding !== 'delta') {
       for (const key of Object.keys(current)) delete current[key];
-      Object.assign(current, row.values);
+      Object.assign(current, rowValues);
       hasBase = true;
     } else {
-      if (!hasBase) throw new Error('本机备份缺少完整恢复点，原备份已保留。');
+      if (!hasBase) { incomplete.push(row); continue; }
       for (const key of row.deletedKeys ?? []) delete current[key];
-      Object.assign(current, row.values);
+      Object.assign(current, rowValues);
     }
-    return { ...row, values: { ...current }, encoding: 'full', deletedKeys: undefined };
-  });
+    snapshots.push({ ...row, values: { ...current } });
+  }
+  return { snapshots, incomplete };
 }
 
 /** Re-encode with two complete restore points at most; deltas never span over four versions. */
@@ -98,9 +103,9 @@ function encode(rows: MaterializedBackup[]): LocalBackup[] {
   });
 }
 
-function writeEncodedRows(store: IDBObjectStore, prior: LocalBackup[], rows: MaterializedBackup[]): void {
+function writeEncodedRows(store: IDBObjectStore, prior: LocalBackup[], rows: MaterializedBackup[], preserve: LocalBackup[] = []): void {
   const encoded = encode(rows);
-  const retainedIds = new Set<number>();
+  const retainedIds = new Set<number>(preserve.map((row) => row.id).filter((id): id is number => id !== undefined));
   for (const row of encoded) {
     if (row.id === undefined) store.add(row);
     else { retainedIds.add(row.id); store.put(row); }
@@ -116,9 +121,10 @@ export function pruneLocalBackups(userId: string): Promise<void> {
       const byPage = new Map<BackupPage, LocalBackup[]>();
       for (const row of owned) byPage.set(row.page, [...(byPage.get(row.page) ?? []), row]);
       for (const [page, rows] of byPage) {
-        const snapshots = materialize(rows).filter((row) => hasLocalPageData(page, row.values));
+        const materialized = materialize(rows);
+        const snapshots = materialized.snapshots.filter((row) => hasLocalPageData(page, row.values));
         const retained = snapshots.slice(-getLocalBackupLimit());
-        writeEncodedRows(store, rows, retained);
+        writeEncodedRows(store, rows, retained, materialized.incomplete);
       }
       finish();
     };
@@ -132,7 +138,15 @@ export function localPageValues(snapshot: Record<string, string>, page: BackupPa
 export function listLocalBackups(userId: string, page: BackupPage): Promise<LocalBackup[]> {
   return transaction('readonly', (store, finish) => {
     const request = store.index('ownerPage').getAll(IDBKeyRange.only([userId, page]));
-    request.onsuccess = () => finish(materialize(request.result as LocalBackup[]).sort((a, b) => (b.id ?? 0) - (a.id ?? 0)).map((row) => row as LocalBackup));
+    request.onsuccess = () => finish(materialize(request.result as LocalBackup[]).snapshots.sort((a, b) => (b.id ?? 0) - (a.id ?? 0)).map((row) => row as LocalBackup));
+  });
+}
+
+/** Incomplete raw rows stay available for export; never feed them to a replace restore. */
+export function listIncompleteLocalBackups(userId: string, page: BackupPage): Promise<LocalBackup[]> {
+  return transaction('readonly', (store, finish) => {
+    const request = store.index('ownerPage').getAll(IDBKeyRange.only([userId, page]));
+    request.onsuccess = () => finish(materialize(request.result as LocalBackup[]).incomplete.sort((a, b) => (a.id ?? 0) - (b.id ?? 0)));
   });
 }
 
@@ -142,11 +156,12 @@ export async function saveLocalBackup(userId: string, page: BackupPage, values: 
     const request = store.index('ownerPage').getAll(IDBKeyRange.only([userId, page]));
     request.onsuccess = () => {
       const prior = request.result as LocalBackup[];
-      const snapshots = materialize(prior);
+      const materialized = materialize(prior);
+      const snapshots = materialized.snapshots;
       const latest = snapshots.at(-1);
       if (!forceDuplicate && latest && samePageValues(latest.values, values)) { finish(); return; }
       snapshots.push({ userId, page, values: { ...values }, createdAt: new Date().toISOString() });
-      writeEncodedRows(store, prior, snapshots.slice(-getLocalBackupLimit()));
+      writeEncodedRows(store, prior, snapshots.slice(-getLocalBackupLimit()), materialized.incomplete);
       finish();
     };
   });
