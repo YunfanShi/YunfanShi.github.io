@@ -5,7 +5,7 @@ import { createEmptyScheduleState, type StudyCue } from '../src/lib/learning/sch
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.JACKYUN_PLAYWRIGHT_PATH || 'playwright');
 const base = process.env.JACKYUN_TEST_URL || 'http://127.0.0.1:3227';
-const browser = await chromium.launch({ headless: true, channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' });
+const browser = await chromium.launch({ headless: true, ...(process.env.JACKYUN_BROWSER_EXECUTABLE_PATH ? { executablePath: process.env.JACKYUN_BROWSER_EXECUTABLE_PATH } : { channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' }) });
 const seed = createEmptyScheduleState();
 seed.settings.tutorialSeenVersion = 1;
 seed.cues = Array.from({ length: 4 }, (_, index) => ({
@@ -44,15 +44,17 @@ try {
     assert.equal(await action.evaluate(element => getComputedStyle(element).touchAction), 'manipulation', `${label} uses immediate touch activation`);
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const label of [/添加任务/, '打开日程管理']) {
+  for (const label of [/添加任务/]) {
     const action = page.getByRole('button', { name: label });
     assert.ok(await action.isVisible(), `${label} remains reachable in the mobile schedule header`);
     assert.ok(await action.evaluate(element => element.getBoundingClientRect().height >= 44), `${label} stays at least 44px tall on mobile`);
   }
+  assert.equal(await page.getByRole('button', { name: 'Cue 管理' }).isVisible(), false, 'Cue management is intentionally hidden from the compact touch header');
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByRole('region', { name: 'CUE 学习预览' }).getByRole('button', { name: '开始学习', exact: true }).click({ timeout: 60_000 });
   const session = page.getByRole('dialog').filter({ has: page.locator('[data-cue-study-page]') });
   await session.waitFor();
+  await session.locator('details[data-cue-actions] > summary').click();
   const fullscreen = session.getByRole('button', { name: '全屏', exact: true });
   await fullscreen.click();
   const fullscreenHelp = page.getByRole('dialog', { name: '减少浏览器工具栏占用' });

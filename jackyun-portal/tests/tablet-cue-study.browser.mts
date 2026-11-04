@@ -13,7 +13,7 @@ const now = '2026-10-13T04:00:00.000Z';
 const seed = createEmptyScheduleState();
 seed.settings.tutorialSeenVersion = 1;
 seed.cues = ['one', 'two'].map((id): StudyCue => ({ id, subjectId: 'math', subjectName: '数学', unit: '函数', subsection: '', type: 'definition', prompt: `平板测试 ${id} 解释函数的定义`, answer: '每个输入对应唯一输出。', markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: now, updatedAt: now, status: 'unclear' }));
-const browser = await chromium.launch({ headless: true, channel: 'msedge' });
+const browser = await chromium.launch({ headless: true, ...(process.env.JACKYUN_BROWSER_EXECUTABLE_PATH ? { executablePath: process.env.JACKYUN_BROWSER_EXECUTABLE_PATH } : { channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' }) });
 const results: unknown[] = [];
 try {
   for (const [width, height, touch] of [[768,1024,true],[820,1180,true],[1024,768,true],[1366,1024,true],[900,900,false],[390,844,true],[1440,900,false]] as const) {

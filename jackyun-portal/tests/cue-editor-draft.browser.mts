@@ -5,7 +5,7 @@ import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.t
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.JACKYUN_PLAYWRIGHT_PATH || 'playwright');
 const base = process.env.JACKYUN_TEST_URL || 'http://127.0.0.1:3227';
-const browser = await chromium.launch({ headless: true, channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' });
+const browser = await chromium.launch({ headless: true, ...(process.env.JACKYUN_BROWSER_EXECUTABLE_PATH ? { executablePath: process.env.JACKYUN_BROWSER_EXECUTABLE_PATH } : { channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' }) });
 const seed = createEmptyScheduleState();
 seed.settings.tutorialSeenVersion = 1;
 seed.learningCatalog = [{ id: 'math', name: '数学', units: [{ name: '函数', subsections: [] }], materialProgress: {} }];

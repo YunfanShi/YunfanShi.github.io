@@ -10,7 +10,7 @@ const seed = createEmptyScheduleState();
 seed.settings.tutorialSeenVersion = 1;
 seed.cues = [{ id: 'answer-draft-cue', subjectId: 'math', subjectName: '数学', unit: '函数', subsection: '', type: 'definition', prompt: '请解释函数定义', answer: '函数定义参考答案', markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: now, updatedAt: now, status: 'unclear' } as StudyCue];
 
-const browser = await chromium.launch({ headless: true, channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' });
+const browser = await chromium.launch({ headless: true, ...(process.env.JACKYUN_BROWSER_EXECUTABLE_PATH ? { executablePath: process.env.JACKYUN_BROWSER_EXECUTABLE_PATH } : { channel: process.env.JACKYUN_BROWSER_CHANNEL || 'msedge' }) });
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, timezoneId: 'Asia/Shanghai' });
   await context.addInitScript(value => {
