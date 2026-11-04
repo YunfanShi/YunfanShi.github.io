@@ -57,7 +57,7 @@ function status(state:'saving'|'saved'|'storage_error'|'projection_degraded',key
 function notifyDraftChanged(key:string,source='local'):void {
   window.dispatchEvent(new CustomEvent(LOCAL_DRAFT_CHANGED_EVENT,{detail:{keys:[key],source}}));
 }
-function notifyChanged(key:string,value:string|null,source='repository'):void {
+function notifyChanged(key:string,value:string|null,source='local'):void {
   crossTabChannel?.postMessage({key,value,owner:currentOwner??'guest'});
   window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source,keys:[key]}}));
 }
@@ -203,7 +203,7 @@ export function initializeRepository(userId:string|null):Promise<void> {
     failed=failures.values().next().value?.error??null;
     if(!pending&&!failed)status('saved');
     updateMigrationProgress({phase:'complete',completed:startupLegacyEntries.length,total:startupLegacyEntries.length});
-    window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source:'repository',keys:[...memory.keys()]}}));
+    window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source:'local',keys:[...memory.keys()]}}));
   })().catch(error=>{initialized=false;ready=null;failed=error;updateMigrationProgress({phase:'error',completed:migrationProgress.completed,total:migrationProgress.total,message:error instanceof Error?error.message:'本机数据迁移失败。'});status('storage_error');throw error;});
   return ready;
 }
@@ -248,7 +248,7 @@ function installStorageCompatibility():void {
     crossTabChannel.onmessage=event=>{const row=event.data as {key?:unknown;value?:unknown;owner?:unknown};if(typeof row.key!=='string'||(row.value!==null&&typeof row.value!=='string')||row.owner!==(currentOwner??'guest'))return;
       const target=isSyncableStorageKey(row.key)?memory:localMemory;
       if(row.value===null)target.delete(row.key);else target.set(row.key,row.value);
-      window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source:'repository',keys:[row.key]}}));
+      window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source:'cross-tab',keys:[row.key]}}));
       window.dispatchEvent(new StorageEvent('storage',{key:row.key,newValue:row.value as string|null,storageArea:local}));
     };
   }
@@ -317,7 +317,7 @@ export function captureLegacyStorageEdit(key:string,value?:string|null):void {
 }
 /** Remote application persists first, then updates the compatibility projection. */
 export async function applyRepositoryRecord(key:string,value:string|null,expected?:string|null):Promise<void>{
-  await flushLocalWrites();if(!await persistDocument(key,value,false,expected))throw Error('本机内容已变化，云端应用推迟到下一轮。');memory.set(key,value);notifyChanged(key,value);
+  await flushLocalWrites();if(!await persistDocument(key,value,false,expected))throw Error('本机内容已变化，云端应用推迟到下一轮。');memory.set(key,value);notifyChanged(key,value,'remote');
 }
 /** Reflects a value already committed together with its v5 records and cursor. */
 export async function projectCommittedRepositoryRecord(key:string,value:string|null,source='v5'):Promise<void>{
