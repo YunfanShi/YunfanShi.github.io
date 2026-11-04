@@ -7,13 +7,13 @@ import { useState } from 'react';
 import MarkdownRenderer from '@/components/modules/markdown-renderer';
 import { parseAiJson } from '@/lib/ai-json';
 import { dateKey, type LearningCatalogSubject, type StudyCue } from '@/lib/learning/schedule-control';
+import { studyButtonClass, studyInputClass } from './study-ui';
 import {
   applyQuestionOperations, copyCueToQuestion, parseQuestionImport, questionMatchesFilter, removeQuestion,
   type QuestionBankState, type QuestionContent, type QuestionFilter, type QuestionOperation, type QuestionSourceKind, type StudyQuestion,
 } from '@/lib/learning/question-bank';
 
-export const studyInputClass = 'w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 text-base';
-export const studyButtonClass = 'rounded-xl border border-[var(--card-border)] px-4 py-2.5 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40';
+export { studyButtonClass, studyInputClass } from './study-ui';
 export const questionTypeLabels = { single: '单选', multiple: '多选', boolean: '判断', written: '主观题' };
 export const questionSourceLabels: Record<QuestionSourceKind, string> = { 'pq-instruction': 'PQ 注意点验证', 'pq-error': 'PQ 错题', 'pq-example': 'PQ 例题改编', 'ai-generated': 'AI 生成', other: '其他' };
 export function studyStatusMark(status?: string) { return status === 'stable' ? '√' : status === 'partial' ? '△' : status === 'unclear' ? '○' : '未练习'; }
