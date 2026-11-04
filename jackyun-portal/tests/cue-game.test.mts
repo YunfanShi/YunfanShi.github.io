@@ -213,5 +213,5 @@ test('desktop prompt and ratings share a viewport-sized centered stage', async (
   const css = await readFile(new URL('../src/components/modules/schedule/cue-game-layout.module.css', import.meta.url), 'utf8');
   assert.match(component, /data-cue-study-stage[^]*CuePromptContent[^]*data-cue-study-ratings/);
   assert.match(css, /main\[data-cue-study-page\] \{[^}]*flex: 1; min-height: 0/);
-  assert.match(css, /\[data-cue-study-stage\] \{ margin-block: auto/);
+  assert.match(css, /\.session \[data-cue-study-stage\] \{[^}]*margin-block:/);
 });

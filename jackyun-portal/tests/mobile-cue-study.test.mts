@@ -26,6 +26,7 @@ const LatexRenderer = compileComponent('../src/components/modules/latex-renderer
 const MobileCard = compileComponent('../src/components/modules/schedule/mobile-cue-card.tsx', {
   '../latex-renderer': { __esModule: true, default: LatexRenderer },
   './schedule-control.module.css': { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) },
+  './cue-stepwise-card': { __esModule: true, default: () => null, isCueStepwise: () => false },
 });
 const cue = { id: 'test', prompt: 'F_R = kv', subtitle: '2u_y/g', answer: 'Answer', markingPoints: [], type: 'definition' };
 function card(overrides = {}, revealed = false, selectedChoice?: number) {
@@ -111,7 +112,7 @@ test('phone filters retain all options and hide desktop keyboard hints in touch 
   assert.match(source, /aria-label="选择学习科目"/);
   assert.match(source, /aria-label="选择学习单元"/);
   assert.match(source, /aria-label="选择学习范围"[^\n]*filterOptions\.map/);
-  assert.match(source, /className=\{styles\.keyboardHint\}>K/);
+  assert.match(source, /快捷键帮助：空格翻面/);
   assert.match(css, /@media \(max-width: 1023px\), \(pointer: coarse\) \{\s*\.keyboardHint \{ display: none; \}/);
   assert.match(source, /aria-label="触屏题目目录"/);
 });
@@ -135,6 +136,7 @@ test('mean formulas from legacy JSON repair backspace and compact bar commands w
 
 const AnswerPanel = compileComponent('../src/components/modules/schedule/cue-answer-card.tsx', {
   '@/lib/learning/cue-answer-card': answerFunctions,
+  '@/lib/learning/cue-answer-draft-history': {},
   '@/lib/learning/cue-self-check': selfCheckFunctions,
   '@/lib/ai-config': { callAiApi: async () => { throw new Error('Not used in static rendering'); } },
   '@/lib/ai-json': {},
