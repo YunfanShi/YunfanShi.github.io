@@ -27,7 +27,7 @@ Object.assign(globalThis, {
   },
 });
 
-const { initializeRepository, workspaceStorage } = await import('../src/lib/sync/repository.ts');
+const { getLocalMigrationProgress, initializeRepository, workspaceStorage } = await import('../src/lib/sync/repository.ts');
 const { getDocuments } = await import('../src/lib/sync/outbox.ts');
 const { readLocalData } = await import('../src/lib/sync/local-data.ts');
 localStorage.setItem('jackyun_theme', 'light');
@@ -40,6 +40,8 @@ for (const [key, value] of Object.entries(localOnlyValues)) values.set(key, valu
 
 test('legacy localStorage API reads and writes durable application data through IndexedDB', async () => {
   await initializeRepository('storage-shim-test');
+  assert.equal(getLocalMigrationProgress().phase,'complete','repository exposes completion after automatic migration is verified');
+  assert.ok(getLocalMigrationProgress().completed>0,'migration progress counts legacy keys');
 
   assert.equal(localStorage.getItem('jackyun_theme'), 'light');
   assert.equal(values.has('jackyun_theme'), false, 'legacy theme is removed only after its IndexedDB copy verifies');

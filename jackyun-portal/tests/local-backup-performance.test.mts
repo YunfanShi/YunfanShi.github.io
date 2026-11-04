@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { IDBFactory, IDBKeyRange, IDBObjectStore } from 'fake-indexeddb';
-import { ensureLocalBackupBaseline, hasLocalPageData, listLocalBackups, pruneLocalBackups, saveLocalBackup } from '../src/lib/backup/local.ts';
+import { ensureLocalBackupBaseline, hasLocalPageData, listIncompleteLocalBackups, listLocalBackups, pruneLocalBackups, saveLocalBackup } from '../src/lib/backup/local.ts';
 import { ALL_BACKUP_PAGES } from '../src/lib/backup/pages.ts';
 import { applyLocalPageImport, parseLocalPageBackup } from '../src/lib/backup/local-import.ts';
 
@@ -90,6 +90,34 @@ test('pruning cleans empty legacy points, keeps the latest ten, and rebases delt
   assert.equal((await listLocalBackups('alice','quiz')).length,0,'old empty padding is removed');
   assert.equal((await listLocalBackups('bob','schedule')).length,3,'another account is untouched');
   assert.equal((await readStoredRows('alice','schedule')).filter(row=>row.encoding==='full').length,2,'pruning rebuilds complete checkpoints at the start and midpoint');
+});
+
+test('orphaned deltas stay preserved while backup listing, pruning, and Schedule JSON import continue', async () => {
+  installDatabase();
+  await listLocalBackups('alice','schedule'); // Initialize the object store before inserting the legacy raw row.
+  const key='jackyun_schedule_control_v1';
+  const legacyDelta={id:1,userId:'alice',page:'schedule',createdAt:'2026-11-03T00:00:00.000Z',values:{[key]:JSON.stringify({cues:[{id:'kept-delta-cue'}]})},encoding:'delta',deletedKeys:[]};
+  await new Promise<void>((resolve,reject)=>{
+    const request=indexedDB.open('jackyun-page-backups-v1');
+    request.onsuccess=()=>{const db=request.result,tx=db.transaction('versions','readwrite');tx.objectStore('versions').put(legacyDelta);tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};};
+    request.onerror=()=>reject(request.error);
+  });
+  assert.equal((await listLocalBackups('alice','schedule')).length,0,'orphan delta is not offered as a complete replacement');
+  assert.deepEqual((await listIncompleteLocalBackups('alice','schedule')).map(row=>row.id),[1]);
+  await pruneLocalBackups('alice');
+  assert.deepEqual(await readStoredRows('alice','schedule'),[legacyDelta],'pruning does not rewrite or delete the original incomplete row');
+
+  const current=JSON.stringify({cues:[{id:'current-cue'}]});
+  const imported=JSON.stringify({cues:[{id:'imported-cue'}],learningRecords:[{id:'lesson-1',completed:true}]});
+  const local=new Map([[key,current]]);let flushed=false;
+  await applyLocalPageImport({
+    page:'schedule',owner:'alice',...parseLocalPageBackup(JSON.stringify({version:1,page:'schedule',values:{[key]:imported}}),'schedule'),
+    storage:{keys:()=>[...local.keys()],getItem:item=>local.get(item)??null,setItem:(item,value)=>local.set(item,value),removeItem:item=>local.delete(item),flush:async()=>{flushed=true;}},
+    saveRecoveryPoint:saveLocalBackup,
+  });
+  assert.equal(local.get(key),imported,'the validated page JSON is applied after a recovery point commits');
+  assert.equal(flushed,true,'import waits for its storage flush');
+  assert.deepEqual(await readStoredRows('alice','schedule').then(rows=>rows.filter(row=>row.id===1)),[legacyDelta],'a later successful import still retains the source delta for recovery');
 });
 
 test('a failed insertion aborts pruning and leaves all previous versions intact', async () => {

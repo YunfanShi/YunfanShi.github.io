@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { SidebarPreferences } from '@/actions/settings';
 import type { Language } from '@/lib/i18n';
 import { coerceNavigationPreferences, DEFAULT_NAVIGATION_PREFERENCES } from '@/lib/companion';
+import { sanitizePagePreferences } from '@/lib/page-preferences';
 import CloudSettingsHydrator from '@/components/layout/cloud-settings-hydrator';
 import WorkspaceIdle from '@/components/layout/workspace-idle';
 import LocalWorkspaceSync from '@/components/layout/local-workspace-sync';
@@ -50,7 +51,7 @@ function PortalShell({claims,claimsError,children,settings=null,navigationUsage=
     if(setting.key==='sidebar_preferences')sidebarPrefs=coerceNavigationPreferences(setting.value);
     else if(setting.key==='language_preference'){const value=setting.value as {language?:string}|null;language=value?.language==='en'?'en':'zh';}
     else if(setting.key==='appearance_preferences'){appearancePreferences=setting.value as Record<string,unknown>;appearanceUpdatedAt=setting.updated_at;}
-    else if(setting.key==='page_preferences')pagePreferences=setting.value as Record<string,unknown>;
+    else if(setting.key==='page_preferences')pagePreferences=sanitizePagePreferences(setting.value);
     else if(setting.key==='learning_preferences'){learningPreferences=setting.value as Record<string,unknown>;learningUpdatedAt=setting.updated_at;}
     else if(setting.key==='interface_customization')interfaceCustomization=setting.value as Record<string,unknown>;
   }

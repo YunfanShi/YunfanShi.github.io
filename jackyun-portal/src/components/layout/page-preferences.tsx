@@ -5,7 +5,7 @@ import { workspaceStorage } from '@/lib/sync/repository';
 import { useEffect } from 'react';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { usePathname } from 'next/navigation';
-import { PAGE_PREFERENCE_KEY, PAGE_PROFILES, PREFERENCES_CHANGED, SETTINGS_PENDING_KEY } from '@/lib/page-preferences';
+import { PAGE_PREFERENCE_KEY, PAGE_PROFILES, PREFERENCES_CHANGED, SETTINGS_PENDING_KEY, sanitizePagePreferences } from '@/lib/page-preferences';
 import { saveSettingsSection, type SettingsKey } from '@/actions/settings';
 
 export default function PagePreferences({ initialValue, signedIn }: { initialValue: Record<string, unknown>; signedIn: boolean }) {
@@ -22,10 +22,10 @@ export default function PagePreferences({ initialValue, signedIn }: { initialVal
     const apply = () => {
       const main = document.querySelector<HTMLElement>('[data-portal-main]');
       if (!main) return;
-      let value = initialValue;
+      let value = sanitizePagePreferences(initialValue);
       try {
         const raw = workspaceStorage.getItem(PAGE_PREFERENCE_KEY);
-        if (raw) value = JSON.parse(raw);
+        if (raw) value = sanitizePagePreferences(JSON.parse(raw));
         else if (signedIn && Object.keys(initialValue).length) workspaceStorage.setItem(PAGE_PREFERENCE_KEY, JSON.stringify(initialValue));
       } catch {}
       const page = PAGE_PROFILES.toSorted((a, b) => b.href.length - a.href.length).find(item => pathname === item.href || pathname.startsWith(`${item.href}/`));

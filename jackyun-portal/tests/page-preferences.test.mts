@@ -13,3 +13,11 @@ test('page preferences isolate pages, reject unknown values and never include ad
  assert.ok(PAGE_PROFILES.some(page => page.id === 'reading'));
  assert.ok(!PAGE_PROFILES.some(page => page.id === 'beta'));
 });
+test('null or malformed cloud and local page preferences safely fall back to defaults', () => {
+ for (const value of [null, [], 'broken']) {
+  const result = sanitizePagePreferences(value);
+  assert.equal(result['dashboard:size'], 'normal');
+  assert.equal(result['dashboard:width'], 'full');
+  assert.equal(result['dashboard:motion'], true);
+ }
+});

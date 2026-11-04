@@ -36,6 +36,14 @@ let nativeLocalLength:(()=>number)|undefined;
 const isManagedLocalKey=(key:string)=>!/^sb-.+-auth-token(?:-code-verifier)?$/.test(key);
 export const LEGACY_MIGRATION_CONFLICT_PREFIX='jackyun_migration_conflict_v1:';
 const migrationConflicts:string[]=[];
+export const LOCAL_MIGRATION_PROGRESS_EVENT='jackyun-local-migration-progress';
+export type LocalMigrationProgress={phase:'scanning'|'migrating'|'complete'|'error';completed:number;total:number;message?:string};
+let migrationProgress:LocalMigrationProgress={phase:'scanning',completed:0,total:0};
+export const getLocalMigrationProgress=():LocalMigrationProgress=>({...migrationProgress});
+function updateMigrationProgress(progress:LocalMigrationProgress):void {
+  migrationProgress=progress;
+  if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(LOCAL_MIGRATION_PROGRESS_EVENT,{detail:progress}));
+}
 export function getLegacyMigrationConflicts():string[]{return [...migrationConflicts];}
 export const LOCAL_DURABILITY_EVENT='jackyun-local-durability';
 function status(state:'saving'|'saved'|'storage_error'|'projection_degraded') {
@@ -115,12 +123,14 @@ export function initializeRepository(userId:string|null):Promise<void> {
   if(ready&&currentOwner===userId)return ready;
   const previous=ready,previousWrites=tail;currentOwner=userId;
   initialized=false;
+  updateMigrationProgress({phase:'scanning',completed:0,total:0});
   ready=(async()=>{
     // Capture the actual browser values before awaiting anything. The compatibility
     // shim may already be buffering app writes, so its getItem/key methods are not
     // a valid source for the legacy migration snapshot.
     const legacy=window.localStorage;
     const startupLegacyEntries=readNativeLegacyEntries(legacy);
+    updateMigrationProgress({phase:'migrating',completed:0,total:startupLegacyEntries.length});
     if(previous)await previous;
     // Drain writes against their captured repository before changing the active DB.
     // A write cannot await this initialization while initialization waits for it.
@@ -171,6 +181,7 @@ export function initializeRepository(userId:string|null):Promise<void> {
         if(!localMemory.has(key))localMemory.set(key,verified??value);
       }
       verifiedLegacyKeys.add(key);
+      updateMigrationProgress({phase:'migrating',completed:verifiedLegacyKeys.size,total:startupLegacyEntries.length});
     }
     await clearDocumentProjections();
     for(const row of await getDocuments())memory.set(row.key,row.value);
@@ -184,8 +195,9 @@ export function initializeRepository(userId:string|null):Promise<void> {
     for(const key of verifiedLegacyKeys)removeLegacyStorageValue(legacy,key);
     failed=failures.values().next().value?.error??null;
     if(!pending&&!failed)status('saved');
+    updateMigrationProgress({phase:'complete',completed:startupLegacyEntries.length,total:startupLegacyEntries.length});
     window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source:'repository',keys:[...memory.keys()]}}));
-  })().catch(error=>{initialized=false;ready=null;failed=error;status('storage_error');throw error;});
+  })().catch(error=>{initialized=false;ready=null;failed=error;updateMigrationProgress({phase:'error',completed:migrationProgress.completed,total:migrationProgress.total,message:error instanceof Error?error.message:'本机数据迁移失败。'});status('storage_error');throw error;});
   return ready;
 }
 function enqueue(key:string,value:string|null,expected?:string|null) {

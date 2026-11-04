@@ -25,6 +25,16 @@ test('local share import rejects a key assigned to a different page',()=>{
   assert.throws(()=>parseLocalShare(JSON.stringify(invalid)),/不是该页面允许分享的数据/);
 });
 
+test('new exports include local-only CUE drafts and old bundles route them to Study',()=>{
+  const key='jackyun_cue_answer_draft_v1:["study-session_1","cue-2"]';
+  const current=createLocalShare({[key]:'{"text":"draft"}'},['study']);
+  assert.equal(current.pages[0].values[key],'{"text":"draft"}');
+  const old={...current,pages:[{...current.pages[0],page:'other' as const,label:'其他已同步页面数据',values:{[key]:'{"text":"old draft"}'}}]};
+  const migrated=parseLocalShare(JSON.stringify(old));
+  assert.equal(migrated.pages.find(row=>row.page==='study')?.values[key],'{"text":"old draft"}');
+  assert.equal(migrated.pages.some(row=>row.page==='other'&&Object.hasOwn(row.values,key)),false);
+});
+
 test('replacement removes omitted keys only from selected pages',()=>{
   const current={jackyun_schedule_control_v1:'{"cues":[{"id":"old"}]}',jackyun_definition_v1:'{"term":"keep"}'};
   assert.deepEqual(localPageReplacementDeletes('schedule',current,{jackyun_schedule_control_v1:'{"cues":[{"id":"new"}]}'}),[]);
