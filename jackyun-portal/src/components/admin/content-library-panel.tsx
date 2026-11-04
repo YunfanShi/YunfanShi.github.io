@@ -1,7 +1,8 @@
 'use client';
 
 import { siteConfirm, siteAlert } from '@/lib/site-dialog';
-import { useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { createNovelTag, createRedemptionCodes, deleteCatalogNovel, deleteNovelTag, getAdminNovelChapters, saveAdminNovelChapters, setRedemptionCodeEnabled, updateCatalogNovel, updateFeatureAccess, type AdminCode, type AdminFeature, type AdminNovel, type AdminTag } from '@/actions/reader-admin';
 import { PLAN_ORDER, type PlanCode } from '@/lib/redemption';
 import { splitNovelIntoChapters, type NovelChapter } from '@/lib/novel-reader';
@@ -131,6 +132,7 @@ function NovelRow({ novel, tags, onUpdated, onDeleted }: { novel: AdminNovel; ta
 }
 
 export default function ContentLibraryPanel({ initialFeatures, initialNovels, initialCodes, initialTags }: { initialFeatures: AdminFeature[]; initialNovels: AdminNovel[]; initialCodes: AdminCode[]; initialTags: AdminTag[] }) {
+  const router = useRouter();
   const [tab, setTab] = useState<'novels' | 'codes' | 'features'>('novels');
   const [novels, setNovels] = useState(initialNovels); const [codes, setCodes] = useState(initialCodes);
   const [tags, setTags] = useState(initialTags); const [newTagName, setNewTagName] = useState('');
@@ -146,6 +148,8 @@ export default function ContentLibraryPanel({ initialFeatures, initialNovels, in
   const [uploadTags, setUploadTags] = useState<string[]>([]); const [uploadJobs, setUploadJobs] = useState<UploadJob[]>([]);
   const [planCode, setPlanCode] = useState<PlanCode>('plus');
   const activeCodes = useMemo(() => codes.filter((code) => code.enabled).length, [codes]);
+
+  useEffect(() => { setNovels(initialNovels); }, [initialNovels]);
 
   async function runUploads(formData: FormData, jobs: UploadJob[], indexes: number[]) {
     if (uploadLock.current) return;
@@ -171,8 +175,8 @@ export default function ContentLibraryPanel({ initialFeatures, initialNovels, in
         }
       };
       await Promise.all(Array.from({ length: Math.min(2, indexes.length) }, () => worker()));
-      setMessage(failedCount ? '部分文件上传失败，可直接重试失败项。' : '全部上传成功，正在刷新管理列表…');
-      if (!failedCount) window.setTimeout(() => location.reload(), 500);
+      setMessage(failedCount ? '部分文件上传失败，可直接重试失败项。' : '全部上传成功，正在更新管理列表…');
+      if (!failedCount) router.refresh();
     } catch { setMessage('上传队列异常中断，请重试失败项。'); }
     finally { uploadLock.current = false; setUploading(false); }
   }

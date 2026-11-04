@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { submitAccountAppeal, type AccountAppealTicketType } from '@/actions/feedback';
 
 const SupportConversationDialog = dynamic(() => import('@/components/modules/support-conversation-dialog'), {
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function AccountAppealPanel({ ticketType, existingTicketId, canAppeal }: Props) {
+  const router = useRouter();
   const [ticketId, setTicketId] = useState(existingTicketId);
   const [message, setMessage] = useState('');
   const [notice, setNotice] = useState('');
@@ -63,7 +65,7 @@ export default function AccountAppealPanel({ ticketType, existingTicketId, canAp
       )}
       {!canAppeal && <p className="mt-3 text-sm text-[#b42318]">该账户已超过 30 天恢复期限，无法在线提交恢复申请。</p>}
       {notice && <p role="status" className="mt-3 text-sm text-[var(--muted-foreground)]">{notice}</p>}
-      {chatOpen && ticketId && <SupportConversationDialog ticketId={ticketId} onClose={() => window.location.reload()} />}
+      {chatOpen && ticketId && <SupportConversationDialog ticketId={ticketId} onClose={() => { setChatOpen(false); router.refresh(); }} />}
     </section>
   );
 }

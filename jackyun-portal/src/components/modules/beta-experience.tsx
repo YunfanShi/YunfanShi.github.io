@@ -3,10 +3,12 @@ import { workspaceStorage } from '@/lib/sync/repository';
 
 
 import { useEffect, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { respondToBetaInvitation } from '@/actions/beta';
 import type { BetaEnrollmentStatus } from '@/lib/beta';
 
 export default function BetaExperience({ status }: { status: BetaEnrollmentStatus | null }) {
+  const router = useRouter();
   const [visible, setVisible] = useState(status === 'invited');
   const [error, setError] = useState('');
   const [pending, startTransition] = useTransition();
@@ -21,7 +23,7 @@ export default function BetaExperience({ status }: { status: BetaEnrollmentStatu
     if (!result.success) return setError(result.error ?? '保存选择失败。');
     workspaceStorage.setItem('jackyun_beta_active', accept ? 'true' : 'false');
     setVisible(false);
-    window.location.reload();
+    router.refresh();
   });
 
   if (!visible) return null;

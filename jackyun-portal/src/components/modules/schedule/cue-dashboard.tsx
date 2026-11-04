@@ -1,44 +1,40 @@
 'use client';
-import { workspaceStorage } from '@/lib/sync/repository';
-
-
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { cueDashboard, cueEntryHref } from '@/lib/learning/cue-dashboard';
 import { readScheduleState, SCHEDULE_STORAGE_KEY } from '@/lib/learning/workspace-reader';
 import { QUESTION_BANK_KEY, readQuestionBank, reconcileStudyDraft } from '@/lib/learning/question-bank';
 import { dateKey } from '@/lib/learning/schedule-control';
-import { CLOUD_STATE_APPLIED_EVENT } from '@/lib/local-workspace';
+import { useRepositoryValue } from '@/hooks/use-repository-value';
 
 const actionClass = 'inline-flex min-h-11 items-center text-sm font-semibold text-[#1a73e8] hover:underline';
 
 export default function CueDashboard() {
-  const [summary, setSummary] = useState<ReturnType<typeof cueDashboard> | null>(null);
-  const [error, setError] = useState('');
+  const scheduleRaw = useRepositoryValue(SCHEDULE_STORAGE_KEY);
+  const questionBankRaw = useRepositoryValue(QUESTION_BANK_KEY);
+  const [today, setToday] = useState(() => dateKey(new Date()));
   useEffect(() => {
-    function refresh() {
-      try {
-        const state = readScheduleState(workspaceStorage);
-        const next = cueDashboard(state, dateKey(new Date()));
-        const raw = workspaceStorage.getItem(QUESTION_BANK_KEY);
-        if (raw) {
-          const bank = readQuestionBank(JSON.parse(raw));
-          const drafts = Object.values(bank.drafts).map(draft => reconcileStudyDraft(draft, state.cues, bank.questions)).filter(draft => draft.items.length);
-          next.drafts.push(...drafts.map(draft => ({ id: draft.id, name: draft.task.subjectName || draft.task.title, count: draft.items.length, done: draft.items.filter(item => draft.assessments[`${item.kind}:${item.id}`]).length })));
-        }
-        setSummary(next); setError('');
-      }
-      catch (cause) { setError(cause instanceof Error ? cause.message : '学习数据读取失败'); }
-    }
-    const storage = (event: StorageEvent) => { if (!event.key || event.key === SCHEDULE_STORAGE_KEY || event.key === QUESTION_BANK_KEY) refresh(); };
-    queueMicrotask(refresh);
-    window.addEventListener('storage', storage);
-    window.addEventListener(CLOUD_STATE_APPLIED_EVENT, refresh);
-    window.addEventListener('jackyun-sync-edit', refresh);
-    window.addEventListener('focus', refresh);
-    const timer = window.setInterval(refresh, 60_000);
-    return () => { clearInterval(timer); window.removeEventListener('storage', storage); window.removeEventListener(CLOUD_STATE_APPLIED_EVENT, refresh); window.removeEventListener('jackyun-sync-edit', refresh); window.removeEventListener('focus', refresh); };
+    const timer = window.setInterval(() => {
+      const next = dateKey(new Date());
+      setToday(current => current === next ? current : next);
+    }, 60_000);
+    return () => clearInterval(timer);
   }, []);
+  const { summary, error } = useMemo(() => {
+    try {
+      const storage = { getItem: (key: string) => key === SCHEDULE_STORAGE_KEY ? scheduleRaw : key === QUESTION_BANK_KEY ? questionBankRaw : null };
+      const state = readScheduleState(storage);
+      const next = cueDashboard(state, today);
+      if (questionBankRaw) {
+        const bank = readQuestionBank(JSON.parse(questionBankRaw));
+        const drafts = Object.values(bank.drafts).map(draft => reconcileStudyDraft(draft, state.cues, bank.questions)).filter(draft => draft.items.length);
+        next.drafts.push(...drafts.map(draft => ({ id: draft.id, name: draft.task.subjectName || draft.task.title, count: draft.items.length, done: draft.items.filter(item => draft.assessments[`${item.kind}:${item.id}`]).length })));
+      }
+      return { summary: next, error: '' };
+    } catch (cause) {
+      return { summary: null, error: cause instanceof Error ? cause.message : '学习数据读取失败' };
+    }
+  }, [scheduleRaw, questionBankRaw, today]);
   return <section aria-label="今天的 CUE" className="border-b border-[var(--card-border)] px-5 py-4 sm:px-6">
     <div className="flex flex-wrap items-center justify-between gap-x-4"><h3 className="text-sm font-semibold">今天的 CUE</h3><Link className={actionClass} href={cueEntryHref()} prefetch={false}>查看全部与时间预算 →</Link></div>
     {error ? <p role="alert">{error} 请保留原数据，在同步中心检查后重试。</p> : !summary ? <p role="status">正在读取 CUE 状态…</p> : <>

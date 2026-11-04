@@ -1,6 +1,7 @@
 'use client';
 import { isSyncableStorageKey, CLOUD_STATE_APPLIED_EVENT } from '../local-workspace.ts';
-import { bindSyncUser, getDocuments, persistDocument, activateGuestRepository,evictDownloadCache,projectionOwner,clearDocumentProjections } from './outbox.ts';
+import { bindSyncUser, getDocuments, persistDocument, activateGuestRepository,evictDownloadCache,projectionOwner,clearDocumentProjections,replaceLegacyFromCloud } from './outbox.ts';
+import type { SyncRecord } from '@/types/sync';
 import {readLocalData,writeLocalData} from './local-data.ts';
 import { SYNC_V5_SCHEDULE_SCOPES } from './resource-model.ts';
 
@@ -46,9 +47,15 @@ function updateMigrationProgress(progress:LocalMigrationProgress):void {
 }
 export function getLegacyMigrationConflicts():string[]{return [...migrationConflicts];}
 export const LOCAL_DURABILITY_EVENT='jackyun-local-durability';
-function status(state:'saving'|'saved'|'storage_error'|'projection_degraded') {
+export const LOCAL_DRAFT_CHANGED_EVENT='jackyun-local-draft-changed';
+export type RepositorySaveState='saving'|'saved'|'storage_error';
+const pendingByKey=new Map<string,number>();
+function status(state:'saving'|'saved'|'storage_error'|'projection_degraded',key?:string) {
   saveState=state;
-  window.dispatchEvent(new CustomEvent(LOCAL_DURABILITY_EVENT,{detail:{state,pending}}));
+  window.dispatchEvent(new CustomEvent(LOCAL_DURABILITY_EVENT,{detail:{state,pending,key,resourceState:key?getRepositorySaveState(key):undefined}}));
+}
+function notifyDraftChanged(key:string,source='local'):void {
+  window.dispatchEvent(new CustomEvent(LOCAL_DRAFT_CHANGED_EVENT,{detail:{keys:[key],source}}));
 }
 function notifyChanged(key:string,value:string|null,source='repository'):void {
   crossTabChannel?.postMessage({key,value,owner:currentOwner??'guest'});
@@ -202,7 +209,7 @@ export function initializeRepository(userId:string|null):Promise<void> {
 }
 function enqueue(key:string,value:string|null,expected?:string|null) {
   const repositoryReady=ready??initializeRepository(currentOwner??null),owner=currentOwner;
-  pending++;status('saving');
+  pending++;pendingByKey.set(key,(pendingByKey.get(key)??0)+1);status('saving',key);
   tail=tail.catch(()=>{}).then(async()=>{
     if(repositoryReady)await repositoryReady;
     if(await projectionOwner()!==(owner??'guest'))throw Error('当前账号已在另一标签页切换，本机草稿保留。');
@@ -215,7 +222,10 @@ function enqueue(key:string,value:string|null,expected?:string|null) {
     notifyChanged(key,value);
     window.dispatchEvent(new Event('jackyun-sync-edit'));
     failures.delete(key);failed=failures.values().next().value?.error??null;
-  }).catch(error=>{failures.set(key,{value,error,expected});failed=error;status('storage_error');}).finally(()=>{pending--;if(!pending&&!failed)status('saved');});
+  }).catch(error=>{failures.set(key,{value,error,expected});failed=error;status('storage_error',key);}).finally(()=>{
+    pending--;const keyPending=Math.max(0,(pendingByKey.get(key)??1)-1);if(keyPending)pendingByKey.set(key,keyPending);else pendingByKey.delete(key);
+    if(!pending&&!failed)status('saved',key);else status(saveState,key);
+  });
 }
 function installStorageCompatibility():void {
   if(compatibilityInstalled||typeof Storage==='undefined')return;
@@ -248,6 +258,10 @@ export async function flushLocalWrites():Promise<void>{
   if(failures.size&&ready){for(const [key,draft]of [...failures])enqueue(key,draft.value,draft.expected);await tail;}
   if(failed)throw failed;
 }
+export function getRepositorySaveState(key:string):RepositorySaveState {
+  if((pendingByKey.get(key)??0)>0||!initialized)return 'saving';
+  return failures.has(key)?'storage_error':'saved';
+}
 /** Source imports never replace an existing row, including a concurrently committed tombstone. */
 export async function importRepositoryRecordIfMissing(key:string,value:string):Promise<boolean>{
   const context=await captureRepositoryContext();
@@ -257,12 +271,28 @@ export async function importRepositoryRecordIfMissing(key:string,value:string):P
   context.assertCurrent();
   if(await projectionOwner()!==(context.owner??'guest'))throw Error('另一标签页已切换账号，导入保留在原账号仓库。');
   context.assertCurrent();
-  if(applied){memory.set(key,value);context.assertCurrent();window.dispatchEvent(new CustomEvent('jackyun-sync-edit'));}
+  if(applied){memory.set(key,value);context.assertCurrent();notifyChanged(key,value,'import');window.dispatchEvent(new CustomEvent('jackyun-sync-edit'));}
   return applied;
 }
 /** Legacy readers see pending drafts immediately; saved is announced only after IDB commit. */
 export const workspaceStorage={
   flush:flushLocalWrites,
+  getSnapshot(key:string):string|null {return workspaceStorage.getItem(key);},
+  getSaveStatus(key:string):RepositorySaveState {return getRepositorySaveState(key);},
+  subscribe(key:string,listener:()=>void):()=>void {
+    const changed=(event:Event)=>{
+      const detail=(event as CustomEvent<{keys?:unknown}>).detail;
+      if(!Array.isArray(detail?.keys)||detail.keys.includes(key))listener();
+    };
+    window.addEventListener(LOCAL_DRAFT_CHANGED_EVENT,changed);
+    window.addEventListener(CLOUD_STATE_APPLIED_EVENT,changed);
+    return()=>{window.removeEventListener(LOCAL_DRAFT_CHANGED_EVENT,changed);window.removeEventListener(CLOUD_STATE_APPLIED_EVENT,changed);};
+  },
+  subscribeSaveStatus(key:string,listener:()=>void):()=>void {
+    const changed=(event:Event)=>{const detail=(event as CustomEvent<{key?:string}>).detail;if(!detail?.key||detail.key===key)listener();};
+    window.addEventListener(LOCAL_DURABILITY_EVENT,changed);
+    return()=>window.removeEventListener(LOCAL_DURABILITY_EVENT,changed);
+  },
   snapshot():Record<string,string>{
     const result:Record<string,string>={};
     if(!initialized){
@@ -274,8 +304,8 @@ export const workspaceStorage={
     return result;
   },
   getItem(key:string):string|null {if(!initialized&&preInitializationWrites.has(key))return preInitializationWrites.get(key)??null;if(!initialized)return readLegacyStorageValue(key);const target=isSyncableStorageKey(key)?memory:localMemory;if(target.has(key))return target.get(key)??null;return readLegacyStorageValue(key);},
-  setItem(key:string,value:string):void {value=String(value);if(!initialized){preInitializationWrites.set(key,value);return;}const previous=workspaceStorage.getItem(key);(isSyncableStorageKey(key)?memory:localMemory).set(key,value);enqueue(key,value,previous);},
-  removeItem(key:string):void {if(!initialized){preInitializationWrites.set(key,null);return;}const previous=workspaceStorage.getItem(key);(isSyncableStorageKey(key)?memory:localMemory).set(key,null);enqueue(key,null,previous);},
+  setItem(key:string,value:string):void {value=String(value);if(!initialized){preInitializationWrites.set(key,value);notifyDraftChanged(key);return;}const previous=workspaceStorage.getItem(key);(isSyncableStorageKey(key)?memory:localMemory).set(key,value);enqueue(key,value,previous);notifyDraftChanged(key);},
+  removeItem(key:string):void {if(!initialized){preInitializationWrites.set(key,null);notifyDraftChanged(key);return;}const previous=workspaceStorage.getItem(key);(isSyncableStorageKey(key)?memory:localMemory).set(key,null);enqueue(key,null,previous);notifyDraftChanged(key);},
   key(index:number):string|null {return Object.keys(workspaceStorage.snapshot())[index]??null;},
   get length():number {return Object.keys(workspaceStorage.snapshot()).length;},
 };
@@ -290,8 +320,28 @@ export async function applyRepositoryRecord(key:string,value:string|null,expecte
   await flushLocalWrites();if(!await persistDocument(key,value,false,expected))throw Error('本机内容已变化，云端应用推迟到下一轮。');memory.set(key,value);notifyChanged(key,value);
 }
 /** Reflects a value already committed together with its v5 records and cursor. */
-export async function projectCommittedRepositoryRecord(key:string,value:string|null):Promise<void>{
-  memory.set(key,value);notifyChanged(key,value,'v5');
+export async function projectCommittedRepositoryRecord(key:string,value:string|null,source='v5'):Promise<void>{
+  memory.set(key,value);notifyChanged(key,value,source);
+}
+/** Serialize restore with local edits, then atomically project the confirmed record and archive obsolete intent. */
+export async function restoreRepositoryRecord(key:string,restore:()=>Promise<SyncRecord>):Promise<string|null>{
+  const context=await captureRepositoryContext();
+  const work=async()=>{
+    await flushLocalWrites();context.assertCurrent();
+    const expected=workspaceStorage.getItem(key);
+    const record=await restore();context.assertCurrent();
+    if(record.key!==key)throw Error('恢复结果与目标数据不匹配。');
+    const result=await replaceLegacyFromCloud(record,expected);
+    context.assertCurrent();
+    if(!result.applied)throw Error('云端版本已恢复，但本机内容在操作期间发生变化；本机数据已保留，请先检查同步中心。');
+    memory.set(key,result.value);
+    notifyChanged(key,result.value,'restore');
+    status('saved',key);
+    return result.value;
+  };
+  return typeof navigator!=='undefined'&&navigator.locks
+    ? navigator.locks.request(`jackyun:local-edit:${key}`,work)
+    : work();
 }
 export async function projectLegacyCloudBaseline(key:string,value:string|null,expected:string|null):Promise<void>{
   const owner=currentOwner;
