@@ -13,13 +13,26 @@ import { threeWayMerge } from '../src/lib/sync/merge.ts';
 const context: Record<string, unknown> = { structuredClone, crypto:webcrypto };
 runInNewContext(readFileSync(new URL('../public/practice-engine.js',import.meta.url),'utf8'),context);
 // Exercise the exact browser engine rather than a duplicate timer implementation.
-const E=context.PracticeEngine as { presets:(s:string)=>Array<{id:string;seconds:Record<string,number>}>; question:(i:number,t:unknown,m:string)=>PracticeSession['questions'][number]; toggle:(s:PracticeSession,n:number)=>PracticeSession; switchQuestion:(s:PracticeSession,i:number,n:number)=>PracticeSession; settle:(s:PracticeSession,n:number)=>PracticeSession; elapsed:(q:PracticeSession['questions'][number],n:number)=>number; color:(q:PracticeSession['questions'][number],n:number)=>string; status:(q:PracticeSession['questions'][number],n:number)=>string; report:(s:PracticeSession,n:number)=>{totalMs:number} };
+const E=context.PracticeEngine as { presets:(s:string)=>Array<{id:string;seconds:Record<string,number>}>; question:(i:number,t:unknown,m:string)=>PracticeSession['questions'][number]; toggle:(s:PracticeSession,n:number)=>PracticeSession; switchQuestion:(s:PracticeSession,i:number,n:number)=>PracticeSession; resetQuestion:(s:PracticeSession,i:number,n:number)=>PracticeSession; resetSession:(s:PracticeSession,n:number)=>PracticeSession; settle:(s:PracticeSession,n:number)=>PracticeSession; elapsed:(q:PracticeSession['questions'][number],n:number)=>number; color:(q:PracticeSession['questions'][number],n:number)=>string; status:(q:PracticeSession['questions'][number],n:number)=>string; report:(s:PracticeSession,n:number)=>{totalMs:number} };
 function session():PracticeSession { return {id:'first',date:'2026-10-13',subject:'Pure Math',source:'B',independent:true,scope:'',mode:'exam',index:0,updatedAt:0,finished:false,questions:[E.question(0,E.presets('Pure Math')[0],'exam')]}; }
 test('pause, revisit, and switch preserve independent question time and total',()=>{
   let s=session();s=E.toggle(s,1000);s.questions.push(E.question(1,E.presets('Pure Math')[0],'exam'));s=E.switchQuestion(s,1,11000);
   assert.equal(s.questions[0].elapsedMs,10000);assert.equal(E.elapsed(s.questions[1],16000),5000);assert.equal(E.report(s,16000).totalMs,15000);
   s=E.toggle(s,16000);assert.equal(E.report(s,96000).totalMs,15000);s=E.switchQuestion(s,0,96000);assert.equal(s.questions[0].startedAt,null);
   s=E.toggle(s,100000);s=E.toggle(s,105000);assert.equal(s.questions[0].elapsedMs,15000);assert.equal(s.questions[1].elapsedMs,5000);
+});
+test('resetting one question or the whole session clears elapsed time and pauses without deleting results',()=>{
+  let s=session();s=E.toggle(s,1000);s.questions[0].result='correct';s.questions[0].firstAttempt={result:'correct',elapsedMs:30000,limitSeconds:s.questions[0].limitSeconds,blocked:false};
+  s.questions.push({...E.question(1,E.presets('Pure Math')[0],'exam'),elapsedMs:12000});
+  s=E.resetQuestion(s,0,11000);assert.equal(s.questions[0].elapsedMs,0);assert.equal(s.questions[0].startedAt,null);assert.equal(s.questions[1].elapsedMs,12000);assert.equal(s.questions[0].result,'correct');assert.equal(s.questions[0].firstAttempt?.elapsedMs,30000);
+  s=E.toggle(s,12000);s=E.resetSession(s,15000);assert.deepEqual(s.questions.map(q=>q.elapsedMs),[0,0]);assert.ok(s.questions.every(q=>q.startedAt===null));assert.equal(s.questions[0].result,'correct');assert.equal(s.questions[0].firstAttempt?.elapsedMs,30000);
+});
+test('timer home lists paused sessions and exposes both reset scopes',()=>{
+  const html=readFileSync(new URL('../public/PracticeTimer.html',import.meta.url),'utf8');
+  const ui=readFileSync(new URL('../public/practice-timer.js',import.meta.url),'utf8');
+  assert.match(html,/id="pauseAndNew">暂停并返回主页/);assert.match(html,/id="unfinishedSessions"/);assert.match(ui,/function renderUnfinishedSessions\(\)/);assert.match(ui,/\$\('unfinishedRows'\)\.onclick=.*openSession/);assert.match(ui,/session=E\.settle\(session,Date\.now\(\)\);current\(\)\.startedAt=null;save\(\{session\}\);await cloud\.release\(\)/);
+  assert.match(html,/id="resetCurrentTime"[^>]*>只重置本题用时/);assert.match(html,/id="resetGroupTime"[^>]*>重置本组全部用时/);
+  assert.match(ui,/E\.resetQuestion\(session,session\.index,now\)/);assert.match(ui,/E\.resetSession\(session,now\)/);
 });
 test('remaining percentage thresholds and overtime are separate from correctness',()=>{
   const q=session().questions[0];q.limitSeconds=100;q.elapsedMs=69999;assert.equal(E.color(q,0),'green');q.elapsedMs=70000;assert.equal(E.color(q,0),'yellow');q.elapsedMs=90000;assert.equal(E.color(q,0),'red');q.elapsedMs=100001;assert.equal(E.color(q,0),'overtime');
