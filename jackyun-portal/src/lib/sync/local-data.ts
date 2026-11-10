@@ -37,3 +37,13 @@ export async function writeLocalData(key: string, value: string | null): Promise
     tx.onabort = () => reject(tx.error ?? new Error('本机数据保存失败。'));
   }); } finally { db.close(); }
 }
+
+/** Atomic insert avoids replacing a preference saved by another tab during recovery. */
+export async function importLocalDataIfMissing(key:string,value:string):Promise<void> {
+  const db=await openLocalData();
+  try{await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction(STORE,'readwrite'),store=tx.objectStore(STORE),read=store.get(key);
+    read.onsuccess=()=>{if(read.result===undefined)store.put({key,value});};
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??Error('旧本机数据导入失败。'));
+  });}finally{db.close();}
+}

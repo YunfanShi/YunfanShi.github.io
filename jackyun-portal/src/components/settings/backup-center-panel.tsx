@@ -1,5 +1,5 @@
 'use client';
-import { captureRepositoryContext, workspaceStorage } from '@/lib/sync/repository';
+import { captureRepositoryContext, workspaceStorage, migrateLegacyStorage } from '@/lib/sync/repository';
 
 
 import { siteConfirm } from '@/lib/site-dialog';
@@ -263,6 +263,15 @@ export default function BackupCenterPanel({ userId, cloudEnabled = true }: { use
   const cloudMatchesLocal=selectedCloudPage&&JSON.stringify(Object.entries(currentPageValues).sort(([a],[b])=>a.localeCompare(b)))===JSON.stringify(Object.entries(selectedCloudPage.values).sort(([a],[b])=>a.localeCompare(b)));
 
   return <div className="space-y-4">
+    <section aria-label="旧数据迁移" className="space-y-3 rounded-xl border border-[var(--card-border)] p-4">
+      <h3 className="font-semibold">旧数据迁移</h3>
+      <p className="text-sm leading-6 text-[var(--muted-foreground)]">仅在需要找回旧版浏览器数据时手动运行。现有数据保持为主版本；旧副本会保留在原存储和本机恢复归档中。打开页面不会自动迁移。</p>
+      <button type="button" disabled={busy} className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm disabled:opacity-50" onClick={()=>void run(async()=>{
+        if(!await siteConfirm('扫描此浏览器的旧数据并补入当前账号？已有内容不会被替换，旧副本会保留。请确认这是旧数据所属账号。'))return;
+        const result=await migrateLegacyStorage();
+        await load();setMessage(`旧数据检查完成，共 ${result.completed} 项；现有内容保持不变，旧副本已保留，可导出本机恢复归档。`);
+      })}>{busy?'正在处理…':'手动迁移旧数据'}</button>
+    </section>
     {page === 'schedule' && <ScheduleDataBlocksPanel owner={localOwner} />}
     <p className="text-sm leading-6 text-[var(--muted-foreground)]">有实际数据的页面修改后会自动保存本机恢复点，每页保留最近十个版本；版本以增量记录为主，并定期加入完整恢复点。空页面不占用备份名额。登录后可手动把当前页面上传为服务器备份；服务器备份不会自动下载到本机。</p>
     <p className="text-sm leading-6 text-[var(--muted-foreground)]">本机归档包含工作区记录、离线任务队列、同步 outbox 与冲突，并按当前账号隔离。导入会合并未确认操作，不覆盖本机已有修改；云端专属且未下载的数据不在本机归档内。</p>

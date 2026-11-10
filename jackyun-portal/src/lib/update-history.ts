@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
+  { version: '3.78.2', date: '2026-11-10', dateLabel: '2026 年 11 月 10 日', title: '旧数据迁移改为设置中手动执行', summary: '页面直接读取 IndexedDB，避免旧存储冲突反复阻止编辑器打开。', categories: ['稳定性'], accent: 'blue', highlights: ['旧数据迁移入口位于设置的备份中心，不再在每次打开页面时自动运行或弹窗。', '手动迁移只补充缺失内容，现有数据及删除状态优先，旧副本完整保留供恢复导出。', '真实的本机存储故障与重复标签页保护继续提示，避免未保存编辑被覆盖。'] },
   { version: '3.78.1', date: '2026-11-06', dateLabel: '2026 年 11 月 6 日', title: '练习计时器支持多次练习与时间重置', summary: '暂停当前练习后返回主页，主页可直接接续多条未完成计时器；本题或本组用时可分别清零。', categories: ['学习体验'], accent: 'mint', featured: true, highlights: ['主页列出所有未完成练习，点击即可接续；练习记录入口继续保留。', '可清零本题或本组全部用时，同时保留答案、批改与首次作答记录。'] },
   { version: '3.78.0', date: '2026-11-04', dateLabel: '2026 年 11 月 4 日', title: 'Schedule 首屏性能优化', summary: '将游戏、题库、学习工作区、记录与导入面板拆为按需加载模块，减少普通 Schedule 浏览时的首屏 JavaScript。', categories: ['平台体验', '稳定性'], accent: 'mint', featured: true, highlights: ['首屏不再静态引入仅在用户打开时使用的学习与题库界面。', '分离难度选择器和题库样式常量，避免学习助手提前加载题库管理模块。', '现有 Repository、Outbox 与 Sync v5 的数据流程保持不变。'] },
   { version: '3.77.0', date: '2026-11-04', dateLabel: '2026 年 11 月 4 日', title: '本地数据响应式更新与安全无刷新恢复', summary: 'Repository 按数据键发布内存草稿和保存状态；CUE 看板即时响应 Schedule 与题库修改，Schedule 备份恢复定向更新当前页面。', categories: ['稳定性', '平台体验'], accent: 'blue', featured: true, highlights: ['新增按键快照订阅与本机保存状态读取，草稿通知不再等待 IndexedDB 提交。', 'CUE 看板移除全量刷新事件混用和每分钟数据轮询，改为订阅实际使用的两份数据。', 'Schedule 恢复与同键编辑串行，原子更新本地投影和远端基准，归档旧同步操作并保留 V5 待处理修改。'] },

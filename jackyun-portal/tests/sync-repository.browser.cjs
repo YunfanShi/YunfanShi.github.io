@@ -53,6 +53,14 @@ const loader=`const sources=${JSON.stringify(modules)},cache={};function load(na
   await a.evaluate(()=>localStorage.setItem('study','{"a":1,"b":3}'));
   await a.reload();await a.evaluate(()=>window.repository.initializeRepository('browser-alice'));
   assert.deepEqual(JSON.parse(await a.evaluate(()=>window.repository.workspaceStorage.getItem('study'))),{a:1,b:3});
+  // Native stale source from an older app must never prevent page initialization.
+  await a.addInitScript(()=>localStorage.setItem('study','{"a":99,"b":99}'));
+  await a.reload();await a.evaluate(()=>window.repository.initializeRepository('browser-alice'));
+  assert.deepEqual(JSON.parse(await a.evaluate(()=>window.repository.workspaceStorage.getItem('study'))),{a:1,b:3});
+  await a.evaluate(()=>window.repository.migrateLegacyStorage());
+  assert.deepEqual(JSON.parse(await a.evaluate(()=>window.repository.workspaceStorage.getItem('study'))),{a:1,b:3});
+  const recovery=await a.evaluate(async()=>{const rows=await load('src/lib/sync/local-data.ts').readLocalData();return rows.filter(row=>row.key.startsWith('jackyun_migration_conflict_v1:')).map(row=>JSON.parse(row.value));});
+  assert.ok(recovery.some(row=>row.sourceKey==='study'&&row.value==='{"a":99,"b":99}'));
   await a.evaluate(()=>window.repository.initializeRepository('browser-bob'));
   assert.equal(await a.evaluate(()=>window.repository.workspaceStorage.getItem('study')),null);
   await a.evaluate(()=>window.repository.initializeRepository('browser-alice'));
@@ -97,7 +105,7 @@ const loader=`const sources=${JSON.stringify(modules)},cache={};function load(na
   assert.equal(await countdown.getByRole('button',{name:'Cloud item',exact:true}).count(),1);
   assert.equal(await countdown.getByRole('textbox',{name:'Event Name (e.g. My Birthday)',exact:true}).inputValue(),'unfinished draft');
   await countdown.close();
-  const output={passed:13,cases:['same-tab repository subscription sees a draft before IndexedDB commit and reports save state','schedule restore commits the new projection, archives obsolete legacy intent and emits a targeted restore event','two-tab independent merge','browser reload retains local data and intent','legacy-write crash recovery','account projection isolation','original account restoration','business snapshot and operation atomic commit','business quota abort retains prior snapshot','account switch drains pending writes without circular initialization','legacy iframe injection executes without parent module references','legacy edit message atomically captures a new key and intent','countdown cloud redraw preserves unfinished form'],realAccount:false};
+  const output={passed:14,cases:['stale native source is skipped at startup and manual import retains current content plus a recoverable copy','same-tab repository subscription sees a draft before IndexedDB commit and reports save state','schedule restore commits the new projection, archives obsolete legacy intent and emits a targeted restore event','two-tab independent merge','browser reload retains local data and intent','legacy-write crash recovery','account projection isolation','original account restoration','business snapshot and operation atomic commit','business quota abort retains prior snapshot','account switch drains pending writes without circular initialization','legacy iframe injection executes without parent module references','legacy edit message atomically captures a new key and intent','countdown cloud redraw preserves unfinished form'],realAccount:false};
   fs.mkdirSync('.migration-private',{recursive:true});fs.writeFileSync('.migration-private/sync-repository-browser.json',JSON.stringify(output,null,2));console.log(JSON.stringify(output));
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

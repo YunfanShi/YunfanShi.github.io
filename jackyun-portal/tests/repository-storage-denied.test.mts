@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { IDBFactory } from 'fake-indexeddb';
 
 class StorageMock {
   get length() { return 0; }
@@ -12,6 +13,7 @@ class StorageMock {
 
 Object.assign(globalThis, {
   Storage: StorageMock,
+  indexedDB: new IDBFactory(),
   window: {
     get localStorage() { throw new DOMException('Storage access denied', 'SecurityError'); },
     dispatchEvent: () => true,
@@ -22,5 +24,9 @@ Object.assign(globalThis, {
 
 test('repository module remains loadable when browser privacy settings deny localStorage', async () => {
   const { initializeRepository } = await import('../src/lib/sync/repository.ts');
-  await assert.rejects(initializeRepository(null), { name: 'SecurityError' });
+  await initializeRepository(null);
+  const {migrateLegacyStorage,workspaceStorage}=await import('../src/lib/sync/repository.ts');
+  await assert.rejects(migrateLegacyStorage(),{name:'SecurityError'});
+  workspaceStorage.setItem('theme','dark');await workspaceStorage.flush();
+  assert.equal(workspaceStorage.getItem('theme'),'dark');
 });

@@ -1,8 +1,8 @@
 'use client';
 import { isSyncableStorageKey, CLOUD_STATE_APPLIED_EVENT } from '../local-workspace.ts';
-import { bindSyncUser, getDocuments, persistDocument, activateGuestRepository,evictDownloadCache,projectionOwner,clearDocumentProjections,replaceLegacyFromCloud } from './outbox.ts';
+import { bindSyncUser, getDocuments, persistDocument, activateGuestRepository,evictDownloadCache,projectionOwner,replaceLegacyFromCloud } from './outbox.ts';
 import type { SyncRecord } from '@/types/sync';
-import {readLocalData,writeLocalData} from './local-data.ts';
+import {readLocalData,writeLocalData,importLocalDataIfMissing} from './local-data.ts';
 import { SYNC_V5_SCHEDULE_SCOPES } from './resource-model.ts';
 
 const memory=new Map<string,string|null>();
@@ -81,9 +81,6 @@ function readNativeLegacyEntries(storage:Storage):Array<[string,string]> {
   }catch(error){throw error;}
   return entries;
 }
-function removeLegacyStorageValue(storage:Storage,key:string):void {
-  if(nativeLocalRemove)nativeLocalRemove.call(storage,key);else storage.removeItem(key);
-}
 async function preserveLegacyValue(key:string,value:string,knownRows:Awaited<ReturnType<typeof readLocalData>>):Promise<void> {
   let row=knownRows.find(candidate=>candidate.key.startsWith(LEGACY_MIGRATION_CONFLICT_PREFIX)&&(()=>{
     try{const item=JSON.parse(candidate.value) as {sourceKey?:unknown;value?:unknown};return item.sourceKey===key&&item.value===value;}catch{return false;}
@@ -130,82 +127,70 @@ export function initializeRepository(userId:string|null):Promise<void> {
   if(ready&&currentOwner===userId)return ready;
   const previous=ready,previousWrites=tail;currentOwner=userId;
   initialized=false;
-  updateMigrationProgress({phase:'scanning',completed:0,total:0});
   ready=(async()=>{
-    // Capture the actual browser values before awaiting anything. The compatibility
-    // shim may already be buffering app writes, so its getItem/key methods are not
-    // a valid source for the legacy migration snapshot.
-    const legacy=window.localStorage;
-    const startupLegacyEntries=readNativeLegacyEntries(legacy);
-    updateMigrationProgress({phase:'migrating',completed:0,total:startupLegacyEntries.length});
     if(previous)await previous;
-    // Drain writes against their captured repository before changing the active DB.
-    // A write cannot await this initialization while initialization waits for it.
     await previousWrites;
     if(failures.size)throw failures.values().next().value!.error;
-    const projectedOwner=await projectionOwner();
-    if(projectedOwner&&projectedOwner!==(userId??'guest')){
-      await bindSyncUser(projectedOwner);
-      const keys=startupLegacyEntries.map(([key])=>key);
-      const oldDocuments=await getDocuments();
-      for(const key of keys){if(!isSyncableStorageKey(key))continue;const value=startupLegacyEntries.find(([candidate])=>candidate===key)?.[1];if(value===undefined)continue;
-        const row=oldDocuments.find(candidate=>candidate.key===key);
-        if(row&&row.value!==value&&row.projectedValue!==value){if(row.projectedValue===undefined)await preserveLegacyValue(key,value,await readLocalData());else await persistDocument(key,value,true,row.projectedValue);}
-        else if(!row)await persistDocument(key,value,true);
-        const stored=(await getDocuments()).find(candidate=>candidate.key===key);
-        if(!stored)throw Error(`旧账号数据迁移未验证：${key}`);
-        if(stored.value!==value&&row?.projectedValue!==value)await preserveLegacyValue(key,value,await readLocalData());
-        removeLegacyStorageValue(legacy,key);
-      }
-      await clearDocumentProjections(`jackyun-sync-v2:${projectedOwner}`);
-      for(const key of memory.keys())if(isSyncableStorageKey(key))memory.delete(key);
-    }
     if(userId)await bindSyncUser(userId);else activateGuestRepository();
-    await projectionOwner(userId??'guest');
-    const documents=await getDocuments(),known=new Map(documents.map(row=>[row.key,row.value]));
-    const localRows=await readLocalData();localMemory.clear();
-    for(const row of localRows)localMemory.set(row.key,row.value);
-    const verifiedLegacyKeys=new Set<string>();
-    for(const [key,value] of startupLegacyEntries){
-      if(isSyncableStorageKey(key)){
-        const row=documents.find(candidate=>candidate.key===key);
-        let quarantinedLegacyValue=false;
-        if(row&&row.value!==value&&row.projectedValue!==value){
-          if(row.projectedValue===undefined){await preserveLegacyValue(key,value,localRows);quarantinedLegacyValue=true;}
-          else await persistDocument(key,value,Boolean(userId),row.projectedValue);
-        }else if(!known.has(key))await persistDocument(key,value,Boolean(userId));
-        const stored=(await getDocuments()).find(row=>row.key===key);
-        if(!stored)throw Error(`旧数据迁移未验证：${key}`);
-        if(stored.value!==value&&row?.projectedValue!==value&&!quarantinedLegacyValue)await preserveLegacyValue(key,value,localRows);
-        memory.set(key,stored.value);
-      }else{
-        if(localMemory.has(key)&&localMemory.get(key)!==value){
-          await preserveLegacyValue(key,value,localRows);
-        }
-        if(!localMemory.has(key))await writeLocalData(key,value);
-        const verified=(await readLocalData()).find(row=>row.key===key)?.value;
-        if(verified!==value&&!localRows.some(row=>row.key===key&&row.value===verified))throw Error(`旧数据迁移未验证：${key}`);
-        if(!localMemory.has(key))localMemory.set(key,verified??value);
-      }
-      verifiedLegacyKeys.add(key);
-      updateMigrationProgress({phase:'migrating',completed:verifiedLegacyKeys.size,total:startupLegacyEntries.length});
-    }
-    await clearDocumentProjections();
+    // Opening a page reads IndexedDB only. Legacy recovery is an explicit settings action.
+    memory.clear();
     for(const row of await getDocuments())memory.set(row.key,row.value);
+    localMemory.clear();
+    for(const row of await readLocalData())localMemory.set(row.key,row.value);
     await projectionOwner(userId??'guest');
     await applyPreInitializationWrites();
     // No asynchronous work may follow this handoff. Calls arriving after this line
     // enqueue against the initialization promise; calls before it remain buffered.
     installStorageCompatibility();
     initialized=true;
-    // Delete legacy copies only after every value has been confirmed in IndexedDB.
-    for(const key of verifiedLegacyKeys)removeLegacyStorageValue(legacy,key);
     failed=failures.values().next().value?.error??null;
     if(!pending&&!failed)status('saved');
-    updateMigrationProgress({phase:'complete',completed:startupLegacyEntries.length,total:startupLegacyEntries.length});
     window.dispatchEvent(new CustomEvent(CLOUD_STATE_APPLIED_EVENT,{detail:{source:'local',keys:[...memory.keys()]}}));
-  })().catch(error=>{initialized=false;ready=null;failed=error;updateMigrationProgress({phase:'error',completed:migrationProgress.completed,total:migrationProgress.total,message:error instanceof Error?error.message:'本机数据迁移失败。'});status('storage_error');throw error;});
+  })().catch(error=>{initialized=false;ready=null;failed=error;status('storage_error');throw error;});
   return ready;
+}
+let legacyMigration:Promise<LocalMigrationProgress>|null=null;
+/** Manual, non-destructive recovery; never rebase a stale projection over an existing document. */
+export function migrateLegacyStorage():Promise<LocalMigrationProgress> {
+  if(legacyMigration)return legacyMigration;
+  legacyMigration=(async()=>{
+    const context=await captureRepositoryContext();
+    await flushLocalWrites();context.assertCurrent();
+    const owner=await projectionOwner();
+    if(owner!==(context.owner??'guest'))throw Error('账号已变化，请重新打开设置。');
+    const entries=readNativeLegacyEntries(window.localStorage);
+    updateMigrationProgress({phase:'migrating',completed:0,total:entries.length});
+    migrationConflicts.length=0;
+    for(const [key,value]of entries){
+      context.assertCurrent();
+      if(await projectionOwner()!==owner)throw Error('另一标签页已切换账号，迁移已停止，旧副本保留。');
+      // Preserve the complete source before attempting any import, including races.
+      await preserveLegacyValue(key,value,await readLocalData());
+      if(isSyncableStorageKey(key)){
+        await persistDocument(key,value,Boolean(context.owner),undefined,{onlyIfMissing:true,databaseScope:context.databaseScope});
+        context.assertCurrent();
+        const row=(await getDocuments()).find(row=>row.key===key);
+        context.assertCurrent();
+        if(!row)throw Error(`旧数据迁移未验证：${key}`);
+        if(!pendingByKey.has(key)&&!failures.has(key))memory.set(key,row.value);
+      }else{
+        await importLocalDataIfMissing(key,value);
+        context.assertCurrent();
+        const row=(await readLocalData()).find(row=>row.key===key);
+        context.assertCurrent();
+        if(!row)throw Error(`旧数据迁移未验证：${key}`);
+        if(!pendingByKey.has(key)&&!failures.has(key))localMemory.set(key,row.value);
+      }
+      if(!pendingByKey.has(key)&&!failures.has(key))notifyChanged(key,workspaceStorage.getItem(key),'legacy-import');
+      updateMigrationProgress({phase:'migrating',completed:migrationProgress.completed+1,total:entries.length});
+    }
+    updateMigrationProgress({phase:'complete',completed:entries.length,total:entries.length});
+    return getLocalMigrationProgress();
+  })().catch(error=>{
+    updateMigrationProgress({phase:'error',completed:migrationProgress.completed,total:migrationProgress.total,message:error instanceof Error?error.message:'旧数据迁移失败，原始副本保留。'});
+    throw error;
+  }).finally(()=>{legacyMigration=null;});
+  return legacyMigration;
 }
 function enqueue(key:string,value:string|null,expected?:string|null) {
   const repositoryReady=ready??initializeRepository(currentOwner??null),owner=currentOwner;
@@ -303,7 +288,7 @@ export const workspaceStorage={
     for(const [key,value]of preInitializationWrites){if(value===null)delete result[key];else result[key]=value;}
     return result;
   },
-  getItem(key:string):string|null {if(!initialized&&preInitializationWrites.has(key))return preInitializationWrites.get(key)??null;if(!initialized)return readLegacyStorageValue(key);const target=isSyncableStorageKey(key)?memory:localMemory;if(target.has(key))return target.get(key)??null;return readLegacyStorageValue(key);},
+  getItem(key:string):string|null {if(!initialized&&preInitializationWrites.has(key))return preInitializationWrites.get(key)??null;if(!initialized)return readLegacyStorageValue(key);const target=isSyncableStorageKey(key)?memory:localMemory;return target.get(key)??null;},
   setItem(key:string,value:string):void {value=String(value);if(!initialized){preInitializationWrites.set(key,value);notifyDraftChanged(key);return;}const previous=workspaceStorage.getItem(key);(isSyncableStorageKey(key)?memory:localMemory).set(key,value);enqueue(key,value,previous);notifyDraftChanged(key);},
   removeItem(key:string):void {if(!initialized){preInitializationWrites.set(key,null);notifyDraftChanged(key);return;}const previous=workspaceStorage.getItem(key);(isSyncableStorageKey(key)?memory:localMemory).set(key,null);enqueue(key,null,previous);notifyDraftChanged(key);},
   key(index:number):string|null {return Object.keys(workspaceStorage.snapshot())[index]??null;},
