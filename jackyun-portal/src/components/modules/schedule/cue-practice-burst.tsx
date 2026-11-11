@@ -6,7 +6,7 @@ import type { LearningStatus } from '@/lib/learning/schedule-control';
 import styles from './cue-game-panel.module.css';
 
 export const CUE_PARTICLE_DURATION = 3600;
-const names = ['星核诞生', '星环共鸣', '极光绽放', '日冕爆发', '曲速跃迁', '星云织光', '双星共舞', '棱镜星阵', '银河回响'];
+const names = ['星核诞生', '星环共鸣', '极光绽放', '日冕爆发', '曲速跃迁', '星云织光', '双星共舞', '棱镜星阵', '银河回响', '螺旋星桥', '星光花冠'];
 
 /** Inspired by the sync answer sheet: gather → tighten → release, without blocking input. */
 export default function CuePracticeBurst({ variant, status, count }: { variant: number; status: LearningStatus; count: number }) {
@@ -41,6 +41,8 @@ export default function CuePracticeBurst({ variant, status, count }: { variant: 
       if(variant===5) return {x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle*2+p.lane*.5)*r*.4};
       if(variant===6) return {x:cx+Math.cos(angle)*r*.58+Math.cos(t*2+(p.lane%2)*Math.PI)*radius*.4*compression,y:cy+Math.sin(angle)*r*.38+Math.sin(t*2+(p.lane%2)*Math.PI)*radius*.24*compression};
       if(variant===7) {const a=Math.round(angle/(Math.PI/3))*(Math.PI/3);return {x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r*.75};}
+      if(variant===9) return {x:cx+Math.sin(angle*2+p.lane*Math.PI)*r*.75,y:cy+Math.cos(angle)*r*.6};
+      if(variant===10) { const petal=.55+.45*Math.cos(angle*6); return {x:cx+Math.cos(angle)*r*petal,y:cy+Math.sin(angle)*r*petal*.8}; }
       if(variant===8) return {x:cx+Math.cos(angle+p.distance*5+p.lane)*r,y:cy+Math.sin(angle+p.distance*5+p.lane)*r*.48};
       if(variant===2) return {x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle)*r*.55+Math.sin(angle*3+t)*r*.2};
       return {x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle)*r*(variant===1?.36:.72)};

@@ -41,6 +41,20 @@ export const CUE_SHOP_ITEMS: CueShopItem[] = [
     { id: 'title-repair', name: '记忆修补师', category: 'title', level: 3, stars: 24, xp: 0, value: '记忆修补师', description: '为认真重练的你准备的学习称号。' },
     { id: 'title-night', name: '夜航记录员', category: 'title', level: 6, stars: 50, xp: 0, value: '夜航记录员', description: '在星空收藏中展示你的旅程。' },
 
+
+    { id: 'theme-emerald', name: '翡翠星海', category: 'theme', level: 2, stars: 20, xp: 0, value: 'emerald', description: '翡翠色星尘围绕青绿星云流动。' },
+    { id: 'theme-sunset', name: '落日航线', category: 'theme', level: 4, stars: 42, xp: 0, value: 'sunset', description: '橙红余晖中的深空航线。' },
+    { id: 'theme-nebula', name: '蓝紫回廊', category: 'theme', level: 7, stars: 85, xp: 0, value: 'nebula', description: '明亮蓝紫星核与深靛色云带。' },
+    { id: 'effect-helix', name: '螺旋星桥', category: 'effect', level: 3, stars: 30, xp: 0, value: 9, description: '两条螺旋光轨交错穿过星核。' },
+    { id: 'effect-flower', name: '星光花冠', category: 'effect', level: 5, stars: 58, xp: 0, value: 10, description: '六瓣星光舒展，留下柔和花冠。' },
+    { id: 'frame-comet', name: '彗尾信标', category: 'frame', level: 2, stars: 18, xp: 0, value: 'comet', description: '青蓝虚线轨道，可与其他侧栏装饰叠加。' },
+    { id: 'frame-starlight', name: '星芒铭牌', category: 'frame', level: 4, stars: 32, xp: 0, value: 'starlight', description: '金色角标与星芒轮廓，可分层叠加。' },
+    { id: 'title-dawn', name: '晨光追寻者', category: 'title', level: 1, stars: 7, xp: 0, value: '晨光追寻者', description: '与其他学习称号一同展示。' },
+    { id: 'title-cartographer', name: '星图绘制师', category: 'title', level: 4, stars: 36, xp: 0, value: '星图绘制师', description: '为一点点连接起来的知识留下名字。' },
+    { id: 'title-pioneer', name: '深空开拓者', category: 'title', level: 8, stars: 95, xp: 0, value: '深空开拓者', description: '跨越熟悉边界，继续探索。' },
+    { id: 'credit-scout', name: '侦察积分包', category: 'credit', level: 3, stars: 0, xp: 120, value: 19, description: '一次兑换 19 星空积分，累计等级保留。' },
+    { id: 'credit-nebula', name: '星云积分包', category: 'credit', level: 7, stars: 0, xp: 360, value: 62, description: '一次兑换 62 星空积分，累计等级保留。' },
+
 ];
 export type CueGameEarning = {
     id: string;
@@ -65,6 +79,8 @@ export type CueGameAccount = {
     earnings: CueGameEarning[];
     purchases: CueGamePurchase[];
     equipment: Partial<Record<CueShopCategory, string>>;
+    /** Optional multi-slot loadout. Keep the primary equipment for older clients. */
+    equipmentSelections?: Partial<Record<CueShopCategory, string[]>>;
 };
 export const emptyCueGameAccount = (): CueGameAccount => ({ earnings: [], purchases: [], equipment: {} });
 /** Append-only earnings: importing old evidence, recoloring, shuffle and duplicate sync cannot erase or farm credits. */
@@ -149,18 +165,47 @@ export function purchaseCueShopItem(account: CueGameAccount, itemId: string, now
         return { account, error: '余额不足' };
     return { account: { ...account, purchases: [...account.purchases, { id: `purchase:${item.id}`, itemId: item.id, at: now.toISOString(), stars: item.stars, xp: item.xp }] } };
 }
+export function cueEquipLimit(category: CueShopCategory): number {
+    return category === 'credit' ? 0 : category === 'theme' ? 1 : 3;
+}
+export function cueEquippedItems(account: CueGameAccount, category: CueShopCategory): CueShopItem[] {
+    const ids = account.equipmentSelections?.[category] ?? (account.equipment[category] ? [account.equipment[category]!] : []);
+    const owned = new Set(account.purchases.map(purchase => purchase.itemId));
+    return [...new Set(ids)].flatMap(id => {
+        const item = CUE_SHOP_ITEMS.find(item => item.id === id && item.category === category);
+        return item && owned.has(id) ? [item] : [];
+    }).slice(0, cueEquipLimit(category));
+}
+function withEquipment(account: CueGameAccount, category: CueShopCategory, ids: string[]): CueGameAccount {
+    return { ...account, equipment: { ...account.equipment, [category]: ids[0] }, equipmentSelections: { ...account.equipmentSelections, [category]: ids } };
+}
 export function equipCueShopItem(account: CueGameAccount, itemId: string) {
     const item = CUE_SHOP_ITEMS.find(item => item.id === itemId);
-    return !item || item.category === 'credit' || !account.purchases.some(purchase => purchase.itemId === itemId) ? account : { ...account, equipment: { ...account.equipment, [item.category]: item.id } };
+    if (!item || item.category === 'credit' || !account.purchases.some(purchase => purchase.itemId === itemId)) return account;
+    const selected = cueEquippedItems(account, item.category).map(item => item.id);
+    if (selected.includes(itemId)) return account;
+    if (item.category === 'theme') return withEquipment(account, item.category, [itemId]);
+    if (selected.length >= cueEquipLimit(item.category)) return account;
+    return withEquipment(account, item.category, [...selected, itemId]);
 }
-export function cueEquippedValue(account: CueGameAccount, category: CueShopCategory) { return CUE_SHOP_ITEMS.find(item => item.id === account.equipment[category] && account.purchases.some(purchase => purchase.itemId === item.id))?.value; }
-export type CueShopAction = {
-    kind: 'purchase';
-    itemId: string;
-} | {
-    kind: 'equip';
-    itemId: string;
-} | {
-    kind: 'reset';
-    category: CueShopCategory;
-};
+export function cueEquippedValue(account: CueGameAccount, category: CueShopCategory) {
+    return cueEquippedItems(account, category)[0]?.value;
+}
+/** One show per four fresh retrievals; rotate by show number, not rating ID. */
+export function cueEffectVariant(account: CueGameAccount, completed: number): number {
+    const effects = cueEquippedItems(account, 'effect');
+    const show = Math.max(0, Math.floor(completed / 4) - 1);
+    return effects.length ? Number(effects[show % effects.length].value) : show % 3;
+}
+export type CueShopAction = { kind: 'purchase' | 'purchase-equip' | 'equip' | 'unequip'; itemId: string } | { kind: 'reset'; category: CueShopCategory };
+export function applyCueShopAction(account: CueGameAccount, action: CueShopAction): CueGameAccount {
+    if (action.kind === 'reset') return withEquipment(account, action.category, []);
+    if (action.kind === 'equip') return equipCueShopItem(account, action.itemId);
+    if (action.kind === 'unequip') {
+        const item = CUE_SHOP_ITEMS.find(item => item.id === action.itemId);
+        return item ? withEquipment(account, item.category, cueEquippedItems(account, item.category).filter(item => item.id !== action.itemId).map(item => item.id)) : account;
+    }
+    const result = purchaseCueShopItem(account, action.itemId);
+    if (result.error) return account;
+    return action.kind === 'purchase-equip' ? equipCueShopItem(result.account, action.itemId) : result.account;
+}

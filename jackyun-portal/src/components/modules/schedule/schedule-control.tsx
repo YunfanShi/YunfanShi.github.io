@@ -17,7 +17,7 @@ import SeiueScheduleSync from './seiue-schedule-sync';
 import { defaultCuePracticePolicy, rescheduleCuePractice, deferCuePracticeAfterManual, finishAutomaticCuePractice, emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, enterCuePractice } from '@/lib/learning/cue-practice';
 import dynamic from 'next/dynamic';
 const CueGamePanel = dynamic(() => import('./cue-game-panel'), { loading: () => null });
-import { reconcileCueGameAccount, purchaseCueShopItem, equipCueShopItem, type CueGameAccount, type CueShopAction } from '@/lib/learning/cue-shop';
+import { reconcileCueGameAccount, applyCueShopAction, type CueGameAccount, type CueShopAction } from '@/lib/learning/cue-shop';
 import type { CueStarFeedback } from '@/lib/learning/cue-game';
 import { useCueUniverseEnabled, useCueStudyPreferences, useCueReducedMotion } from './use-cue-study-preferences';
 const CueAnswerCardPanel = dynamic(() => import('./cue-answer-card'), { loading: () => null });
@@ -1628,7 +1628,7 @@ export default function ScheduleControl() {
   useEffect(() => { if (!ready) return; queueMicrotask(() => setState(current => { const account = reconcileCueGameAccount(current.cueGameAccount, current.cueReviews); return account === current.cueGameAccount ? current : { ...current, cueGameAccount: account }; })); }, [ready, state.cueReviews]);
   const shopAction = useCallback((action: CueShopAction) => setState(current => {
     const account = reconcileCueGameAccount(current.cueGameAccount, current.cueReviews);
-    const next = action.kind === 'purchase' ? purchaseCueShopItem(account, action.itemId).account : action.kind === 'equip' ? equipCueShopItem(account, action.itemId) : { ...account, equipment: { ...account.equipment, [action.category]: undefined } };
+    const next = applyCueShopAction(account, action);
     return { ...current, cueGameAccount: next };
   }), []);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -1656,6 +1656,7 @@ export default function ScheduleControl() {
   const skipInitialEmptySaveRef = useRef(false);
   const scheduleBaseRef = useRef<unknown>(undefined);
   const scheduleCommitRef = useRef(false);
+  const completedRenderBarrierRef = useRef<{ recordId: string; draftId?: string } | null>(null);
   const questionBaseRef = useRef<unknown>(undefined);
   const localWritersRef=useRef(new Map<string,ReturnType<typeof createLocalEditWriter>>());
   const localWriter=useCallback((key:string)=>{
@@ -1701,6 +1702,12 @@ export default function ScheduleControl() {
     // Explicit completion advances the writer before its result reaches React.
     // Do not submit an older render as a new edit that undoes that completion.
     if (!ready || scheduleCommitRef.current) return;
+    // Effects from a render preceding the durable completion can run after the
+    // commit promise resolves. Wait until React reflects that completed record.
+    const completed = completedRenderBarrierRef.current;
+    if (completed && (!state.learningRecords.some(record => record.id === completed.recordId)
+      || (completed.draftId && Object.values(allCueStudyDrafts(state)).some(draft => draft.id === completed.draftId)))) return;
+    completedRenderBarrierRef.current = null;
     if (skipInitialEmptySaveRef.current && !scheduleHasContent(state)) {
       skipInitialEmptySaveRef.current = false;
       return;
@@ -1974,7 +1981,12 @@ export default function ScheduleControl() {
       if (updateMaterials) updated = { ...updated, learningCatalog: updateSubjectMaterialProgress(updated.learningCatalog, subjectName, progressChanges) };
       const saved = await localWriter(STORAGE_KEY).write(scheduleBaseRef.current, updated) as ScheduleControlState;
       scheduleBaseRef.current = saved;
-      setState(current => threeWayMerge(state, current, saved).merged as ScheduleControlState);
+      const removedDraft = activeDraft && !Object.values(allCueStudyDrafts(saved)).some(draft => draft.id === activeDraft.id) ? activeDraft : undefined;
+      completedRenderBarrierRef.current = { recordId: evidence.sessionId ?? `${task.key}:${completedAt.toISOString()}`, draftId: removedDraft?.id };
+      setState(current => {
+        const merged = threeWayMerge(state, current, saved).merged as ScheduleControlState;
+        return removedDraft ? removeCueStudyDraft(merged, removedDraft) : merged;
+      });
       setLearningResult(summarizeLearningCompletion(saved, evidence.cueIds, evidence.questionAttempts?.length ?? 0, evidence.assessments.map(item => item.status), completedAt));
       setReviewTask(null);
       setCueStudyTask(null);

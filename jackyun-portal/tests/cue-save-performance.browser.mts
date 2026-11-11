@@ -5,7 +5,7 @@ const {chromium}=createRequire(import.meta.url)('playwright');
 const base=process.env.JACKYUN_TEST_URL || 'http://localhost:3239';
 const browser=await chromium.launch({headless:true,channel:'msedge'});
 try {
- for (const scenario of [{width:1440,trigger:'questions'},{width:820,trigger:'time'}]) {
+ for (const scenario of Array.from({length:Number(process.env.JACKYUN_SAVE_REGRESSION_RUNS || 1)},()=>[{width:1440,trigger:'questions'},{width:820,trigger:'time'}]).flat()) {
  const context=await browser.newContext({viewport:{width:scenario.width,height:1000},hasTouch:scenario.width<1024,timezoneId:'Asia/Shanghai'});
  const page=await context.newPage();const errors:string[]=[];
  page.on('pageerror',e=>errors.push(e.message));

@@ -7,7 +7,7 @@ import { dateKey, type CueReview, type StudyCue, type LearningRecord } from '@/l
 import CuePracticeBurst from './cue-practice-burst';
 import CueStarShop from './cue-star-shop';
 import CueSkyViewer from './cue-sky-viewer';
-import { reconcileCueGameAccount, cueShopBalance, cueEquippedValue, type CueGameAccount, type CueShopAction } from '@/lib/learning/cue-shop';
+import { reconcileCueGameAccount, cueShopBalance, cueEquippedValue, cueEquippedItems, cueEffectVariant, type CueGameAccount, type CueShopAction } from '@/lib/learning/cue-shop';
 import { useCallback } from 'react';
 import CueUniverseBackdrop from './cue-universe-backdrop';
 import { useCueReducedMotion, useCueStudyPreferences } from './use-cue-study-preferences';
@@ -53,6 +53,9 @@ function CueGamePanel({ reviews, cues = emptyCues, records = emptyRecords, anima
   const credited=useRef(new Set(account.earnings.map(entry=>entry.id)));
   const sessionExtra=account.earnings.filter(entry=>entry.extra&&entry.sessionKey===sessionKey&&(!sessionStartedAt||entry.at>=sessionStartedAt)).reduce((sum,entry)=>sum+entry.stars,0);
   const theme=cueEquippedValue(account,'theme') as string | undefined;
+  const titles = cueEquippedItems(account, 'title');
+  const frames = cueEquippedItems(account, 'frame');
+  const frameLayers = <span className={styles.frameLayers} aria-hidden="true">{frames.map((item, index) => <i key={item.id} data-cue-frame={item.value} style={{ '--frame-inset': `${3 + index * 4}px` } as CSSProperties} />)}</span>;
   useEffect(()=>{
     const added=account.earnings.filter(entry=>!credited.current.has(entry.id));
     credited.current=new Set(account.earnings.map(entry=>entry.id));
@@ -142,12 +145,14 @@ function CueGamePanel({ reviews, cues = emptyCues, records = emptyRecords, anima
   const constellationTarget = (Math.floor(constellationCount / 5) + 1) * 5;
   const globalTitle = activeCelebration?.situation === 'streak' ? `连续 ${activeCelebration.streak} 条通过` : activeCelebration?.situation === 'flow' ? `认真完成 ${activeCelebration.completed} 条复习` : activeCelebration?.situation === 'level' ? `升至 Lv.${balance.level}` : '新星座已点亮';
   const globalCelebration = activeCelebration && ['streak', 'flow', 'level', 'constellation'].includes(activeCelebration.situation);
-  return <>{particleShow && celebrationAnimations && <CuePracticeBurst key={`particles-${particleShow.id}`} variant={Number(cueEquippedValue(account,'effect') ?? (Math.floor((particleShow.completed ?? 4) / 4) - 1) % 3)} status={particleShow.status} count={particleShow.completed ?? 4} />}{globalCelebration && celebrationAnimations && <div key={`global-${activeCelebration.id}`} className={styles.globalCelebration} data-cue-global-celebration data-motion={celebrationAnimations} data-situation={activeCelebration.situation} data-variant={activeCelebration.variant} aria-hidden="true">
+  return <>{particleShow && celebrationAnimations && <CuePracticeBurst key={`particles-${particleShow.id}`} variant={cueEffectVariant(account, particleShow.completed ?? 4)} status={particleShow.status} count={particleShow.completed ?? 4} />}{globalCelebration && celebrationAnimations && <div key={`global-${activeCelebration.id}`} className={styles.globalCelebration} data-cue-global-celebration data-motion={celebrationAnimations} data-situation={activeCelebration.situation} data-variant={activeCelebration.variant} aria-hidden="true">
     <div className={styles.aurora} /><svg className={styles.globalSky} viewBox="0 0 1000 700" preserveAspectRatio="none"><ellipse className={styles.globalOrbit} cx="500" cy="350" rx="430" ry="260" /><ellipse className={styles.globalOrbit} cx="500" cy="350" rx="370" ry="210" />{Array.from({ length: 18 }, (_, i) => <path key={i} className={styles.globalMeteor} d={`M${i % 2 ? 900 : 100} ${30 + i * 36} l${i % 2 ? -90 : 90} -45`} style={{ '--spark-delay': `${i * 45}ms` } as CSSProperties} />)}</svg>
     <div className={styles.globalTitle}><span>✦</span><strong>{globalTitle}</strong><small>{activeCelebration.situation === 'streak' ? '你正在建立扎实的掌握' : '每一次认真回忆，都留下星光'}</small></div>
-  </div>}{celebrationAnimations && particleShow && !activeCelebration && <button type="button" className={styles.celebration} onClick={() => setParticleShow(null)}>跳过动画</button>}{!summary && !collapsed && <CueUniverseBackdrop theme={theme} stars={todayStars} animations={ambientAnimations} highlight={activeCelebration?.cueId} celebration={ambientAnimations ? activeCelebration ?? undefined : undefined} />}<aside data-feature="star-results" data-frame={cueEquippedValue(account,'frame')} className={styles.dock} data-cue-game data-collapsed={!summary && collapsed} data-motion={animations} data-summary={summary} data-situation={activeCelebration?.situation} data-variant={activeCelebration?.variant} aria-label="CUE 星空侧栏" style={{ '--star-color': activeCelebration ? CUE_STAR_COLORS[activeCelebration.status] : '#a5b4fc' } as CSSProperties}>
+  </div>}{celebrationAnimations && particleShow && !activeCelebration && <button type="button" className={styles.celebration} onClick={() => setParticleShow(null)}>跳过动画</button>}{!summary && <CueUniverseBackdrop theme={theme} stars={todayStars} animations={ambientAnimations} highlight={activeCelebration?.cueId} celebration={ambientAnimations ? activeCelebration ?? undefined : undefined} />}<aside data-feature="star-results" data-frame={cueEquippedValue(account,'frame')} className={styles.dock} data-cue-game data-collapsed={!summary && collapsed} data-motion={animations} data-summary={summary} data-situation={activeCelebration?.situation} data-variant={activeCelebration?.variant} aria-label="CUE 星空侧栏" style={{ '--star-color': activeCelebration ? CUE_STAR_COLORS[activeCelebration.status] : '#a5b4fc' } as CSSProperties}>
     {!summary && <button type="button" className={styles.collapseButton} onClick={toggleCollapsed} aria-expanded={!collapsed} aria-label={collapsed ? '展开游戏侧栏' : '隐藏游戏侧栏'}>{collapsed ? '✦ 展开星空' : '收起星空 ›'}</button>}
-    <details hidden={!summary && collapsed} data-cue-game-compact={compact} open={!compact || layout === 'desktop' ? true : undefined} className={studyLayout.game}><summary>✦ 本次星空 · {sessionCount ?? progress.todayCount} 颗星 · Lv.{balance.level}<span>查看成果</span></summary><div className={styles.panel} data-milestone={activeCelebration?.milestone || undefined}>
+    {!summary && onShopAction && <button type="button" className={styles.collapseButton} onClick={() => setShopOpen(true)}>商店与装配</button>}
+    {!summary && collapsed && (titles.length > 0 || frames.length > 0) && <div className={styles.collapsedLoadout} data-cue-collapsed-loadout>{frameLayers}{titles.map(item => <span key={item.id} data-cue-title={item.id}>{item.name}</span>)}</div>}
+    <details hidden={!summary && collapsed} data-cue-game-compact={compact} open={!compact || layout === 'desktop' ? true : undefined} className={studyLayout.game}><summary>✦ 本次星空 · {sessionCount ?? progress.todayCount} 颗星 · Lv.{balance.level}<span>查看成果</span></summary><div className={styles.panel} data-milestone={activeCelebration?.milestone || undefined}>{frameLayers}
       <div className={styles.top}><span className={styles.eyebrow}>STAR JOURNAL</span>{onDismiss && <button type="button" onClick={onDismiss} aria-label="收起学习成果">×</button>}</div>
       <h2>{summary ? `今天完成 ${progress.todayCount} 条` : sessionCount !== undefined ? '本次星空' : '今日星空'}</h2>
       <div className={styles.count} key={`count-${sessionCount ?? progress.todayCount}`}><strong>{sessionCount ?? progress.todayCount}</strong><span>颗星已点亮</span></div>
@@ -160,7 +165,7 @@ function CueGamePanel({ reviews, cues = emptyCues, records = emptyRecords, anima
       <div className={styles.xpRow}><span>Lv.{balance.level}</span><span>{balance.earnedXP % 100} / {CUE_LEVEL_XP} XP</span></div>
       <div className={styles.xpTrack} role="progressbar" aria-label="等级经验" aria-valuemin={0} aria-valuemax={CUE_LEVEL_XP} aria-valuenow={balance.earnedXP % 100}><div style={{ width: `${balance.earnedXP % 100}%` }} /></div>
       <p className={styles.effort}>{sessionCount !== undefined ? `本轮认真检索 ${sessionCount} 次 · 三种状态均计入` : `今天认真检索 ${progress.todayEffortCount} 次 · 累计 ${progress.effortCount} 次`}</p>
-      <p className={styles.ship}>{cueEquippedValue(account,'title') ?? progress.ship.name}</p>
+      <div className={styles.ship}>{titles.length ? titles.map(item => <span key={item.id} data-cue-title={item.id}>{item.name}</span>) : progress.ship.name}</div>
       <button type="button" ref={albumButton} className={styles.albumButton} onClick={() => setAlbumOpen(true)}>星空收藏 · {albumDays} 天</button>
       {onShopAction && <button type="button" className={styles.albumButton} onClick={()=>setShopOpen(true)}>✦ 星空商店 · {balance.stars} 点</button>}
       {resultMessage && <p role="status" data-cue-result-feedback className={styles.celebration}>{resultMessage}</p>}

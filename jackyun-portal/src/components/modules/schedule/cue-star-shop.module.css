@@ -48,3 +48,22 @@
  .grid{grid-template-columns:minmax(0,1fr);}.item{min-width:0;}.art{height:75px;}
  .overlay nav{gap:6px;}.note{font-size:12px;}.history li{gap:6px;}
 }
+
+.overlay { overflow-y: auto; }
+.overlay > header, .wallet, .overlay > nav, .overlay > .note { flex-shrink: 0; }
+.loadout { flex-shrink: 0; padding: 12px; margin-block: 8px; border: 1px solid #93a9d448; border-radius: 14px; font-size: 12px; }
+.loadout > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.loadout p, .loadout span { color: #a2b3ce; font-size: 11px; }
+.loadout button { padding: 4px 8px; }
+.content { flex: 1 0 220px; }
+.previewCard { position: relative; z-index: 1; display: grid; gap: 16px; min-width: 240px; padding: 40px; border-radius: 20px; background: #111c2de0; text-align: center; }
+.previewCard strong { font-size: 24px; }
+.art[data-style='emerald'] { background: radial-gradient(ellipse,#26935a88,transparent 72%); }
+.art[data-style='sunset'] { background: radial-gradient(ellipse,#da6b4588,transparent 72%); }
+.art[data-style='nebula'] { background: radial-gradient(ellipse,#5f50cf88,transparent 72%); }
+
+.previewSurface { display: grid; place-items: center; }
+
+.overlay { --background: #0b1322; --foreground: #e6edfa; --card: #152038; --card-border: #93a9d448; --muted-foreground: #a2b3ce; --brand: #a5b4fc; }
+.motionSettings { flex-shrink: 0; padding: 8px 12px; border: 1px solid var(--card-border); border-radius: 12px; font-size: 12px; }
+.motionSettings summary { cursor: pointer; }
