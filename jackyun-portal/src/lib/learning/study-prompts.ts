@@ -2,6 +2,8 @@ import { cueBulkImportTemplate, type StudyCue, type LearningCatalogSubject } fro
 import type { QuestionAttempt, StudyQuestion } from './question-bank.ts';
 
 export const CUE_RULES = [
+  '真题考查：examStatus 只用 unknown（未标注）、tested（考过）、not-tested（尚未考过）；examHistory 写明考试局、年份/季节、卷号、题号和核对范围。未提供可靠依据时使用 unknown 或省略，不把练习经历当真题、不猜测考没考过。',
+  '来源：可填写 sourceKind（ChatGPT/book/teacher/website 等）、source（真实书名与版本、课件或对话名称）、sourceLocation（章节、页码、题号，或对话日期与消息定位）、sourceUrl（真实 http/https 链接）。仅记录能核实的来源，不虚构页码、模型版本或链接；不确定时留空。',
   'CUE RULES v2：根据用户当前笔记生成或修改 Active Recall CUE。核心标准：看到问题知道要答什么，看不到答案；回答后能明确判断是否答对。',
   '范围：以当前笔记的进度为准，不按教材目录提前生成。保留老师明确标出的 DEF、公式和考试要求，定义答案贴近课程准确措辞。教材仅核对或澄清已学内容，不扩展范围或课程深度；资料、覆盖、分类不确定时不猜测，缺少必填学科或单元先询问。',
   '覆盖：核心记忆、定义、陈述、解释、比较、计算、读图、应用中，忘记会影响作答或得分的知识应有覆盖；不为标题、导语、过渡句、重复表述或只需查阅的细节单独制卡。例子考可迁移方法及适用条件，不只考原例数字。兼顾覆盖与数量，不逐句制卡，也不因数量多漏掉核心知识。',
@@ -9,7 +11,7 @@ export const CUE_RULES = [
   'prompt：明确任务、对象和必要条件；隐藏 answer 和 markingPoints 后仍可独立作答。可使用 Define、State、Explain why、Calculate、Compare，但陌生英文术语应附中文含义或明确范围，不只写 State the index laws. 等含糊指令。数学可说明要回忆哪些运算下的规则和适用条件，或提供具体待化简表达式；不泄露待回忆公式或答案。',
   'subtitle：仅补充必要方向、已知条件、符号含义和限制，不重复答案；简单卡可省略。answer：简洁可核对，定义保持准确限定词；解释题通常用 1–3 个清楚逻辑步骤。markingPoints：独立得分要点、关系和限定条件，匹配题干，不拆成大量孤立词语。公式保留笔记要求的表达式、符号、单位及条件；确需计算练习才另设计算 CUE。不虚构答案或缺图数值。',
   '操作：先查当前 CUE，避免重复。已覆盖但质量不足时 update 真实 id，仅输出变动字段；不要为了更新改无关字段，不删除知识或历史。create 必须有 action、unit、prompt、type、display、markingPoints，尽可能有 answer；需要时明确 subjectName。create 不输出 subsection，update 仅有依据才改。学科与单元按资料和目录填写，逐字使用，不自行编造或翻译名称。',
-  '输出：严格有效 JSON {"version":1,"operations":[...]}，最多 200 条。action 仅 create/update。内容字段：subjectName、unit、subsection（仅 update）、prompt、subtitle、answer、type、display、choices、correctChoice、markingPoints。type：general、definition、state、explain、calculate、formula、derivation、proof、compare、process、application、diagram、multiple-choice、knowledge-point、caution、condition-result。display：standard、headline、formula、steps、stepwise、comparison、scenario、definition-card、multiple-choice。知识点、注意事项、条件结果、流程的独立回忆步骤放在 markingPoints，每行一个；选择题确有必要才使用，2–6 项，correctChoice 零起始。',
+  '输出：严格有效 JSON {"version":1,"operations":[...]}，最多 200 条。action 仅 create/update。内容字段：subjectName、unit、subsection（仅 update）、prompt、subtitle、answer、type、display、choices、correctChoice、markingPoints、sourceKind、source、sourceLocation、sourceUrl、examStatus、examHistory。type：general、definition、state、explain、calculate、formula、derivation、proof、compare、process、application、diagram、multiple-choice、knowledge-point、caution、condition-result。display：standard、headline、formula、steps、stepwise、comparison、scenario、definition-card、multiple-choice。知识点、注意事项、条件结果、流程的独立回忆步骤放在 markingPoints，每行一个；选择题确有必要才使用，2–6 项，correctChoice 零起始。',
   '只读：不写 status、难度、复习日期、间隔、评分、version 或 updatedAt。公式支持 KaTeX，JSON 反斜杠必须转义。生成前检查分类、核心覆盖、无重复、题干可作答且不泄露答案、答案可核对、得分点有效、字段及 JSON 正确；最终只输出 JSON，无代码块、开头或结尾说明。缺少必填信息先问，不输出无效 JSON。',
 ].join('\n');
 
@@ -31,7 +33,7 @@ export const QUESTION_RULES = [
 ].join('\n');
 
 export function cueExportOperations(cues: StudyCue[]) {
-  return cues.map(({ id, version, updatedAt, subjectName, unit, subsection, prompt, subtitle, answer, type, display, choices, correctChoice, markingPoints }) => ({ action: 'update', id, version, updatedAt, subjectName, unit, subsection, prompt, subtitle, answer, type, display, choices, correctChoice, markingPoints }));
+  return cues.map(({ id, version, updatedAt, subjectName, unit, subsection, prompt, subtitle, answer, type, display, choices, correctChoice, markingPoints, sourceKind, source, sourceLocation, sourceUrl, examStatus, examHistory }) => ({ action: 'update', id, version, updatedAt, subjectName, unit, subsection, prompt, subtitle, answer, type, display, choices, correctChoice, markingPoints, sourceKind, source, sourceLocation, sourceUrl, examStatus, examHistory }));
 }
 export function cueImportPrompt(subjectName: string, knownUnits: string[], cues: StudyCue[]): string {
   return [CUE_RULES,

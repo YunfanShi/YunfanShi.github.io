@@ -43,9 +43,11 @@ try {
   assert.ok((await prompt.innerText()).includes('间隔回归题 2'), 'the active unanswered Cue is not interrupted when the timer expires');
 
   await page.keyboard.press('3');
+  assert.equal(await session.locator('[data-cue-practice-mode="automatic"]').count(),0,'first rating stays on the current Cue');
+  await page.keyboard.press('3');
   await page.waitForFunction(() => Object.values(JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}').cueStudyDrafts || {})
     .some((draft: unknown) => (draft as { practice?: { active?: string } }).practice?.active === 'cue0'));
-  assert.ok((await prompt.innerText()).includes('间隔回归题 1'), 'the due retry opens automatically after the active Cue is rated');
+  assert.ok((await prompt.innerText()).includes('间隔回归题 1'), 'the due retry opens after the second rating confirmation');
   assert.ok((await session.locator('[data-cue-practice-mode="automatic"]').innerText()).includes('自动到期重练'), 'automatic retries are clearly labeled');
   assert.match(await session.locator('[data-cue-practice-mode="automatic"]').innerText(), /判定后会回到刚才正在学习的题/);
 
@@ -81,6 +83,8 @@ try {
   await exitSettings.locator('summary').click();
   await exitPage.keyboard.press('3'); await exitPage.keyboard.press('3');
   await exitPage.clock.fastForward(60_000);
+  await exitPage.keyboard.press('3');
+  assert.equal(await exitSession.locator('[data-cue-practice-mode="automatic"]').count(),0);
   await exitPage.keyboard.press('3');
   await exitPage.waitForFunction(() => Object.values(JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') || '{}').cueStudyDrafts || {})
     .some((draft:unknown)=>(draft as {practice?:{active?:string}}).practice?.active==='cue0'));

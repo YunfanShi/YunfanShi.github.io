@@ -1,3 +1,4 @@
+import { parseCueSourceFields, type CueSourceFields } from './cue-source.ts';
 import type { TimedPracticeRecord } from './timed-practice.ts';
 import type { PracticeFrequency } from './timed-practice.ts';
 import type { ExamDiagnosis } from './exam-diagnosis.ts';
@@ -196,7 +197,7 @@ export interface ManualLearningTask {
   guide?: StudyGuideTarget;
 }
 
-export interface StudyCue {
+export interface StudyCue extends CueSourceFields {
   masteredIntervalDays?: number;
   masterySignature?: string;
   userDifficulty?: CueDifficulty;
@@ -312,7 +313,7 @@ export interface LearningSessionEvidence {
   sessionId?: string;
 }
 
-export interface LearningRecordCue {
+export interface LearningRecordCue extends CueSourceFields {
   cueId: string;
   subjectName: string;
   unit: string;
@@ -364,7 +365,7 @@ export interface TaskCancellation {
   mergedInto?: string;
 }
 
-export interface CueCreateOperation {
+export interface CueCreateOperation extends CueSourceFields {
   action: 'create';
   subjectName?: string;
   unit: string;
@@ -378,7 +379,7 @@ export interface CueCreateOperation {
   markingPoints: string[];
 }
 
-export interface CueUpdateOperation {
+export interface CueUpdateOperation extends CueSourceFields {
   action: 'update';
   id: string;
   subjectName?: string;
@@ -475,6 +476,8 @@ export function allCueStudyDrafts(state: ScheduleControlState): Record<string, C
 }
 
 export function saveCueStudyDraft(state: ScheduleControlState, draft: CueStudyDraft): ScheduleControlState {
+  // A late progress effect must not resurrect a durably completed session.
+  if (state.learningRecords.some(record => record.id === draft.id)) return state;
   const drafts = allCueStudyDrafts(state);
   for (const [key, previous] of Object.entries(drafts)) {
     if (key === cueDraftKey(draft) || (draft.task.subjectName && previous.task.subjectName === draft.task.subjectName)) delete drafts[key];
@@ -1055,7 +1058,7 @@ export function cueBulkImportTemplate(existingCueId?: string): CueBulkImport {
   return {
     version: 1,
     operations: [
-      { action: 'create', unit: 'Kinematics', prompt: 'Acceleration', subtitle: 'Recall the precise physical definition and include the time relationship.', answer: 'Change in velocity per unit time.', type: 'definition', display: 'definition-card', markingPoints: ['change in velocity', 'per unit time'] },
+      { action: 'create', unit: 'Kinematics', prompt: 'Acceleration', sourceKind: 'book', source: '教材完整书名及版本（请替换）', sourceLocation: '章节 / 页码 / 题号（请替换）', subtitle: 'Recall the precise physical definition and include the time relationship.', answer: 'Change in velocity per unit time.', type: 'definition', display: 'definition-card', markingPoints: ['change in velocity', 'per unit time'] },
       ...(existingCueId ? [{ action: 'update' as const, id: existingCueId, answer: 'Updated answer.', markingPoints: ['updated marking point'] }] : []),
     ],
   };
@@ -1086,7 +1089,7 @@ export function parseCueBulkImport(value: unknown): CueBulkImport {
       const markingPoints = Array.isArray(operation.markingPoints)
         ? operation.markingPoints.map((item) => requiredText(item, `第 ${index + 1} 条创建操作的 marking point`, 300)).slice(0, 12)
         : [];
-      return { action: 'create', ...(subjectName ? { subjectName } : {}), unit, prompt, ...(subtitle ? { subtitle } : {}), ...(answer ? { answer } : {}), type, display, ...(choices.length ? { choices, correctChoice } : {}), markingPoints };
+      return { ...parseCueSourceFields(operation), action: 'create', ...(subjectName ? { subjectName } : {}), unit, prompt, ...(subtitle ? { subtitle } : {}), ...(answer ? { answer } : {}), type, display, ...(choices.length ? { choices, correctChoice } : {}), markingPoints };
     }
     const update = operation;
     const id = requiredText(update.id, `第 ${index + 1} 条补充的 id`, 120);
@@ -1108,7 +1111,7 @@ export function parseCueBulkImport(value: unknown): CueBulkImport {
     const choices = Array.isArray(update.choices) ? update.choices.map((item) => requiredText(item, `第 ${index + 1} 条补充的选项`, 500)).slice(0, 6) : undefined;
     const correctChoice = Number.isInteger(update.correctChoice) ? Number(update.correctChoice) : undefined;
     if ((type === 'multiple-choice' || choices) && (!choices || choices.length < 2 || correctChoice === undefined || correctChoice < 0 || correctChoice >= choices.length)) throw new Error(`第 ${index + 1} 条选择题补充必须有 2–6 个选项和有效的 correctChoice。`);
-    const parsed: CueUpdateOperation = { action: 'update', id, ...(subjectName ? { subjectName } : {}), ...(unit ? { unit } : {}), ...(subsection !== undefined ? { subsection } : {}), ...(prompt ? { prompt } : {}), ...(subtitle !== undefined ? { subtitle } : {}), ...(answer !== undefined ? { answer } : {}), ...(type ? { type } : {}), ...(display ? { display } : {}), ...(choices ? { choices, correctChoice } : {}), ...(markingPoints ? { markingPoints } : {}) };
+    const parsed: CueUpdateOperation = { ...parseCueSourceFields(update), action: 'update', id, ...(subjectName ? { subjectName } : {}), ...(unit ? { unit } : {}), ...(subsection !== undefined ? { subsection } : {}), ...(prompt ? { prompt } : {}), ...(subtitle !== undefined ? { subtitle } : {}), ...(answer !== undefined ? { answer } : {}), ...(type ? { type } : {}), ...(display ? { display } : {}), ...(choices ? { choices, correctChoice } : {}), ...(markingPoints ? { markingPoints } : {}) };
     if (Object.keys(parsed).length === 2) throw new Error(`第 ${index + 1} 条修改操作没有要修改的字段。`);
     return parsed;
   });
@@ -2239,6 +2242,7 @@ export function completeLearningSession(
     const cue = allCues.find((item) => item.id === cueId)!;
     return {
       cueId,
+      ...parseCueSourceFields(cue as unknown as Record<string, unknown>),
       subjectName: cue.subjectName,
       unit: cue.unit,
       subsection: cue.subsection,

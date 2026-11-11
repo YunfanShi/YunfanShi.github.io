@@ -1,5 +1,6 @@
 'use client';
 
+import { parseCueSourceFields } from '@/lib/learning/cue-source';
 import { useMemo, useState } from 'react';
 import type { CueBulkOperation, CueStudyDraft, CueReview, StudyCue } from '@/lib/learning/schedule-control';
 import { cueExchangeChangedFields, cueExchangeFieldLabels, cueExchangeProgress, matchCueExchange, parseCueExchangeBundle, type CueExchangeMatch } from '@/lib/learning/cue-exchange';
@@ -42,9 +43,9 @@ export default function CueExchangeDialog({ cues, reviews, drafts, onClose, onAp
       const local = byId.get(row.selectedLocalId);
       if (row.action === 'skip' || row.action === 'keep') continue;
       if (row.action === 'update' && local) {
-        operations.push({ action: 'update', id: local.id, subjectName: row.incoming.subjectName, unit: row.incoming.unit, subsection: row.incoming.subsection ?? '', prompt: row.incoming.prompt, subtitle: row.incoming.subtitle ?? '', answer: row.incoming.answer ?? '', type: row.incoming.type, display: row.incoming.display ?? 'standard', choices: row.incoming.choices, correctChoice: row.incoming.correctChoice, markingPoints: row.incoming.markingPoints });
+        operations.push({ ...parseCueSourceFields(row.incoming as unknown as Record<string, unknown>), action: 'update', id: local.id, subjectName: row.incoming.subjectName, unit: row.incoming.unit, subsection: row.incoming.subsection ?? '', prompt: row.incoming.prompt, subtitle: row.incoming.subtitle ?? '', answer: row.incoming.answer ?? '', type: row.incoming.type, display: row.incoming.display ?? 'standard', choices: row.incoming.choices, correctChoice: row.incoming.correctChoice, markingPoints: row.incoming.markingPoints });
       } else if (row.action === 'add' || row.action === 'copy') {
-        operations.push({ action: 'create', subjectName: row.incoming.subjectName, unit: row.incoming.unit, prompt: row.incoming.prompt, subtitle: row.incoming.subtitle ?? '', answer: row.incoming.answer ?? '', type: row.incoming.type, display: row.incoming.display ?? 'standard', choices: row.incoming.choices, correctChoice: row.incoming.correctChoice, markingPoints: row.incoming.markingPoints });
+        operations.push({ ...parseCueSourceFields(row.incoming as unknown as Record<string, unknown>), action: 'create', subjectName: row.incoming.subjectName, unit: row.incoming.unit, prompt: row.incoming.prompt, subtitle: row.incoming.subtitle ?? '', answer: row.incoming.answer ?? '', type: row.incoming.type, display: row.incoming.display ?? 'standard', choices: row.incoming.choices, correctChoice: row.incoming.correctChoice, markingPoints: row.incoming.markingPoints });
       }
     }
     if (!operations.length) { setMessage('没有选择需要导入的内容。'); return; }

@@ -151,3 +151,10 @@
 
 .dock[data-frame='aurora'] .panel {border-color:#78dfcc88;background:linear-gradient(145deg,#153a3a,#101727 75%);}
 .dock[data-frame='midnight'] .panel {border-color:#7188ba88;background:linear-gradient(145deg,#172649,#080e1e 75%);}
+
+.collapseButton { display: block; margin-left: auto; margin-bottom: 6px; padding: 8px 12px; border: 1px solid var(--card-border); border-radius: 16px; background: var(--card); color: var(--foreground); font-size: 12px; cursor: pointer; }
+.dock details[hidden] { display: none !important; }
+.mission { display: grid; gap: 6px; margin-block: 12px; padding: 10px; border: 1px solid #a5b4fc40; border-radius: 12px; font-size: 12px; }
+.mission span, .mission small { color: #b8c7df; }
+.mission progress { width: 100%; height: 6px; accent-color: #a5b4fc; }
+@media (max-width: 1023px), (pointer: coarse) { .dock[data-collapsed='true'] { display: block; position: relative; z-index: 2; margin: 4px 12px; } }

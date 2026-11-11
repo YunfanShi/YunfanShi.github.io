@@ -8,6 +8,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function equal(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
   return (left === undefined) === (right === undefined) && canonicalJson(left) === canonicalJson(right);
 }
 

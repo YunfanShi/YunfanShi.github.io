@@ -66,3 +66,12 @@ test('late-mounted sync panels retrieve active upload progress', () => {
     else Reflect.deleteProperty(globalThis, 'window');
   }
 });
+
+test('identical snapshot references merge without serializing their entire learning history', async () => {
+  const {threeWayMerge}=await import('../src/lib/sync/merge.ts');
+  let enumerations=0;
+  const history=new Proxy({cues:Array.from({length:2000},(_,i)=>({id:String(i)}))},{ownKeys(target){enumerations++;return Reflect.ownKeys(target);}});
+  const result=threeWayMerge({},history,history);
+  assert.equal(result.merged,history);
+  assert.equal(enumerations,0,'reference equality must bypass full canonical JSON traversal');
+});

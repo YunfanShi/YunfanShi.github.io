@@ -4,6 +4,8 @@ import { queueV5ResourceDeletion } from '@/lib/sync/outbox';
 
 
 import { searchCues, cueHighlightParts, type CueSearchHit } from '@/lib/learning/cue-search';
+import CueSource from './cue-source';
+import { parseCueSourceFields, type CueExamStatus } from '@/lib/learning/cue-source';
 import ScheduleTouchNav from './schedule-touch-nav';
 
 import { readScheduleState, SCHEDULE_STORAGE_KEY } from '@/lib/learning/workspace-reader';
@@ -12,7 +14,7 @@ import CuePracticeControls from './cue-practice-controls';
 import studyLayout from './cue-study-layout.module.css';
 import DidaScheduleSync from './dida-schedule-sync';
 import SeiueScheduleSync from './seiue-schedule-sync';
-import { defaultCuePracticePolicy, rescheduleCuePractice, deferCuePracticeAfterManual, finishAutomaticCuePractice, emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, enterCuePractice, dueCuePractice } from '@/lib/learning/cue-practice';
+import { defaultCuePracticePolicy, rescheduleCuePractice, deferCuePracticeAfterManual, finishAutomaticCuePractice, emptyCuePractice, latestCuePracticeAttempt, cuePracticeDirectory, cuePracticeLabel, normalizeCuePractice, cuePracticeReturnIndex, rateCuePractice, enterCuePractice } from '@/lib/learning/cue-practice';
 import dynamic from 'next/dynamic';
 const CueGamePanel = dynamic(() => import('./cue-game-panel'), { loading: () => null });
 import { reconcileCueGameAccount, purchaseCueShopItem, equipCueShopItem, type CueGameAccount, type CueShopAction } from '@/lib/learning/cue-shop';
@@ -304,7 +306,7 @@ function CuePromptContent({ cue, revealed, selectedChoice, revealedStepCount = 0
   return <section data-cue-recall className="my-auto py-6 sm:py-8 text-center"><p className="text-xs font-semibold uppercase tracking-[.14em] text-[var(--muted-foreground)]">Recall prompt</p><div className={`mx-auto mt-5 max-w-5xl font-semibold leading-relaxed ${(cue.display ?? 'standard') === 'headline' || (cue.display ?? 'standard') === 'formula' ? 'text-3xl sm:text-5xl' : 'text-2xl sm:text-4xl'}`}><LatexRenderer content={cue.prompt} /></div>{cue.subtitle && <div className="mx-auto mt-4 max-w-4xl text-sm font-normal leading-6 text-[var(--muted-foreground)] sm:text-base"><LatexRenderer content={cue.subtitle} /></div>}{revealed ? <div data-cue-evidence className="mx-auto mt-6 max-w-4xl rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 text-left shadow-sm"><CueEvidence cue={cue} /></div> : <button type="button" onClick={onReveal} className="mt-8 rounded-full bg-[var(--brand)] px-6 py-3 text-sm font-semibold text-white shadow-sm dark:text-[#202124]">显示答案与判分依据</button>}</section>;
 }
 
-function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAnswerCompare, onAnswerCheck, onProgress, onAssessment, onMastered, onDifficulty, reviews, starCues, starRecords, gameAccount, onShopAction, onClose, onComplete }: { gameAccount?: CueGameAccount; onShopAction?: (action: CueShopAction) => void; starCues: StudyCue[]; starRecords: LearningRecord[]; reviews: CueReview[]; onDifficulty: (id: string, difficulty?: CueDifficulty) => void; task: LearningTask; cues: StudyCue[]; draft: CueStudyDraft; memos: CueMemo[]; onProgress: (draft: CueStudyDraft) => void; onAssessment: (cueId: string, status: LearningStatus, practice?: boolean, editPractice?: boolean) => void; onMastered: (cueId: string) => void; answerCards: CueAnswerCard[]; onAnswerCompare: (cue: StudyCue, text: string) => void; onAnswerCheck: (id: string, index: number, checked: boolean) => void; onClose: () => void; onComplete: (details: ReviewDetails, evidence: LearningSessionEvidence) => void }) {
+function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAnswerCompare, onAnswerCheck, onProgress, onAssessment, onMastered, onDifficulty, reviews, starCues, starRecords, gameAccount, onShopAction, onClose, onComplete }: { gameAccount?: CueGameAccount; onShopAction?: (action: CueShopAction) => void; starCues: StudyCue[]; starRecords: LearningRecord[]; reviews: CueReview[]; onDifficulty: (id: string, difficulty?: CueDifficulty) => void; task: LearningTask; cues: StudyCue[]; draft: CueStudyDraft; memos: CueMemo[]; onProgress: (draft: CueStudyDraft) => void; onAssessment: (cueId: string, status: LearningStatus, practice?: boolean, editPractice?: boolean) => void; onMastered: (cueId: string) => void; answerCards: CueAnswerCard[]; onAnswerCompare: (cue: StudyCue, text: string) => void; onAnswerCheck: (id: string, index: number, checked: boolean) => void; onClose: () => void; onComplete: (details: ReviewDetails, evidence: LearningSessionEvidence) => Promise<void> }) {
   const cueGameEnabled = useCueUniverseEnabled();
   const [starFeedback, setStarFeedback] = useState<CueStarFeedback>();
   const studyRef = useRef<HTMLDivElement>(null);
@@ -387,41 +389,29 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
   const activeAssessments = useMemo(() => Object.fromEntries(allCues.flatMap((cue) => assessments[cue.id] ? [[cue.id, assessments[cue.id]]] : [])) as Record<string, LearningStatus>, [assessments, allCues]);
   const assessedCount = Object.keys(activeAssessments).length;
   const roundComplete = allCues.length > 0 && assessedCount === allCues.length;
-  useEffect(() => {
-    if (!automaticPractice || practice.active || practice.mode || practice.automaticReturnCueId === current?.id) return;
-    // A timer becoming due must not take the card away while the learner is
-    // still working on it. Start the retry as soon as that card is rated.
-    if (!roundComplete && current && !assessments[current.id]) return;
-    if (!dueCuePractice(practice, practiceNow, current?.id, roundComplete, practicePolicy)) return;
-    queueMicrotask(() => {
-      setPractice(state => {
-        if (!automaticPractice || state.active || state.mode || (!roundComplete && current && !assessments[current.id])) return state;
-        return enterCuePractice({ ...state, automaticReturnCueId: undefined }, Date.now(), current?.id, current?.id, false, roundComplete, practicePolicy);
-      });
-      setRatingFeedback(null);
-      setRevealed(false);
-      setSelectedChoice(undefined);
-    });
-  }, [automaticPractice, practice, practiceNow, roundComplete, current, assessments, practicePolicy]);
+  // Automatic retries enter through advance(), after the second rating.
+  // A due timer or the first rating must leave the learner on the current card.
   const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const submit = useCallback(async (nextAssessments: Record<string, LearningStatus>) => {
     if (savingRef.current) return;
-    savingRef.current = true; setSaveError('');
+    savingRef.current = true; setSaving(true); setSaveError('');
     try { await onComplete(
     { studiedContent: '', issue: '', note: '' },
     {
+      sessionId: draft.id,
       subjectName: task.subjectName,
       scope: { ...(task.scope?.unit ? { unit: task.scope.unit } : {}), cueIds: allCues.map((cue) => cue.id) },
       materials: task.materials ?? [],
       cueIds: allCues.map((cue) => cue.id),
       newCues: [],
-      assessments: allCues.map((cue) => ({ cueId: cue.id, status: nextAssessments[cue.id] })),
+      assessments: allCues.flatMap((cue) => nextAssessments[cue.id] ? [{ cueId: cue.id, status: nextAssessments[cue.id] }] : []),
       cueReviewsAlreadyRecorded: true,
     },
   ); } catch (error) { setSaveError(error instanceof Error ? error.message : '记录保存失败，进度已保留，请重试。'); }
-    finally { savingRef.current = false; }
-  }, [allCues, onComplete, task]);
+    finally { savingRef.current = false; setSaving(false); }
+  }, [allCues, draft.id, onComplete, task]);
   const advance = useCallback((destination: number) => {
     const target = practice.active ? cuePracticeReturnIndex(practice, cues.map(cue => cue.id), destination) : destination;
     setPractice((state) => automaticPractice || state.mode ? enterCuePractice({ ...state, automaticReturnCueId: undefined }, Date.now(), current?.id, cues[target]?.id, state.mode, state.mode && roundComplete, practicePolicy, state.mode && roundComplete) : { ...state, active: undefined, rating: undefined, returnCueId: undefined, automaticReturnCueId: undefined });
@@ -564,7 +554,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
               {current && <button type="button" aria-label="标记为已熟练掌握" title="已熟练掌握" onClick={() => void markMastered()} className="grid h-10 w-10 place-items-center rounded-full border border-emerald-300 bg-[var(--background)] text-emerald-700 hover:bg-[var(--card)] dark:text-emerald-200"><span aria-hidden="true" className="material-icons-round">verified</span></button>}
               <FullscreenButton />
               <button type="button" aria-label={memoOpen ? '关闭 CUE 答题卡' : '打开 CUE 答题卡'} title="CUE 答题卡" disabled={!current} onClick={() => setMemoOpen((open) => !open)} aria-expanded={memoOpen} className="grid h-10 w-10 place-items-center rounded-full border border-[var(--card-border)] bg-[var(--background)] hover:bg-[var(--card)] disabled:opacity-40"><span aria-hidden="true" className="material-icons-round">edit_note</span></button>
-              <button type="button" aria-label="结束本轮学习并保存" title="结束并保存" disabled={!assessedCount} onClick={() => submit(activeAssessments)} className="grid h-10 w-10 place-items-center rounded-full border border-[var(--brand)] bg-[var(--background)] text-[var(--brand)] hover:bg-[var(--card)] disabled:cursor-not-allowed disabled:opacity-40"><span aria-hidden="true" className="material-icons-round">save</span></button>
+              <button type="button" aria-label="结束本轮学习并保存" title="结束并保存" disabled={!assessedCount || saving} aria-busy={saving} onClick={() => submit(activeAssessments)} className="grid h-10 w-10 place-items-center rounded-full border border-[var(--brand)] bg-[var(--background)] text-[var(--brand)] hover:bg-[var(--card)] disabled:cursor-not-allowed disabled:opacity-40"><span aria-hidden="true" className="material-icons-round">save</span></button>
             </div>
           </details>
           <CuePracticeControls compact automatic={automaticPractice} policy={practicePolicy} onAutomatic={value => { setAutomaticPractice(value); if (!value && practice.active && !practice.mode) returnToRound(); }} onPolicy={value => { setPracticePolicy(value); setPractice(state => rescheduleCuePractice(state, Date.now(), value)); }} />
@@ -588,7 +578,10 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
         <p className={styles.studyToolDetails}>快捷键帮助：空格翻面；← / → / ↑ / ↓ 切换；C / P / X 或 1 / 2 / 3 评价；K 熟练掌握；~ / · 答题卡；Enter / Backspace 确认退出；Esc 保存并退出。输入框中保留正常输入。</p>
         <nav aria-label="触屏题目目录">{cues.map((cue, cueIndex) => <button key={cue.id} type="button" disabled={!canEnterGroup(Math.floor(cueIndex / batchSize))} aria-current={cueIndex === currentIndex ? 'step' : undefined} onClick={() => { setGroupSummaryIndex(null); setPractice((state) => ({ ...state, mode: false, active: undefined, rating: undefined, returnCueId: undefined, automaticReturnCueId: undefined })); setRatingFeedback(null); setIndex(cueIndex); setRevealed(false); setSelectedChoice(undefined); setStudyToolsOpen(false); }}>{cueIndex + 1}{assessments[cue.id] ? ` ${statusMark(assessments[cue.id])}` : ''}</button>)}</nav>
       </div>}
+      {saving && <p role="status" className="px-4 py-2 text-center text-sm">正在保存学习记录，请稍候…</p>}
+      {saveError && <p role="alert" className="px-4 py-2 text-center text-sm text-red-500">{saveError}</p>}
       {cueGameEnabled && <CueGamePanel compact account={gameAccount} onShopAction={onShopAction} sessionKey={draft.id} sessionStartedAt={draft.startedAt} sessionCount={Math.max(practice.completed, assessedCount)} reviews={reviews} cues={starCues} records={starRecords} feedback={starFeedback} animations={animations} />}
+      {current && <div className="px-5 py-1"><CueSource cue={current} /></div>}
       {ratingFeedback && <div key={`${current?.id}:${ratingFeedback}`} data-cue-rating-feedback role="status" className={styles.ratingFeedback} data-rating={ratingFeedback}>{statusMark(ratingFeedback)} {practice.active && ratingFeedback === 'stable' ? '重练已通过，原评价保留' : ratingFeedback === 'stable' ? '这条已掌握' : ratingFeedback === 'partial' ? '找到需要巩固的部分了' : '记下了，继续修复这条'} · 已保存</div>}
       {assessedCount > 0 && assessedCount === allCues.length && <div data-cue-round-complete className={styles.roundComplete} role="status"><span aria-hidden="true">✦</span> 本轮全部评价完成，记得保存学习记录 <span aria-hidden="true">✦</span></div>}
       {(practiceIds.length > 0 || practice.mode || practice.active) && <section data-cue-practice-directory className="relative z-10 mx-auto max-w-5xl px-3 py-2 text-xs text-[var(--muted-foreground)]" aria-label="本轮重练目录">
@@ -610,7 +603,7 @@ function CueStudyPage({ task, cues: sourceCues, draft, memos, answerCards, onAns
       </section>}
 
       <main data-cue-study-page data-cue-study-content key={`${current?.id}:${practice.active ?? "initial"}`} data-revealed={revealed} className={`${styles.studyMain} ${styles.studyTransition} mx-auto flex min-h-[calc(100dvh-110px)] min-w-0 max-w-[1440px] flex-col px-3 py-3 sm:px-8 sm:py-4`}>
-        {saveError && <p role="alert" className="p-3">{saveError}</p>}
+
         {practiceMode && <div data-cue-practice-mode={practiceMode} role="status" aria-live="polite" className={`mb-4 flex items-start gap-3 rounded-2xl border-l-4 p-4 shadow-sm ${practiceMode === 'automatic' ? 'border-amber-500 bg-amber-50 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100' : 'border-violet-500 bg-violet-50 text-violet-950 dark:bg-violet-950/50 dark:text-violet-100'}`}>
           <span aria-hidden="true" className="material-icons-round mt-0.5 text-xl">{practiceMode === 'automatic' ? 'schedule' : 'playlist_play'}</span>
           <div className="min-w-0">
@@ -822,7 +815,7 @@ function ReviewDialog({ task, cues, catalog, signedIn, onClose, onComplete }: { 
         id: taskId(), subjectId, subjectName: normalizedSubject, unit: item.unit, subsection: '', prompt: item.prompt,
         ...(item.subtitle ? { subtitle: item.subtitle } : {}), ...(item.answer ? { answer: item.answer } : {}), type: item.type, display: item.display,
         ...(item.choices ? { choices: item.choices, correctChoice: item.correctChoice } : {}),
-        markingPoints: item.markingPoints, version: 1, intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
+        ...parseCueSourceFields(item as unknown as Record<string, unknown>), markingPoints: item.markingPoints, version: 1, intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
       };
     });
     setNewCues((current) => [...current, ...imported]);
@@ -986,7 +979,7 @@ function CueHierarchy({ cues, reviews, onDelete, onEdit, onDifficulty, searchHit
   for (const review of reviews) reviewsByCue.set(review.cueId, [...(reviewsByCue.get(review.cueId) ?? []), review]);
   const detailCue = cues.find((cue) => cue.id === detailCueId);
   if (!cues.length) return <p className="mt-4 rounded-2xl border border-dashed border-[var(--card-border)] py-10 text-center text-sm text-[var(--muted-foreground)]">还没有匹配的 Cue。</p>;
-  return <><div className="mt-4 space-y-5 pb-6">{grouped.map((subject) => <section key={subject.subject} className="rounded-3xl border border-[var(--card-border)] p-5"><h4 className="flex items-center gap-2 text-lg font-semibold"><span aria-hidden="true" className="material-icons-round text-xl text-[var(--brand)]">school</span>{subject.subject}</h4>{subject.units.map((unitGroup) => <div key={unitGroup.unit} className="ml-2 mt-4 border-l-2 border-[var(--card-border)] pl-5"><h5 className="font-semibold text-[var(--brand)]">{unitGroup.unit}</h5>{unitGroup.subsections.map((subsectionGroup) => <div key={subsectionGroup.subsection || unitGroup.unit} className="mt-4"><div className="mt-2 grid gap-3 xl:grid-cols-2">{subsectionGroup.cues.map((cue) => { const hit = hitById.get(cue.id); const cueReviews = (reviewsByCue.get(cue.id) ?? []).toSorted((left, right) => right.reviewedAt.localeCompare(left.reviewedAt)); const recent = cueReviews.slice(0, 3).toReversed(); return <article key={cue.id} className="rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><div className="flex items-start gap-3"><div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-[var(--muted-foreground)]">[{cue.type.toUpperCase()}]</span><div className="flex items-center gap-1" aria-label="最近 3 次测试结果"><span className="mr-1 text-[10px] text-[var(--muted-foreground)]">近3次</span>{recent.length ? recent.map((review) => <span key={review.id} title={formatReviewTimestamp(review.reviewedAt)} className={`grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold ${cueStatusTone(review.status)}`}>{statusMark(review.status)}</span>) : <span className="text-[10px] text-[var(--muted-foreground)]">暂无</span>}</div></div><div className="font-semibold">{hit && <div className="mb-2 text-xs font-normal text-[var(--muted-foreground)]">{cue.subjectName} · {cue.unit}{cue.subsection ? ` · ${cue.subsection}` : ''}</div>}<LatexRenderer content={cue.prompt} /></div>{cue.subtitle && <div className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]"><LatexRenderer content={cue.subtitle} /></div>}{cue.answer && <div className="mt-2 text-sm leading-6"><span className="mr-1 font-medium">参考：</span><LatexRenderer content={cue.answer} /></div>}{cue.markingPoints.length > 0 && <div className="mt-2 space-y-1 text-xs leading-5 text-[var(--muted-foreground)]"><span className="font-medium">Marking points：</span>{cue.markingPoints.map((point) => <div key={point} className="pl-2"><LatexRenderer content={point} /></div>)}</div>}{hit && <div className="mt-3 whitespace-pre-wrap break-words rounded-xl border border-amber-200/60 bg-amber-50/50 p-3 text-sm dark:border-amber-800/60 dark:bg-amber-950/20"><span className="mr-2 text-xs text-[var(--muted-foreground)]">命中{({prompt:'大标题',subtitle:'小标题',answer:'答案',ms:'MS',location:'学科或单元'})[hit.field]}</span>{cueHighlightParts(hit.text, hit.terms).map((part,index) => part.hit ? <mark key={index} className="rounded bg-amber-200 px-0.5 text-amber-950 dark:bg-amber-700 dark:text-white">{part.text}</mark> : <span key={index}>{part.text}</span>)}</div>}<div className="mt-3 flex flex-wrap items-center gap-2 text-xs"><span className={`rounded-full px-2 py-1 font-bold ${cue.status ? cueStatusTone(cue.status) : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200'}`}>{cue.status ? statusMark(cue.status) : '未验证'}</span><CuePracticeHistoryBadge reviews={cueReviews} cueId={cue.id} /><span className="text-[var(--muted-foreground)]">{CUE_DISPLAY_OPTIONS.find((item) => item.value === (cue.display ?? 'standard'))?.label}</span><span className="text-[var(--muted-foreground)]">检索 {cueReviews.length} 次</span><span className="text-[var(--muted-foreground)]">连续通过 {cue.streak}</span><span className="text-[var(--muted-foreground)]">间隔 {cue.intervalDays} 天</span>{cue.nextReviewDate && <span className="text-[var(--muted-foreground)]">下次 {cue.nextReviewDate}</span>}</div><div className="mt-4 flex flex-wrap gap-2">{onEdit && <button type="button" onClick={() => onEdit(cue)} className="min-h-11 rounded-full border border-[var(--brand)] px-4 py-2 text-xs font-semibold text-[var(--brand)]">编辑 Cue</button>}<button type="button" onClick={() => setDetailCueId(cue.id)} className="inline-flex items-center gap-1 rounded-full border border-[var(--card-border)] px-3 py-1.5 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]"><span aria-hidden="true" className="material-icons-round text-base">info</span>详细信息</button><button type="button" onClick={() => onDelete(cue)} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"><span aria-hidden="true" className="material-icons-round text-base">delete</span>删除</button></div></div></div></article>; })}</div></div>)}</div>)}</section>)}</div>{detailCue && <CueReviewDetailsDialog onDifficulty={onDifficulty ? (difficulty) => onDifficulty(detailCue.id, difficulty) : undefined} cue={detailCue} reviews={reviewsByCue.get(detailCue.id) ?? []} onClose={() => setDetailCueId('')} />}</>;
+  return <><div className="mt-4 space-y-5 pb-6">{grouped.map((subject) => <section key={subject.subject} className="rounded-3xl border border-[var(--card-border)] p-5"><h4 className="flex items-center gap-2 text-lg font-semibold"><span aria-hidden="true" className="material-icons-round text-xl text-[var(--brand)]">school</span>{subject.subject}</h4>{subject.units.map((unitGroup) => <div key={unitGroup.unit} className="ml-2 mt-4 border-l-2 border-[var(--card-border)] pl-5"><h5 className="font-semibold text-[var(--brand)]">{unitGroup.unit}</h5>{unitGroup.subsections.map((subsectionGroup) => <div key={subsectionGroup.subsection || unitGroup.unit} className="mt-4"><div className="mt-2 grid gap-3 xl:grid-cols-2">{subsectionGroup.cues.map((cue) => { const hit = hitById.get(cue.id); const cueReviews = (reviewsByCue.get(cue.id) ?? []).toSorted((left, right) => right.reviewedAt.localeCompare(left.reviewedAt)); const recent = cueReviews.slice(0, 3).toReversed(); return <article key={cue.id} className="rounded-2xl bg-black/[.035] p-4 dark:bg-white/[.06]"><div className="flex items-start gap-3"><div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-[var(--muted-foreground)]">[{cue.type.toUpperCase()}]</span><div className="flex items-center gap-1" aria-label="最近 3 次测试结果"><span className="mr-1 text-[10px] text-[var(--muted-foreground)]">近3次</span>{recent.length ? recent.map((review) => <span key={review.id} title={formatReviewTimestamp(review.reviewedAt)} className={`grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold ${cueStatusTone(review.status)}`}>{statusMark(review.status)}</span>) : <span className="text-[10px] text-[var(--muted-foreground)]">暂无</span>}</div></div><div className="font-semibold">{hit && <div className="mb-2 text-xs font-normal text-[var(--muted-foreground)]">{cue.subjectName} · {cue.unit}{cue.subsection ? ` · ${cue.subsection}` : ''}</div>}<LatexRenderer content={cue.prompt} /></div><CueSource cue={cue} />{cue.subtitle && <div className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]"><LatexRenderer content={cue.subtitle} /></div>}{cue.answer && <div className="mt-2 text-sm leading-6"><span className="mr-1 font-medium">参考：</span><LatexRenderer content={cue.answer} /></div>}{cue.markingPoints.length > 0 && <div className="mt-2 space-y-1 text-xs leading-5 text-[var(--muted-foreground)]"><span className="font-medium">Marking points：</span>{cue.markingPoints.map((point) => <div key={point} className="pl-2"><LatexRenderer content={point} /></div>)}</div>}{hit && <div className="mt-3 whitespace-pre-wrap break-words rounded-xl border border-amber-200/60 bg-amber-50/50 p-3 text-sm dark:border-amber-800/60 dark:bg-amber-950/20"><span className="mr-2 text-xs text-[var(--muted-foreground)]">命中{({prompt:'大标题',subtitle:'小标题',answer:'答案',ms:'MS',location:'学科或单元'})[hit.field]}</span>{cueHighlightParts(hit.text, hit.terms).map((part,index) => part.hit ? <mark key={index} className="rounded bg-amber-200 px-0.5 text-amber-950 dark:bg-amber-700 dark:text-white">{part.text}</mark> : <span key={index}>{part.text}</span>)}</div>}<div className="mt-3 flex flex-wrap items-center gap-2 text-xs"><span className={`rounded-full px-2 py-1 font-bold ${cue.status ? cueStatusTone(cue.status) : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200'}`}>{cue.status ? statusMark(cue.status) : '未验证'}</span><CuePracticeHistoryBadge reviews={cueReviews} cueId={cue.id} /><span className="text-[var(--muted-foreground)]">{CUE_DISPLAY_OPTIONS.find((item) => item.value === (cue.display ?? 'standard'))?.label}</span><span className="text-[var(--muted-foreground)]">检索 {cueReviews.length} 次</span><span className="text-[var(--muted-foreground)]">连续通过 {cue.streak}</span><span className="text-[var(--muted-foreground)]">间隔 {cue.intervalDays} 天</span>{cue.nextReviewDate && <span className="text-[var(--muted-foreground)]">下次 {cue.nextReviewDate}</span>}</div><div className="mt-4 flex flex-wrap gap-2">{onEdit && <button type="button" onClick={() => onEdit(cue)} className="min-h-11 rounded-full border border-[var(--brand)] px-4 py-2 text-xs font-semibold text-[var(--brand)]">编辑 Cue</button>}<button type="button" onClick={() => setDetailCueId(cue.id)} className="inline-flex items-center gap-1 rounded-full border border-[var(--card-border)] px-3 py-1.5 text-xs font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]"><span aria-hidden="true" className="material-icons-round text-base">info</span>详细信息</button><button type="button" onClick={() => onDelete(cue)} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"><span aria-hidden="true" className="material-icons-round text-base">delete</span>删除</button></div></div></div></article>; })}</div></div>)}</div>)}</section>)}</div>{detailCue && <CueReviewDetailsDialog onDifficulty={onDifficulty ? (difficulty) => onDifficulty(detailCue.id, difficulty) : undefined} cue={detailCue} reviews={reviewsByCue.get(detailCue.id) ?? []} onClose={() => setDetailCueId('')} />}</>;
 }
 
 function CueBulkImportDialog({ subjectName, knownUnits, cues, onClose, onApply, saveOnRead = false }: { subjectName: string; knownUnits: string[]; cues: StudyCue[]; onClose: () => void; onApply: (operations: CueBulkOperation[], markAsBatch?: boolean) => void | { createdCount: number; modifiedCount: number }; saveOnRead?: boolean }) {
@@ -1101,7 +1094,7 @@ function sharedCueProseTerms(left: StudyCue, right: StudyCue): string[] {
 function SimilarCueColumn({ cue, side, sharedPromptTerms, sharedAnswerTerms, onDelete }: { cue: StudyCue; side: '左边' | '右边'; sharedPromptTerms: string[]; sharedAnswerTerms: string[]; onDelete: () => void }) {
   return <article className="flex min-h-72 flex-col rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-2"><span className="rounded-full bg-black/5 px-2.5 py-1 text-xs font-bold dark:bg-white/10">{side} CUE</span><span className="text-xs text-[var(--muted-foreground)]"><LatexRenderer content={[cue.unit, cue.subsection].filter(Boolean).join(' · ')} /></span></div>
-    <div className="mt-5 flex-1"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">TOPIC / 题目</p><HighlightedCueSimilarityText text={cue.prompt} sharedTerms={sharedPromptTerms} />{cue.subtitle && <div className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]"><LatexRenderer content={cue.subtitle} /></div>}{cue.answer && <div className="mt-4 rounded-2xl bg-black/[.035] p-3 text-sm leading-6 dark:bg-white/[.06]"><span className="font-medium">参考：</span><HighlightedCueSimilarityText text={cue.answer} sharedTerms={sharedAnswerTerms} /></div>}</div>
+    <div className="mt-5 flex-1"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">TOPIC / 题目</p><CueSource cue={cue} /><HighlightedCueSimilarityText text={cue.prompt} sharedTerms={sharedPromptTerms} />{cue.subtitle && <div className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]"><LatexRenderer content={cue.subtitle} /></div>}{cue.answer && <div className="mt-4 rounded-2xl bg-black/[.035] p-3 text-sm leading-6 dark:bg-white/[.06]"><span className="font-medium">参考：</span><HighlightedCueSimilarityText text={cue.answer} sharedTerms={sharedAnswerTerms} /></div>}</div>
     <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--card-border)] pt-4"><span className="text-xs text-[var(--muted-foreground)]">v{cue.version ?? 1} · 更新 {formatReviewTimestamp(cue.updatedAt)}</span><button type="button" onClick={onDelete} className="rounded-full border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-200 dark:hover:bg-rose-950/40">删除{side}</button></div>
   </article>;
 }
@@ -1143,6 +1136,12 @@ function CueManagerDialog({ cues, reviews, drafts = [], catalog, collectionUpdat
   const [prompt, setPrompt] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [answer, setAnswer] = useState('');
+  const [sourceKind, setSourceKind] = useState('');
+  const [cueSource, setCueSource] = useState('');
+  const [sourceLocation, setSourceLocation] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [examStatus, setExamStatus] = useState<CueExamStatus>('unknown');
+  const [examHistory, setExamHistory] = useState('');
   const [type, setType] = useState<CueType>('general');
   const [display, setDisplay] = useState<CueDisplayPreset>('standard');
   const [choices, setChoices] = useState('');
@@ -1169,6 +1168,7 @@ function CueManagerDialog({ cues, reviews, drafts = [], catalog, collectionUpdat
         setPrompt(draft.prompt);
         setSubtitle(draft.subtitle);
         setAnswer(draft.answer);
+        setSourceKind(draft.sourceKind ?? ''); setCueSource(draft.source ?? ''); setSourceLocation(draft.sourceLocation ?? ''); setSourceUrl(draft.sourceUrl ?? ''); setExamStatus(draft.examStatus ?? 'unknown'); setExamHistory(draft.examHistory ?? '');
         setType(draft.type);
         setDisplay(draft.display);
         setChoices(draft.choices);
@@ -1182,12 +1182,12 @@ function CueManagerDialog({ cues, reviews, drafts = [], catalog, collectionUpdat
   }, []);
   useEffect(() => {
     if (!editorDraftReady) return;
-    const draft = { subjectName, unit, subsection, editingId, prompt, subtitle, answer, type, display, choices, correctChoice, markingPoints };
+    const draft = { examStatus, examHistory, sourceKind, source: cueSource, sourceLocation, sourceUrl, subjectName, unit, subsection, editingId, prompt, subtitle, answer, type, display, choices, correctChoice, markingPoints };
     try {
       if (cueManagerEditorDraftHasContent(draft)) writeCueManagerEditorDraft(window.sessionStorage, draft);
       else clearCueManagerEditorDraft(window.sessionStorage);
     } catch { /* Keep the editor usable if this browser blocks session storage. */ }
-  }, [editorDraftReady, subjectName, unit, subsection, editingId, prompt, subtitle, answer, type, display, choices, correctChoice, markingPoints]);
+  }, [editorDraftReady, examStatus, examHistory, sourceKind, cueSource, sourceLocation, sourceUrl, subjectName, unit, subsection, editingId, prompt, subtitle, answer, type, display, choices, correctChoice, markingPoints]);
   const selectedSubjectConfig = catalog.find((item) => item.name === subjectName);
   const latestCollectionUpdate = collectionUpdates.filter((update) => update.subjectName === subjectName && isRecordedCueCollectionBatch(update)).toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
   const enrichmentCues = cues.filter((cue) => cue.subjectName === subjectName);
@@ -1211,16 +1211,19 @@ function CueManagerDialog({ cues, reviews, drafts = [], catalog, collectionUpdat
     const resolvedSubject = catalog.find((subject) => subject.name.trim().toLocaleLowerCase() === resolvedSubjectName.toLocaleLowerCase());
     return {
       id: taskId(), subjectId: resolvedSubject?.id ?? subjectIdFromName(resolvedSubjectName), subjectName: resolvedSubject?.name ?? resolvedSubjectName, unit: item.unit, subsection: '',
+      examStatus: item.examStatus, examHistory: item.examHistory, sourceKind: item.sourceKind, source: item.source, sourceLocation: item.sourceLocation, sourceUrl: item.sourceUrl,
       prompt: item.prompt, ...(item.subtitle ? { subtitle: item.subtitle } : {}), ...(item.answer ? { answer: item.answer } : {}), type: item.type, display: item.display, ...(item.choices ? { choices: item.choices, correctChoice: item.correctChoice } : {}), markingPoints: item.markingPoints,
       version: 1, intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
     };
   };
   const resetEditor = () => {
+    setSourceKind(''); setCueSource(''); setSourceLocation(''); setSourceUrl(''); setExamStatus('unknown'); setExamHistory('');
     setEditingId(''); setPrompt(''); setSubtitle(''); setAnswer(''); setSubsection('');
     setChoices(''); setCorrectChoice(0); setMarkingPoints(''); setType('general'); setDisplay('standard');
     try { clearCueManagerEditorDraft(window.sessionStorage); } catch { /* The editor still resets in memory. */ }
   };
   const editCue = (cue: StudyCue) => {
+    setSourceKind(cue.sourceKind ?? ''); setCueSource(cue.source ?? ''); setSourceLocation(cue.sourceLocation ?? ''); setSourceUrl(cue.sourceUrl ?? ''); setExamStatus(cue.examStatus ?? 'unknown'); setExamHistory(cue.examHistory ?? '');
     setEditingId(cue.id); setSubjectName(cue.subjectName); setUnit(cue.unit); setSubsection(cue.subsection);
     setPrompt(cue.prompt); setSubtitle(cue.subtitle ?? ''); setAnswer(cue.answer ?? '');
     setType(cue.type); setDisplay(cue.display ?? 'standard'); setChoices((cue.choices ?? []).join('\n'));
@@ -1235,7 +1238,8 @@ function CueManagerDialog({ cues, reviews, drafts = [], catalog, collectionUpdat
     if (!subjectName || !unit || !prompt.trim()) return;
     const cueChoices = choices.split('\n').map((value) => value.trim()).filter(Boolean).slice(0, 6);
     if ((type === 'multiple-choice' || display === 'multiple-choice') && (cueChoices.length < 2 || correctChoice < 0 || correctChoice >= cueChoices.length)) { setEditNotice('选择题需要 2–6 个选项，并选择有效的正确答案。'); return; }
-    const item: CueCreateOperation = { action: 'create', unit, prompt: prompt.trim().slice(0, 500), ...(subtitle.trim() ? { subtitle: subtitle.trim().slice(0, 500) } : {}), ...(answer.trim() ? { answer: answer.trim().slice(0, 2000) } : {}), type, display, ...(type === 'multiple-choice' || display === 'multiple-choice' ? { choices: cueChoices, correctChoice } : {}), markingPoints: markingPoints.split('\n').map((value) => value.trim()).filter(Boolean).slice(0, 12) };
+    const item: CueCreateOperation = { examStatus, examHistory: examHistory.trim(), sourceKind: sourceKind.trim(), source: cueSource.trim(), sourceLocation: sourceLocation.trim(), sourceUrl: sourceUrl.trim(), action: 'create', unit, prompt: prompt.trim().slice(0, 500), ...(subtitle.trim() ? { subtitle: subtitle.trim().slice(0, 500) } : {}), ...(answer.trim() ? { answer: answer.trim().slice(0, 2000) } : {}), type, display, ...(type === 'multiple-choice' || display === 'multiple-choice' ? { choices: cueChoices, correctChoice } : {}), markingPoints: markingPoints.split('\n').map((value) => value.trim()).filter(Boolean).slice(0, 12) };
+    try { parseCueBulkImport({ version: 1, operations: [item] }); } catch (error) { setEditNotice(error instanceof Error ? error.message : '来源格式有误'); return; }
     const now = new Date().toISOString();
     if (editingId) {
       if (!cues.some((cue) => cue.id === editingId)) { setEditNotice('这条 Cue 已被移除，请重新选择。'); return; }
@@ -1296,13 +1300,14 @@ function CueManagerDialog({ cues, reviews, drafts = [], catalog, collectionUpdat
     <div className="grid h-[94dvh] min-h-0 w-full max-w-[1500px] grid-rows-[auto_auto] overflow-y-auto xl:grid-rows-[auto_minmax(0,1fr)] xl:overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl xl:grid-cols-[400px_minmax(0,1fr)] xl:grid-rows-1">
       <form ref={editorRef} tabIndex={-1} onSubmit={createCue} className="min-h-0 xl:overflow-y-auto xl:overscroll-contain border-b border-[var(--card-border)] p-6 xl:max-h-none xl:border-b-0 xl:border-r">
         <div className="flex items-center justify-between"><div><h2 id="cue-manager-title" className="text-xl font-semibold">知识 CUE 管理</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">单条添加时选择大单元；批量 / AI 导入只需先选择学科，每条 Cue 可使用不同大单元。</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span aria-hidden="true" className="material-icons-round">close</span></button></div>
+        <button type="button" disabled={!cues.length} onClick={async () => { try { await navigator.clipboard.writeText(JSON.stringify(createCueExchangeBundle(cues), null, 2)); setEditNotice(`已复制全部 ${new Set(cues.map(cue => cue.subjectName)).size} 个科目、${cues.length} 条 CUE（含来源与进度对照信息）。可分析后通过“导入 CUE 并逐条对比”导回。`); } catch { setEditNotice('剪贴板不可用，请使用下方“导出 CUE”下载相同 JSON。'); } }} className="mt-3 min-h-11 w-full rounded-xl border border-[var(--brand)] px-3 text-sm font-semibold text-[var(--brand)] disabled:opacity-40">复制全部科目 CUE JSON</button>
         <button type="button" onClick={() => setHistoryOpen(true)} className="mt-4 min-h-11 w-full rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold">修改 / 导入记录（{changeHistory.length}）</button>
         <button type="button" onClick={() => setMemoryImport(true)} className="mt-4 min-h-11 w-full rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold">从 DEFINITIONS / 对比记忆导入</button>
         <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={exportExchange} className="min-h-11 rounded-xl border border-[var(--card-border)] px-2 text-xs font-semibold">导出 CUE（含进度对照信息）</button><button type="button" onClick={() => setExchangeImport(true)} className="min-h-11 rounded-xl border border-[var(--brand)] px-2 text-xs font-semibold text-[var(--brand)]">导入 CUE 并逐条对比</button></div>
         {editingId && <div className="mt-4 rounded-xl border border-[var(--brand)] p-3 text-sm"><strong>编辑现有 Cue</strong><p className="mt-1 text-xs">修改内容与分类，保留原有学习历史、判定和备忘录。</p></div>}
         {editNotice && <p role="status" className="mt-3 text-sm text-[var(--brand)]">{editNotice}</p>}
         {subjectName && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-xs leading-5 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><strong>整批 Cue 更新：</strong>{latestCollectionUpdate ? `上次 ${formatReviewTimestamp(latestCollectionUpdate.updatedAt)} · 新增 ${latestCollectionUpdate.createdCount} · 修改 ${latestCollectionUpdate.modifiedCount} · 下次提醒 ${nextCueCollectionReminderDate(latestCollectionUpdate.updatedAt, reminderDays)}` : '尚未记录。单次新增或实际修改至少 5 条时自动记录，也可在导入时手动标记。'}</div>}
-        <div className="mt-5 space-y-3"><label className="block text-sm font-medium">学科<select required value={subjectName} onChange={(event) => { setSubjectName(event.target.value); setUnit(''); }} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5"><option value="">请选择</option>{subjectName && !catalog.some((item) => item.name === subjectName) && <option value={subjectName}>{subjectName}</option>}{catalog.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label><label className="block text-sm font-medium">大单元<select required value={unit} disabled={!subjectName} onChange={(event) => setUnit(event.target.value)} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 disabled:opacity-50"><option value="">请选择</option>{unit && !selectedSubjectConfig?.units.some((item) => item.name === unit) && <option value={unit}>{unit}</option>}{selectedSubjectConfig?.units.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label><label className="block text-sm font-medium">小单元 / 章节（可选）<input value={subsection} onChange={(event) => setSubsection(event.target.value)} maxLength={120} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-medium">Cue 类型<select value={type} onChange={(event) => setType(event.target.value as CueType)} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{CUE_TYPE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label className="block text-sm font-medium">显示预设<select value={display} onChange={(event) => setDisplay(event.target.value as CueDisplayPreset)} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{CUE_DISPLAY_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label></div><label className="block text-sm font-medium">题目大标题<input name="cuePrompt" required value={prompt} onChange={(event) => setPrompt(event.target.value)} maxLength={500} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="block text-sm font-medium">题目说明小字（可选）<textarea value={subtitle} onChange={(event) => setSubtitle(event.target.value)} rows={2} placeholder="背景、已知条件或作答限制；不要提前泄露答案" className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="block text-sm font-medium">参考答案（可选）<textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={3} className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="block text-sm font-medium">Marking points（每行一个）<textarea value={markingPoints} onChange={(event) => setMarkingPoints(event.target.value)} rows={3} className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><p className="text-xs leading-5 text-[var(--muted-foreground)]">所有文字字段均支持 LaTeX：<code>\(...\)</code> 行内公式，<code>\[...\]</code> 独立公式。</p><p className="rounded-xl bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800 dark:bg-blue-950/30 dark:text-blue-200">未保存的输入会暂存在当前浏览器标签页；关闭或刷新后可恢复，保存 CUE 后草稿会清除。若浏览器禁止本站使用 sessionStorage，请先复制内容。</p></div>
+        <div className="mt-5 space-y-3"><label className="block text-sm font-medium">学科<select required value={subjectName} onChange={(event) => { setSubjectName(event.target.value); setUnit(''); }} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5"><option value="">请选择</option>{subjectName && !catalog.some((item) => item.name === subjectName) && <option value={subjectName}>{subjectName}</option>}{catalog.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label><label className="block text-sm font-medium">大单元<select required value={unit} disabled={!subjectName} onChange={(event) => setUnit(event.target.value)} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 disabled:opacity-50"><option value="">请选择</option>{unit && !selectedSubjectConfig?.units.some((item) => item.name === unit) && <option value={unit}>{unit}</option>}{selectedSubjectConfig?.units.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label><label className="block text-sm font-medium">小单元 / 章节（可选）<input value={subsection} onChange={(event) => setSubsection(event.target.value)} maxLength={120} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-medium">Cue 类型<select value={type} onChange={(event) => setType(event.target.value as CueType)} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{CUE_TYPE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label className="block text-sm font-medium">显示预设<select value={display} onChange={(event) => setDisplay(event.target.value as CueDisplayPreset)} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{CUE_DISPLAY_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label></div><label className="block text-sm font-medium">题目大标题<input name="cuePrompt" required value={prompt} onChange={(event) => setPrompt(event.target.value)} maxLength={500} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="block text-sm font-medium">题目说明小字（可选）<textarea value={subtitle} onChange={(event) => setSubtitle(event.target.value)} rows={2} placeholder="背景、已知条件或作答限制；不要提前泄露答案" className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="block text-sm font-medium">参考答案（可选）<textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={3} className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><fieldset className="space-y-2 rounded-xl border border-[var(--card-border)] p-3"><legend className="px-1 text-sm font-medium">CUE 来源（可选）</legend><label className="block text-xs">来源类型<input aria-label="CUE 来源类型" value={sourceKind} onChange={event => setSourceKind(event.target.value)} maxLength={80} placeholder="ChatGPT / book / teacher / website" className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2" /></label><label className="block text-xs">具体来源<input aria-label="CUE 具体来源" value={cueSource} onChange={event => setCueSource(event.target.value)} maxLength={1000} placeholder="书名与版本 / 对话名称 / 老师与课次" className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2" /></label><label className="block text-xs">来源位置<input aria-label="CUE 来源位置" value={sourceLocation} onChange={event => setSourceLocation(event.target.value)} maxLength={300} placeholder="第 3 章 P42 Q5 / 对话日期与消息位置" className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2" /></label><label className="block text-xs">来源链接<input aria-label="CUE 来源链接" type="url" value={sourceUrl} onChange={event => setSourceUrl(event.target.value)} maxLength={2000} placeholder="https://…" className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2" /></label></fieldset><fieldset className="space-y-2 rounded-xl border border-[var(--card-border)] p-3"><legend className="px-1 text-sm font-medium">真题考查情况</legend><label className="block text-xs">考过吗？<select aria-label="CUE 真题考查情况" value={examStatus} onChange={event => setExamStatus(event.target.value as CueExamStatus)} className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2"><option value="unknown">未标注</option><option value="tested">考过</option><option value="not-tested">尚未考过</option></select></label><label className="block text-xs">考试依据 / 备注<textarea aria-label="CUE 考试依据" value={examHistory} onChange={event => setExamHistory(event.target.value)} maxLength={1000} rows={2} placeholder="例如 CAIE 9702 · 2025 May/June · Paper 22 · Q3(b)；尚未考过时注明核对范围" className="mt-1 w-full rounded-lg border border-[var(--card-border)] bg-[var(--background)] p-2" /></label></fieldset><label className="block text-sm font-medium">Marking points（每行一个）<textarea value={markingPoints} onChange={(event) => setMarkingPoints(event.target.value)} rows={3} className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><p className="text-xs leading-5 text-[var(--muted-foreground)]">所有文字字段均支持 LaTeX：<code>\(...\)</code> 行内公式，<code>\[...\]</code> 独立公式。</p><p className="rounded-xl bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800 dark:bg-blue-950/30 dark:text-blue-200">未保存的输入会暂存在当前浏览器标签页；关闭或刷新后可恢复，保存 CUE 后草稿会清除。若浏览器禁止本站使用 sessionStorage，请先复制内容。</p></div>
         {(type === 'multiple-choice' || display === 'multiple-choice') && <div className="mt-3 rounded-2xl border border-[var(--card-border)] p-3"><label className="block text-sm font-medium">选择题选项（每行一个）<textarea value={choices} onChange={(event) => setChoices(event.target.value)} rows={4} className="mt-1.5 w-full resize-none rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5" /></label><label className="mt-3 block text-sm font-medium">正确选项<select value={correctChoice} onChange={(event) => setCorrectChoice(Number(event.target.value))} className="mt-1.5 w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5">{choices.split('\n').map((item) => item.trim()).filter(Boolean).slice(0, 6).map((item, itemIndex) => <option key={`${itemIndex}-${item}`} value={itemIndex}>{itemIndex + 1} · {item}</option>)}</select></label></div>}
         <div className="mt-5 flex flex-wrap gap-2"><button type="submit" disabled={!subjectName || !unit || type === 'multiple-choice' && choices.split('\n').filter((item) => item.trim()).length < 2} className="rounded-full bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-40 dark:text-[#202124]">{editingId ? '保存修改' : '添加 Cue'}</button>{editingId && <button type="button" onClick={() => { resetEditor(); setEditNotice('已取消编辑。'); }} className="min-h-11 rounded-full border border-[var(--card-border)] px-4 py-2 text-sm">取消编辑</button>}<button type="button" disabled={!subjectName} onClick={() => setBulkImport(true)} className="rounded-full border border-violet-300 px-4 py-2.5 text-sm font-semibold text-violet-700 disabled:opacity-40 dark:border-violet-800 dark:text-violet-200"><span aria-hidden="true" className="material-icons-round mr-1 align-middle text-base">playlist_add</span>批量创建 / 修改 Cue · {enrichmentCues.length} 条现有</button><button type="button" disabled={!subjectName || enrichmentCues.length < 2} onClick={() => setSimilarityTool(true)} className="rounded-full border border-cyan-300 px-4 py-2.5 text-sm font-semibold text-cyan-700 disabled:opacity-40 dark:border-cyan-800 dark:text-cyan-200"><span aria-hidden="true" className="material-icons-round mr-1 align-middle text-base">difference</span>相似 CUE 检查</button><button type="button" disabled={!subjectName} onClick={async () => { if (!(await siteConfirm(`确认已经把「${subjectName}」的全部 Cue 与最新笔记完成整批检查，并且本次没有需要导入的修改吗？`))) return; const now = new Date().toISOString(); onChange(cues, catalog, collectionUpdate(now, { subjectName, createdCount: 0, modifiedCount: 0, totalCueCount: enrichmentCues.length }, true)); }} className="rounded-full border border-amber-300 px-4 py-2.5 text-sm font-semibold text-amber-700 disabled:opacity-40 dark:border-amber-800 dark:text-amber-200"><span aria-hidden="true" className="material-icons-round mr-1 align-middle text-base">event_available</span>本次已检查 · 无需导入</button></div>
       </form>
@@ -1650,6 +1655,7 @@ export default function ScheduleControl() {
   const autoDidaAttemptedRef = useRef(new Set<string>());
   const skipInitialEmptySaveRef = useRef(false);
   const scheduleBaseRef = useRef<unknown>(undefined);
+  const scheduleCommitRef = useRef(false);
   const questionBaseRef = useRef<unknown>(undefined);
   const localWritersRef=useRef(new Map<string,ReturnType<typeof createLocalEditWriter>>());
   const localWriter=useCallback((key:string)=>{
@@ -1692,7 +1698,9 @@ export default function ScheduleControl() {
     });
   }, [userId]);
   useEffect(() => {
-    if (!ready) return;
+    // Explicit completion advances the writer before its result reaches React.
+    // Do not submit an older render as a new edit that undoes that completion.
+    if (!ready || scheduleCommitRef.current) return;
     if (skipInitialEmptySaveRef.current && !scheduleHasContent(state)) {
       skipInitialEmptySaveRef.current = false;
       return;
@@ -1702,7 +1710,7 @@ export default function ScheduleControl() {
     void localWriter(STORAGE_KEY).write(scheduleBaseRef.current,candidate).then(merged=>{
       scheduleBaseRef.current=merged;
       setPersistenceError('');
-      if(canonicalJson(merged)!==canonicalJson(candidate))setState(current=>threeWayMerge(candidate,current,merged).merged as ScheduleControlState);
+      if(merged!==candidate && canonicalJson(merged)!==canonicalJson(candidate))setState(current=>threeWayMerge(candidate,current,merged).merged as ScheduleControlState);
       if(signedIn)window.dispatchEvent(new Event('jackyun-sync-edit'));
     }).catch(error=>setPersistenceError(error instanceof Error?error.message:'页面保存失败，原始内容已保留。'));
   }, [ready, signedIn, state,localWriter]);
@@ -1837,6 +1845,7 @@ export default function ScheduleControl() {
     }).catch((error) => setNotice(error instanceof Error ? `滴答清单自动同步：${error.message}` : '滴答清单自动同步失败。'));
   }, [didaAddedTaskKeys, now, ready, selectedDidaAccount, signedIn, state, questionBank]);
   const saveCueStudyProgress = useCallback((draft: CueStudyDraft) => {
+    if (scheduleCommitRef.current) return;
     setState((current) => saveCueStudyDraft(current, draft));
   }, []);
   const saveCueStudyAssessment = useCallback((task: LearningTask, cueId: string, status: LearningStatus, practice = false, editPractice = false) => {
@@ -1947,37 +1956,45 @@ export default function ScheduleControl() {
     return queueV5ResourceDeletion('cue', `cueStudyDrafts:${encodeURIComponent(cueDraftKey(draft))}`, crypto.randomUUID(), context.databaseScope);
   };
   const submitReview = async (task: LearningTask, details: ReviewDetails, evidence: LearningSessionEvidence) => {
-    const completedAt = new Date();
-    const subjectName = evidence.subjectName?.trim() || task.subjectName || '';
-    const subject = state.learningCatalog.find((item) => item.name === subjectName);
-    const progressChanges = evidence.materials.filter((material) => material.progress?.trim() && subject?.materialProgress[material.code] !== material.progress.trim());
-    const updateMaterials = Boolean(subject && progressChanges.length && (await siteConfirm(`要更新 ${subject.name} 的资料位置吗？\n${progressChanges.map((material) => `${material.code}: ${subject.materialProgress[material.code] ?? '未记录'} → ${material.progress}`).join('\n')}`)));
-    const status = deriveLearningStatus(evidence.cueIds, evidence.assessments);
-    let updated = completeLearningSession(state, task, details, evidence, completedAt);
-    const activeDraft = Object.values(allCueStudyDrafts(updated)).find(draft => draft.task.key === task.key);
-    if (activeDraft) {
-      try { await queueCueStudyDraftRemoval(activeDraft); updated = removeCueStudyDraft(updated, activeDraft); }
-      catch (error) { await siteAlert(error instanceof Error ? error.message : '学习草稿删除尚未同步，已保留本机进度。'); }
+    if (scheduleCommitRef.current) return;
+    scheduleCommitRef.current = true;
+    try {
+      const completedAt = new Date();
+      const subjectName = evidence.subjectName?.trim() || task.subjectName || '';
+      const subject = state.learningCatalog.find((item) => item.name === subjectName);
+      const progressChanges = evidence.materials.filter((material) => material.progress?.trim() && subject?.materialProgress[material.code] !== material.progress.trim());
+      const updateMaterials = Boolean(subject && progressChanges.length && (await siteConfirm(`要更新 ${subject.name} 的资料位置吗？\n${progressChanges.map((material) => `${material.code}: ${subject.materialProgress[material.code] ?? '未记录'} → ${material.progress}`).join('\n')}`)));
+      const status = deriveLearningStatus(evidence.cueIds, evidence.assessments);
+      let updated = completeLearningSession(state, task, details, evidence, completedAt);
+      const activeDraft = Object.values(allCueStudyDrafts(updated)).find(draft => draft.task.key === task.key);
+      if (activeDraft) {
+        try { await queueCueStudyDraftRemoval(activeDraft); updated = removeCueStudyDraft(updated, activeDraft); }
+        catch (error) { await siteAlert(error instanceof Error ? error.message : '学习草稿删除尚未同步，已保留本机进度。'); }
+      }
+      if (updateMaterials) updated = { ...updated, learningCatalog: updateSubjectMaterialProgress(updated.learningCatalog, subjectName, progressChanges) };
+      const saved = await localWriter(STORAGE_KEY).write(scheduleBaseRef.current, updated) as ScheduleControlState;
+      scheduleBaseRef.current = saved;
+      setState(current => threeWayMerge(state, current, saved).merged as ScheduleControlState);
+      setLearningResult(summarizeLearningCompletion(saved, evidence.cueIds, evidence.questionAttempts?.length ?? 0, evidence.assessments.map(item => item.status), completedAt));
+      setReviewTask(null);
+      setCueStudyTask(null);
+      if (universeEnabled && evidence.cueIds.length) setStarSummary('summary');
+      const syncMessage = signedIn ? ' · 正在同步到账号' : ' · 当前保存在本机';
+      if (status === 'unclear') {
+        setNotice(`○ 未通过，问题已记录；修复后请重新判定${syncMessage}`);
+        return;
+      }
+      if (!task.subjectId) {
+        const reviewed = evidence.assessments.length;
+        setNotice(`完成记录已保存${reviewed ? ` · 已更新 ${reviewed} 条 Cue` : ''}${syncMessage}`);
+        return;
+      }
+      setNotice(`${statusMark(status)} 已提交 · 复习间隔已更新${syncMessage}`);
+    } finally {
+      scheduleCommitRef.current = false;
+      // Resume autosave even on failure, including edits made during the save.
+      setState(current => ({ ...current }));
     }
-    if (updateMaterials) updated = { ...updated, learningCatalog: updateSubjectMaterialProgress(updated.learningCatalog, subjectName, progressChanges) };
-    const saved = await localWriter(STORAGE_KEY).write(scheduleBaseRef.current, updated) as ScheduleControlState;
-    scheduleBaseRef.current = saved;
-    setState(current => threeWayMerge(state, current, saved).merged as ScheduleControlState);
-    setLearningResult(summarizeLearningCompletion(saved, evidence.cueIds, evidence.questionAttempts?.length ?? 0, evidence.assessments.map(item => item.status), completedAt));
-    setReviewTask(null);
-    setCueStudyTask(null);
-    if (universeEnabled && evidence.cueIds.length) setStarSummary('summary');
-    const syncMessage = signedIn ? ' · 正在同步到账号' : ' · 当前保存在本机';
-    if (status === 'unclear') {
-      setNotice(`○ 未通过，问题已记录；修复后请重新判定${syncMessage}`);
-      return;
-    }
-    if (!task.subjectId) {
-      const reviewed = evidence.assessments.length;
-      setNotice(`完成记录已保存${reviewed ? ` · 已更新 ${reviewed} 条 Cue` : ''}${syncMessage}`);
-      return;
-    }
-    setNotice(`${statusMark(status)} 已提交 · 复习间隔已更新${syncMessage}`);
   };
   const generateAiReport = async (record: LearningRecord) => {
     setAiReportBusyId(record.id);

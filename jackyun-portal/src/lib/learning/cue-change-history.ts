@@ -1,6 +1,7 @@
 import type { StudyCue } from './schedule-control.ts';
 
 export const cueChangeFields = {
+  examStatus: '真题考查情况', examHistory: '考试依据', sourceKind: '来源类型', source: '具体来源', sourceLocation: '来源位置', sourceUrl: '来源链接',
   subjectId: '科目 ID', subjectName: '科目', unit: '单元', subsection: '章节',
   prompt: '问题', subtitle: '说明', answer: '参考答案', type: '类型', display: '显示方式',
   choices: '选项', correctChoice: '正确选项', markingPoints: '评分点', userDifficulty: '难度',

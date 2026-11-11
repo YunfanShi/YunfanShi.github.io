@@ -54,3 +54,5 @@
   .workspace { overflow-y: auto !important; }
   .session [data-cue-study-page] { flex: 1 0 auto !important; overflow: visible !important; }
 }
+/* Keep the save/actions menu above the retry directory on touch layouts. */
+.workspace > header { z-index: 50; }
