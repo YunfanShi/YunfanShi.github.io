@@ -13,6 +13,21 @@ const diagnosis = (patch:Partial<ExamDiagnosis>={}):ExamDiagnosis => ({...emptyD
 const session = (id='s', result:PracticeSession['questions'][number]['result']='wrong', patch:Partial<PracticeSession>={}):PracticeSession => ({id,date:'2026-10-15',subject:'Pure Math',scope:'Unseen set',source:'B',independent:true,mode:'exam',index:0,finished:true,updatedAt:1,questions:[{id:'q',name:id==='s'?'Q10':'Different unseen question',typeId:'math',typeName:'Sketching',limitSeconds:720,elapsedMs:600000,startedAt:null,result,blocked:false,node:'Graph Sketching',cause:'interpretation',retest:'Different unseen graph'}],...patch});
 const review = (patch:Partial<MarkingReview>={}):MarkingReview => ({id:'review',date:'2026-10-15',score:4,maxMarks:6,source:'User supplied 9618 paper reference',rule:'Any four distinct points, maximum six',method:'manual',points:[{id:'p1',text:'Mechanism',marks:4,status:'achieved',evidence:'Equivalent expression'},{id:'p2',text:'Necessary condition',marks:2,status:'missing',evidence:'Not stated',cause:'expression'}],...patch});
 
+test('new training transfers require explicit zero hints from the immutable first attempt',()=>{
+  const d=diagnosis({events:[{id:'repair',date:'2026-10-15',kind:'repair',note:'Explained the missing principle'}]});
+  for(const hints of [undefined,[],[{id:'hint',level:4 as const,at:'2026-10-15T10:00:00Z'}]]) {
+    const s=session('new','correct');
+    s.questions[0].training={kind:'unfamiliar',hints};
+    const state=applyPracticeSession(createEmptyScheduleState(),s);
+    const eligible=Array.isArray(hints)&&hints.length===0;
+    assert.equal(transferCandidates(state,d).length,eligible?1:0);
+    const checked={...d,events:[...d.events,{id:'transfer',date:s.date,kind:'transfer' as const,note:'Another scenario of the same principle',sessionId:s.id,questionId:'q'}]};
+    // Later edits cannot turn a prompted first attempt into an independent one.
+    state.practiceSessions![0].questions[0].training={kind:'unfamiliar',hints:[]};
+    assert.equal(diagnosisProgress(state,checked).status,eligible?'verified':'awaiting-transfer');
+  }
+});
+
 test('A and B scenarios separate facts and potential causes and validate scores / dates',()=>{
   const state=saveDiagnosis(createEmptyScheduleState(),diagnosis());
   assert.equal(state.examDiagnoses![0].certainty,'potential');

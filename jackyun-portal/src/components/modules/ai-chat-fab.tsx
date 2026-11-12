@@ -1,4 +1,6 @@
 'use client';
+
+import { TRAINING_POLICY } from '@/lib/learning/independent-training';
 import { workspaceStorage } from '@/lib/sync/repository';
 
 
@@ -689,6 +691,7 @@ export default function AiChatFab({
   const pathname = usePathname();
   const currentPath = propPath || pathname || '';
   const [open, setOpen] = useState(embedded || initiallyOpen);
+  const [independentTraining, setIndependentTraining] = useState(false);
   const [assistantMode, setAssistantMode] = useState<'chat' | 'agent'>(initialAssistantMode ?? (embedded ? 'agent' : 'chat'));
   const [fabPosition, setFabPosition] = useState<FabPosition | null>(null);
   const [isDraggingFab, setIsDraggingFab] = useState(false);
@@ -1053,12 +1056,13 @@ export default function AiChatFab({
   function getSystemMessage(): Message {
     const source = getEffectiveSource();
     const effectiveScope = getScopeFromSource(source);
+    const trainingInstruction = independentTraining ? `\n\n【独立训练模式】\n${TRAINING_POLICY}` : '';
     const ttsConfig = getTtsConfig();
     const ttsInstruction = ttsConfig.autoSpeakAi
       ? `【TTS】只输出一个语言为 ${ttsConfig.ttsLanguage} 的朗读摘要，并严格使用 [TTS_LANG:${ttsConfig.ttsLanguage}]摘要[/TTS_LANG]。标签放在回复最后；不要输出其他语言的 TTS 标签，不要转义标签中的下划线。`
       : '【TTS】自动朗读未开启，不要输出 TTS、TTS_LANG 或任何朗读标签。';
     if (assistantMode === 'chat') {
-      return { role: 'system', content: `你是 JackYun AI 的聊天助手。请直接、清晰地回答用户，支持 Markdown；不要调用工具，也不要声称执行了未实际执行的操作。\n\n当前页面：${getPageContext(source)}\n\n${ttsInstruction}\n${systemPromptSuffix}`.trim() };
+      return { role: 'system', content: `你是 JackYun AI 的聊天助手。请直接、清晰地回答用户，支持 Markdown；不要调用工具，也不要声称执行了未实际执行的操作。\n\n当前页面：${getPageContext(source)}\n\n${ttsInstruction}\n${systemPromptSuffix}${trainingInstruction}`.trim() };
     }
     const toolsDesc = getToolsDescription(effectiveScope);
     const pageContext = getPageContext(source);
@@ -1085,7 +1089,7 @@ export default function AiChatFab({
     let content = `${scopeName[effectiveScope] || scopeName.global}\n\n`;
     content += `【当前页面】\n${pageContext}\n\n`;
     content += `${getPlatformOverview()}\n\n`;
-    content += `${toolsDesc}\n\n${ttsInstruction}\n${systemPromptSuffix}`.trim();
+    content += `${toolsDesc}\n\n${ttsInstruction}\n${systemPromptSuffix}${trainingInstruction}`.trim();
     return { role: 'system', content };
   }
 
@@ -2062,6 +2066,7 @@ export default function AiChatFab({
             {!embedded && <div className="grid shrink-0 grid-cols-2 rounded-xl bg-[var(--background)] p-1">
               {(['chat', 'agent'] as const).map((mode) => <button key={mode} type="button" onClick={() => setAssistantMode(mode)} className={`min-h-8 rounded-lg px-3 text-xs font-bold transition ${assistantMode === mode ? 'bg-[var(--card)] text-[#155eef] shadow-sm' : 'text-[var(--muted-foreground)]'}`}>{mode === 'chat' ? '聊天' : 'Agent'}</button>)}
             </div>}
+              <label className="flex items-center gap-2 px-2 text-xs font-semibold"><input type="checkbox" checked={independentTraining} onChange={event => setIndependentTraining(event.target.checked)} />独立训练模式</label>
             <div className="flex items-center gap-1 flex-shrink-0">
               {/* 设置按钮 */}
               <button

@@ -1195,7 +1195,7 @@
             </div>
             <div>
                 <div class="logo-text">StudyGuide</div>
-                <div class="logo-badge">学习系统操作手册 · 内容版本 2026-10-13</div>
+                <div class="logo-badge">学习系统操作手册 · 内容版本 3.81.0</div>
             </div>
         </div>
 
@@ -1317,6 +1317,7 @@
                     step('Unit · 可选', 'Unit Summary / Conclusion · Optional Compression', '只有能提炼整个 Unit 最核心的逻辑、关系或共同规则时才写；如果只能复述 Notes，就 Skip。', '<b>Summary is for integration, not completion.</b><p>例如 Projectile Motion 可以压缩为：Horizontal and vertical motions are analysed independently, but they share the same time.</p><p>Summary 不按每节课写，也不是做 Syllabus coverage check 的前置条件。</p>')
                 ], 'SUBSECTION：Class Learning → Write Cue → Textbook Check → Update Notes / Cue → Need Extra Verification? → Homework → Update from Evidence → Next-day Cue Recall → √ / △ / ○。'),
                 review: methodPage('Active Recall & Spacing：先保证材料完整，再闭卷检索', 'sync_alt', '第一次正式 Cue Recall 可以放到第二天。复习以单条 Cue 为最小单位；周五先做 Completeness Audit，周末再做 Retrieval & Repair。', '次日处理新 Cue；Friday 检查 Notes / Textbook / PPT 并补 Cue；Weekend 逐条检索、查看证据并修复。', '每条 Cue 独立得到 √、△或○；材料不完整先补输入，检索失败只修最小缺口。', [
+                    step('深度 Cue', '只针对真实漏洞', '从 Definition / Principle / Conditions / Transfer 中选择与实际漏洞相关的一项，闭卷解释并用新情境验证。', '<b>按需创建：</b>题目或检索暴露什么缺口就修什么，不强制重做所有旧卡。'),
                     step('①', 'Next-day Recall · 先遮 Notes', 'Cover Notes → read Cue → answer from memory；按知识类型解释、写公式并应用、画过程、比较、trace 或列提纲。', '<b>先输出再看资料。</b>不要求所有知识点在写 Cue 当晚立刻完成 Recall。Anki 可以承载短问答，但只是可选工具。'),
                     step('通用标准', 'Mark-scheme Precision · 所有学科', '任何学科的 Definition、State、Describe、Explain 都不能只凭“意思差不多”判为 √。', '<b>[DEF]</b> required term + required relationship + necessary condition / qualifier。<p><b>[STATE-n]</b>按分值给足 n 个独立有效点。</p><p><b>[EXPLAIN-n]</b>保持 marking-point chain：原因 / 变化 → 中间机制 → 结果。缺必要关键词、限定条件或中间因果就是 △。</p><p>Physics、CS、Biology、Chemistry、Economics 等都适用；具体关键词由对应教材、syllabus 和 mark scheme 决定。</p>'),
                     step('②', '√ / △ / ○ · 记录这一次检索', '√＝独立、准确、完整；△＝有印象但遗漏或需要轻提示；○＝无法独立回忆或看答案才想起。', '<b>√：</b>leave it，之后做 spaced review。<p><b>△：</b>找出缺失部分，做 minimal repair，稍后重试。</p><p><b>○：</b>重开 Notes / Textbook，只重学最小缺口；关闭资料再 recall，需要应用时加一道代表题。</p>'),
@@ -1345,17 +1346,19 @@
             subTabs: ['timed', 'general', 'types', 'diagnose', 'stuck'],
             subTabLabels: { timed: '限时新题', general: '难题怎么拆', types: '学科 / 题型怎么做', diagnose: '错题诊断', stuck: '卡题怎么办' },
             content: {
-                timed: methodPage('限时新题：先独立动笔，再修最高影响卡点', 'timer', '2026-10-13 当前执行版：解决看错题时会、动笔时慢、陌生题突然卡住。预习、康奈尔、Cue、PQ、费曼法保留；不要先清空全部复习才能做新题。', '每周固定新题训练；新题先完整限时尝试，卡住后才打开拆题工具。', '留下首次真实作答与用时，按 ✓ / △ / ○ 批改；只修主要卡点，再换另一道新题复测。', [
-                    step('每周', '按近期考试诊断设置学科频率', '默认 Pure Math、Mechanics、Physics 各一次 25 分钟；Computer Science 两次 20 分钟；Statistics 以新作业维持。Schedule 可自定义次数和时长。', '<b>作业可抵扣：</b>首次接触且独立计时的学校作业直接算，不叠加同类任务。繁忙周先完成三门主科，按作业量弹性调整。到 Schedule 的“本周限时新题”卡片安排和记录。'),
-                    step('①', '新题先独立限时完整作答', '选没做过、没看过答案的新题；从读题起计时，独立写完或到时停笔。', '<b>不要先猜题型标签或看提示：</b>先圈条件、画草图、写目标或第一式。保留原始作答；求助后会做不能改成首次独立成功。'),
+                timed: methodPage('限时新题：先独立动笔，再修最高影响卡点', 'timer', '3.81.0 执行版：解决看错题时会、动笔时慢、陌生题突然卡住。预习、康奈尔、Cue、PQ、费曼法保留；不要先清空全部复习才能做新题。', 'Physics 四周试行中先独立尝试，再按需主动求助；其他训练依实际需要调整。', '留下首次真实作答与用时，按 ✓ / △ / ○ 批改；只修主要卡点，再换另一道新题复测。', [
+                    step('Physics · 四周试行', '每次 30–45 分钟，替换原刷题', 'W1 两次陌生训练，每次 3–4 题并找 3 个漏洞；W2 两至三次四阶段训练与深度 Cue；W3 两次变式加一步综合；W4 一至两次限时混合并对比。', '<b>题目比例建议：</b>基础 20% / 变式 50% / 陌生 30%，按实际表现和时间调整。不是额外叠加原刷题。'),
+                    step('四阶段', '独立 → 最小提示 → 隐藏 → 迁移', '独立尝试 5–8 分钟：写已知、所求、规律和缺失关系；主动请求最小提示；隐藏提示独立完成；用另一情境同原理题验证。', '<b>保留首次结果：</b>求助后的完成不能算首次独立完成。记录四项：独立完成、启动、提示依赖、限时表现；只记录真实证据。'),
+                    step('每周', '按近期考试诊断设置学科频率', 'Physics 按四周试行安排，每次 30–45 分钟替换原刷题；Pure Math、Mechanics、Computer Science 两次或其他频率可按实际需要调整，Statistics 按需。', '<b>作业可抵扣：</b>首次接触且独立计时的学校作业直接算，不叠加同类任务。繁忙周先完成三门主科，按作业量弹性调整。到 Schedule 的“本周限时新题”卡片安排和记录。'),
+                    step('①', '新题先独立限时完整作答', '选没做过、没看过答案的新题；先独立尝试 5–8 分钟，再按需主动请求最小提示。限时测验按题目时间停笔。', '<b>不要先猜题型标签或看提示：</b>先圈条件、画草图、写目标或第一式。保留原始作答；求助后会做不能改成首次独立成功。'),
                     step('②', '三类首次结果', '✓ 正确且按时；△ 正确但超时；○ 错误、无思路或求助。', '<b>与 Cue 评价分别看：</b>Cue 的 √ / △ / ○ 是检索完整性；新题的 ✓ / △ / ○ 记录准确性和时间。按时正确率 = ✓ ÷ 全部首次新题数，熟题不进入分母。'),
                     step('③', 'Repair → 新题 Transfer', '只针对主要问题复习少量 Cue/PQ，再换另一道新题独立复测。', '<b>PQ 的角色：</b>口头费曼解释原理、公式变量和单位、边界条件、执行轨迹，用于 Repair。反复做熟的 PQ 不能用作模拟题，也不能替代新题迁移验证。'),
                     step('计时', '按卷面时间和分值估算', '纯数、力学、统计按试卷总时长 / 分值；Edexcel IAL 单元卷可先按约 1.2 分钟/分估计。', '<b>Physics：</b>选择题先尝试约 1.5–2 分钟/题；结构题按该卷时间与分值比。起步阶段在目标上限放宽约 20%，这些是当前训练起点，实际以该卷规则为准。'),
-                    step('卡题', '约 90 秒无法起步时标记', '先圈条件、画图、找第一式；约 90 秒完全无法起步可考虑先跳过，第二轮不限时重试。', '<b>不是统一解题时限：</b>已有进展时按题目目标时间继续。第二轮用于诊断，不能覆盖第一次 ○ 或超时记录；拆题工具在首次完整尝试之后调用。'),
+                    step('卡题', '按分值与进展决定是否跳题', '先圈条件、画图、找第一式；读题约 1–2 分钟、列关系约 2–3 分钟仍无实质进展时，可写下有把握的关系并标记跳题，第二轮不限时重试。', '<b>不是统一解题时限：</b>已有进展时按题目目标时间继续。第二轮用于诊断，不能覆盖第一次 ○ 或超时记录；平时训练可按四阶段主动请求最小提示。'),
                     step('题库', 'A / B / C 三类用途', 'A 熟题/PQ 修复原理与错误；B 未见分类或混合题做平时限时训练；C 未打开解析的完整卷保留考前模拟。', '<b>保护陌生度：</b>不要为清空列表耗尽 B/C。做过的题转作 A 修复参考，不计新题正确率。'),
-                    step('每周指标', '只看四项证据', '① 新题真正动笔；② 按时正确率；③ 超时或无从下手次数；④ 最常见的 1–2 个卡点。', '<b>卡点写具体：</b>审题、作图、受力分析、公式选择等。每次先修最高影响一项，不追求写满错题本；计算粗心反复出现时检查执行与检查流程。'),
+                    step('每周指标', '只看四项证据', '① 独立完成；② 启动；③ 提示依赖；④ 限时表现。', '<b>卡点写具体：</b>审题、作图、受力分析、公式选择等。每次先修最高影响一项，不追求写满错题本；计算粗心反复出现时检查执行与检查流程。'),
                     step('减法', '先保护作业与新题训练', '必交作业 → 本周限时新题 → 相关红/黄 Cue 与 PQ 修复 → 其他知识树、全量错题、Chapter Review/EXTRA。', '<b>不要因笔记没全复习完取消所有新题练习。</b>留存抽测低于 90% 时，可用 70% 新内容 + 30% 旧内容回收，继续新课和真实动笔。'),
-                    step('考前', '按剩余天数调整新题', '7–4 天：少量陌生新题限时做；3–2 天：跨章节混合限时小测；前一天：基础与中等题热身 + 高价值错题。', '<b>避免临时高难题：</b>新题先完整作答，再拆卡住部分。整卷模拟按实际时间和准备程度安排，不强制每周两套。')
+                    step('考前', '按剩余天数调整新题', '7–4 天：少量陌生新题限时做；3–2 天：跨章节混合限时小测；前一天：基础与中等题热身 + 高价值错题。', '<b>避免临时高难题：</b>先独立尝试，再按需拆解卡点。整卷模拟按实际时间和准备程度安排，不强制每周两套。')
                 ], 'Independent Timed Attempt → Mark → Targeted Repair → New-question Transfer。'),
                 general: methodPage('难题怎么拆', 'route', '普通题直接做；陌生题、综合题或做到一半断掉时，再打开这一页。', '看完不知道怎么下手、信息太多、知识点会但不会组合，或中途失去方向时。', '找到一条从现有信息通向目标的路线，然后回到题目继续做。', [
                     step('①', '目标是什么？', '先确认最后要你求、证、解释、比较、判断，还是写算法。', '<b>先看题目最后一句和 command word。</b>例如“Explain why...”要交代 why/how；“Compare...”要让双方落在同一比较维度；“Prove...”要从已知走到指定结论。此时不用抄整道题。'),
@@ -1438,8 +1441,9 @@
                     step('可选', '题型 / 指令词', '只有当它有助于统计和找规律时才记录。', '<b>周统计：</b>查看哪类根因、题型或指令词重复最多，再把最重要的2–3项送到执行中心的本周修复任务。')
                 ]),
                 stuck: methodPage('卡题怎么办', 'build', '先找到具体卡点，只拿足以继续的最小提示，再练真正缺的那一小项能力。', '一道题没有新进展、看答案后仍不懂，或同一能力重复失败时。', '不同题面、无提示、经过间隔后仍能独立完成。', [
+                    step('四阶段', '先独立，再主动求助', '先独立尝试 5–8 分钟，写已知 / 所求 / 规律 / 缺关系；主动请求最小提示，隐藏提示后独立完成，再用另一情境同原理题验证。', '<b>求助不是失败：</b>但不要把提示后的完成记成首次独立完成。'),
                     step('①', '说出具体卡点', '用一句话写“我已经知道什么；下一步不知道什么”。', '<b>不要写：</b>“整题不会”“我太粗心”。<p><b>更好：</b>“我能读出两个变量，但不知道应比较变化率还是总量。”</p>'),
-                    step('②', '只要下一步最小提示', '先提示条件，再提示方法类别，再提示中间方向；最后才给关键步骤。', '<b>向AI提问：</b>“不要直接给答案，只给我下一步最小提示。”一旦你能继续，就停止拿提示并回题目。下面的“卡题提示器”就是按这条规则工作。'),
+                    step('②', '只要下一步最小提示', '先提示概念或公式，再提示关键关系或适用条件，然后提示局部步骤；完整解析须明确请求。', '<b>向AI提问：</b>“不要直接给答案，只给我下一步最小提示。”一旦你能继续，就停止拿提示并回题目。下面的“卡题提示器”就是按这条规则工作。'),
                     step('③', '找出为什么卡住', '结合Root Cause判断是Knowledge、Selection、Reasoning、Response Structure等哪一类。', '<b>如果是Knowledge：</b>直接回“学习”补知识。<p><b>如果是Selection：</b>方法会但没选出来；Reasoning是方向对却推不下去；Response Structure是内容知道但不会按题型组织。</p>'),
                     step('④', '只练缺的那一小项', '先练薄弱能力，不马上堆很多完整综合题。', '<b>Selection：</b>只判断几道题该用什么方法并说理由。<p><b>Reasoning：</b>专门补缺失的中间推理链。</p><p><b>Response Structure：</b>只练Explain / Compare / Evaluate的答案骨架。</p>'),
                     step('⑤', '新题验证，再延迟重测', '当天做一条同能力但不同题面的新题，之后纳入Review / Retest。', '<b>不要当天刷很多近乎相同的题。</b>当天通过只说明刚修完能用；隔一段时间再用不同题面、无提示完成，才算真正修好。')
@@ -1515,6 +1519,7 @@
                     step('④', '临近考试再增加模拟', '完整mock用于检验时间、Paper切换、答题结构和状态稳定。', '<b>频率由证据决定：</b>每次完整模拟都要留出诊断与修复时间。考试还有几个月时，不需要维持高频full paper。')
                 ]),
                 strategy: methodPage('考场策略：正常做，卡住再跳', 'timer', '不要求开卷先给整张卷分类。默认从前往后做，用进展和分值保护后面的分数。', '计时练习和正式考试都使用，逐渐练成自然反应。', '能正常推进；无新进展时会跳；长题有结构；最后只查个人高风险。', [
+                    step('卡题', '读题、列关系、标记跳题', '先用约 1–2 分钟读题，再用约 2–3 分钟列关系；无实质进展时写下有把握的关系，标记并跳题。', '<b>按分值和卷面时间调整：</b>这些只是参考，已有进展时可继续；回头再处理。'),
                     step('①', '正常从前往后做，卡住就跳', '有稳定进展就继续；重复尝试却没有新思路，就标记并往后做。', '<b>不是遇到难题立刻逃：</b>如果只差一个明确步骤，可以收尾；如果一直重走同一路径，就先保护后面能拿的分，最后再回来。'),
                     step('②', '用“分值 → 时间”作为尺度', '总时间 ÷ 总分可以估出每分大约可用多久，但不是硬性秒表。', '<b>判断要同时看进展：</b>3分题花了远超合理时间且完全没推进，应跳过；高分题正在稳定展开，可以继续。'),
                     step('③', '高分值长题先想一下结构', 'Explain、Evaluate、Proof或Algorithm开始前，用很短时间确定主要点、因果链、比较维度或大致步骤。', '<b>不是正式写长提纲：</b>只要避免写到一半才发现漏了核心部分。结构想清就立刻作答。'),
@@ -1618,7 +1623,7 @@
         progress: {},
         aiMessages: [],
         aiLoading: false,
-        stuckHint: { known: '', stuck: '', history: [], loading: false }
+        stuckHint: { known: '', stuck: '', context: null, history: [], currentLevel: 0, pending: null, hidden: false, error: '', loading: false }
     };
 
     // Load from localStorage
@@ -1657,6 +1662,20 @@
                 };
                 if (savedTaskDraft.generated === true) {
                     STATE.taskDraft = buildTaskDraft(STATE.taskWriterDraft.subject, STATE.taskWriterDraft.action, STATE.taskWriterDraft.scope, STATE.taskWriterDraft.standard);
+                }
+            }
+        } catch(e) { /* session storage may be unavailable */ }
+        try {
+            const draft = JSON.parse(sessionStorage.getItem('studyguide_stuck_hint_draft_v1') || 'null');
+            if (draft && typeof draft === 'object') {
+                STATE.stuckHint.known = typeof draft.known === 'string' ? draft.known.slice(0, 4000) : '';
+                STATE.stuckHint.stuck = typeof draft.stuck === 'string' ? draft.stuck.slice(0, 4000) : '';
+                if (draft.context && typeof draft.context.known === 'string' && typeof draft.context.stuck === 'string') {
+                    STATE.stuckHint.context = draft.context;
+                    STATE.stuckHint.history = Array.isArray(draft.history) ? draft.history.filter(x => typeof x === 'string' && x.trim()).slice(-100) : [];
+                    STATE.stuckHint.currentLevel = [1, 2, 3, 4].includes(draft.currentLevel) ? draft.currentLevel : Math.min(STATE.stuckHint.history.length, 3);
+                    STATE.stuckHint.pending = draft.pending && typeof draft.pending.text === 'string' && [1, 2, 3, 4].includes(draft.pending.level) ? draft.pending : null;
+                    STATE.stuckHint.hidden = !!draft.hidden;
                 }
             }
         } catch(e) { /* session storage may be unavailable */ }
@@ -1838,7 +1857,7 @@
         const periodLabels = { daily: '今日', weekly: '本周', biweekly: '每两周' };
         const periodDescriptions = {
             daily: '先保护必交作业与本周限时新题；预习、Notes、Cue 和到期修复按需安排，不要求清空复习后才做题。',
-            weekly: '主科各一次限时新题，CS 两次、Statistics 按需（可自定义）；只看四项指标，修最高影响卡点。知识树和全量检查按余力安排。',
+            weekly: 'Physics 四周试行每次 30–45 分钟；其他学科按需安排。记录四项真实证据，修最高影响卡点。知识树和全量检查按余力安排。',
             biweekly: '只检查长期留存：随机抽测已掌握内容，更新状态并调整复习策略。'
         };
 
@@ -1877,7 +1896,7 @@
     }
 
     function renderCurrentRevision() {
-        return `<div class="execution-note"><span class="material-icons-round">timer</span><div><strong>2026-10-13 当前执行版 · 独立限时做新题</strong>必交作业 → 本周限时新题 → 相关红/黄 Cue、PQ 修复 → 其他检查。先真实动笔，再修最高影响卡点；不等复习清空。主科各一次约 25 分钟，CS 两次各约 20 分钟，Statistics 按需；可在 Schedule 调整；首次接触且独立计时的作业可抵扣。<div class="timeline-actions"><button class="method-link" onclick="navigateToMethod('practice', 'timed')">查看限时新题方法</button><a class="method-link" href="/schedule" target="_top">前往 Schedule 安排与记录</a><a class="method-link" href="/schedule#exam-diagnosis" target="_top">考试诊断与新题验证</a><a class="method-link" href="/practice-timer" target="_top">练习计时器</a></div></div></div>`;
+        return `<div class="execution-note"><span class="material-icons-round">timer</span><div><strong>Physics 四周试行 · 独立解题训练</strong>必交作业 → 本周限时新题 → 相关红/黄 Cue、PQ 修复 → 其他检查。先真实动笔，再修最高影响卡点；不等复习清空。Physics 每次 30–45 分钟替换原刷题；其他学科频率按需要调整。<div class="timeline-actions"><button class="method-link" onclick="navigateToMethod('practice', 'timed')">查看限时新题方法</button><a class="method-link" href="/schedule" target="_top">前往 Schedule 安排与记录</a><a class="method-link" href="/schedule#exam-diagnosis" target="_top">考试诊断与新题验证</a><a class="method-link" href="/practice-timer" target="_top">练习计时器</a></div></div></div>`;
     }
 
     function renderWeeklyDaySetting() {
@@ -1919,7 +1938,7 @@
         return `
             <details class="source-panel">
                 <summary>来源与版本（Study Methods and Execution）</summary>
-                <p style="margin-top:10px;">Version: 20261013 · Powered by Jack Shi。当前执行版以独立限时新题为核心，优先于原文旧版冲突安排；依据用户提供的 2026-10-13 修订。预习、康奈尔、Cue、PQ 与费曼方法继续保留。来源包括 Gemini、Bilibili、ChatGPT 与 Google。</p>
+                <p style="margin-top:10px;">Version: 3.81.0 · Powered by Jack Shi。当前执行版整合独立解题、深度理解与考试表现，Physics 四周试行替换原刷题。预习、康奈尔、Cue、PQ 与费曼方法继续保留。来源包括 Gemini、Bilibili、ChatGPT 与 Google。</p>
                 <div class="source-links">
                     <a href="https://www.bilibili.com/video/BV1tibi6xEN4/" target="_blank" rel="noopener noreferrer">学习知识体系</a>
                     <a href="https://www.bilibili.com/video/BV1EhB9BLEHs/" target="_blank" rel="noopener noreferrer">学习时间</a>
@@ -1940,11 +1959,11 @@
                 { time: '课中 → 小节结束', icon: 'edit_note', title: 'Class Learning → Write Cue → Textbook Check', desc: '课中 Record；一个 subsection 学完后写 Cue，再用教材 Locate → Compare → Fill Gaps → Leave。', detail: '<b>分层处理：</b>Notes 跟课堂走，Cue 跟 subsection 走。Cue 优先当天、最迟隔天；教材只补缺口，不重学整节。', checkKey: 'school_record', required: true, method: { tab: 'learn', subTab: 'cornell', label: '查看“学习 → Cornell Learning”' } },
                 { time: '教材核对后 · 按需', icon: 'rule', title: 'Need Extra Verification?', desc: '清楚且 homework 足够就 Skip；不确定能否独立做时，只做 1–2 道代表题。', detail: '<b>这是选做 decision：</b>教材题用于验证，不用于凑工作量。做不出时只修最小缺口，再换一道代表题验证。', checkKey: 'school_process', required: false, method: { tab: 'learn', subTab: 'cornell', label: '查看“教材题何时可跳过”' } },
                 { time: '放学后', icon: 'assignment', title: 'Homework → Update from Evidence', desc: '把作业当作 Application + Verification；只把暴露的问题补进 Notes、红笔易错点或 Problematic Questions。', detail: '<b>避免重复：</b>作业已充分验证的知识不再机械加题。红笔写学到的短提醒；Problematic Questions 保存以后要重测的题，两者不要重复。', checkKey: 'school_homework', required: true, method: { tab: 'learn', subTab: 'cornell', label: '查看“学习 → Update from Evidence”' } },
-                { time: '本周固定时段', icon: 'timer', title: '独立限时新题 → 修复 → 换新题', desc: '先做未见新题，记录 ✓ / △ / ○ 与用时；学校首次接触且独立计时的作业可抵扣。', detail: '不要先清空 Cue/PQ。主科各一次约 25 分钟，CS 两次各约 20 分钟，Statistics 按需；可在 Schedule 调整；只修最高影响卡点。', checkKey: 'timed_new_attempt', required: false, priorityLabel: '周内固定', method: { tab: 'practice', subTab: 'timed', label: '查看限时新题闭环' } },
+                { time: '本周固定时段', icon: 'timer', title: '独立限时新题 → 修复 → 换新题', desc: '先做未见新题，记录 ✓ / △ / ○ 与用时；学校首次接触且独立计时的作业可抵扣。', detail: '不要先清空 Cue/PQ。Physics 每次 30–45 分钟替换原刷题，其他学科按需调整；只修最高影响卡点。', checkKey: 'timed_new_attempt', required: false, priorityLabel: '周内固定', method: { tab: 'practice', subTab: 'timed', label: '查看限时新题闭环' } },
                 { time: '次日 / 到期时', icon: 'sync_alt', title: 'Cue Recall → √ / △ / ○', desc: '第一次正式闭卷检索可以在第二天；之后只处理到期内容和 △ / ○ 的最小缺口。', detail: '<b>Day 1：</b>learn + Cue + textbook + homework。<b>Day 2：</b>cover Notes → read Cue → answer from memory → classify。没有到期内容时不必随便找旧笔记重看。', checkKey: 'due_review', required: true, method: { tab: 'learn', subTab: 'review', label: '查看“学习 → Active Recall & Spacing”' } }
             ],
             weekly: [
-                { time: '本周固定', icon: 'timer', title: '三门主科固定训练与可调学科频率', desc: 'Pure Math、Mechanics、Physics 各一次 20–30 分钟；CS 两次约 20 分钟；Statistics 以首次新作业维持。', detail: '只看四项：真正动笔、按时正确率、超时/无法起步、主要 1–2 个卡点。作业可抵扣，繁忙周先保三门主科。', checkKey: 'weekly_timed_new', required: true, method: { tab: 'practice', subTab: 'timed', label: '查看新题与每周指标' } },
+                { time: '本周固定', icon: 'timer', title: '三门主科固定训练与可调学科频率', desc: 'Physics 按四周试行，每次 30–45 分钟替换原刷题；其他学科根据实际需要调整。', detail: '记录四项真实证据：独立完成、启动、提示依赖、限时表现。', checkKey: 'weekly_timed_new', required: true, method: { tab: 'practice', subTab: 'timed', label: '查看新题与每周指标' } },
                 { time: 'Friday · 1', icon: 'fact_check', title: '检查本周 Notes', desc: '按 Unit / subsection 翻本周 Notes，确认 Information 是否完整、课堂标记是否已经处理。', detail: '<b>这是 Completeness Audit，不是闭卷复习。</b>先保证之后用于 Recall 的材料本身完整。', checkKey: 'weekly_signals', required: false },
                 { time: 'Friday · 2', icon: 'library_books', title: '对照资料补 Notes 与 Cue', desc: '对照 Textbook、PPT、Blackboard Writing 补缺口，并为新内容建立可检索的 Cue。', detail: '<b>新 Cue 当天只检查质量：</b>问题是否清晰、答案边界是否正确；真正闭卷判定放到之后。', checkKey: 'weekly_scope', required: false, method: { tab: 'learn', subTab: 'cornell', label: '查看 Friday Completeness Audit' } },
                 { time: 'Weekend · 1', icon: 'psychology', title: '逐条 Cue Retrieval', desc: '遮住 Notes，按单条 Cue 回答并分别记录 √ / △ / ○；Definitions / Properties 使用严格关键词标准。', detail: '<b>不要给整个学科一个总状态。</b>每一条 Cue 都保留自己的检索证据。稳定的 √ 不必机械重做。', checkKey: 'weekly_gaps', required: true, method: { tab: 'learn', subTab: 'review', label: '查看 Active Recall & Spacing' } },
@@ -2224,66 +2243,105 @@
         }
     }
 
+    function saveStuckHintDraft() {
+        const { known, stuck, context, history, currentLevel, pending, hidden } = STATE.stuckHint;
+        try { sessionStorage.setItem('studyguide_stuck_hint_draft_v1', JSON.stringify({ known, stuck, context, history, currentLevel, pending, hidden })); } catch(e) { /* retain live draft */ }
+    }
+
+    function updateStuckHintDraft(field, value) {
+        const hint = STATE.stuckHint;
+        hint[field] = value;
+        if (hint.context && (hint.known.trim() !== hint.context.known || hint.stuck.trim() !== hint.context.stuck)) {
+            hint.context = null; hint.history = []; hint.currentLevel = 0; hint.pending = null; hint.error = ''; hint.hidden = false;
+            saveStuckHintDraft(); render();
+            const input = document.getElementById(field === 'known' ? 'hintKnown' : 'hintStuck');
+            if (input) { input.focus(); input.setSelectionRange(value.length, value.length); }
+            return;
+        }
+        saveStuckHintDraft();
+    }
+
+    function revealStuckHint() {
+        const hint = STATE.stuckHint;
+        if (!hint.pending) return;
+        if (hint.known.trim() !== hint.context?.known || hint.stuck.trim() !== hint.context?.stuck) {
+            hint.pending = null; hint.history = []; hint.currentLevel = 0; hint.context = null;
+        } else {
+            hint.history.push(hint.pending.text); hint.history = hint.history.slice(-100);
+            hint.currentLevel = hint.pending.level; hint.pending = null; hint.hidden = false;
+        }
+        saveStuckHintDraft(); render();
+    }
+
+    function toggleStuckHint() {
+        STATE.stuckHint.hidden = !STATE.stuckHint.hidden;
+        saveStuckHintDraft();
+        render();
+    }
+
     function renderStuckHintTool() {
         const hint = STATE.stuckHint;
         const latest = hint.history[hint.history.length - 1] || '';
         return `<section class="tool-card" aria-labelledby="stuckHintTitle">
             <h3 id="stuckHintTitle">卡题提示器</h3>
-            <p>默认只给当前最小提示，不直接把答案或完整步骤揭出来。能继续以后就回题目。</p>
+            <p>先独立尝试 5–8 分钟，再主动请求最小提示；隐藏提示后继续，最后换情境验证。明确要求完整解答时可以直接提出。</p>
             <div class="tool-form">
-                <label class="tool-field full">我已经做到哪里<textarea id="hintKnown" rows="3" placeholder="例如：我已经列出两个变量，也知道最终要比较变化率">${escapeHtml(hint.known)}</textarea></label>
-                <label class="tool-field full">我具体卡在哪里<textarea id="hintStuck" rows="3" placeholder="例如：不知道该用总量还是变化率继续">${escapeHtml(hint.stuck)}</textarea></label>
+                <label class="tool-field full">题面和我已经做到哪里<textarea id="hintKnown" ${hint.loading ? 'disabled' : ''} rows="3" oninput="updateStuckHintDraft('known', this.value)" placeholder="题面、已知、所求和已尝试的规律">${escapeHtml(hint.known)}</textarea></label>
+                <label class="tool-field full">我具体卡在哪里<textarea id="hintStuck" ${hint.loading ? 'disabled' : ''} rows="3" oninput="updateStuckHintDraft('stuck', this.value)" placeholder="缺少什么关系，或明确提出需要完整解答">${escapeHtml(hint.stuck)}</textarea></label>
             </div>
             <div class="timeline-actions">
-                <button class="method-link" onclick="requestStuckHint(false)" ${hint.loading ? 'disabled' : ''}>${hint.loading ? '正在判断…' : '给我最小提示'}</button>
-                ${latest ? `<button class="method-link" onclick="requestStuckHint(true)" ${hint.loading ? 'disabled' : ''}>再给一点提示</button>` : ''}
+                <button class="method-link" onclick="requestStuckHint(false)" ${hint.loading || hint.pending ? 'disabled' : ''}>${hint.loading ? '正在判断…' : '给我最小提示'}</button>
+                ${latest ? `<button class="method-link" onclick="requestStuckHint(true)" ${hint.loading || hint.pending ? 'disabled' : ''}>再给一点提示</button><button class="method-link" onclick="toggleStuckHint()">${hint.hidden ? '查看提示' : '隐藏提示，继续独立完成'}</button>` : ''}
             </div>
-            ${latest ? `<div class="tool-output"><b>当前提示 ${hint.history.length}</b><div>${renderAiText(escapeHtml(latest))}</div></div>` : ''}
+            ${hint.pending ? `<button class="method-link" onclick="revealStuckHint()">查看新提示</button>` : ''}
+            ${hint.error ? `<div class="tool-output" role="alert">${escapeHtml(hint.error)}</div>` : ''}
+            ${latest && !hint.hidden ? `<div class="tool-output"><b>当前提示 · 第 ${hint.currentLevel} 层</b><div>${renderAiText(escapeHtml(latest))}</div></div>` : ''}
         </section>`;
     }
 
     async function requestStuckHint(more) {
-        const known = more ? STATE.stuckHint.known : document.getElementById('hintKnown')?.value.trim();
-        const stuck = more ? STATE.stuckHint.stuck : document.getElementById('hintStuck')?.value.trim();
+        const hint = STATE.stuckHint;
+        const known = (document.getElementById('hintKnown')?.value || '').trim();
+        const stuck = (document.getElementById('hintStuck')?.value || '').trim();
+        hint.known = known; hint.stuck = stuck;
         if (!known || !stuck) {
-            showSimpleModal('先写清具体卡点', '请分别写“我已经做到哪里”和“我具体卡在哪里”。');
+            saveStuckHintDraft();
+            showSimpleModal('先写清具体卡点', '请分别写题面和已做到哪里、具体卡在哪里。');
             return;
         }
+        if (!hint.context || hint.context.known !== known || hint.context.stuck !== stuck) {
+            hint.context = { known, stuck }; hint.history = []; hint.currentLevel = 0; hint.pending = null; hint.hidden = false;
+        }
+        saveStuckHintDraft();
         const cfg = JSON.parse(localStorage.getItem('jackyun-ai-config') || '{}');
         if (!cfg.apiKey) {
             showSimpleModal('需要先配置AI', '请先在Jackyun Portal设置页面配置AI API Key。');
             return;
         }
-        STATE.stuckHint.known = known;
-        STATE.stuckHint.stuck = stuck;
-        STATE.stuckHint.loading = true;
+        hint.loading = true; hint.error = '';
+        const explicitSolution = /(?:完整|详细|全部|直接).{0,8}(?:解答|解析|解法|答案|步骤)|(?:给|告诉).{0,4}(?:答案|完整解)/.test(stuck);
+        const level = explicitSolution ? 4 : Math.min(hint.history.length + 1, 3);
+        const previous = hint.history.map((text, index) => `提示${index + 1}：${text}`).join('\n');
+        const prompt = `题面及已做到：${known}\n学生卡在或请求：${stuck}\n${previous ? `之前已给提示：\n${previous}\n` : ''}请求层级 ${level}：1 概念或公式，2 关键关系或适用条件，3 局部步骤，4 完整解析。只有明确请求完整解答时给第4层；否则只给一个最小必要提示。信息不足只问一个必要问题。`;
         render();
-        const level = STATE.stuckHint.history.length + 1;
-        const previous = STATE.stuckHint.history.map((text, index) => `提示${index + 1}：${text}`).join('\n');
-        const prompt = `学生已经做到：${known}\n学生卡在：${stuck}\n${previous ? `之前已经给过：\n${previous}\n` : ''}现在给第${level}层提示。不要给最终答案，不要完整解题，只给一个足以继续的最小提示。顺序优先：相关条件 → 方法类别 → 中间方向 → 最后才是关键步骤。如果信息不足，只问一个最必要的问题。回复不超过80字。`;
         try {
             const res = await fetch('/api/llm-proxy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    baseUrl: cfg.baseUrl,
-                    apiKey: cfg.apiKey,
-                    model: cfg.model || 'deepseek-chat',
-                    messages: [
-                        { role: 'system', content: '你是卡题提示器。严格遵守最小提示原则；除非用户明确要求完整答案，否则绝不一次给出完整解法。' },
-                        { role: 'user', content: prompt }
-                    ]
-                })
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model || 'deepseek-chat', messages: [
+                    { role: 'system', content: '你是卡题提示器。默认只给最小提示；用户明确要求完整解答或答案时，尊重其请求。' },
+                    { role: 'user', content: prompt }
+                ] })
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            const answer = data.choices?.[0]?.message?.content || data.content || data.response || '暂时没有生成提示，请稍后再试。';
-            STATE.stuckHint.history.push(answer);
+            const answer = data.choices?.[0]?.message?.content ?? data.content ?? data.response;
+            if (typeof answer !== 'string' || !answer.trim()) throw new Error('empty response');
+            // A response is not used until the learner actually chooses to reveal it.
+            hint.pending = { text: answer.trim(), level };
         } catch (error) {
-            STATE.stuckHint.history.push('提示暂时无法生成。请先回题目圈出目标、已有信息和最具体的缺口，再向老师或同学只问下一步。');
+            hint.error = '提示暂时无法生成，请稍后重试；本次不会增加提示层级。';
         } finally {
-            STATE.stuckHint.loading = false;
-            render();
+            hint.loading = false; saveStuckHintDraft(); render();
         }
     }
 
@@ -2658,14 +2716,14 @@
 - 学习闭环位于考试下面，只解释理解 → 连接 → 检索 → 应用，以及失败时应去哪个模块；不包含学校日、自学、复习或卡题子页。
 - 执行与专注处理计划、启动、环境和注意力。计划写到“可以直接开始”即可，默认动作 + 范围，只有完成含义不清时才补完成标准。
 - TickTick等任务管理器负责What、When、Scope、Deadline、Priority和时间安排；StudyGuide负责How、诊断与修复。不要把任务标题写成方法说明书。
-- 2026-10-13 当前执行版优先：作业→固定限时新题→相关红/黄 Cue/PQ 修复→其他。主科各一次20–30分钟，CS每周两次各约20分钟、Statistics按需，Schedule可自定义，首次接触且独立计时作业可抵扣。新题先独立完整作答并记✓/△/○，再修最高影响卡点、换新题复测；熟PQ不计新题正确率。考前7–4天陌生新题，3–2天混合小测，前一天基础中等题热身。不要建议先清空全部复习或强制每周两套整卷。
+- 当前执行版优先：作业→固定限时新题→相关红/黄 Cue/PQ 修复→其他。Physics 四周试行每次30–45分钟替换原刷题，其他学科和 Schedule 按需调整。新题先独立尝试，按需主动请求最小提示并保留首次证据，再修最高影响卡点、换新题复测；熟PQ不计新题正确率。考前7–4天陌生新题，3–2天混合小测，前一天基础中等题热身。不要建议先清空全部复习或强制每周两套整卷。
 
 回答顺序：
 1. 先确认学科、具体主题，以及任务类型或指令词（计算、Explain、Compare、Evaluate、材料分析、实验、Trace、Pseudocode等）。信息足够时不要重复追问。
 2. 判断主要卡点：学习理解、检索记忆、题型选择、推理执行、考试策略，还是启动专注。
 3. 只推荐最相关的一个主板块和一个具体页面，给出“现在做什么”和“做到什么算完成”。必要时再给一个后续去向。
 4. 不把Cornell、费曼、知识树、Anki、番茄钟并列成必须全部执行的方法。它们只是按需工具；Anki和番茄钟始终是可选的。
-5. 用户卡题时，默认只给当前最小提示：先提示条件，再提示方法类别，再提示中间方向，最后才是关键步骤。一旦用户能继续就停止；除非用户明确要求完整答案，否则不直接完整解题。
+5. 训练中先鼓励独立尝试5–8分钟，写已知、所求、规律和缺关系；主动请求后给最小提示，隐藏后独立完成，再换情境同原理验证。用户明确要求完整解答时尊重请求。深度Cue只针对真实漏洞选择Definition / Principle / Conditions / Transfer。Physics四周试行每次30–45分钟替换原刷题；记录独立完成、启动、提示依赖、限时四项真实证据。用户卡题时，默认只给当前最小提示：先提示概念或公式、关键关系或适用条件、局部步骤；完整解析必须明确请求。一旦用户能继续就停止；除非用户明确要求完整答案，否则不直接完整解题。
 
 IELTS路由与规则：
 - 用户问IELTS Listening错题，优先路由到“IELTS专项 → Listening”，而不是泛化的错题诊断。Test Mode禁止暂停/回拨；Repair Mode才局部重听，并按原因做最小修复。

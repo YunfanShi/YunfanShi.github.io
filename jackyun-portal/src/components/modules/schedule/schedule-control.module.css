@@ -1,3 +1,6 @@
+.mobileCueManagement { display: none; }
+@media (max-width: 1023px), (pointer: coarse) { .mobileCueManagement { display: inline-flex; } }
+
 .mobileToolsButton,
 .mobileTools {
   display: none;

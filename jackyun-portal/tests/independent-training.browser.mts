@@ -1,0 +1,92 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.ts';
+const { chromium } = createRequire(import.meta.url)('playwright');
+const base=process.env.JACKYUN_TEST_URL ?? 'http://127.0.0.1:3239';
+if (!['127.0.0.1','localhost'].includes(new URL(base).hostname)) throw Error('Training regression requires a loopback fixture');
+const out=process.env.JACKYUN_SCREENSHOT_DIR ?? '/tmp/jackyun-independent-training';
+await mkdir(out,{recursive:true});
+const browser=await chromium.launch({headless:true,channel:process.env.JACKYUN_BROWSER_CHANNEL ?? 'chrome'});
+const results: unknown[]=[];
+try {
+  for (const width of [1440,390]) {
+    const context=await browser.newContext({viewport:{width,height:1000},hasTouch:width===390,timezoneId:'Asia/Shanghai'});
+    const seed=createEmptyScheduleState();seed.settings.tutorialSeenVersion=1;
+    seed.timetable={version:1,name:'Fixture schedule',courses:[{id:'physics',name:'Physics',color:'#abcdef',review:true,sessions:[{day:4,start:'08:00',end:'09:00'}]}]};
+    const page=await context.newPage(),errors:string[]=[];
+    page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(60000);
+    page.on('pageerror',(e:Error)=>errors.push(e.message));
+    await page.goto(base+'/schedule');
+    await page.getByRole('region',{name:'考试诊断与新题验证'}).waitFor({timeout:60000});
+    await page.evaluate(async value=>{
+      const saved=new Promise<void>((resolve,reject)=>{
+        const timer=setTimeout(()=>reject(Error('Fixture data was not persisted')),15000);
+        const listener=(e:Event)=>{if((e as CustomEvent).detail.state==='saved'){clearTimeout(timer);window.removeEventListener('jackyun-local-durability',listener);resolve();}};
+        window.addEventListener('jackyun-local-durability',listener);
+      });
+      localStorage.setItem('jackyun_schedule_control_v1',JSON.stringify(value));await saved;
+    },seed);
+    await page.goto(base+'/practice-timer');
+    const frame=page.frameLocator('iframe[title="练习计时器"]');
+    await frame.locator('#subject option').first().waitFor({state:'attached',timeout:90000});
+    await frame.locator('#subject').selectOption('physics');
+    await frame.locator('#mode').selectOption('exam');
+    await frame.locator('#setup summary').filter({hasText:'统计分类'}).click();
+    await frame.locator('#independent').check();
+    await frame.locator('#contentType').selectOption('textbook');
+    await frame.locator('#scope').fill(`Fixture unseen forces ${width}`);
+    await frame.locator('#create').click();
+    console.log(`${width}: practice created`);
+    await frame.locator('#toggle').click();
+    await page.waitForTimeout(1300);
+    await frame.locator('#toggle').click();
+    await frame.locator('#questionInfoButton').click();
+    const editor=frame.locator('#trainingEvidence');
+    await editor.locator('summary').click();
+    console.log(`${width}: training editor open`);
+    await editor.getByLabel('题目类型',{exact:true}).selectOption('unfamiliar');
+    await editor.getByLabel('独立建立有效第一步',{exact:true}).selectOption('yes');
+    await editor.getByLabel('无进展卡题 分钟',{exact:true}).fill('0');
+    await editor.getByLabel('无进展卡题 分钟',{exact:true}).press('Tab');
+    await editor.getByLabel('卡题决策',{exact:true}).selectOption('progress');
+    await editor.getByLabel('失分原因',{exact:true}).selectOption('none');
+    if(width===1440)await editor.getByRole('checkbox',{name:'明确本题未使用任何提示',exact:true}).check();
+    else {
+      await editor.getByLabel('实际已查看的提示层级',{exact:true}).selectOption('4');
+      await editor.getByRole('button',{name:'记录一次已实际查看的提示',exact:true}).click();
+      assert.equal(await editor.getByRole('checkbox',{name:'明确本题未使用任何提示',exact:true}).isDisabled(),true);
+    }
+    await frame.locator('#result').selectOption('correct');
+    console.log(`${width}: training fields submitted`);
+    await page.waitForFunction(()=>Boolean(JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')??'{}').practiceSessions?.[0]?.questions?.[0]?.firstAttempt?.training));
+    await editor.screenshot({path:`${out}/evidence-${width}.png`});
+    await frame.locator('#closeQuestionInfo').click();
+    await frame.locator('#finish').click();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')??'{}').practiceSessions?.[0]?.finished===true);
+    const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')??'{}').practiceSessions[0].questions[0].firstAttempt);
+    assert.equal(before.training.kind,'unfamiliar');assert.equal(before.training.firstStep,'yes');
+    assert.equal(before.training.hints.length,width===1440?0:1);
+    await page.reload();
+    await frame.locator('#historyButton').click();
+    await frame.locator('#historyRows button').first().click({timeout:60000});
+    await frame.locator('#report').waitFor({state:'visible'});
+    const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')??'{}').practiceSessions[0].questions[0].firstAttempt);
+    assert.deepEqual(after,before,'first evidence survives reload without changing the assistance history');
+    await page.goto(base+'/schedule');
+    const metrics=page.locator('[data-independent-training-metrics]');await metrics.waitFor({state:'attached',timeout:60000});
+    await metrics.locator('summary').click();
+    const text=await metrics.innerText();
+    assert.match(text,width===1440?/1\s*\/\s*1/:/0\s*\/\s*1/);
+    if(width===390)assert.match(text,/完整解析/);
+    await metrics.screenshot({path:`${out}/metrics-${width}.png`});
+    await page.getByRole('button',{name:'打开 JackYun AI 悬浮窗',exact:true}).click();
+    const training=page.getByRole('checkbox',{name:'独立训练模式',exact:true});await training.waitFor();
+    assert.equal(await training.isChecked(),false);await training.check();assert.equal(await training.isChecked(),true);
+    await training.uncheck();assert.equal(await training.isChecked(),false);
+    assert.deepEqual(errors,[]);
+    results.push({width,firstEvidenceRestored:true,independent:width===1440,hints:before.training.hints.length,trainingModeOptIn:true,errors});
+    await context.close();
+  }
+} finally {await browser.close();}
+await writeFile(`${out}/results.json`,JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));

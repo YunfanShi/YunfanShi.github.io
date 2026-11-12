@@ -5,7 +5,7 @@ const html = readFileSync('public/StudyGuide.html', 'utf8');
 
 const required = [
   '执行中心', '学习', '习题', '考试', '学习闭环', '执行与专注', 'IELTS 专项',
-  '内容版本 2026-10-13', 'studyguide_progress',
+  '内容版本 3.81.0', 'studyguide_progress',
   '今日', '本周', '每两周', '当前没有考试叠加计划',
   'Preview Once', 'Class Learning → Write Cue → Textbook Check', 'Need Extra Verification?', 'Homework → Update from Evidence', 'Cue Recall → √ / △ / ○',
   '检查本周 Notes', '对照资料补 Notes 与 Cue', '逐条 Cue Retrieval', 'Evidence Review → Targeted Repair', '安排后续复习范围',
@@ -40,7 +40,7 @@ const required = [
   '计划与取舍', '降低启动门槛', '守住一个专注段',
   '计划写到可以直接开始', '默认只写动作 + 范围', '完成标准按需添加', '执行后再细化',
   'TickTick负责做什么和什么时候', 'StudyGuide负责开始以后具体怎么学',
-  '任务写法助手', '生成简洁任务', 'Copy', '卡题提示器', '再给一点提示',
+  '任务写法助手', '生成简洁任务', 'Copy', '卡题提示器', '再给一点提示', 'Physics · 四周试行', '独立尝试 5–8 分钟', 'Definition / Principle / Conditions / Transfer', '隐藏提示，继续独立完成',
   '不要直接给答案，只给我下一步最小提示',
   'data-tab="ielts"', 'check-ielts', "if (tab === 'ielts') STATE.subTab = 'overview'",
   "subTabs: ['overview', 'listening', 'reading', 'writing', 'speaking', 'language']",
@@ -279,7 +279,7 @@ if (JSON.stringify(modern) !== JSON.stringify(legacy)) {
 }
 
 const timed = runtime.renderModuleFor('practice', 'timed');
-for (const text of ['按近期考试诊断设置学科频率', 'Computer Science 两次', '首次接触且独立计时', '✓ 正确且按时', '△ 正确但超时', 'A / B / C', '约 90 秒', '70% 新内容 + 30%', '新题 Transfer']) {
+for (const text of ['按近期考试诊断设置学科频率', 'Computer Science 两次', '首次接触且独立计时', '✓ 正确且按时', '△ 正确但超时', 'A / B / C', '读题约 1–2 分钟', '70% 新内容 + 30%', '新题 Transfer']) {
   if (!timed.includes(text)) throw new Error(`Timed new-question guide is missing: ${text}`);
 }
 for (const [days, expected] of [[1, '动笔热身'], [2, '混合限时小测'], [3, '混合限时小测'], [4, '陌生新题'], [7, '陌生新题']]) {

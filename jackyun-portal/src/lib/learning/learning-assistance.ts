@@ -1,3 +1,4 @@
+import { hasDeepUnderstanding } from './cue-understanding.ts';
 import type { CueReview, StudyCue } from './schedule-control.ts';
 
 export type CueDifficulty = 'easy' | 'medium' | 'hard' | 'extreme';
@@ -7,7 +8,9 @@ export const cueSkills = ['general', 'definition', 'calculate', 'explain', 'proo
 export interface CueAiAdvice { skill?: typeof cueSkills[number]; classificationNote?: string; signature: string; difficulty: CueDifficulty; reason: string; qualityIssue?: string; suggestedPrompt?: string; generatedAt: string }
 export interface DailyLearningAdvice { date: string; batchLimit: number; reason: string }
 export function cueContentSignature(cue: StudyCue): string {
-  return JSON.stringify([cue.subjectName, cue.unit, cue.type, cue.prompt, cue.subtitle, cue.answer, cue.choices, cue.correctChoice, cue.markingPoints]);
+  const content: unknown[] = [cue.subjectName, cue.unit, cue.type, cue.prompt, cue.subtitle, cue.answer, cue.choices, cue.correctChoice, cue.markingPoints];
+  if (hasDeepUnderstanding(cue.deepUnderstanding)) content.push(cue.deepUnderstanding);
+  return JSON.stringify(content);
 }
 /** Legacy/edited content is automatic; refresh evidence after three new practice days. */
 export function cueNeedsAiAnalysis(cue: StudyCue, reviews: CueReview[] = []): boolean {

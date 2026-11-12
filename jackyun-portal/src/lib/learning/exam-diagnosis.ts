@@ -104,9 +104,15 @@ export function diagnosisFromPractice(state: ScheduleControlState, sessionId: st
     node: q.node, causes: Object.hasOwn(ROOT_CAUSES,q.cause) ? [q.cause as RootCause] : [], problem: q.cause || '补充已确认的错误事实', target: q.retest || '修复主要卡点，再换一道新题独立验证',
     sourceRecordId: `timer-${s.id}`, sourceSessionId: s.id, sourceQuestionId: q.id };
 }
+// Legacy diagnoses retain their original evidence. New training records must
+// explicitly report zero revealed hints before they can verify independence.
+function unassistedTransfer(q: PracticeQuestion): boolean {
+  const evidence = firstPracticeOutcome(q).training;
+  return evidence === undefined || Array.isArray(evidence.hints) && evidence.hints.length === 0;
+}
 export function transferCandidates(state: ScheduleControlState, d: ExamDiagnosis): { session: PracticeSession; question: PracticeQuestion }[] {
   return (state.practiceSessions ?? []).filter(s => s.finished && s.independent && ['B','homework'].includes(s.source) && s.subject === d.subject && s.date >= d.date)
-    .flatMap(session => session.questions.filter(q => firstPracticeOutcome(q).result !== 'pending' && firstPracticeOutcome(q).elapsedMs > 0 && !(session.id === d.sourceSessionId && q.id === d.sourceQuestionId)
+    .flatMap(session => session.questions.filter(q => unassistedTransfer(q) && firstPracticeOutcome(q).result !== 'pending' && firstPracticeOutcome(q).elapsedMs > 0 && !(session.id === d.sourceSessionId && q.id === d.sourceQuestionId)
       && !d.events.some(e => e.kind === 'transfer' && e.sessionId === session.id && e.questionId === q.id)).map(question => ({session,question})));
 }
 export function appendDiagnosisEvent(state: ScheduleControlState, base: ExamDiagnosis, event: DiagnosisEvent): ScheduleControlState {
@@ -122,7 +128,7 @@ export function diagnosisProgress(state: ScheduleControlState, d: ExamDiagnosis)
   const transfers = d.events.filter(e => e.kind === 'transfer').flatMap(e => {
     const s = state.practiceSessions?.find(s => s.id === e.sessionId);
     const q = s?.questions.find(q => q.id === e.questionId);
-    if (!s || !q || !s.finished || !s.independent || !['B','homework'].includes(s.source) || s.subject !== d.subject || s.date < d.date || s.date !== e.date
+    if (!s || !q || !unassistedTransfer(q) || !s.finished || !s.independent || !['B','homework'].includes(s.source) || s.subject !== d.subject || s.date < d.date || s.date !== e.date
       || (s.id === d.sourceSessionId && q.id === d.sourceQuestionId) || !d.events.some(r => r.kind === 'repair' && r.date <= e.date)) return [];
     const first = firstPracticeOutcome(q);
     const completeMarks = !d.skill || Boolean(e.review && e.review.score === e.review.maxMarks && !e.review.points.some(p => p.status === 'uncertain' || p.status === 'missing'));

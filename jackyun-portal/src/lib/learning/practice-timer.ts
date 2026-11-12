@@ -1,6 +1,7 @@
 import type { ScheduleControlState } from './schedule-control.ts';
 import { PRACTICE_CONTENT_TYPES, type PracticeContentType, type TimedPracticeRecord } from './timed-practice.ts';
 import { threeWayMerge } from '../sync/merge.ts';
+import { validateTrainingEvidence, type PracticeTrainingEvidence } from './independent-training.ts';
 
 export interface PracticeQuestion {
   id: string; name: string; typeId: string; typeName: string; limitSeconds: number;
@@ -8,7 +9,8 @@ export interface PracticeQuestion {
   blocked: boolean; node: string; cause: string; retest: string;
   subjectName?: string; courseId?: string; presetFamily?: string;
   unit?: string; subsection?: string;
-  firstAttempt?: { result: PracticeQuestion['result']; elapsedMs: number; limitSeconds: number; blocked: boolean };
+  training?: PracticeTrainingEvidence;
+  firstAttempt?: { training?: PracticeTrainingEvidence; result: PracticeQuestion['result']; elapsedMs: number; limitSeconds: number; blocked: boolean };
 }
 export function firstPracticeOutcome(q: PracticeQuestion) { return q.firstAttempt ?? q; }
 export function currentPracticeRecords(state: ScheduleControlState): TimedPracticeRecord[] {
@@ -56,6 +58,8 @@ export function validateSession(value: unknown): PracticeSession {
     || !Number.isInteger(s.index) || s.index < 0 || s.index >= s.questions.length) throw Error('练习记录格式无效，原数据已保留。');
   const ids = new Set<string>();
   for (const q of s.questions) {
+    if(q?.training!==undefined)validateTrainingEvidence(q.training);
+    if(q?.firstAttempt?.training!==undefined)validateTrainingEvidence(q.firstAttempt.training);
     if (q.firstAttempt && (!['correct','wrong','help'].includes(q.firstAttempt.result) || !Number.isFinite(q.firstAttempt.elapsedMs) || q.firstAttempt.elapsedMs < 0 || q.firstAttempt.elapsedMs > 86400000 || !Number.isFinite(q.firstAttempt.limitSeconds) || q.firstAttempt.limitSeconds < 10 || q.firstAttempt.limitSeconds > 86400 || typeof q.firstAttempt.blocked !== 'boolean')) throw Error('首次作答快照无效。');
     if (q && ['unit','subsection'].some(key => q[key as 'unit' | 'subsection'] !== undefined && (typeof q[key as 'unit' | 'subsection'] !== 'string' || q[key as 'unit' | 'subsection']!.length > 200))) throw Error('逐题单元或小节格式无效，原数据已保留。');
     if (q && ((q.subjectName !== undefined && (typeof q.subjectName !== 'string' || !q.subjectName.trim() || q.subjectName.length > 100)) || (q.courseId !== undefined && (typeof q.courseId !== 'string' || !q.courseId || q.courseId.length > 150)) || (q.presetFamily !== undefined && !families.includes(q.presetFamily)))) throw Error('逐题科目关联无效，原记录已保留。');
@@ -124,8 +128,8 @@ export function applyPracticeSession(state: ScheduleControlState, value: unknown
       if (q.firstAttempt && JSON.stringify(old.firstAttempt) !== JSON.stringify(q.firstAttempt)) throw Error('首次作答不可覆盖。');
       q.firstAttempt = structuredClone(old.firstAttempt);
     } else if (old && old.result !== 'pending') {
-      q.firstAttempt = {result:old.result, elapsedMs:old.elapsedMs, limitSeconds:old.limitSeconds, blocked:old.blocked};
-    } else if (q.result !== 'pending') q.firstAttempt = {result:q.result, elapsedMs:q.elapsedMs, limitSeconds:q.limitSeconds, blocked:q.blocked};
+      q.firstAttempt = {result:old.result, elapsedMs:old.elapsedMs, limitSeconds:old.limitSeconds, blocked:old.blocked,...(old.training?{training:structuredClone(old.training)}:{})};
+    } else if (q.result !== 'pending') q.firstAttempt = {result:q.result, elapsedMs:q.elapsedMs, limitSeconds:q.limitSeconds, blocked:q.blocked,...(q.training?{training:structuredClone(q.training)}:{})};
   }
   if (existing?.questions.some(q => q.firstAttempt && !session.questions.some(x => x.id === q.id))) throw Error('首次作答题目不可删除。');
   const records = session.finished ? practiceEvidenceRecords(session) : [];

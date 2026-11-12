@@ -1,3 +1,4 @@
+import type { CueTrainingEvidence } from './cue-understanding.ts';
 import { isCueMasteryPaused, addCalendarDays, dateKey, matchLearningCatalogSubject, type LearningCatalogSubject, type LearningStatus, type LearningTask, type StudyCue } from './schedule-control.ts';
 
 export const QUESTION_BANK_KEY = 'jackyun_schedule_questions_v1';
@@ -64,6 +65,7 @@ export interface QuestionAttempt extends QuestionResponse {
   review: QuestionReviewState;
 }
 export interface StudyDraft {
+  cueTrainingEvidence?: Record<string, CueTrainingEvidence>;
   id: string;
   mode: StudyMode;
   task: LearningTask;

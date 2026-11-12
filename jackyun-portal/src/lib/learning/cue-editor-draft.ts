@@ -1,9 +1,11 @@
+import { hasDeepUnderstanding, parseCueDeepUnderstanding, type CueDeepUnderstanding } from './cue-understanding.ts';
 import { parseCueSourceFields, type CueSourceFields } from './cue-source.ts';
 import type { CueDisplayPreset, CueType } from './schedule-control.ts';
 
 export const CUE_EDITOR_DRAFT_KEY = 'jackyun_cue_manager_editor_draft_v1';
 
 export interface CueManagerEditorDraft extends CueSourceFields {
+  deepUnderstanding?: CueDeepUnderstanding;
   subjectName: string;
   unit: string;
   subsection: string;
@@ -35,14 +37,14 @@ export function readCueManagerEditorDraft(storage: Pick<Storage, 'getItem'>): Cu
       !displayPresets.includes(value.display as CueDisplayPreset) ||
       !Number.isInteger(value.correctChoice) || (value.correctChoice ?? -1) < 0
     ) return null;
-    return { ...value, ...parseCueSourceFields(value as Record<string, unknown>) } as CueManagerEditorDraft;
+    return { ...value, ...(value.deepUnderstanding !== undefined ? {deepUnderstanding:parseCueDeepUnderstanding(value.deepUnderstanding,true)} : {}), ...parseCueSourceFields(value as Record<string, unknown>) } as CueManagerEditorDraft;
   } catch {
     return null;
   }
 }
 
 export function cueManagerEditorDraftHasContent(draft: CueManagerEditorDraft): boolean {
-  return Boolean(draft.examHistory || (draft.examStatus && draft.examStatus !== 'unknown') || draft.sourceKind || draft.source || draft.sourceLocation || draft.sourceUrl || draft.editingId || draft.subsection || draft.prompt || draft.subtitle || draft.answer || draft.choices || draft.markingPoints);
+  return Boolean(hasDeepUnderstanding(draft.deepUnderstanding) || draft.examHistory || (draft.examStatus && draft.examStatus !== 'unknown') || draft.sourceKind || draft.source || draft.sourceLocation || draft.sourceUrl || draft.editingId || draft.subsection || draft.prompt || draft.subtitle || draft.answer || draft.choices || draft.markingPoints);
 }
 
 export function writeCueManagerEditorDraft(storage: Pick<Storage, 'setItem'>, draft: CueManagerEditorDraft): void {

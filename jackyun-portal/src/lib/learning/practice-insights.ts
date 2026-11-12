@@ -71,3 +71,59 @@ export function practiceWeaknessTrends(state: ScheduleControlState) {
   }
   return [...groups.entries()].map(([key,row]) => ({key,...row,entries:row.entries.sort((a,b)=>a.date.localeCompare(b.date)),repeated:row.entries.filter(e=>e.status==='repair').length>=2}));
 }
+
+/** First attempts only. Timer summaries and manual aggregate rows are not added again. */
+export function independentTrainingSummary(state: ScheduleControlState, date: string) {
+  const {start,end}=practiceWeek(date);
+  const result={start,end,total:0,unfamiliar:0,unknownKind:0,graded:0,knownHints:0,unknownHints:0,independent:0,firstStepKnown:0,firstStepYes:0,hintCount:0,highestHint:0,timed:0,overtime:0,stuckKnown:0,stuckMs:0,skips:0,repeats:0,knowledgeLoss:0,timeLoss:0,bothLoss:0};
+  const seen=new Set<string>();
+  for(const s of state.practiceSessions??[]){
+    if(!s.finished||!s.independent||!['B','homework'].includes(s.source)||s.date<start||s.date>end)continue;
+    for(const q of s.questions){
+      const id=`${s.id}:${q.id}`;
+      const family=q.presetFamily??s.presetFamily,subject=q.subjectName??s.subject;
+      if(seen.has(id)||!(family==='physics'||subject==='Physics'))continue;
+      seen.add(id);
+      const first=firstPracticeOutcome(q);
+      if(first.elapsedMs<=0)continue;
+      result.total++;
+      // A legacy first-attempt snapshot has unknown training evidence even if
+      // the current report was subsequently edited to claim no assistance.
+      const t=q.firstAttempt?q.firstAttempt.training:q.training;
+      if(!t?.kind){result.unknownKind++;continue;}
+      if(t.kind!=='unfamiliar')continue;
+      result.unfamiliar++;
+      if(t.firstStep!==undefined){result.firstStepKnown++;result.firstStepYes+=Number(t.firstStep==='yes');}
+      if(first.result==='pending')continue;
+      result.graded++;
+      if(t.hints===undefined)result.unknownHints++;
+      else {
+        result.knownHints++;result.hintCount+=t.hints.length;
+        result.highestHint=Math.max(result.highestHint,...t.hints.map(h=>h.level));
+        result.independent+=Number(first.result==='correct'&&!first.blocked&&t.hints.length===0);
+      }
+      result.timed++;result.overtime+=Number(first.elapsedMs>first.limitSeconds*1000);
+      if(t.stuckMs!==undefined){result.stuckKnown++;result.stuckMs+=t.stuckMs;}
+      result.skips+=Number(t.decision==='skip');result.repeats+=Number(t.decision==='repeat');
+      result.knowledgeLoss+=Number(t.lossCause==='knowledge');result.timeLoss+=Number(t.lossCause==='time');result.bothLoss+=Number(t.lossCause==='both');
+    }
+  }
+  return result;
+}
+
+/** Trial weeks retain the normal Monday-to-Sunday boundaries used everywhere else. */
+export function independentTrainingFourWeeks(state: ScheduleControlState, through: string) {
+  const dates=(state.practiceSessions??[]).filter(s=>s.finished&&s.independent&&['B','homework'].includes(s.source)&&s.date<=through&&s.questions.some(q=>{
+    const t=q.firstAttempt?q.firstAttempt.training:q.training;
+    return ((q.presetFamily??s.presetFamily)==='physics'||(q.subjectName??s.subject)==='Physics')&&t&&Object.keys(t).length>0&&firstPracticeOutcome(q).elapsedMs>0;
+  })).map(s=>s.date).sort();
+  if(!dates.length)return {start:null,weeks:[]} as {start:string|null;weeks:Array<ReturnType<typeof independentTrainingSummary>&{week:number}>};
+  const start=practiceWeek(dates[0]).start;
+  // Exclude future-dated evidence when reviewing an earlier selected day.
+  const visible={...state,practiceSessions:(state.practiceSessions??[]).filter(s=>s.date<=through)};
+  const weeks=Array.from({length:4},(_,index)=>{
+    const date=new Date(`${start}T12:00:00Z`);date.setUTCDate(date.getUTCDate()+index*7);
+    return {...independentTrainingSummary(visible,date.toISOString().slice(0,10)),week:index+1};
+  });
+  return {start,weeks};
+}

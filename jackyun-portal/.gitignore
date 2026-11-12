@@ -43,6 +43,7 @@ next-env.d.ts
 
 # Local learning roadmap render and browser evidence
 /artifacts/verification/cue-roadmap/
+/artifacts/verification/cue-understanding/
 /artifacts/verification/device-layout/
 
 # Local UI modernization verification output

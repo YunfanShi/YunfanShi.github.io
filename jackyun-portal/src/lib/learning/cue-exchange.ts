@@ -1,3 +1,4 @@
+import { parseCueDeepUnderstanding } from './cue-understanding.ts';
 import { parseCueSourceFields } from './cue-source.ts';
 import type { CueReview, CueStudyDraft, StudyCue } from './schedule-control.ts';
 
@@ -25,7 +26,7 @@ export function parseCueExchangeBundle(text: string): CueExchangeBundle {
     if (ids.has(value.id)) throw new Error(`文件中 CUE ID 重复：${value.id}`);
     ids.add(value.id);
     if (value.updatedAt && !Number.isFinite(Date.parse(value.updatedAt))) throw new Error(`第 ${index + 1} 张 CUE 的更新时间格式无效。`);
-    return { ...value, ...parseCueSourceFields(value as unknown as Record<string, unknown>) } as StudyCue;
+    return { ...value, ...(value.deepUnderstanding !== undefined ? {deepUnderstanding:parseCueDeepUnderstanding(value.deepUnderstanding)} : {}), ...parseCueSourceFields(value as unknown as Record<string, unknown>) } as StudyCue;
   });
   if (bundle.exportedAt && !Number.isFinite(Date.parse(bundle.exportedAt))) throw new Error('文件导出时间格式无效。');
   return { format: CUE_EXCHANGE_FORMAT, version: 1, exportedAt: bundle.exportedAt ?? '', cues };
@@ -48,10 +49,10 @@ export function matchCueExchange(incoming: StudyCue[], local: StudyCue[]): CueEx
   });
 }
 
-export const CUE_EXCHANGE_CONTENT_FIELDS = ['subjectName', 'unit', 'subsection', 'prompt', 'subtitle', 'answer', 'type', 'display', 'choices', 'correctChoice', 'markingPoints', 'sourceKind', 'source', 'sourceLocation', 'sourceUrl', 'examStatus', 'examHistory'] as const;
+export const CUE_EXCHANGE_CONTENT_FIELDS = ['deepUnderstanding', 'subjectName', 'unit', 'subsection', 'prompt', 'subtitle', 'answer', 'type', 'display', 'choices', 'correctChoice', 'markingPoints', 'sourceKind', 'source', 'sourceLocation', 'sourceUrl', 'examStatus', 'examHistory'] as const;
 export type CueExchangeContentField = typeof CUE_EXCHANGE_CONTENT_FIELDS[number];
 export const cueExchangeFieldLabels: Record<CueExchangeContentField, string> = {
-  subjectName: '学科', unit: '单元', subsection: '章节', prompt: '题目', subtitle: '说明', answer: '答案', type: '类型', display: '显示方式', choices: '选项', correctChoice: '正确选项', markingPoints: '要点与步骤', examStatus: '真题考查情况', examHistory: '考试依据', sourceKind: '来源类型', source: '具体来源', sourceLocation: '来源位置', sourceUrl: '来源链接',
+  deepUnderstanding: '深度理解', subjectName: '学科', unit: '单元', subsection: '章节', prompt: '题目', subtitle: '说明', answer: '答案', type: '类型', display: '显示方式', choices: '选项', correctChoice: '正确选项', markingPoints: '要点与步骤', examStatus: '真题考查情况', examHistory: '考试依据', sourceKind: '来源类型', source: '具体来源', sourceLocation: '来源位置', sourceUrl: '来源链接',
 };
 
 export function cueExchangeChangedFields(local: StudyCue, incoming: StudyCue): CueExchangeContentField[] {

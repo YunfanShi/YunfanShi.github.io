@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { HINT_LEVEL_LABELS } from '@/lib/learning/independent-training';
 import { currentPracticeRecords, timerSessionId } from '@/lib/learning/practice-timer';
-import { practiceBreakdowns, practiceWeaknessTrends } from '@/lib/learning/practice-insights';
+import { practiceBreakdowns, practiceWeaknessTrends, independentTrainingSummary, independentTrainingFourWeeks } from '@/lib/learning/practice-insights';
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import type { ScheduleControlState } from '@/lib/learning/schedule-control';
 import { normalizeTimedPractice, saveManualPractice, normalizePracticeFrequencies, weeklyTrainingCredit, planWeeklyTraining, PRACTICE_SUBJECTS, PRACTICE_CONTENT_TYPES, practiceContentLabel, newPracticeExclusion, weeklyPracticeSummary, type PracticeSubject, type TimedPracticeRecord } from '@/lib/learning/timed-practice';
@@ -18,6 +19,8 @@ export default function TimedPracticePanel({ state, date, onChange }: { state: S
   const newSummary = weeklyPracticeSummary(records, date);
   const insights = practiceBreakdowns(state, date, metricScope);
   const trends = practiceWeaknessTrends(state);
+  const training = independentTrainingSummary(state,date);
+  const trial = independentTrainingFourWeeks(state,date);
   const [dimension, setDimension] = useState<'subjects' | 'units' | 'subsections'>('subjects');
   const [statsSubject, setStatsSubject] = useState('');
   const breakdownRows = insights[dimension].filter(row => !statsSubject || row.subjectKey === statsSubject);
@@ -44,6 +47,17 @@ export default function TimedPracticePanel({ state, date, onChange }: { state: S
     <Link href="/practice-timer" className="mb-4 flex min-h-14 items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100"><span><strong>练习计时器</strong><span className="ml-3 text-xs">逐题倒计时 · 三档节奏 · 做题报告</span></span><span aria-hidden="true">↗</span></Link>
     {timerSessions.length > 0 && <details className="mb-4 rounded-xl border border-[var(--card-border)] p-3 text-sm"><summary className="cursor-pointer font-semibold">逐题报告与薄弱题型 · {timerSessions.length} 次练习</summary><p className="mt-2 text-xs text-[var(--muted-foreground)]">全部练习的诊断线索（包含熟题与模考）；样本少时先观察。新题周指标仍单独按独立 B / 首次作业筛选。</p><div className="mt-3 space-y-2">{[...weakTypes].filter(([,v])=>v.slow||v.failed).sort((a,b)=>(b[1].slow+b[1].failed)-(a[1].slow+a[1].failed)).slice(0,5).map(([name,value])=><p key={name}>{value.name} · {value.count} 题 · 超时 {value.slow} / 错误求助 {value.failed}</p>)}{timerSessions.slice(-5).reverse().map(item=><Link key={item.id} href={`/practice-timer?session=${encodeURIComponent(item.id)}`} className="block text-[var(--brand)]">{item.date} · {courseName(item.courseId,item.subject)} · {practiceContentLabel({ contentType: item.contentType, reference: item.scope || '逐题练习', questionRange: item.questionRange })} · {item.questions.filter(q=>q.elapsedMs>0).length} 题 → 查看或补批改</Link>)}</div></details>}
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 id="timed-practice-title" className="font-semibold">练习记录与本周指标</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">{summary.start} — {summary.end} · 2026-10-13 执行版</p></div><button type="button" className={buttonClass} onClick={() => { setForm(emptyForm(date)); setOpen(true); }}>记录训练或作业抵扣</button></div>
+    <details className="mt-4 rounded-xl border border-[var(--card-border)] p-3 text-sm" data-independent-training-metrics><summary className="cursor-pointer font-semibold">Physics 独立训练四项指标</summary>
+      <p className="mt-2 text-xs text-[var(--muted-foreground)]">{training.start} — {training.end} · 仅首次独立 B 新题或作业的陌生题证据。基础、变式与手动汇总不混算；旧记录缺少证据时保留未知。</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <p><strong>独立完成率</strong><br />{training.knownHints ? `${training.independent}/${training.knownHints}（${Math.round(training.independent/training.knownHints*100)}%）` : '暂无可确认样本'}<span className="mt-1 block text-xs">已批改陌生题 {training.graded}；提示未知 {training.unknownHints}。任何提示后的正确均不算独立完成。</span></p>
+        <p><strong>有效第一步</strong><br />{training.firstStepKnown ? `${training.firstStepYes}/${training.firstStepKnown}` : '暂无已记录样本'}<span className="mt-1 block text-xs">陌生题 {training.unfamiliar}；启动证据未知 {training.unfamiliar-training.firstStepKnown}。</span></p>
+        <p><strong>AI 提示依赖</strong><br />{training.knownHints ? `${training.hintCount} 次 / ${training.knownHints} 题；最高 ${HINT_LEVEL_LABELS[training.highestHint]}` : '暂无实际提示记录'}<span className="mt-1 block text-xs">生成失败和未查看不计；零提示需要明确记录。</span></p>
+        <p><strong>限时表现</strong><br />{training.timed ? `${training.timed} 题中超时 ${training.overtime}；跳题 ${training.skips}` : '暂无限时证据'}<span className="mt-1 block text-xs">{training.stuckKnown ? `已记录卡题 ${(training.stuckMs/60000).toFixed(1)} 分钟（${training.stuckKnown} 题）` : '卡题用时未记录'}；无进展重复 {training.repeats}。知识失分 {training.knowledgeLoss} / 时间失分 {training.timeLoss} / 两者 {training.bothLoss}。</span></p>
+      </div>
+      {trial.start ? <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[580px] text-left text-xs"><caption className="mb-2 text-left">四周试行对比 · 基线周从 {trial.start} 开始 · 截至 {date}</caption><thead><tr>{['周与日期','独立完成','有效第一步','实际提示','限时表现'].map(label=><th key={label} className="p-2">{label}</th>)}</tr></thead><tbody>{trial.weeks.map(w=><tr key={w.week}><td className="p-2">Week {w.week}<br />{w.start}</td><td className="p-2">{w.knownHints?`${w.independent}/${w.knownHints}（${Math.round(w.independent/w.knownHints*100)}%）`:'暂无可确认样本'}</td><td className="p-2">{w.firstStepKnown?`${w.firstStepYes}/${w.firstStepKnown}`:'未记录'}</td><td className="p-2">{w.knownHints?`${w.hintCount} 次 / ${w.knownHints} 题；最高 ${HINT_LEVEL_LABELS[w.highestHint]}`:'未记录'}</td><td className="p-2">{w.timed?`${w.timed} 题；超时 ${w.overtime}；跳题 ${w.skips}`:'暂无样本'}{w.stuckKnown?`；卡题 ${(w.stuckMs/60000).toFixed(1)} 分钟`:''}</td></tr>)}</tbody></table></div> : <p className="mt-3 text-xs">尚无四周试行基线；首次保存 Physics 独立新题的训练证据后，以所属周一开始比较。</p>}
+      <p className="mt-3 text-xs text-[var(--muted-foreground)]">本周首次 Physics 新题共 {training.total} 题，题目类型未知 {training.unknownKind}；少量样本只作观察，四周比较需核对题目难度。到逐题计时器的“题目信息”填写训练证据。</p>
+    </details>
     <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">默认主科各一次 25 分钟，CS 两次 20 分钟；Statistics 按作业维持。下方可自定义频率。首次接触且独立计时的作业按所设时长抵扣，计时器已保存的练习无需重复记录。</p>
     <div className="mt-3 grid gap-2 sm:grid-cols-2">{frequencies.filter(f => f.sessions > 0).map(frequency => {
       const subject = frequency.subject;

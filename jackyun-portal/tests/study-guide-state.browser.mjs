@@ -78,6 +78,7 @@ try {
   await frame.locator('#modalOverlay .modal-btn').click();
   await frame.getByRole('button', { name: '建立考试计划' }).click();
   await frame.getByText('已启用：Year 12 Mock').waitFor();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('studyguide_progress') || '{}').activeExamPlan?.name === 'Year 12 Mock');
   const savedExamPlan = await page.evaluate(() => JSON.parse(localStorage.getItem('studyguide_progress') || '{}').activeExamPlan);
   assert.equal(savedExamPlan.examType, 'alevel', 'successful retry persists the selected exam type');
   assert.equal(await page.evaluate(() => sessionStorage.getItem('studyguide_exam_plan_draft_v1')), null, 'successful save clears the session draft');
@@ -101,6 +102,8 @@ try {
   await frame.getByText('已启用：Year 12 Mock').waitFor();
   assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('studyguide_progress') || '{}').activeExamPlan)).name, 'Year 12 Mock', 'failed clear keeps the current plan in persisted and live state after navigation');
   await frame.getByRole('button', { name: '结束当前计划' }).click();
+  await frame.locator('#examPlanName').waitFor();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('studyguide_progress') || '{}').activeExamPlan === null);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('studyguide_progress') || '{}').activeExamPlan), null, 'ending a plan persists the cleared active plan');
 
   await frame.locator('.nav-item[data-tab="procrastination"]').click();
@@ -176,6 +179,60 @@ try {
   assert.equal(await frame.locator('#taskSubject').inputValue(), 'Physics', 'task-helper draft is available on the mobile deep link');
   assert.ok(await frame.locator('#taskSubject').evaluate(element => element.getBoundingClientRect().height >= 44), 'task-helper fields stay touch sized on mobile');
   assert.equal(await frame.locator('#taskSubject').evaluate(element => getComputedStyle(element).fontSize), '16px', 'mobile task-helper inputs avoid iOS focus zoom');
+
+  // Fixture only: no real AI service or credentials are used.
+  await page.evaluate(() => localStorage.setItem('jackyun-ai-config', JSON.stringify({ apiKey: 'fixture-key', baseUrl: 'fixture', model: 'fixture' })));
+  const prompts = [];
+  const replies = [{ status: 500, body: {} }, { status: 200, body: { content: '  ' } }, ...Array.from({ length: 5 }, (_, i) => ({ status: 200, body: { content: `fixture hint ${i + 1}` } }))];
+  await page.route('**/api/llm-proxy', async route => {
+    prompts.push(route.request().postDataJSON().messages.at(-1).content);
+    const reply = replies.shift();
+    await route.fulfill({ status: reply.status, contentType: 'application/json', body: JSON.stringify(reply.body) });
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${base}/study-guide?tab=practice&subTab=stuck`);
+  frame = page.frameLocator('iframe[title="StudyGuide"]');
+  await frame.locator('#hintKnown').fill('题目 A：已知质量和速度');
+  await frame.locator('#hintStuck').fill('不知道缺少什么关系');
+  const requestHint = () => frame.getByRole('button', { name: '给我最小提示', exact: true }).click();
+  await requestHint();
+  await frame.getByRole('alert').getByText('提示暂时无法生成', { exact: false }).waitFor();
+  await requestHint();
+  await frame.getByRole('alert').getByText('提示暂时无法生成', { exact: false }).waitFor();
+  await requestHint();
+  await frame.getByRole('button', { name: '查看新提示' }).waitFor();
+  const beforeReveal = await page.evaluate(() => JSON.parse(sessionStorage.getItem('studyguide_stuck_hint_draft_v1')));
+  assert.equal(beforeReveal.history.length, 0, 'a generated but unseen hint is not counted');
+  assert.equal(beforeReveal.pending.text, 'fixture hint 1');
+  await frame.getByRole('button', { name: '查看新提示' }).click();
+  await frame.getByText('fixture hint 1').waitFor();
+  assert.ok(prompts.slice(0, 3).every(p => p.includes('请求层级 1')), 'failed and empty responses never escalate');
+  await frame.getByRole('button', { name: '隐藏提示，继续独立完成' }).click();
+  assert.equal(await frame.getByText('fixture hint 1').count(), 0, 'hiding the hint leaves the exercise usable');
+  await frame.getByRole('button', { name: '再给一点提示' }).click();
+  await frame.getByRole('button', { name: '查看新提示' }).click();
+  await frame.getByText('fixture hint 2').waitFor();
+  assert.ok(prompts.at(-1).includes('请求层级 2'));
+  await frame.getByRole('button', { name: '再给一点提示' }).click();
+  await frame.getByRole('button', { name: '查看新提示' }).click();
+  await frame.getByText('fixture hint 3').waitFor();
+  await frame.getByRole('button', { name: '再给一点提示' }).click();
+  await frame.getByRole('button', { name: '查看新提示' }).click();
+  await frame.getByText('fixture hint 4').waitFor();
+  assert.ok(prompts.at(-1).includes('请求层级 3'), 'full solution never escalates automatically');
+  await frame.locator('#hintStuck').fill('请给完整解析');
+  await requestHint();
+  await frame.getByRole('button', { name: '查看新提示' }).click();
+  await frame.getByText('fixture hint 5').waitFor();
+  assert.ok(prompts.at(-1).includes('请求层级 4'), 'explicit full solution request is respected');
+  assert.ok(!prompts.at(-1).includes('fixture hint 4'), 'changed context starts a new history');
+  await frame.locator('.nav-item[data-tab="learn"]').click();
+  await page.goto(`${base}/dashboard`);
+  await page.goto(`${base}/study-guide?tab=practice&subTab=stuck`);
+  frame = page.frameLocator('iframe[title="StudyGuide"]');
+  assert.equal(await frame.locator('#hintKnown').inputValue(), '题目 A：已知质量和速度');
+  assert.equal(await frame.locator('#hintStuck').inputValue(), '请给完整解析');
+  await frame.getByText('fixture hint 5').waitFor();
 
   assert.deepEqual(errors, [], 'StudyGuide route remount should not produce browser errors');
   console.log('PASS StudyGuide: exam and task drafts survive tab/iframe remount, stale generated task output is invalidated, failed-save retry, saved-plan lifecycle, three themes, checklist, and 390px mobile navigation');

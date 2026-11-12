@@ -1,4 +1,5 @@
 import { parseCueSourceFields, type CueSourceFields } from './cue-source.ts';
+import { parseCueDeepUnderstanding, validateCueTrainingEvidence, type CueDeepUnderstanding, type CueTrainingEvidence } from './cue-understanding.ts';
 import type { TimedPracticeRecord } from './timed-practice.ts';
 import type { PracticeFrequency } from './timed-practice.ts';
 import type { ExamDiagnosis } from './exam-diagnosis.ts';
@@ -198,6 +199,7 @@ export interface ManualLearningTask {
 }
 
 export interface StudyCue extends CueSourceFields {
+  deepUnderstanding?: CueDeepUnderstanding;
   masteredIntervalDays?: number;
   masterySignature?: string;
   userDifficulty?: CueDifficulty;
@@ -228,6 +230,8 @@ export interface StudyCue extends CueSourceFields {
 }
 
 export interface CueReview {
+  trainingSessions?: Record<string, CueTrainingEvidence>;
+  training?: CueTrainingEvidence;
   id: string;
   cueId: string;
   taskKey?: string;
@@ -250,6 +254,7 @@ export interface CueReview {
 }
 
 export interface CueAssessment {
+  training?: CueTrainingEvidence;
   cueId: string;
   status: LearningStatus;
   note?: string;
@@ -314,6 +319,7 @@ export interface LearningSessionEvidence {
 }
 
 export interface LearningRecordCue extends CueSourceFields {
+  deepUnderstanding?: CueDeepUnderstanding;
   cueId: string;
   subjectName: string;
   unit: string;
@@ -366,6 +372,7 @@ export interface TaskCancellation {
 }
 
 export interface CueCreateOperation extends CueSourceFields {
+  deepUnderstanding?: CueDeepUnderstanding;
   action: 'create';
   subjectName?: string;
   unit: string;
@@ -380,6 +387,7 @@ export interface CueCreateOperation extends CueSourceFields {
 }
 
 export interface CueUpdateOperation extends CueSourceFields {
+  deepUnderstanding?: CueDeepUnderstanding;
   action: 'update';
   id: string;
   subjectName?: string;
@@ -403,6 +411,7 @@ export interface CueBulkImport {
 }
 
 export interface CueStudyDraft {
+  trainingEvidence?: Record<string, CueTrainingEvidence>;
   startedAt?: string;
   id: string;
   task: LearningTask;
@@ -1089,7 +1098,7 @@ export function parseCueBulkImport(value: unknown): CueBulkImport {
       const markingPoints = Array.isArray(operation.markingPoints)
         ? operation.markingPoints.map((item) => requiredText(item, `第 ${index + 1} 条创建操作的 marking point`, 300)).slice(0, 12)
         : [];
-      return { ...parseCueSourceFields(operation), action: 'create', ...(subjectName ? { subjectName } : {}), unit, prompt, ...(subtitle ? { subtitle } : {}), ...(answer ? { answer } : {}), type, display, ...(choices.length ? { choices, correctChoice } : {}), markingPoints };
+      return { ...parseCueSourceFields(operation), ...(operation.deepUnderstanding !== undefined ? {deepUnderstanding:parseCueDeepUnderstanding(operation.deepUnderstanding)} : {}), action: 'create', ...(subjectName ? { subjectName } : {}), unit, prompt, ...(subtitle ? { subtitle } : {}), ...(answer ? { answer } : {}), type, display, ...(choices.length ? { choices, correctChoice } : {}), markingPoints };
     }
     const update = operation;
     const id = requiredText(update.id, `第 ${index + 1} 条补充的 id`, 120);
@@ -1111,7 +1120,7 @@ export function parseCueBulkImport(value: unknown): CueBulkImport {
     const choices = Array.isArray(update.choices) ? update.choices.map((item) => requiredText(item, `第 ${index + 1} 条补充的选项`, 500)).slice(0, 6) : undefined;
     const correctChoice = Number.isInteger(update.correctChoice) ? Number(update.correctChoice) : undefined;
     if ((type === 'multiple-choice' || choices) && (!choices || choices.length < 2 || correctChoice === undefined || correctChoice < 0 || correctChoice >= choices.length)) throw new Error(`第 ${index + 1} 条选择题补充必须有 2–6 个选项和有效的 correctChoice。`);
-    const parsed: CueUpdateOperation = { ...parseCueSourceFields(update), action: 'update', id, ...(subjectName ? { subjectName } : {}), ...(unit ? { unit } : {}), ...(subsection !== undefined ? { subsection } : {}), ...(prompt ? { prompt } : {}), ...(subtitle !== undefined ? { subtitle } : {}), ...(answer !== undefined ? { answer } : {}), ...(type ? { type } : {}), ...(display ? { display } : {}), ...(choices ? { choices, correctChoice } : {}), ...(markingPoints ? { markingPoints } : {}) };
+    const parsed: CueUpdateOperation = { ...parseCueSourceFields(update), ...(update.deepUnderstanding !== undefined ? {deepUnderstanding:parseCueDeepUnderstanding(update.deepUnderstanding)} : {}), action: 'update', id, ...(subjectName ? { subjectName } : {}), ...(unit ? { unit } : {}), ...(subsection !== undefined ? { subsection } : {}), ...(prompt ? { prompt } : {}), ...(subtitle !== undefined ? { subtitle } : {}), ...(answer !== undefined ? { answer } : {}), ...(type ? { type } : {}), ...(display ? { display } : {}), ...(choices ? { choices, correctChoice } : {}), ...(markingPoints ? { markingPoints } : {}) };
     if (Object.keys(parsed).length === 2) throw new Error(`第 ${index + 1} 条修改操作没有要修改的字段。`);
     return parsed;
   });
@@ -1131,7 +1140,7 @@ export function normalizeCueMetadata(cue: StudyCue, defaultUpdatedAt: string): S
   const version = Number.isInteger(cue.version) && Number(cue.version) >= 1 ? Number(cue.version) : 1;
   const updatedAt = typeof cue.updatedAt === 'string' && !Number.isNaN(Date.parse(cue.updatedAt)) ? cue.updatedAt : defaultUpdatedAt;
   const ceiling = cue.lastReviewedAt && Number.isFinite(Date.parse(cue.lastReviewedAt)) ? addCalendarDays(dateKey(new Date(cue.lastReviewedAt)), 18) : undefined;
-  return { ...cue, version, updatedAt, ...(ceiling && cue.nextReviewDate && cue.nextReviewDate > ceiling ? { nextReviewDate: ceiling, intervalDays: Math.min(18, cue.intervalDays) } : {}) };
+  return { ...cue, ...(cue.deepUnderstanding !== undefined ? {deepUnderstanding:parseCueDeepUnderstanding(cue.deepUnderstanding)} : {}), version, updatedAt, ...(ceiling && cue.nextReviewDate && cue.nextReviewDate > ceiling ? { nextReviewDate: ceiling, intervalDays: Math.min(18, cue.intervalDays) } : {}) };
 }
 
 export type CueActivityTag = 'new' | 'updated' | 'due' | 'focus' | 'building' | 'streak' | 'reviewed';
@@ -1173,7 +1182,7 @@ export function cueActivityTag(cue: StudyCue, today: string): CueActivityTag {
 function cueUpdateChanges(cue: StudyCue, update: Omit<CueUpdateOperation, 'action' | 'id'>): boolean {
   return Object.entries(update).some(([key, value]) => {
     const current = cue[key as keyof StudyCue];
-    return Array.isArray(value) ? !Array.isArray(current) || value.length !== current.length || value.some((item, index) => item !== current[index]) : value !== current;
+    return value && typeof value === 'object' ? JSON.stringify(value) !== JSON.stringify(current) : value !== current;
   });
 }
 
@@ -2070,6 +2079,7 @@ export function completeCueReviews(
       subjectName: cue.subjectName,
       ...(taskKey ? { taskKey } : {}),
       status: assessment.status,
+      ...(assessment.training ? {training:validateCueTrainingEvidence(assessment.training), trainingSessions:{[assessment.training.sessionId??taskKey??reviewedAt]:validateCueTrainingEvidence(assessment.training)!}} : {}),
       ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : {}),
       reviewedAt,
       nextReviewDate: plan.nextReviewDate,
@@ -2140,7 +2150,7 @@ export function recordCueStudyAssessment(
   return {
     ...state,
     cues: state.cues.map((item) => item.id === assessment.cueId ? { ...item, status: practice ? item.status : assessment.status, masteredIntervalDays: assessment.status === 'stable' && !sameDayWeak && cue.masterySignature === cueContentSignature(cue) ? cue.masteredIntervalDays ? plan.intervalDays : undefined : undefined, masterySignature: assessment.status === 'stable' && !sameDayWeak ? cue.masterySignature : undefined, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, streak: practice ? item.streak : plan.streak, nextReviewDate: plan.nextReviewDate, lastReviewedAt: existing.reviewedAt } : item),
-    cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, sameDayWeak, ...(weakestStatus ? { weakestStatus } : {}), ...(practiceAttempts ? { practiceAttempts } : {}), status: practice ? existing.status : assessment.status, nextReviewDate: plan.nextReviewDate, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, scheduleReason: plan.scheduleReason, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : { note: undefined }) } : review),
+    cueReviews: state.cueReviews.map((review) => review.id === existing.id ? { ...review, ...(assessment.training ? {training:validateCueTrainingEvidence(assessment.training), trainingSessions:{...review.trainingSessions,[assessment.training.sessionId??sessionKey??reviewedAt.toISOString()]:validateCueTrainingEvidence(assessment.training)!}} : {}), sameDayWeak, ...(weakestStatus ? { weakestStatus } : {}), ...(practiceAttempts ? { practiceAttempts } : {}), status: practice ? existing.status : assessment.status, nextReviewDate: plan.nextReviewDate, intervalDays: plan.intervalDays, easeFactor: plan.easeFactor, scheduleReason: plan.scheduleReason, ...(assessment.note?.trim() ? { note: assessment.note.trim().slice(0, 1000) } : { note: undefined }) } : review),
   };
 }
 
@@ -2252,6 +2262,7 @@ export function completeLearningSession(
       ...(cue.display ? { display: cue.display } : {}),
       ...(cue.choices ? { choices: [...cue.choices], correctChoice: cue.correctChoice } : {}),
       markingPoints: [...cue.markingPoints],
+      ...(cue.deepUnderstanding ? {deepUnderstanding:structuredClone(cue.deepUnderstanding)} : {}),
       status: assessmentByCueId.get(cueId) ?? 'linked',
     };
   });

@@ -29,6 +29,7 @@ export function legacyCueStudyDraft(draft: StudyDraft, cues: StudyCue[]): CueStu
   const currentId = draft.items[Math.min(draft.index, draft.items.length - 1)]?.id;
   const index = Math.max(0, cueIds.indexOf(currentId));
   return {
+    ...(draft.cueTrainingEvidence?{trainingEvidence:structuredClone(draft.cueTrainingEvidence)}:{}),
     id: draft.id, task: { ...draft.task, cueIds, questionIds: [], scope: { ...draft.task.scope, cueIds, questionIds: [] } }, cueIds, index,
     revealed: Boolean(draft.revealed[`cue:${cueIds[index]}`]),
     selectedChoice: draft.responses[`cue:${cueIds[index]}`]?.selectedChoices[0],
