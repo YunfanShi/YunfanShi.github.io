@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { digest, sameHash, seal, unseal, validateOperation } from '../src/lib/watch/policy.ts';
-import { calendarDate, normalizeWatchSeiueTodos, readV5Schedule, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
+import { calendarDate, normalizeWatchSeiueTodos, readV5Schedule, timetableSnapshot, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
 import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.ts';
 
 test('pair payload encryption authenticates its key and ciphertext',()=>{
@@ -110,4 +110,21 @@ test('CUE reviewed after UTC midnight remains learned in its account day',()=>{
   const result=scheduleSnapshot(state,new Date('2026-10-12T16:30:00Z'));
   assert.equal(result.cue.learned,1);assert.equal(result.cue.due,0);
   state.cues[0].updatedAt='2026-10-12T16:25:00Z';assert.equal(scheduleSnapshot(state,new Date('2026-10-12T16:30:00Z')).cue.due,1);
+});
+
+test('watch home reads only timetable and retains cached modules on missing or failed data',async()=>{
+  const previous=process.env.AZURE_SYNC_API_URL; process.env.AZURE_SYNC_API_URL='https://jackyun-sync-9d26b2cc.azurewebsites.net';
+  try {
+    const paths:string[]=[]; const timetable={version:1,name:'Test',courses:[{id:'math',name:'Math',color:'#123456',review:false,sessions:[{day:6,start:'09:00',end:'10:00'}]}]};
+    const fake:typeof fetch=async input=>{const u=new URL(String(input));paths.push(u.pathname+u.search);
+      if(u.pathname==='/api/sync/v5')return Response.json({syncProtocol:5,capabilities:{v5:true},scopes:['timetable','learning','cue','practice','timer','settings']});
+      if(u.pathname.endsWith('/manifest'))return Response.json({syncProtocol:5,records:[{scope:'timetable',recordId:'timetable:$value'}],head:1,next:null});
+      if(u.pathname.endsWith('/records'))return Response.json({syncProtocol:5,records:[{scope:'timetable',field:'timetable',recordId:'timetable:$value',itemId:'$value',value:timetable}]});
+      throw Error('unexpected'); };
+    const result=await timetableSnapshot('token',new Date('2026-11-14T00:00:00Z'),fake);
+    assert.equal((result.modules as Record<string,string>).timetable,'ready');assert.equal((result.modules as Record<string,string>).tasks,'error'); assert.ok((result.lessons as Array<{title:string}>).some(item=>item.title==='Math'));
+    assert.deepEqual(paths.filter(p=>p.includes('/manifest')).map(p=>new URL(p,'https://example.com').searchParams.get('field')),['timetable']);
+    const failed=await timetableSnapshot('token',new Date(),async()=>{throw Error('offline')});
+    assert.equal((failed.modules as Record<string,string>).timetable,'error');assert.equal(failed.lessons,undefined);
+  } finally { if(previous===undefined)delete process.env.AZURE_SYNC_API_URL;else process.env.AZURE_SYNC_API_URL=previous; }
 });

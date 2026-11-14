@@ -4,7 +4,7 @@ import { watchReader } from '@/lib/watch/reader';
 import { POST as llmProxy } from '@/app/api/llm-proxy/route';
 import { NextRequest } from 'next/server';
 import { extractCompletionText } from '@/lib/ai-smart-selection';
-import { snapshot } from '@/lib/watch/snapshot';
+import { snapshot, timetableSnapshot } from '@/lib/watch/snapshot';
 import { digest, validateOperation, UUID } from '@/lib/watch/policy';
 import { parseDidaTarget } from '@/lib/integrations/dida-task-reference';
 import { applyWatchDidaOperation } from '@/lib/watch/dida-tasks';
@@ -18,7 +18,7 @@ async function handle(request:Request,context:RouteContext) {
     const action=(await context.params).action.join('/');
     if(request.method==='GET') {
       if(action==='devices'){const auth=await browserContext(request);const {data,error}=await auth.admin.from('watch_devices').select('id,name,created_at,last_seen_at,revoked_at').eq('user_id',auth.user.id).order('created_at',{ascending:false}).limit(100);if(error)fail(503,'DEVICE_READ_FAILED','设备读取失败');return reply({devices:data});}
-      if(action==='snapshot'){const auth=await watchContext(request);return reply(await snapshot(auth.supabase,auth.user.id,auth.token));}
+      if(action==='snapshot'){const auth=await watchContext(request);return reply(new URL(request.url).searchParams.get('scope')==='all' ? await snapshot(auth.supabase,auth.user.id,auth.token) : await timetableSnapshot(auth.token));}
       return fail(404,'NOT_FOUND','接口不存在');
     }
     if(request.method!=='POST')return fail(405,'METHOD_NOT_ALLOWED','方法不支持');

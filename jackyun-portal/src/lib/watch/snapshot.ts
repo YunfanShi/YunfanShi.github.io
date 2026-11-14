@@ -1,6 +1,6 @@
 import { cueDashboard } from '../learning/cue-dashboard.ts';
 import { readScheduleState } from '../learning/workspace-reader.ts';
-import { sessionsForDate, tasksForDate } from '../learning/schedule-control.ts';
+import { createEmptyScheduleState, sessionsForDate, tasksForDate } from '../learning/schedule-control.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decryptSecret } from '../secret-crypto.ts';
 import { safeSeiueSite, type SeiueTodo } from '../integrations/seiue.ts';
@@ -67,13 +67,13 @@ async function mapConcurrent<T,R>(items:T[],limit:number,action:(item:T,index:nu
   }));
   return output;
 }
-export async function readV5Schedule(token:string,fetchImpl:typeof fetch=fetch):Promise<Record<string,unknown>> {
+export async function readV5Schedule(token:string,fetchImpl:typeof fetch=fetch, fields:Record<string,string[]>=watchScheduleFields, signal?:AbortSignal):Promise<Record<string,unknown>> {
   const endpoint=process.env.AZURE_SYNC_API_URL;
   if(!endpoint)throw Error('V5 sync backend unavailable');
   const base=new URL(endpoint);
   if(base.protocol!=='https:'||!/^jackyun-sync-9d26b2cc(?:-[a-z0-9]+)?\.(?:[a-z0-9-]+\.)?azurewebsites\.net$/.test(base.hostname)||base.pathname!=='/'||base.username||base.password||base.search||base.hash)throw Error('V5 sync backend configuration invalid');
   const request=async(path:string)=>{
-    const response=await fetchImpl(new URL(path,base),{headers:{Authorization:`Bearer ${token}`},cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20_000)});
+    const response=await fetchImpl(new URL(path,base),{headers:{Authorization:`Bearer ${token}`},cache:'no-store',redirect:'error',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(20_000)]):AbortSignal.timeout(20_000)});
     if(!response.ok)throw Error(`V5 request failed (${response.status})`);
     const value=await response.json() as Record<string,unknown>;
     if(!value||typeof value!=='object'||Array.isArray(value))throw Error('V5 response invalid');
@@ -83,7 +83,7 @@ export async function readV5Schedule(token:string,fetchImpl:typeof fetch=fetch):
   const capabilities=capability.capabilities as Record<string,unknown>|undefined;
   const scopes=Array.isArray(capability.scopes)?capability.scopes:[];
   if(capability.syncProtocol!==5||capabilities?.v5!==true||!SYNC_V5_SCHEDULE_SCOPES.every(scope=>scopes.includes(scope)))throw Error('V5 schedule scopes unavailable');
-  const targets=Object.entries(watchScheduleFields).flatMap(([scope,fields])=>fields.map(field=>({scope,field})));
+  const targets=Object.entries(fields).flatMap(([scope,fields])=>fields.map(field=>({scope,field})));
   const manifests=await mapConcurrent(targets,4,async({scope,field})=>{
     let after='',head:number|undefined;
     const descriptors:Array<Record<string,unknown>>=[];
@@ -112,6 +112,17 @@ export async function readV5Schedule(token:string,fetchImpl:typeof fetch=fetch):
     return returned;
   })).flat();
   return resourcesToSchedule(rows.filter(row=>row.deleted!==true) as never);
+}
+/** The installed watch can render cached modules when marked error. Do not wait for unrelated services on its home screen. */
+export async function timetableSnapshot(token:string, now=new Date(), fetchImpl:typeof fetch=fetch) {
+  const modules:Record<string,string>={timetable:'error',tasks:'error',notifications:'error',countdowns:'error',cue:'error',agenda:'error',seiue:'error',learning:'error',plans:'error',activity:'error'};
+  const result:Record<string,unknown>={apiVersion:5,syncProtocol:5,timezone:'Asia/Shanghai',generatedAt:now.toISOString(),modules};
+  try {
+    const value=await readV5Schedule(token,fetchImpl,{timetable:['timetable']},AbortSignal.timeout(12_000));
+    if(!value.timetable || typeof value.timetable!=='object' || Array.isArray(value.timetable)) modules.timetable='error';
+    else { result.lessons=scheduleSnapshot({...createEmptyScheduleState(),...value},now).lessons; modules.timetable='ready'; }
+  } catch { modules.timetable='error'; }
+  return result;
 }
 export async function snapshot(supabase:SupabaseClient,userId:string,token:string,now=new Date()) {
   const result:Record<string,unknown>={apiVersion:5,syncProtocol:5,timezone:'Asia/Shanghai',generatedAt:now.toISOString()};
