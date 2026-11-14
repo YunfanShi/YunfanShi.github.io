@@ -72,3 +72,14 @@ test('a new empty device adopts an existing cloud library without creating a dup
  const empty={id:'new-device',name:'我的歌单',description:'',songs:[]};h.obj.data={owner:null,activeId:empty.id,playlists:[empty],base:[],pristine:true};await h.obj.sync();
  assert.equal(writes,0);assert.deepEqual(copy(h.obj.data.playlists),[remote]);
 });
+
+test('deletion of an unchanged playlist survives a three way merge',()=>{
+ const h=harness(),base=playlist('original');
+ assert.equal(h.obj.merge([], [base], [base]).length,0);
+ assert.equal(h.obj.merge([base], [], [base]).length,0);
+});
+test('deletion concurrent with an edit preserves the edited playlist',()=>{
+ const h=harness(),base=playlist('original'),changed=playlist('edited');
+ assert.equal(h.obj.merge([], [changed], [base])[0].name,'edited');
+ assert.equal(h.obj.merge([changed], [], [base])[0].name,'edited');
+});

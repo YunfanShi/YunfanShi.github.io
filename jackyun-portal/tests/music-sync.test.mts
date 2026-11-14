@@ -272,3 +272,19 @@ test('negative output compensation keeps the calibration metronome scheduled in 
   p.Cali.loop();
   assert.equal(p.timeouts[0], 950);
 });
+
+test('follower pauses and resumes at the master position', async()=>{
+ const p=player();await p.handleIncomingBroadcast(p.command('play',1,Date.now()-1000));await Promise.resolve();
+ const pause=p.command('pause',2,Date.now());Object.assign(pause.payload,{position:12});await p.handleIncomingBroadcast(pause);
+ assert.equal(p.STATE.status,'PAUSED');assert.equal(p.audio.currentTime,12);
+ const resume=p.command('play',3,Date.now()-1000);Object.assign(resume.payload,{position:12});await p.handleIncomingBroadcast(resume);await Promise.resolve();
+ assert.equal(p.STATE.status,'PLAYING');assert.ok(p.audio.currentTime>=12.9);
+});
+
+test('seeking while paused keeps the selected position',()=>{
+ const p=player();p.storage.set('mps_role','master');p.STATE.status='PAUSED';Object.assign(p.audio,{duration:200});p.audio.currentTime=5;
+ p.Engine.seek(25);assert.equal(p.audio.currentTime,50);assert.equal(p.STATE.status,'PAUSED');
+});
+test('manual next advances even in repeat one mode',()=>{
+ const p=player();p.storage.set('mps_role','master');p.STATE.status='IDLE';p.STATE.songs=[{id:'1',name:'A'},{id:'2',name:'B'}];p.STATE.playMode='loop_one';p.Library.next();assert.equal(p.STATE.curIdx,1);
+});
