@@ -9,6 +9,7 @@ export interface PracticeQuestion {
   blocked: boolean; node: string; cause: string; retest: string;
   subjectName?: string; courseId?: string; presetFamily?: string;
   unit?: string; subsection?: string;
+  questionText?: string; timingOptions?: { exam: number; normal: number; relaxed: number }; timingMode?: 'exam' | 'normal' | 'relaxed' | null;
   training?: PracticeTrainingEvidence;
   firstAttempt?: { training?: PracticeTrainingEvidence; result: PracticeQuestion['result']; elapsedMs: number; limitSeconds: number; blocked: boolean };
 }
@@ -25,6 +26,7 @@ export function currentPracticeRecords(state: ScheduleControlState): TimedPracti
 export interface PracticeSession {
   id: string; date: string; subject: string; source: TimedPracticeRecord['source'];
   mixed?: boolean;
+  imported?: boolean;
   courseId?: string; presetFamily?: string;
   ieltsSection?: 'listening' | 'reading' | 'writing' | 'speaking';
   independent: boolean; scope: string; mode: 'relaxed' | 'normal' | 'exam';
@@ -46,6 +48,7 @@ export interface PracticeConfig { subjects: Record<string, PracticeType[]>; gree
 const families = ['math','mechanics','statistics','further','furtherMechanics','furtherStatistics','physics','chemistry','biology','cs','economics','business','history','geography','english','custom','ielts'];
 export function validateSession(value: unknown): PracticeSession {
   const s = value as PracticeSession;
+  if (s?.imported !== undefined && typeof s.imported !== 'boolean') throw Error('导入练习标识无效。');
   if (s?.ieltsSection !== undefined && (!['listening','reading','writing','speaking'].includes(s.ieltsSection) || s.presetFamily !== 'ielts')) throw Error('雅思板块无效，原记录已保留。');
   if (s && ['unit','subsection'].some(key => s[key as 'unit' | 'subsection'] !== undefined && (typeof s[key as 'unit' | 'subsection'] !== 'string' || s[key as 'unit' | 'subsection']!.length > 200))) throw Error('单元或小节格式无效，原记录已保留。');
   if (s && ((s.contentType !== undefined && !Object.hasOwn(PRACTICE_CONTENT_TYPES, s.contentType)) || (s.questionRange !== undefined && (typeof s.questionRange !== 'string' || s.questionRange.length > 200)))) throw Error('练习内容类型或题号无效，原记录已保留。');
@@ -58,6 +61,10 @@ export function validateSession(value: unknown): PracticeSession {
     || !Number.isInteger(s.index) || s.index < 0 || s.index >= s.questions.length) throw Error('练习记录格式无效，原数据已保留。');
   const ids = new Set<string>();
   for (const q of s.questions) {
+    if (s.imported) {
+      const options=q?.timingOptions;
+      if (typeof q?.questionText !== 'string' || q.questionText.length>2000 || !Object.hasOwn(q,'timingMode') || !options || !(['exam','normal','relaxed'] as const).every(key=>Number.isInteger(options[key]) && options[key]>=10 && options[key]<=86400) || options.exam>options.normal || options.normal>options.relaxed || ![null,'exam','normal','relaxed'].includes(q.timingMode ?? null) || (q.timingMode == null && (q.elapsedMs>0 || q.startedAt!==null))) throw Error('导入练习的题目或时间档位无效。');
+    }
     if(q?.training!==undefined)validateTrainingEvidence(q.training);
     if(q?.firstAttempt?.training!==undefined)validateTrainingEvidence(q.firstAttempt.training);
     if (q.firstAttempt && (!['correct','wrong','help'].includes(q.firstAttempt.result) || !Number.isFinite(q.firstAttempt.elapsedMs) || q.firstAttempt.elapsedMs < 0 || q.firstAttempt.elapsedMs > 86400000 || !Number.isFinite(q.firstAttempt.limitSeconds) || q.firstAttempt.limitSeconds < 10 || q.firstAttempt.limitSeconds > 86400 || typeof q.firstAttempt.blocked !== 'boolean')) throw Error('首次作答快照无效。');

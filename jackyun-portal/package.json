@@ -1,6 +1,6 @@
 {
   "name": "jackyun-portal",
-  "version": "3.81.1",
+  "version": "3.82.0",
   "private": true,
   "engines": {
     "node": ">=22.0.0"
@@ -17,7 +17,7 @@
     "test:ielts-timer-ui": "node tests/ielts-timer.browser.mts",
     "test:cue-understanding-ui": "node tests/cue-understanding.browser.mts",
     "test:independent-training-ui": "node tests/independent-training.browser.mts",
-    "test:timed-practice": "node --test tests/ielts-timer.test.mts tests/timed-practice.test.mts tests/practice-timer.test.mts tests/alevel-presets.test.mts tests/practice-course-binding.test.mts tests/practice-insights.test.mts tests/independent-training.test.mts tests/practice-cloud-offline.test.mts tests/practice-cloud-frame.test.mts tests/practice-cloud-route.test.mts",
+    "test:timed-practice": "node --test tests/ielts-timer.test.mts tests/timed-practice.test.mts tests/practice-timer.test.mts tests/practice-json-import.test.mts tests/alevel-presets.test.mts tests/practice-course-binding.test.mts tests/practice-insights.test.mts tests/independent-training.test.mts tests/practice-cloud-offline.test.mts tests/practice-cloud-frame.test.mts tests/practice-cloud-route.test.mts",
     "test:watch": "node --test tests/watch-domain.test.mts tests/watch-features.test.mts",
     "test:watch-ui": "node tests/watch-login.browser.mjs",
     "build:azure-functions": "node scripts/build-azure-functions.mjs",
@@ -38,7 +38,7 @@
     "test:safeguard": "node --test tests/safeguard-rules.test.mjs",
     "test:adblock": "node --test tests/adblock.test.mjs",
     "test:companion-performance": "node --test tests/companion-performance.test.mjs",
-    "test:legacy-ui": "node --test tests/legacy-ui.test.mts tests/music-sync.test.mts",
+    "test:legacy-ui": "node --test tests/legacy-ui.test.mts tests/music-sync.test.mts tests/sync-music-library.test.mts",
     "test:workspace-pages": "node tests/workspace-pages.browser.mjs",
     "test:workspace-features": "node tests/workspace-features.browser.mjs",
     "build:mock-styles": "node scripts/build-mock-portal-css.mjs",

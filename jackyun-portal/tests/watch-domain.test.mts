@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { digest, sameHash, seal, unseal, validateOperation } from '../src/lib/watch/policy.ts';
-import { calendarDate, normalizeWatchSeiueTodos, readV5Schedule, timetableSnapshot, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
+import { calendarDate, normalizeWatchSeiueTodos, readV5Schedule, timetableSnapshot, snapshot, scheduleSnapshot, zonedEpoch } from '../src/lib/watch/snapshot.ts';
 import { createEmptyScheduleState } from '../src/lib/learning/schedule-control.ts';
 
 test('pair payload encryption authenticates its key and ciphertext',()=>{
@@ -127,4 +127,13 @@ test('watch home reads only timetable and retains cached modules on missing or f
     const failed=await timetableSnapshot('token',new Date(),async()=>{throw Error('offline')});
     assert.equal((failed.modules as Record<string,string>).timetable,'error');assert.equal(failed.lessons,undefined);
   } finally { if(previous===undefined)delete process.env.AZURE_SYNC_API_URL;else process.env.AZURE_SYNC_API_URL=previous; }
+});
+
+test('on-demand notification snapshot does not touch other services',async()=>{
+  const calls:string[]=[];
+  const mock={rpc:async(name:string)=>{calls.push(name);return {data:{unreadCount:1,items:[{id:'n',title:'Hello',is_read:false,updated_at:'v',content:'World'}]},error:null}},from:(name:string)=>{calls.push(name);throw Error('unrequested database access')}};
+  const result=await snapshot(mock as never,'test-user','test-token',new Date('2026-11-14T00:00:00Z'),'notifications');
+  assert.deepEqual(calls,['notification_snapshot']);
+  const modules=result.modules as Record<string,string>;assert.equal(modules.notifications,'ready');assert.equal(modules.timetable,'error');assert.equal(modules.tasks,'error');
+  assert.equal((result.notifications as Array<{title:string}>)[0].title,'Hello');
 });

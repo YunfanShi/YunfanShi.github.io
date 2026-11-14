@@ -107,8 +107,23 @@
   function resetQuestion(s,index,now){const copy=settle(s,now),q=copy.questions[index];if(!q)return copy;q.elapsedMs=0;q.startedAt=null;copy.updatedAt=now;return copy;}
   function resetSession(s,now){const copy=settle(s,now);copy.questions.forEach(q=>{q.elapsedMs=0;q.startedAt=null;});copy.updatedAt=now;return copy;}
   function question(index,type,mode){return {id:crypto.randomUUID(),name:'第 '+(index+1)+' 题',typeId:type.id,typeName:type.name,limitSeconds:type.seconds[mode],elapsedMs:0,startedAt:null,result:'pending',blocked:false,node:'',cause:'',retest:''};}
+  function parseImport(text){
+    if(typeof text!=='string'||new TextEncoder().encode(text).length>600000)throw Error('JSON 过大，请分成多次练习导入。');
+    let data;try{data=JSON.parse(text);}catch{throw Error('JSON 格式有误，请检查后重试。');}
+    const validText=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;
+    const hasAnswerFields=value=>Object.keys(value).some(key=>/^(answer|solution|explanation|hint|答案|解析|提示)$/i.test(key));
+    if(!data||typeof data!=='object'||Array.isArray(data)||data.format!=='jackyun-practice-v1'||!validText(data.title,200)||!validText(data.subject,100)||!Array.isArray(data.questions)||data.questions.length<1||data.questions.length>300)throw Error('需要正确的格式标识、练习名称、科目和 1–300 道题。');
+    if(hasAnswerFields(data))throw Error('JSON 包含答案或提示字段，请让 ChatGPT 删除后再导入。');
+    const questions=data.questions.map((q,i)=>{
+      if(!q||typeof q!=='object'||Array.isArray(q)||!validText(q.name,100)||!validText(q.type,200)||q.text!==undefined&&(typeof q.text!=='string'||q.text.length>2000)||!q.seconds||typeof q.seconds!=='object'||!['exam','normal','relaxed'].every(k=>Number.isInteger(q.seconds[k])&&q.seconds[k]>=10&&q.seconds[k]<=86400)||q.seconds.exam>q.seconds.normal||q.seconds.normal>q.seconds.relaxed)throw Error(`第 ${i+1} 题无效：请填写名称、题型和按模考≤普通≤宽松排列的三个秒数（10–86400）。`);
+      if(hasAnswerFields(q)||q.text&&/(?:答案|解析|解答|solution|answer)\s*[:：]/i.test(q.text))throw Error(`第 ${i+1} 题可能包含答案或提示，请删除后再导入。`);
+      return {name:q.name.trim(),type:q.type.trim(),text:q.text||'',seconds:{exam:q.seconds.exam,normal:q.seconds.normal,relaxed:q.seconds.relaxed}};
+    });
+    return {title:data.title.trim(),subject:data.subject.trim(),questions};
+  }
+  function importedSession(data,now){return {id:crypto.randomUUID(),date:new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date(now)),subject:data.subject,presetFamily:'custom',source:'B',independent:false,scope:data.title,contentType:'other',mode:'normal',imported:true,index:0,updatedAt:now,finished:false,questions:data.questions.map((q,i)=>({...question(i,{id:'imported',name:q.type,seconds:q.seconds},'normal'),name:q.name,questionText:q.text,timingOptions:q.seconds,timingMode:null}))};}
   function status(q,now){if(q.firstAttempt)q={...q,...q.firstAttempt,startedAt:null};if(q.result==='pending')return 'pending';if(q.result!=='correct'||q.blocked)return 'red';return elapsed(q,now)>q.limitSeconds*1000?'yellow':'green';}
   function color(q,now,thresholds={green:30,red:10}){const limit=q.limitSeconds*1000,remain=limit-elapsed(q,now);return remain<0?'overtime':remain*100<=limit*thresholds.red?'red':remain*100<=limit*thresholds.green?'yellow':'green';}
   function report(s,now){const questions=s.questions.filter(q=>elapsed(q,now)>0||q.result!=='pending');const counts={green:0,yellow:0,red:0,pending:0};questions.forEach(q=>counts[status(q,now)]++);const groups={};for(const original of questions){const q=original.firstAttempt?{...original,...original.firstAttempt,startedAt:null}:original;const g=groups[q.typeName]??{name:q.typeName,count:0,slow:0,failed:0};g.count++;g.slow+=Number(elapsed(q,now)>q.limitSeconds*1000);g.failed+=Number(status(q,now)==='red');groups[q.typeName]=g;}return {questions,counts,totalMs:s.questions.reduce((n,q)=>n+elapsed(q,now),0),weaknesses:Object.values(groups).filter(g=>g.slow||g.failed).sort((a,b)=>(b.failed+b.slow)-(a.failed+a.slow))};}
-  root.PracticeEngine={ieltsSections,ieltsParts,ieltsPhase,changeType,modes,profiles,papers,presetRevision,presets,family,familyLabels,inferCourse,courseKey,courseTypes,bindCourses,upgradeConfig,elapsed,settle,toggle,switchQuestion,resetQuestion,resetSession,question,status,color,report};
+  root.PracticeEngine={ieltsSections,ieltsParts,ieltsPhase,changeType,modes,profiles,papers,presetRevision,presets,family,familyLabels,inferCourse,courseKey,courseTypes,bindCourses,upgradeConfig,elapsed,settle,toggle,switchQuestion,resetQuestion,resetSession,question,parseImport,importedSession,status,color,report};
 })(globalThis);

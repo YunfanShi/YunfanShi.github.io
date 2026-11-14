@@ -101,6 +101,7 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"])[data-music-layout="classi
     html[data-music-layout="classic"] .sync-countdown { font-size:clamp(50px,18vw,88px); letter-spacing:-4px; }
     html[data-music-layout="classic"] .playback-controls { gap:12px; padding:12px; }
 }
+.playlist-controls { display:grid; gap:8px; margin:12px 0; } .playlist-controls select { width:100%; padding:10px; border:1px solid var(--border); border-radius:9px; background:var(--surface2); color:var(--text); } .role-badge { cursor:pointer; font-size:12px; font-weight:700; border:2px solid transparent; } .role-badge.master {background:#d4f4e7;color:#075c4d;border-color:#087f73} .role-badge.follower {background:#fff0c8;color:#694000;border-color:#a66c00} .role-btn[aria-pressed="true"] { background:var(--music-accent); color:#fff; border:2px solid currentColor; font-weight:700; }
 </style>
 <script src="/jackyun-theme.js"></script></head>
 <body>
@@ -139,19 +140,19 @@ html:is([data-jy-theme="gray"],[data-jy-theme="dark"])[data-music-layout="classi
 
 <header>
     <div class="brand"><span class="brand-mark material-icons-round">graphic_eq</span><div>Sync Music<small>让音乐同步，和你一起听</small></div></div>
-    <div class="header-right"><span id="roleBadge" class="role-badge">主设备</span><button class="btn-icon" onclick="document.getElementById('sync-settings').open=true;document.getElementById('sync-settings').scrollIntoView({behavior:'smooth'})" aria-label="同步设置"><span class="material-icons-round">tune</span></button></div>
+    <div class="header-right"><button id="roleBadge" class="role-badge" type="button" aria-label="当前设备角色，点击切换" onclick="document.getElementById('sync-settings').open=true;document.getElementById('sync-settings').scrollIntoView({behavior:'smooth'})">本机：主设备 ▾</button><button class="btn-icon" onclick="document.getElementById('sync-settings').open=true;document.getElementById('sync-settings').scrollIntoView({behavior:'smooth'})" aria-label="同步设置"><span class="material-icons-round">tune</span></button></div>
 </header>
 <div class="container">
     <aside>
         <div class="queue-heading"><h2>你的歌单</h2><span id="song-count">0 首歌曲</span></div>
         <p class="queue-caption">选一首喜欢的，让音乐在设备间流动。</p>
-        <div id="masterPanel">
+        <div class="playlist-controls"><label for="playlist-select">选择歌单</label><select id="playlist-select" aria-label="选择歌单" onchange="PlaylistLibrary.select(this.value)"></select><p id="playlist-description" class="settings-note"></p><p id="playlist-sync-status" class="settings-note" role="status">正在检查歌单同步…</p></div><div id="masterPanel"><details id="create-playlist"><summary>创建歌单</summary><div class="panel"><input id="playlist-name" maxlength="100" placeholder="歌单名称" aria-label="歌单名称"><textarea id="playlist-description-input" maxlength="1000" placeholder="介绍（可选）" aria-label="歌单介绍"></textarea><button class="btn-pri" onclick="PlaylistLibrary.create()">创建歌单</button></div></details>
             <div id="list-el" class="list"></div>
             <div class="queue-actions"><button class="btn-sec" onclick="document.getElementById('add-song').open=!document.getElementById('add-song').open"><span aria-hidden="true">＋</span> 添加歌曲</button><button class="btn-sec" onclick="toggleModal('import-modal')">导入歌单</button></div>
             <details id="add-song"><summary>通过网易云歌曲 ID 添加</summary><div class="panel"><input id="inp-name" aria-label="歌曲名称" placeholder="歌曲名称"><input id="inp-id" aria-label="网易云歌曲 ID" placeholder="网易云歌曲 ID，例如 186016"><button class="btn-pri" onclick="Library.add()">加入歌单</button><button class="btn-sec" onclick="(async()=>{if((await JackyunDialog.confirm('清空整个歌单？'))) Library.clear()})()">清空歌单</button></div></details>
         </div>
-        <div id="followerPanel" style="display:none"><div class="follower-card"><span class="material-icons-round" style="font-size:32px;color:var(--music-accent)">headphones</span><h3>一起听同一首歌</h3><p>主设备负责选歌和切歌，<br>这台设备跟随播放。</p><button class="btn-pri" onclick="Engine.enableFollowerAudio()">启用声音 / 重试同步</button><p id="followerAudioHint">首次使用请点击启用声音，并保持页面在前台。</p><div class="now-playing" id="followerNowPlaying"><div id="followerSongName">等待主设备选歌</div></div></div></div>
-        <details id="sync-settings"><summary>设备与同步设置</summary><div class="panel"><label class="layout-setting">界面风格<select aria-label="界面风格" id="music-layout" onchange="PlayerView.setLayout(this.value)"><option value="record">唱片模式（默认）</option><option value="classic">经典模式 · 大倒计时</option></select></label><p class="settings-note" style="margin:0">界面选择仅保存在这台设备，切换不会中断播放。</p><div class="settings-row"><button class="btn-sec role-btn" onclick="setRole('master')">主设备</button><button class="btn-sec role-btn" onclick="setRole('follower')">跟随设备</button></div><div id="syncStatusText" class="settings-note">管理歌单，控制所有设备播放</div><button class="sync-trigger" onclick="testConnection()" id="sync-main-btn"><span class="material-icons-round" style="font-size:18px">speed</span><span id="sync-main-txt">重新测速 · 6 次采样</span></button><div class="stats">时钟偏移 <span id="st-offset">0</span> ms</div><div class="stats">本机播放进度偏差 <span id="playback-drift">--</span> ms</div><p class="settings-note" style="margin:0">播放中自动纠偏；进度偏差不包含扬声器的实际输出延迟。</p><button class="btn-sec" onclick="toggleModal('cali-modal')">声音延迟校准 · 提前 / 延后</button></div></details>
+        <div id="followerPanel" style="display:none"><div class="follower-card"><span class="material-icons-round" style="font-size:32px;color:var(--music-accent)">headphones</span><h3>一起听同一首歌</h3><p>主设备负责选歌和切歌，<br>这台设备跟随播放。</p><button class="btn-pri" onclick="Engine.enableFollowerAudio()">启用声音 / 重试同步</button><p id="followerAudioHint">首次使用请点击启用声音，并保持页面在前台。</p><div class="now-playing" id="followerNowPlaying"><div id="followerSongName">等待主设备选歌</div></div></div><div id="follower-list" class="list" aria-label="当前歌单歌曲"></div></div>
+        <details id="sync-settings"><summary>设备与同步设置</summary><div class="panel"><label class="layout-setting">界面风格<select aria-label="界面风格" id="music-layout" onchange="PlayerView.setLayout(this.value)"><option value="record">唱片模式（默认）</option><option value="classic">经典模式 · 大倒计时</option></select></label><p class="settings-note" style="margin:0">界面选择仅保存在这台设备，切换不会中断播放。</p><div class="settings-row"><button id="role-master" class="btn-sec role-btn" type="button" onclick="setRole('master')">主设备 · 选歌和控制播放</button><button id="role-follower" class="btn-sec role-btn" type="button" onclick="setRole('follower')">跟随设备 · 跟随主设备播放</button></div><div id="syncStatusText" class="settings-note">管理歌单，控制所有设备播放</div><button class="sync-trigger" onclick="testConnection()" id="sync-main-btn"><span class="material-icons-round" style="font-size:18px">speed</span><span id="sync-main-txt">重新测速 · 6 次采样</span></button><div class="stats">时钟偏移 <span id="st-offset">0</span> ms</div><div class="stats">本机播放进度偏差 <span id="playback-drift">--</span> ms</div><p class="settings-note" style="margin:0">播放中自动纠偏；进度偏差不包含扬声器的实际输出延迟。</p><button class="btn-sec" onclick="toggleModal('cali-modal')">声音延迟校准 · 提前 / 延后</button></div></details>
     </aside>
     <main>
         <p class="eyebrow">LISTEN TOGETHER</p>
@@ -187,7 +188,7 @@ let DEVICE_ID = localStorage.getItem('mps_deviceId') || 'dev_' + Date.now().toSt
 localStorage.setItem('mps_deviceId', DEVICE_ID);
 
 const STATE = {
-    songs: JSON.parse(localStorage.getItem('v45_songs')) || [],
+    songs: (()=>{ try { const value=JSON.parse(localStorage.getItem('v45_songs')||'[]'); return Array.isArray(value)?value:[]; } catch { return []; } })(),
     netOffset: 0, 
     manualOffset: parseInt(localStorage.getItem('v45_manual')) || 0,
     interval: parseInt(localStorage.getItem('v45_interval')) || 10000,
@@ -514,13 +515,15 @@ function setRole(role) {
     document.querySelectorAll('.master-control, #btn-mode').forEach(b => b.disabled = !isMaster);
 
     const badge = document.getElementById('roleBadge');
+    document.getElementById('role-master').setAttribute('aria-pressed', String(isMaster));
+    document.getElementById('role-follower').setAttribute('aria-pressed', String(!isMaster));
     if (isMaster) {
-        badge.textContent = '主设备';
+        badge.textContent = '本机：主设备 ▾';
         badge.className = 'role-badge master';
         document.getElementById('syncStatusText').textContent = '管理歌单，点击播放控制所有设备';
         Library.render();
     } else {
-        badge.textContent = '跟随设备';
+        badge.textContent = '本机：跟随设备 ▾';
         badge.className = 'role-badge follower';
         document.getElementById('syncStatusText').textContent = '等待主设备播放...';
         PlayerView.track('等待主设备选歌', '连接后，音乐会在这里继续');
@@ -790,11 +793,128 @@ const Engine = {
 // 7. LIBRARY
 // ═══════════════════════════════════════════════
 
+// Account-owned snapshots are merged against the last acknowledged base. Concurrent
+// edits to the same playlist are kept as separate copies instead of overwriting either.
+const PlaylistLibrary = {
+    key:'sync_music_playlists_v1', data:null, syncing:false, pending:false, timer:null, draftId:null, recovered:[],
+    clone(v){return JSON.parse(JSON.stringify(v));},
+    defaultList(songs=[]){return {id:crypto.randomUUID(),name:'我的歌单',description:'',songs:this.clone(songs)};},
+    persist(){
+        try { const snapshot=JSON.stringify(this.data); localStorage.setItem(this.key+':draft:'+(this.data.owner||'guest')+':'+this.draftId,snapshot); localStorage.setItem(this.key+':'+(this.data.owner||'guest'),snapshot); localStorage.setItem(this.key,snapshot); return true; }
+        catch { this.status('本机保存失败，请保留此页面并检查浏览器存储。');return false; }
+    },
+    status(message){document.getElementById('playlist-sync-status').textContent=message;},
+    init(){
+        this.draftId=crypto.randomUUID();
+        let previous=null,guest=null;
+        try {previous=JSON.parse(localStorage.getItem(this.key)||'null');guest=JSON.parse(localStorage.getItem(this.key+':guest')||'null');}catch{}
+        const valid=d=>d&&Array.isArray(d.playlists)&&d.playlists.length;
+        // An account snapshot must not be shown to a signed-out user while auth is pending.
+        if(valid(previous)&&previous.owner){
+            try {if(!localStorage.getItem(this.key+':'+previous.owner))localStorage.setItem(this.key+':'+previous.owner,JSON.stringify(previous));}catch{this.status('本机保存失败，请检查浏览器存储。');return;}
+            if(valid(guest)&&!guest.owner)this.data=guest;
+            else {const p=this.defaultList();this.data={owner:null,playlists:[p],activeId:p.id,base:[],pristine:true};}
+        } else if(valid(previous)&&!previous.owner)this.data=previous;
+        else if(valid(guest)&&!guest.owner)this.data=guest;
+        else {const songs=STATE.songs.map(x=>({id:String(x.id??''),name:String(x.name??'')}));const p=this.defaultList(songs);this.data={owner:null,playlists:[p],activeId:p.id,base:[],pristine:songs.length===0};}
+        if(!this.data.playlists.some(p=>p.id===this.data.activeId))this.data.activeId=this.data.playlists[0].id;
+        this.apply();if(this.persist())void this.sync();
+        setInterval(()=>void this.sync(),30000);
+        window.addEventListener('online',()=>void this.sync());
+        document.addEventListener('visibilitychange',()=>{if(!document.hidden)void this.sync();});
+    },
+    apply(){
+        const p=this.data.playlists.find(p=>p.id===this.data.activeId)||this.data.playlists[0];
+        this.data.activeId=p.id;STATE.songs=this.clone(p.songs);STATE.curIdx=Math.max(0,Math.min(STATE.curIdx,STATE.songs.length-1));
+        const select=document.getElementById('playlist-select');select.replaceChildren();
+        for(const item of this.data.playlists){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;select.appendChild(option);}
+        select.value=p.id;document.getElementById('playlist-description').textContent=p.description||'暂无介绍';
+    },
+    create(){
+        const name=document.getElementById('playlist-name').value.trim(),description=document.getElementById('playlist-description-input').value.trim();
+        if(!name)return JackyunDialog.alert('请填写歌单名称');
+        if(this.data.playlists.length>=100)return JackyunDialog.alert('最多创建 100 个歌单');
+        const p={id:crypto.randomUUID(),name,description,songs:[]};this.data.pristine=false;this.data.playlists.push(p);const saved=this.select(p.id);
+        document.getElementById('playlist-name').value='';document.getElementById('playlist-description-input').value='';document.getElementById('create-playlist').open=false;
+        if(saved)this.queue();
+    },
+    select(id){if(!this.data.playlists.some(p=>p.id===id))return;if(STATE.status!=='IDLE')Engine.reset();this.data.activeId=id;STATE.curIdx=0;this.apply();const saved=this.persist();Library.render();return saved;},
+    saveSongs(songs){this.data.pristine=false;const p=this.data.playlists.find(p=>p.id===this.data.activeId);if(!p)return;p.songs=this.clone(songs);if(this.persist())this.queue();},
+    queue(){this.pending=true;this.status('本机已保存，等待同步…');clearTimeout(this.timer);this.timer=setTimeout(()=>void this.sync(),600);},
+    merge(local,remote,base){
+        const result=[],byLocal=new Map(local.map(p=>[p.id,p])),byRemote=new Map(remote.map(p=>[p.id,p])),byBase=new Map((base||[]).map(p=>[p.id,p]));
+        const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+        for(const id of new Set([...byRemote.keys(),...byLocal.keys()])){
+            const l=byLocal.get(id),r=byRemote.get(id),b=byBase.get(id);
+            if(!l){result.push(r);continue;} if(!r){result.push(l);continue;}
+            if(same(l,r)||same(l,b)){result.push(r);continue;} if(same(r,b)){result.push(l);continue;}
+            result.push(r,{...this.clone(l),id:crypto.randomUUID(),name:(l.name.slice(0,92)+'（本机副本）')});
+        }
+        return result;
+    },
+    recover(owner){
+        for(let i=0;i<localStorage.length;i++){
+            const key=localStorage.key(i);if(!key||!key.startsWith(this.key+':draft:')||key===this.key+':draft:'+(this.data.owner||'guest')+':'+this.draftId)continue;
+            const raw=localStorage.getItem(key);if(!raw||this.recovered.some(item=>item.key===key&&item.raw===raw))continue;
+            try {const draft=JSON.parse(raw);if(draft.owner!==owner||!Array.isArray(draft.playlists))continue;
+                this.data.playlists=this.merge(draft.playlists,this.data.playlists,draft.base||[]);this.recovered.push({key,raw});
+            }catch{}
+        }
+    },
+    acknowledgeDrafts(){
+        try {for(const item of this.recovered)if(localStorage.getItem(item.key)===item.raw)localStorage.removeItem(item.key);this.recovered=[];
+            localStorage.removeItem(this.key+':draft:'+(this.data.owner||'guest')+':'+this.draftId);
+        }catch{}
+    },
+    async sync(){
+        if(this.syncing){this.pending=true;return;}this.syncing=true;this.pending=false;
+        try{
+            const response=await fetch('/api/sync-music-library',{cache:'no-store'});
+            if(response.status===401){
+                if(this.data.owner){if(!this.persist())return;if(STATE.status!=='IDLE')Engine.reset(false);let guest=null;try{guest=JSON.parse(localStorage.getItem(this.key+':guest')||'null');}catch{}
+                    const p=this.defaultList();this.data=guest&&!guest.owner&&Array.isArray(guest.playlists)&&guest.playlists.length?guest:{owner:null,playlists:[p],activeId:p.id,base:[],pristine:true};
+                    this.apply();if(!this.persist())return;Library.render();}
+                this.status('未登录，歌单只保存在本机。');return;
+            }
+            const remote=await response.json();if(!response.ok)throw Error(remote.error||'无法读取云端歌单');
+            if(this.data.owner!==remote.owner){
+                if(!this.persist())return;if(STATE.status!=='IDLE')Engine.reset(false);
+                let account=null;try{account=JSON.parse(localStorage.getItem(this.key+':'+remote.owner)||'null');}catch{}
+                if(account&&account.owner===remote.owner&&Array.isArray(account.playlists)&&account.playlists.length)this.data=account;
+                else if(this.data.owner){const p=this.defaultList();this.data={owner:remote.owner,playlists:remote.playlists.length?this.clone(remote.playlists):[p],activeId:remote.playlists[0]?.id||p.id,base:this.clone(remote.playlists)};}
+                else {if(this.data.pristine&&remote.playlists.length){this.data.playlists=this.clone(remote.playlists);this.data.activeId=remote.playlists[0].id;this.data.base=this.clone(remote.playlists);}this.data.owner=remote.owner;delete this.data.pristine;}
+            }
+            this.data.owner=remote.owner;
+            this.recover(remote.owner);
+            let merged=this.merge(this.data.playlists,remote.playlists,this.data.base||[]);
+            if(merged.length>100)throw Error('合并后歌单超过 100 个，本机与云端内容均保留');
+            this.data.playlists=merged;
+            if(!this.data.playlists.some(p=>p.id===this.data.activeId))this.data.activeId=merged[0].id;
+            if(!this.persist())return;
+            this.apply();Library.render();
+            if(JSON.stringify(merged)===JSON.stringify(remote.playlists)){
+                this.data.base=this.clone(remote.playlists);if(this.persist())this.acknowledgeDrafts();this.status('歌单已同步');return;
+            }
+            const sent=this.clone(merged);
+            const saved=await fetch('/api/sync-music-library',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({owner:remote.owner,revision:remote.revision,playlists:sent})});
+            if(saved.status===409){const d=await saved.json().catch(()=>({}));if(d.conflict){this.pending=true;this.status('歌单在其他设备有更新，正在保留并合并…');return;}throw Error(d.error||'登录状态已变化');}
+            if(!saved.ok){const d=await saved.json().catch(()=>({}));throw Error(d.error||'云端保存失败');}
+            this.data.base=sent;
+            if(!this.persist())return;
+            if(!this.pending)this.acknowledgeDrafts();
+            this.status(this.pending?'本机已保存，正在继续同步':'歌单已同步');
+        }catch(error){this.status((error&&error.message?error.message:'同步失败')+'；本机歌单已保留。');}
+        finally{this.syncing=false;if(this.pending)this.queue();}
+    }
+};
+
 const Library = {
     add() {
+        if(STATE.songs.length>=1000)return JackyunDialog.alert('单个歌单最多 1000 首歌曲');
         const idVal = document.getElementById('inp-id').value.trim();
         const nameVal = document.getElementById('inp-name').value.trim();
-        if(!idVal) return JackyunDialog.alert("请输入 ID");
+        if(!/^[0-9]{1,30}$/.test(idVal)) return JackyunDialog.alert('请输入有效的网易云数字歌曲 ID');
+        if(nameVal.length>200)return JackyunDialog.alert('歌曲名称最多 200 字');
         const finalName = nameVal || `Track ${idVal}`;
         STATE.songs.push({id: idVal, name: finalName});
         this.save(); this.render();
@@ -802,11 +922,12 @@ const Library = {
         document.getElementById('inp-name').value = "";
     },
     clear() { STATE.songs=[]; this.save(); this.render(); },
-    save() { localStorage.setItem('v45_songs', JSON.stringify(STATE.songs)); },
+    save() { PlaylistLibrary.saveSongs(STATE.songs); },
     render() {
         const el = document.getElementById('list-el');
         document.getElementById('song-count').textContent = `${STATE.songs.length} 首歌曲`;
         const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+        document.getElementById('follower-list').innerHTML = STATE.songs.length ? STATE.songs.map((s,i)=>`<div class="item"><span class="track-number">${(i+1).toString().padStart(2,'0')}</span><span class="item-title">${escape(s.name)}</span></div>`).join('') : '<div class="empty-queue">歌单暂无歌曲</div>';
         el.innerHTML = STATE.songs.length ? STATE.songs.map((s,i) => `
             <div class="item ${i===STATE.curIdx?'active':''}">
                 <span class="track-number">${(i + 1).toString().padStart(2, '0')}</span>
@@ -828,6 +949,7 @@ const Library = {
     remove(i, e) {
         e.stopPropagation();
         STATE.songs.splice(i, 1);
+        STATE.curIdx=Math.max(0,Math.min(STATE.curIdx,STATE.songs.length-1));
         this.save(); this.render();
     },
     toggleMode() {
@@ -956,7 +1078,7 @@ function runImport() {
             val = '[' + val + ']';
         }
         const d = JSON.parse(val);
-        if(Array.isArray(d)) { STATE.songs = [...STATE.songs, ...d]; Library.save(); Library.render(); toggleModal('import-modal'); }
+        if(Array.isArray(d) && STATE.songs.length+d.length<=1000 && d.every(x=>x && /^[0-9]{1,30}$/.test(String(x.id)) && typeof x.name==='string' && x.name.trim() && x.name.length<=200)) { STATE.songs = [...STATE.songs, ...d.map(x=>({id:String(x.id),name:x.name.trim()}))]; Library.save(); Library.render(); toggleModal('import-modal'); } else throw Error('invalid songs');
     } catch(e) { JackyunDialog.alert("JSON 格式错误！请确保格式为: [{\"id\":\"...\",\"name\":\"...\"}]"); }
 }
 
@@ -986,6 +1108,7 @@ STATE.audio.addEventListener('timeupdate', () => PlayerView.progress());
 STATE.audio.addEventListener('loadedmetadata', () => PlayerView.progress());
 window.addEventListener('pagehide', () => { Engine.stopTracking(); stopPolling(); });
 
+PlaylistLibrary.init();
 Library.render();
 UI.updateStats();
 ClockSync.forceSync();

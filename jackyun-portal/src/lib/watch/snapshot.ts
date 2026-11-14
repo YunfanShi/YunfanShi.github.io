@@ -124,11 +124,15 @@ export async function timetableSnapshot(token:string, now=new Date(), fetchImpl:
   } catch { modules.timetable='error'; }
   return result;
 }
-export async function snapshot(supabase:SupabaseClient,userId:string,token:string,now=new Date()) {
+export const WATCH_SNAPSHOT_SCOPES = ['all','tasks','notifications','countdowns','plans','activity','agenda','cue','learning','seiue'] as const;
+export type WatchSnapshotScope = typeof WATCH_SNAPSHOT_SCOPES[number];
+export async function snapshot(supabase:SupabaseClient,userId:string,token:string,now=new Date(),scope:WatchSnapshotScope='all') {
   const result:Record<string,unknown>={apiVersion:5,syncProtocol:5,timezone:'Asia/Shanghai',generatedAt:now.toISOString()};
-  const modules:Record<string,string>={};result.modules=modules;
+  const modules:Record<string,string>={timetable:'error',tasks:'error',notifications:'error',countdowns:'error',cue:'error',agenda:'error',seiue:'error',learning:'error',plans:'error',activity:'error'};result.modules=modules;
+  result.requestedScope=scope;
+  const wanted=(name:string)=>scope==='all'||scope===name||(scope==='tasks'&&name==='dida')||(scope==='agenda'&&(name==='dida'||name==='seiue'));
   let didaTasks: Array<{id:string;title:string;completed:boolean;version:string;date:string;start:string;minutes:number;subject:string;detail:string;source:string}> = [];
-  async function load(name:string,action:()=>Promise<void>){try{await action();if(modules[name]!=='partial')modules[name]='ready';}catch{modules[name]='error';}}
+  async function load(name:string,action:()=>Promise<void>){if(!wanted(name))return;try{await action();if(modules[name]!=='partial')modules[name]='ready';}catch{modules[name]='error';}}
   await Promise.all([
     load('seiue',async()=>{
       result.seiueAgenda=[];
@@ -172,11 +176,19 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
       if(remote.failed)modules.dida='partial';
     }),
     (async()=>{
+      if(!['all','cue','agenda','learning'].includes(scope))return;
+      const names=scope==='all'?['timetable','cue','agenda','learning']:[scope];
+      const fields=scope==='all'?watchScheduleFields:scope==='cue'?{timetable:['timetable'],cue:['cues','cueReviews']}:{timetable:['timetable'],learning:watchScheduleFields.learning};
       try {
-        const value=await readV5Schedule(token);
-        if(!Object.keys(value).length){for(const name of ['timetable','cue','agenda','learning'])modules[name]='not_synced';return;}
-        Object.assign(result,scheduleSnapshot(value,now));for(const name of ['timetable','cue','agenda','learning'])modules[name]='ready';
-      }catch{for(const name of ['timetable','cue','agenda','learning'])modules[name]='error';}
+        const value=await readV5Schedule(token,fetch,fields,scope==='all'?undefined:AbortSignal.timeout(12_000));
+        if(!Object.keys(value).length){for(const name of names)modules[name]='not_synced';return;}
+        const data=scheduleSnapshot(scope==='all'?value:{...createEmptyScheduleState(),...value},now);
+        if(scope==='all')Object.assign(result,data);
+        else if(scope==='cue')result.cue=data.cue;
+        else if(scope==='agenda'){result.agenda=data.agenda;result.agendaHasMore=data.agendaHasMore;}
+        else result.learningRecords=data.learningRecords;
+        for(const name of names)modules[name]='ready';
+      }catch{for(const name of names)modules[name]='error';}
     })(),
     load('tasks',async()=>{
       const {data,error}=await supabase.from('study_tasks').select('id,plan_id,title,completed,due_date,scheduled_at,priority,updated_at').eq('user_id',userId).order('completed').order('priority').order('due_date',{nullsFirst:false}).limit(500);
@@ -203,7 +215,11 @@ export async function snapshot(supabase:SupabaseClient,userId:string,token:strin
       result.notifications=(data?.items??[]).map((item:Record<string,unknown>)=>({id:item.id,title:watchText(item.title,240),read:item.is_read,version:item.updated_at,text:watchText(item.content,2000)}));
     }),
   ]);
-  return mergeWatchDidaTasks(result,modules,didaTasks,now);
+  const merged=mergeWatchDidaTasks(result,modules,didaTasks,now);
+  // An on-demand request must not replace another page's complete cache with a partial projection.
+  if(scope==='tasks'){modules.agenda='error';delete merged.agenda;delete merged.agendaHasMore;}
+  if(scope==='agenda'){modules.tasks='error';delete merged.tasks;delete merged.didaHasMore;}
+  return merged;
 }
 
 export function normalizeWatchSeiueTodos(todos:SeiueTodo[],now:Date) {
