@@ -376,6 +376,7 @@ export interface CueCreateOperation extends CueSourceFields {
   action: 'create';
   subjectName?: string;
   unit: string;
+  subsection?: string;
   prompt: string;
   subtitle?: string;
   answer?: string;

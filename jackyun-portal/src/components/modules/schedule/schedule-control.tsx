@@ -1162,6 +1162,7 @@ function CueManagerDialog({ cues, reviews, drafts = [], catalog, collectionUpdat
   const [similarityTool, setSimilarityTool] = useState(false);
   const [memoryImport, setMemoryImport] = useState(false);
   const [exchangeImport, setExchangeImport] = useState(false);
+  const [includeExchangePrompt, setIncludeExchangePrompt] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   useEffect(() => {
     try {
@@ -1217,7 +1218,7 @@ function CueManagerDialog({ cues, reviews, drafts = [], catalog, collectionUpdat
     const resolvedSubjectName = item.subjectName?.trim() || subjectName;
     const resolvedSubject = catalog.find((subject) => subject.name.trim().toLocaleLowerCase() === resolvedSubjectName.toLocaleLowerCase());
     return {
-      id: taskId(), subjectId: resolvedSubject?.id ?? subjectIdFromName(resolvedSubjectName), subjectName: resolvedSubject?.name ?? resolvedSubjectName, unit: item.unit, subsection: '',
+      id: taskId(), subjectId: resolvedSubject?.id ?? subjectIdFromName(resolvedSubjectName), subjectName: resolvedSubject?.name ?? resolvedSubjectName, unit: item.unit, subsection: item.subsection ?? '',
       ...(item.deepUnderstanding !== undefined ? {deepUnderstanding:item.deepUnderstanding} : {}), examStatus: item.examStatus, examHistory: item.examHistory, sourceKind: item.sourceKind, source: item.source, sourceLocation: item.sourceLocation, sourceUrl: item.sourceUrl,
       prompt: item.prompt, ...(item.subtitle ? { subtitle: item.subtitle } : {}), ...(item.answer ? { answer: item.answer } : {}), type: item.type, display: item.display, ...(item.choices ? { choices: item.choices, correctChoice: item.correctChoice } : {}), markingPoints: item.markingPoints,
       version: 1, intervalDays: 0, easeFactor: 2.5, streak: 0, nextReviewDate: addCalendarDays(dateKey(new Date()), 1), createdAt: now, updatedAt: now,
@@ -1286,7 +1287,9 @@ function CueManagerDialog({ cues, reviews, drafts = [], catalog, collectionUpdat
     const modifiedCount = appliedCues.filter((cue) => beforeById.has(cue.id) && beforeById.get(cue.id) !== cue).length;
     const updatedCues = appliedCues.map((cue) => {
       const subject = catalog.find((item) => item.name.trim().toLocaleLowerCase() === cue.subjectName.trim().toLocaleLowerCase());
-      return subject ? { ...cue, subjectId: subject.id, subjectName: subject.name } : cue;
+      if (subject) return { ...cue, subjectId: subject.id, subjectName: subject.name };
+      const previous = beforeById.get(cue.id);
+      return previous && previous.subjectName !== cue.subjectName ? { ...cue, subjectId: subjectIdFromName(cue.subjectName) } : cue;
     });
     const nextCatalog = catalog.map((subject) => {
       const importedUnits = updatedCues.filter((cue) => cue.subjectId === subject.id).map((cue) => cue.unit);
@@ -1298,20 +1301,42 @@ function CueManagerDialog({ cues, reviews, drafts = [], catalog, collectionUpdat
     onChange(updatedCues, nextCatalog, isCueCollectionBatch(summary, markAsBatch) ? collectionUpdate(now, summary, markAsBatch) : undefined, source);
     return { createdCount, modifiedCount };
   };
+  const exchangeJson = () => JSON.stringify(createCueExchangeBundle(cues, undefined, { includePrompt: includeExchangePrompt }), null, 2);
+  const copyExchange = async () => {
+    try {
+      await navigator.clipboard.writeText(exchangeJson());
+      setEditNotice(`已复制全部 ${cues.length} 张 CUE${includeExchangePrompt ? '（含 AI 提示词）' : ''}。`);
+    } catch {
+      setEditNotice('剪贴板不可用，可通过“下载 JSON”获取文件。');
+    }
+  };
   const exportExchange = () => {
-    const bundle = createCueExchangeBundle(cues);
-    const url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' }));
-    const link = document.createElement('a'); link.href = url; link.download = `jackyun-cues-${new Date().toISOString().slice(0, 10)}.json`; link.click();
+    const url = URL.createObjectURL(new Blob([exchangeJson()], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `jackyun-cues-${dateKey(new Date())}.json`;
+    link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   return <div className={`${styles.cueManager} fixed inset-0 z-[70] grid place-items-center bg-black/45 p-2 sm:p-4 backdrop-blur-sm`} role="dialog" aria-modal="true" aria-labelledby="cue-manager-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="grid h-[94dvh] min-h-0 w-full max-w-[1500px] grid-rows-[auto_auto] overflow-y-auto xl:grid-rows-[auto_minmax(0,1fr)] xl:overflow-hidden rounded-3xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl xl:grid-cols-[400px_minmax(0,1fr)] xl:grid-rows-1">
       <form ref={editorRef} tabIndex={-1} onSubmit={createCue} className="min-h-0 xl:overflow-y-auto xl:overscroll-contain border-b border-[var(--card-border)] p-6 xl:max-h-none xl:border-b-0 xl:border-r">
         <div className="flex items-center justify-between"><div><h2 id="cue-manager-title" className="text-xl font-semibold">知识 CUE 管理</h2><p className="mt-1 text-xs text-[var(--muted-foreground)]">单条添加时选择大单元；批量 / AI 导入只需先选择学科，每条 Cue 可使用不同大单元。</p></div><button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full hover:bg-black/5"><span aria-hidden="true" className="material-icons-round">close</span></button></div>
-        <button type="button" disabled={!cues.length} onClick={async () => { try { await navigator.clipboard.writeText(JSON.stringify(createCueExchangeBundle(cues), null, 2)); setEditNotice(`已复制全部 ${new Set(cues.map(cue => cue.subjectName)).size} 个科目、${cues.length} 条 CUE（含来源与进度对照信息）。可分析后通过“导入 CUE 并逐条对比”导回。`); } catch { setEditNotice('剪贴板不可用，请使用下方“导出 CUE”下载相同 JSON。'); } }} className="mt-3 min-h-11 w-full rounded-xl border border-[var(--brand)] px-3 text-sm font-semibold text-[var(--brand)] disabled:opacity-40">复制全部科目 CUE JSON</button>
-        <button type="button" onClick={() => setHistoryOpen(true)} className="mt-4 min-h-11 w-full rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold">修改 / 导入记录（{changeHistory.length}）</button>
-        <button type="button" onClick={() => setMemoryImport(true)} className="mt-4 min-h-11 w-full rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold">从 DEFINITIONS / 对比记忆导入</button>
-        <div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={exportExchange} className="min-h-11 rounded-xl border border-[var(--card-border)] px-2 text-xs font-semibold">导出 CUE（含进度对照信息）</button><button type="button" onClick={() => setExchangeImport(true)} className="min-h-11 rounded-xl border border-[var(--brand)] px-2 text-xs font-semibold text-[var(--brand)]">导入 CUE 并逐条对比</button></div>
+        <fieldset className="mt-4 rounded-xl border border-[var(--card-border)] p-3">
+          <legend className="px-1 text-sm font-semibold">导出 CUE</legend>
+          <label className="flex min-h-8 cursor-pointer items-center gap-2 text-sm">
+            <input type="checkbox" checked={includeExchangePrompt} onChange={(event) => setIncludeExchangePrompt(event.target.checked)} className="h-4 w-4 accent-[var(--brand)]" />
+            包含 AI 提示词
+          </label>
+          <p className="text-xs text-[var(--muted-foreground)]">导出全部科目。提示词说明如何优化卡片并返回可导入的 JSON。</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button type="button" disabled={!cues.length} onClick={copyExchange} className="min-h-11 rounded-xl border border-[var(--card-border)] px-2 text-sm font-semibold disabled:opacity-40">复制全部科目 CUE JSON</button>
+            <button type="button" disabled={!cues.length} onClick={exportExchange} className="min-h-11 rounded-xl border border-[var(--card-border)] px-2 text-sm font-semibold disabled:opacity-40">下载 JSON</button>
+          </div>
+        </fieldset>
+        <button type="button" onClick={() => setExchangeImport(true)} className="mt-3 min-h-11 w-full rounded-xl border border-[var(--brand)] px-3 text-sm font-semibold text-[var(--brand)]">导入 CUE 并逐条对比</button>
+        <button type="button" onClick={() => setHistoryOpen(true)} className="mt-3 min-h-11 w-full rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold">修改 / 导入记录（{changeHistory.length}）</button>
+        <button type="button" onClick={() => setMemoryImport(true)} className="mt-3 min-h-11 w-full rounded-xl border border-[var(--card-border)] px-3 text-sm font-semibold">从 DEFINITIONS / 对比记忆导入</button>
         {editingId && <div className="mt-4 rounded-xl border border-[var(--brand)] p-3 text-sm"><strong>编辑现有 Cue</strong><p className="mt-1 text-xs">修改内容与分类，保留原有学习历史、判定和备忘录。</p></div>}
         <CueDeepEditor value={deepUnderstanding} onChange={setDeepUnderstanding} />
         {editNotice && <p role="status" className="mt-3 text-sm text-[var(--brand)]">{editNotice}</p>}

@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
+  { version: '3.83.2', date: '2026-11-19', dateLabel: '2026 年 11 月 19 日', title: 'CUE 交换支持 AI 提示词与粘贴导入', summary: '复制或下载 CUE JSON 时可附带 AI 修改说明。粘贴或上传后可逐条对比并选择要采用的内容。', categories: ['学习体验'], accent: 'mint', highlights: ['导出可附带卡片更新规则、字段和 JSON 格式说明。', '预览展示每张卡的字段差异与新增内容。采用修改会保留本地学习进度。'] },
   { version: '3.83.0', date: '2026-11-14', dateLabel: '2026 年 11 月 14 日', title: '同步音乐歌单体验升级', summary: '完善歌单编辑、搜索、排序与复制，保留跨设备同步。', categories: ['平台体验', '稳定性'], accent: 'mint', highlights: ['支持修改歌单名称与介绍、删除歌单，以及搜索、排序和跨歌单复制歌曲。', '按共同基准合并歌单删除和并发编辑，保留并发修改内容。', '播放失败时提示重试；现有网易云歌曲 ID 和歌单导入继续可用。'] },
   { version: '3.82.0', date: '2026-11-14', dateLabel: '2026 年 11 月 14 日', title: '音乐歌单与练习 JSON 导入', summary: 'Sync Music 支持多个歌单和账号同步；练习计时器支持导入题目及三档时间。', categories: ['学习体验', '稳定性'], accent: 'mint', highlights: ['主设备与跟随设备角色更醒目；创建歌单时可填写名称与介绍，沿用已有歌曲导入方式。', '歌单按账号保存，并为并发更改保留副本；网络不可用时本机内容保留。', '复制要求给 ChatGPT，粘贴 JSON 后逐题选择模考、普通或宽松时间，完成后导出记录。', '手表接口增加按模块读取能力；旧版手表仍优先请求课表，其他页面按需读取需要更新客户端。'] },
   { version: '3.81.1', date: '2026-11-14', dateLabel: '2026 年 11 月 14 日', title: '手表课表优先读取', summary: '手表默认优先读取云端课表，避免等待其他模块；读取失败时保留缓存。', categories: ['稳定性'], accent: 'blue', highlights: ['课表请求不等待任务和外部服务，并限制总读取时间。', '其他模块暂保留缓存；网页本机尚未上传的课表不会自动出现在手表。'] },
