@@ -10,7 +10,7 @@ function worker({ cached, response, quotaError = false }: { cached?: Response; r
   let writes = 0;
   let deletes = 0;
   runInNewContext(source, {
-    URL, Request, Response, Headers, AbortController, setTimeout, clearTimeout,
+    URL, URLSearchParams, TextDecoder, Request, Response, Headers, AbortController, setTimeout, clearTimeout,
     self: { location: { origin: 'https://example.com' }, addEventListener: (name: string, handler: (event: unknown) => void) => listeners.set(name, handler) },
     caches: {
       match: async () => cached,
@@ -25,8 +25,15 @@ function worker({ cached, response, quotaError = false }: { cached?: Response; r
     async get(navigate = false) {
       let result: Promise<Response> | undefined;
       const request = navigate ? { method: 'GET', mode: 'navigate', url: 'https://example.com/dashboard' } : new Request('https://example.com/_next/static/css/app.css');
-      listeners.get('fetch')!({ request, respondWith: (value: Promise<Response>) => { result = value; } });
-      return result!;
+      const work: Promise<unknown>[] = [];
+      listeners.get('fetch')!({
+        request,
+        waitUntil: (value: Promise<unknown>) => { work.push(value); },
+        respondWith: (value: Promise<Response>) => { result = value; },
+      });
+      const response = await result!;
+      await Promise.all(work);
+      return response;
     },
     writes: () => writes,
     deletes: () => deletes,

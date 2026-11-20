@@ -11,7 +11,13 @@ export default function OfflineSettingsPanel() {
     if (!worker) { setStatus('正式版支持离线缓存；首次访问后刷新一次以启用。'); return; }
     const channel = new MessageChannel();
     const timer = window.setTimeout(() => { channel.port1.close(); setStatus('缓存状态暂时不可用，请重试'); }, 4000);
-    channel.port1.onmessage = event => { clearTimeout(timer); setPages(event.data.routes || []); channel.port1.close(); };
+    channel.port1.onmessage = ({ data }) => {
+      clearTimeout(timer);
+      channel.port1.close();
+      if (data.unavailable) { setStatus('缓存状态暂时不可用，请重试'); return; }
+      setPages(data.routes || []);
+      setStatus('');
+    };
     worker.postMessage({ type: 'GET_OFFLINE_STATUS' }, [channel.port2]);
   }
   useEffect(() => { queueMicrotask(() => { void refresh(); }); }, []);
@@ -32,8 +38,9 @@ export default function OfflineSettingsPanel() {
     worker.postMessage({ type: 'CLEAR_USER_CACHE' }, [channel.port2]);
   }
   return <div className="space-y-4">
-    <div className="rounded-xl bg-[var(--background)] p-4 text-sm leading-7"><strong>断网时可以做什么</strong><p>已访问并缓存的日程、学习计划、词汇、记忆、时间管理等本地页面继续工作。本机修改在恢复联网后上传。后台会准备常用页面及其脚本、样式，最多保留 160 个页面地址；缓存可能被浏览器回收。</p><p>AI 生成、第三方服务、图书下载和账号管理需要联网；尚未准备好的页面可返回已保存的工作区。</p></div>
+    <div className="rounded-xl bg-[var(--background)] p-4 text-sm leading-7"><strong>断网时可以做什么</strong><p>已访问并缓存的日程、学习计划、词汇、记忆、时间管理等本地页面继续工作。本机修改在恢复联网后上传。后台会准备常用页面及其脚本、样式，最多保留 320 个页面地址；缓存可能被浏览器回收。</p><p>AI 生成、第三方服务、图书下载和账号管理需要联网；尚未准备好的页面可返回已保存的工作区。</p></div>
     <div className="flex flex-wrap gap-3"><button type="button" onClick={refresh} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4">查看缓存</button><button type="button" onClick={warm} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4">准备全部页面</button><button type="button" onClick={clear} disabled={busy} className="min-h-11 rounded-xl border border-[var(--card-border)] px-4 disabled:opacity-50">清理离线页面</button><a href="/products" target="_blank" rel="noopener noreferrer" className="min-h-11 rounded-xl bg-[var(--brand)] px-4 py-3 text-white">安装 PWA</a></div>
+    <p className="text-sm"><a href="/offline.html" className="font-semibold text-[var(--brand)] underline">打开离线页面列表</a></p>
     <p role="status" className="text-sm text-[var(--muted-foreground)]">{status || `已缓存 ${pages.length} 个页面地址`}</p>
     <ul className="grid gap-2 sm:grid-cols-2">{pages.map(path => <li key={path}><a href={path} className="block rounded-xl border border-[var(--card-border)] px-3 py-2 text-sm">{path}</a></li>)}</ul>
   </div>;

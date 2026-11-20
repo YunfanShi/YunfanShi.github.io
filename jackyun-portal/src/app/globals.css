@@ -346,7 +346,7 @@ main, nav, [data-scroll-region], .quiz-scroll {
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url(/fonts/material-icons-round.otf) format('opentype');
+  src: url('/fonts/material-icons-round.woff2') format('woff2'), url(/fonts/material-icons-round.otf) format('opentype');
 }
 
 .material-icons-round {

@@ -4,6 +4,7 @@ import { workspaceStorage } from '@/lib/sync/repository';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
 import { dismissNotification } from '@/actions/admin';
 import { useNotificationSnapshot } from '@/lib/notification-client';
@@ -11,7 +12,9 @@ import type { SiteNotification } from '@/types';
 import { useAuthMode } from '@/components/auth/auth-mode-provider';
 import { announcementDismissalKey, announcementMatchesPath, announcementPhase, safeAnnouncementLink } from '@/lib/announcements';
 import { AnnouncementBadge, AnnouncementAction } from './announcement-content';
-import MarkdownRenderer from './markdown-renderer';
+const MarkdownRenderer = dynamic(() => import('./markdown-renderer'), {
+  loading: () => <p className="text-sm text-[var(--muted-foreground)]">正在加载公告正文…</p>,
+});
 
 export default function SiteAnnouncements() {
   const { signedIn, userId } = useAuthMode();

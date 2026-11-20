@@ -17,6 +17,7 @@ export default function PwaLifecycle() {
     if (process.env.NODE_ENV !== 'production') return;
 
     let registration: ServiceWorkerRegistration | null = null;
+    let lastUpdateCheck = 0;
 
     const onControllerChange = () => {
       if (!reloadRequested.current) return;
@@ -50,7 +51,8 @@ export default function PwaLifecycle() {
     };
 
     const refreshUpdateStatus = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible' || !navigator.onLine || Date.now() - lastUpdateCheck < 60_000) return;
+      lastUpdateCheck = Date.now();
       void checkLatestVersion();
       void registration?.update().catch(() => {});
     };
@@ -89,16 +91,23 @@ export default function PwaLifecycle() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     const warm = () => {
-      const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-      if (!navigator.onLine || document.hidden || connection?.saveData || ['slow-2g', '2g'].includes(connection?.effectiveType || '')) return;
+      if (!navigator.onLine || document.hidden) return;
       const worker = navigator.serviceWorker.controller;
       worker?.postMessage({ type: 'WARM_VISITED_ROUTE', url: window.location.href });
-      worker?.postMessage({ type: 'WARM_OFFLINE_ROUTES' });
     };
-    const timer = window.setTimeout(warm, 1500);
-    window.addEventListener('online', warm);
-    navigator.serviceWorker.addEventListener('controllerchange', warm);
-    return () => { clearTimeout(timer); window.removeEventListener('online', warm); navigator.serviceWorker.removeEventListener('controllerchange', warm); };
+    let timer: number | undefined;
+    const scheduleWarm = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(warm, 1500);
+    };
+    scheduleWarm();
+    window.addEventListener('online', scheduleWarm);
+    navigator.serviceWorker.addEventListener('controllerchange', scheduleWarm);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('online', scheduleWarm);
+      navigator.serviceWorker.removeEventListener('controllerchange', scheduleWarm);
+    };
   }, [pathname]);
 
   useEffect(() => {
