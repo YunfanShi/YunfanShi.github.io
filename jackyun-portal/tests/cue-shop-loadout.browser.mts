@@ -4,7 +4,7 @@ import {createEmptyScheduleState, type StudyCue} from '../src/lib/learning/sched
 import {emptyCueGameAccount, purchaseCueShopItem, equipCueShopItem, cueShopBalance} from '../src/lib/learning/cue-shop.ts';
 const {chromium}=createRequire(import.meta.url)('playwright');
 const base=process.env.JACKYUN_TEST_URL || 'http://localhost:3239';
-const browser=await chromium.launch({headless:true,channel:'msedge'});
+const browser=await chromium.launch({headless:true,...(process.env.JACKYUN_BROWSER_EXECUTABLE_PATH ? {executablePath:process.env.JACKYUN_BROWSER_EXECUTABLE_PATH} : {channel:'msedge'})});
 try {
  const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(base+'/schedule?view=cue');await page.getByRole('region',{name:'CUE 学习预览'}).waitFor({timeout:60000});
@@ -74,6 +74,8 @@ try {
  }
  const burst=session.locator('[data-cue-practice-burst]');await burst.waitFor();
  assert.equal(await burst.getAttribute('data-variant'),'3','the first equipped effect plays after four real retrievals');
+ assert.equal(await session.locator('[data-cue-global-celebration]').count(), 0);
+ assert.equal((await burst.boundingBox())?.height, 2, 'study milestone remains a small accent in the star panel');
  console.log('PASS all categories, stacked loadout, motion controls, previews, credits, reload and equipped particle playback');
 
  assert.deepEqual(errors,[]);

@@ -33,7 +33,7 @@ export default function CueUniverseBackdrop({ stars, animations, highlight, cele
       return { ...cueGalaxyPoint(star.id), star, arrivedAt: arrivals.current.get(star.id) };
     });
     knownStars.current = new Set(stars.map((star) => star.id));
-    const dust = Array.from({ length: 3600 }, (_, i) => cueGalaxyPoint(`ambient-${i}`));
+    const dust = Array.from({ length: 1200 }, (_, i) => cueGalaxyPoint(`ambient-${i}`));
     const extraPalette = theme === 'emerald' ? { dust: '#8ff2bb', haze: '#1a654349' } : theme === 'sunset' ? { dust: '#ffbb91', haze: '#843d3049' } : theme === 'nebula' ? { dust: '#aaa0ff', haze: '#43348459' } : undefined;
     const sprites = { stable: lightSprite(CUE_STAR_COLORS.stable), partial: lightSprite(CUE_STAR_COLORS.partial), unclear: lightSprite(CUE_STAR_COLORS.unclear), dust: lightSprite(extraPalette?.dust ?? (theme === 'aurora' ? '#99efd7' : theme === 'midnight' ? '#809ac9' : theme === 'pearl' ? '#dadfec' : theme === 'violet' ? '#c5a7ee' : theme === 'rose' ? '#eeb5cb' : theme === 'amber' ? '#edc68b' : '#a9bddb')) };
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -57,17 +57,17 @@ export default function CueUniverseBackdrop({ stars, animations, highlight, cele
       context.fillStyle = core; context.fillRect(0, 0, width, height);
       const elapsed = Math.min(100, now - (previousPaint.current ?? now));
       previousPaint.current = now;
-      if (moving() && !document.hidden) phaseRef.current += elapsed * .000008;
+      if (moving() && !document.hidden) phaseRef.current += elapsed * .000003;
       const phase = phaseRef.current;
       context.globalCompositeOperation = 'lighter';
       context.fillStyle = '#afc7ed';
-      context.globalAlpha = .52;
+      context.globalAlpha = .42;
       context.beginPath();
       for (const point of dust) { const p = project(point, phase); context.moveTo(p.x + point.size, p.y); context.arc(p.x, p.y, point.size * p.depth, 0, Math.PI * 2); }
       context.fill();
       for (let i = 0; i < dust.length; i += 19) {
         const p = project(dust[i], phase); const size = 12 + dust[i].size * 6;
-        context.globalAlpha = .6; context.drawImage(sprites.dust, p.x - size / 2, p.y - size / 2, size, size);
+        context.globalAlpha = .45; context.drawImage(sprites.dust, p.x - size / 2, p.y - size / 2, size, size);
       }
       for (const point of points) {
         const p = project(point, phase);

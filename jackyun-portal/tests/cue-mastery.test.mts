@@ -12,10 +12,13 @@ test('mastery pauses all study starts for ten days and repeated K does not exten
  assert.equal(cuesForLearningTask(state.cues, task('2026-10-22')).length, 1);
  assert.equal(markCueMastered(state, cue.id, new Date('2026-10-14T04:00:00Z'), 'other'), state);
 });
-test('successful due retrievals grow 10 12 14 16 18 and stop at eighteen', () => {
+test('successful due retrievals gradually grow from 10 days to a 90-day ceiling', () => {
  let state = marked();
- for(const days of [12,14,16,18,18]) {
+ for(const days of [14,21,30,45,60,90,90]) {
   const when = new Date(state.cues[0].nextReviewDate+'T04:00:00Z');
+  const restored = normalizeCueMetadata(state.cues[0], at.toISOString());
+  assert.equal(restored.nextReviewDate, state.cues[0].nextReviewDate);
+  assert.equal(cuesForLearningTask([restored], task('2026-11-20')).length, Number(!isCueMasteryPaused(restored, '2026-11-20')));
   state = completeCueReviews(state,[{cueId:cue.id,status:'stable'}],when);
   assert.equal(state.cues[0].intervalDays,days); assert.equal(state.cues[0].masteredIntervalDays,days);
  }
@@ -24,7 +27,7 @@ test('early practice does not extend mastery; wrong or changed content returns t
  let state = marked(); state = completeCueReviews(state,[{cueId:cue.id,status:'stable'}],new Date('2026-10-13T04:00:00Z'));
  assert.equal(state.cues[0].intervalDays,10);
  state = completeCueReviews(state,[{cueId:cue.id,status:'partial'}],new Date('2026-10-14T04:00:00Z'));
- assert.equal(state.cues[0].masteredIntervalDays,undefined); assert.equal(state.cues[0].intervalDays,1);
+ assert.equal(state.cues[0].masteredIntervalDays,undefined); assert.equal(state.cues[0].intervalDays,3);
  const changed={...marked().cues[0],answer:'新答案',updatedAt:'2026-10-13T04:00:00Z'};
  assert.equal(isCueMasteryPaused(changed,'2026-10-13'),false);
  assert.equal(cuesForLearningTask([changed],task('2026-10-13')).length,1);

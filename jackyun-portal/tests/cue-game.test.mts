@@ -79,7 +79,7 @@ test('desktop background renders real star history, accessible experience and re
     assert.equal(new Set(keys).size, keys.length, 'animated counters, sky and celebrations must have distinct sibling identities');
     return jsx.jsxs(type, props, key);
   } };
-  const react = { ...require('react'), useState: (initial: unknown) => React.useState(initial === null ? { id: 23, cueId: 'render-22', status: 'partial', gained: 10, milestone: true, situation: 'constellation', variant: 1, duration: 1600 } : initial) };
+  const react = require('react');
   runInNewContext(outputText, { module: compiled, exports: compiled.exports, require: (name: string) => name === '@/lib/sync/repository' ? { workspaceStorage: { getItem: () => null, setItem: () => {} } } : name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name === './use-cue-study-preferences' ? { useCueReducedMotion: () => false, useCueStudyPreferences: () => ({cueItemMotion:true,cueCelebrationMotion:true,cueAmbientMotion:true}) } : name === './cue-star-shop' || name === './cue-sky-viewer' ? { __esModule: true, default: () => null } : name === '@/lib/learning/cue-shop' ? shop : name === './cue-practice-burst' ? { __esModule: true, default: () => null } : name === './cue-universe-backdrop' ? { __esModule: true, default: backdropModule.exports.default } : name === 'react' ? react : name === 'react/jsx-runtime' ? runtime : name === '@/lib/learning/cue-game' ? game : name === '@/lib/learning/schedule-control' ? schedule : name === '@/hooks/use-workspace-layout' ? { useWorkspaceLayout: () => ({ layout: 'desktop', isTouch: false }) } : name.endsWith('.css') ? { __esModule: true, default: styles } : require(name) });
   const at = new Date();
   const reviews = Array.from({ length: 23 }, (_, i) => review(`render-${i}`, 'partial', at));
@@ -89,23 +89,23 @@ test('desktop background renders real star history, accessible experience and re
   assert.match(html, /data-stars="23"/);
   assert.match(html, /<canvas[^>]*aria-hidden="true"/);
   assert.match(html, /紫晶巡航舰/);
-  assert.match(html, /aria-label="等级经验"[^>]*aria-valuenow="30"/);
+  assert.match(html, /aria-label="等级经验"[^>]*value="30"/);
   assert.match(html, /已点亮 23 颗星的学习星空/);
   assert.doesNotMatch(html, /敌人生命/);
   assert.match(html, /星空收藏/);
   assert.doesNotMatch(html, /LEVEL UP/);
   assert.doesNotMatch(html, /data-situation|跳过动画|class="flight|data-cue-global-celebration/);
   const animatedHtml = renderToStaticMarkup(React.createElement(compiled.exports.default, { reviews, animations: true }));
-  assert.match(animatedHtml, /data-situation="constellation"/);
-  assert.match(animatedHtml, /data-variant="1"/);
-  assert.match(animatedHtml, /跳过动画/);
+  assert.match(animatedHtml, /<aside[^>]*data-motion="true"/);
+  assert.doesNotMatch(animatedHtml, /data-cue-global-celebration|跳过动画/);
   const account=shop.reconcileCueGameAccount(undefined,reviews);
   account.earnings.push({id:'session-bonus',at:at.toISOString(),stars:3,xp:0,label:'连对',sessionKey:'current',extra:true});
   const sessionHtml=renderToStaticMarkup(React.createElement(compiled.exports.default,{reviews,account,sessionCount:7,sessionKey:'current',animations:false}));
   assert.match(sessionHtml,/<h2>本次星空<\/h2>/);
-  assert.match(sessionHtml,/<strong>7<\/strong><span>颗星已点亮/);
-  assert.match(sessionHtml,/EXTRA <strong>\+3<\/strong>/);
-  assert.doesNotMatch(sessionHtml,/今天认真检索|累计 23 次/);
+  assert.match(sessionHtml,/7 颗星<\/strong><span>Lv\./);
+  assert.match(sessionHtml,/本轮额外 \+3/);
+  assert.match(sessionHtml, /<details[^>]*><summary>进度与积分<\/summary>/);
+  assert.doesNotMatch(sessionHtml, /STAR JOURNAL|每种努力都留下一颗星|EXTRA/);
 
   // Render an active credit with real markup, then exercise its timer effect.
   const effects: Array<() => unknown> = [];
@@ -133,7 +133,7 @@ test('desktop background renders real star history, accessible experience and re
   });
   const receiptHtml = renderToStaticMarkup(React.createElement(receiptModule.exports.default, { reviews, animations: true }));
   assert.match(receiptHtml, /<aside[\s\S]*data-cue-star-receipt[\s\S]*<\/aside>/);
-  assert.match(receiptHtml, /✦ \+3 星空点 · EXTRA \+2/);
+  assert.match(receiptHtml, /✦ \+3 星空点 · 额外 \+2/);
   assert.doesNotMatch(receiptHtml, /按任意键|点击收下|跳过动画|data-cue-global-celebration/);
   assert.match(receiptHtml, /data-motion="false"/);
   effects[2]();

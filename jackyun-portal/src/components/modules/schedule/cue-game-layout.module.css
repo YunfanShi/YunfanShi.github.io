@@ -69,9 +69,20 @@
  .session [data-cue-definition] {min-height:min(54dvh,640px);}
  .session [data-cue-definition]>button,.session [data-cue-definition]>button>span,.session [data-cue-definition]>button>span>span {height:100%;min-height:0;}
  .session [data-cue-definition]>button>span>span {padding:20px;justify-content:safe center;}
- .session [data-cue-definition]>button>span>span>span:nth-child(2) {margin-top:16px;font-size:clamp(22px,2.3vw,36px);}
- .session [data-cue-definition]>button>span>span>span:last-child {padding-top:12px;}
+ .session [data-cue-definition-prompt] {font-size:clamp(22px,2.3vw,36px);}
  .session:has(>main[data-cue-study-page])>section {flex-shrink:0;position:relative;z-index:12;margin-block:0;padding-block:4px;display:flex;align-items:center;justify-content:center;gap:12px;}
  .session [data-cue-practice-directory] {margin-top:0;font-size:11px;}
  .session [data-cue-practice-directory]>nav {position:absolute;top:100%;left:50%;transform:translateX(-50%);width:min(700px,85vw);max-height:35vh;background:var(--card);border:1px solid var(--card-border);border-radius:16px;padding:12px;box-shadow:0 16px 48px #0008;}
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
+  .session[data-cue-universe='true'] { --cue-dock-gutter: 212px; }
+  .session[data-cue-universe='true'] [data-cue-study-content] {
+    width: min(1440px, calc(100% - var(--cue-dock-gutter))) !important;
+    margin-inline: max(0px, calc((100% - var(--cue-dock-gutter) - 1440px) / 2)) auto;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) and (pointer: fine) {
+  .session[data-cue-universe='true'] { --cue-dock-gutter: 180px; }
 }

@@ -25,6 +25,7 @@ import {
   createIeltsWeekTasks,
   cueActivityTag,
   cueMatchesStatusFilter,
+  cueReviewLevel,
   cuesForLearningTask,
   deriveLearningStatus,
   LEARNING_TASK_PRESETS,
@@ -192,10 +193,35 @@ test('cues keep independent review states and due dates', () => {
   assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-def')?.status, 'stable');
   assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-def')?.nextReviewDate, '2026-09-22');
   assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-explain')?.status, 'partial');
-  assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-explain')?.nextReviewDate, '2026-09-20');
+  assert.equal(reviewed.cues.find((cue) => cue.id === 'cue-explain')?.nextReviewDate, '2026-09-22');
   assert.equal(reviewed.cueReviews.length, 2);
-  const due = tasksForDate(reviewed, new Date(2026, 8, 20, 12));
-  assert.deepEqual(due.find((task) => task.type === 'cue-review')?.cueIds, ['cue-explain']);
+  assert.ok(!tasksForDate(reviewed, new Date(2026, 8, 20, 12)).some(task => task.cueIds?.includes('cue-explain')));
+  const due = tasksForDate(reviewed, new Date(2026, 8, 22, 12));
+  assert.ok(due.some(task => task.cueIds?.includes('cue-explain')));
+});
+
+test('review grades advance or fall back using saved evidence, and an early review keeps its original date', () => {
+  const born = '2026-09-01T08:00:00Z';
+  const state = createEmptyScheduleState();
+  state.cues = [{ id: 'levels', subjectId: 'math', subjectName: 'Math', unit: 'Functions', subsection: '', prompt: 'Definition', type: 'definition', markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: born, updatedAt: born }];
+  const rate = (current: typeof state, status: 'stable' | 'partial' | 'unclear', day: string, round = day) =>
+    recordCueStudyAssessment(current, { cueId: 'levels', status }, new Date(day + 'T09:00:00Z'), round);
+  assert.equal(cueReviewLevel(state.cues[0]), '待初学');
+  const first = rate(state, 'stable', '2026-09-02');
+  assert.equal(cueReviewLevel(first.cues[0]), '巩固');
+  const verified = rate(first, 'stable', '2026-09-05');
+  assert.equal(cueReviewLevel(verified.cues[0]), '稳定');
+  assert.equal(verified.cues[0].nextReviewDate, '2026-09-12');
+  const early = rate(verified, 'stable', '2026-09-06');
+  assert.equal(early.cues[0].nextReviewDate, '2026-09-12');
+  const next = rate(early, 'stable', '2026-09-12');
+  assert.equal(next.cues[0].intervalDays, 14);
+  const failed = rate(next, 'unclear', '2026-09-26');
+  assert.equal(cueReviewLevel(failed.cues[0]), '重学');
+  const recovered = rate(failed, 'stable', '2026-09-26', 'another-session');
+  assert.equal(cueReviewLevel(recovered.cues[0]), '巩固');
+  assert.equal(recovered.cues[0].nextReviewDate, '2026-09-27');
+  assert.equal(recovered.cueReviews.at(-1)?.sameDayWeak, true);
 });
 
 test('Cue review intervals expand with repeated green results and contract after unstable results', () => {
@@ -218,15 +244,15 @@ test('Cue review intervals expand with repeated green results and contract after
     intervals.push(state.cues[0].intervalDays);
   }
 
-  assert.deepEqual(intervals, [3, 6, 9, 12, 15, 18, 18, 18]);
+  assert.deepEqual(intervals, [3, 7, 14, 21, 30, 45, 60, 60]);
   assert.equal(state.cues[0].streak, 8);
   assert.match(state.cueReviews[2].scheduleReason ?? '', /连续通过 3 次/);
-  assert.equal(state.cueReviews[7].intervalDays, 18);
+  assert.equal(state.cueReviews[7].intervalDays, 60);
 
   const yellowPlan = planCueReview(state.cues[0], state.cueReviews, 'partial', new Date('2027-10-01T08:00:00.000Z'));
-  assert.equal(yellowPlan.intervalDays, 1);
+  assert.equal(yellowPlan.intervalDays, 3);
   assert.equal(yellowPlan.streak, 0);
-  assert.equal(yellowPlan.nextReviewDate, '2027-10-02');
+  assert.equal(yellowPlan.nextReviewDate, '2027-10-04');
 
   const redPlan = planCueReview(state.cues[0], state.cueReviews, 'unclear', new Date('2027-10-01T08:00:00.000Z'));
   assert.equal(redPlan.intervalDays, 1);
@@ -250,7 +276,7 @@ test('Cue review history distinguishes yellow recovery, red recovery, and early 
   };
   const yellow = run(['partial', 'partial', 'stable', 'stable', 'stable'], ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']);
   const red = run(['unclear', 'unclear', 'stable', 'stable', 'stable'], ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']);
-  assert.deepEqual(yellow.cueReviews.map((review) => review.intervalDays), [1, 1, 1, 3, 3]);
+  assert.deepEqual(yellow.cueReviews.map((review) => review.intervalDays), [3, 3, 1, 3, 3]);
   assert.deepEqual(red.cueReviews.map((review) => review.intervalDays), [1, 1, 1, 2, 2]);
   assert.match(red.cueReviews[2].scheduleReason ?? '', /1 天后再检索/);
   const early = run(['stable', 'stable'], ['2026-09-01', '2026-09-01']);
@@ -347,7 +373,7 @@ test('green interval needs spaced evidence and recovers gradually from yellow an
   const recoveringYellow = planCueReview(cue, history(['partial', 'partial', 'stable'], ['2026-09-01', '2026-09-02', '2026-09-03']), 'stable', new Date('2026-09-04T08:00:00.000Z'));
   const recoveringRed = planCueReview(cue, history(['unclear', 'unclear', 'stable'], ['2026-09-01', '2026-09-02', '2026-09-03']), 'stable', new Date('2026-09-04T08:00:00.000Z'));
   const sameDay = planCueReview(cue, history(['stable'], ['2026-09-01']), 'stable', new Date('2026-09-01T12:00:00.000Z'));
-  assert.equal(allGreen.intervalDays, 6);
+  assert.equal(allGreen.intervalDays, 3);
   assert.doesNotMatch(allGreen.scheduleReason, /△|○|红色/);
   assert.equal(twoYellow.intervalDays, 1);
   assert.equal(twoRed.intervalDays, 1);
@@ -450,7 +476,7 @@ test('a class keeps one three-step review sheet and folds its Cue queue into it'
   assert.equal(reviews.filter((task) => task.subjectId === 'physics').length, 1);
   assert.equal(jointReview?.title, '联合复习 · Physics · 2 条 Cue');
   assert.equal(jointReview?.start, '10:00');
-  assert.deepEqual(jointReview?.cueIds, ['motion', 'forces']);
+  assert.deepEqual(jointReview?.cueIds, ['forces', 'motion']);
   assert.equal(jointReview?.scope?.subsection, undefined);
   assert.deepEqual(jointReview?.mergedTasks?.map((item) => item.type), ['completeness-audit', 'study', 'cue-review']);
   assert.match(jointReview?.mergedTasks?.[2].detail ?? '', /今天选中的 Cue/);
@@ -460,7 +486,7 @@ test('a class keeps one three-step review sheet and folds its Cue queue into it'
   assert.doesNotMatch(standalone?.detail ?? '', /黄色 \/ 红色/);
 
   const completed = completeLearningSession(state, jointReview!, { studiedContent: 'Mechanics', issue: '', note: '' }, { subjectName: 'Physics', scope: { cueIds: ['motion', 'forces'] }, materials: [], cueIds: ['motion', 'forces'], newCues: [], assessments: [{ cueId: 'motion', status: 'stable' }, { cueId: 'forces', status: 'stable' }] }, new Date(2026, 8, 20, 12));
-  assert.deepEqual(completed.cues.map((cue) => cue.nextReviewDate), ['2026-09-26', '2026-09-26']);
+  assert.deepEqual(completed.cues.map((cue) => cue.nextReviewDate), ['2026-09-27', '2026-09-27']);
   assert.ok(completed.completions[jointReview!.key]);
 });
 
@@ -510,7 +536,7 @@ test('every learning task can record actual materials, scope, linked cues, and r
 
   assert.deepEqual(completed.completions['study-1'].cueIds, ['cue-existing', 'cue-new']);
   assert.deepEqual(completed.completions['study-1'].materials, [{ code: 'B', progress: '1.1–1.2' }, { code: 'N', progress: 'P8–10' }]);
-  assert.equal(completed.cues.find((cue) => cue.id === 'cue-existing')?.nextReviewDate, '2026-09-21');
+  assert.equal(completed.cues.find((cue) => cue.id === 'cue-existing')?.nextReviewDate, '2026-09-23');
   assert.equal(completed.cues.find((cue) => cue.id === 'cue-new')?.nextReviewDate, '2026-09-21');
   assert.equal(completed.cueReviews.length, 1);
   assert.equal(completed.learningRecords[0].status, 'partial');
@@ -833,20 +859,20 @@ test('a heavy class day schedules only the highest-priority Cue batch and keeps 
   assert.match(reviews[0].detail, /只安排 1 个 Cue 复习批次.*其余 Cue 自动留在队列/);
 });
 
-test('daily Cue review is the deduplicated union of regular, weak, and today-created Cues', () => {
+test('daily Cue review keeps new content and waits for the saved date of weak Cues', () => {
   const state = createEmptyScheduleState();
   const common = { subjectId: 'physics', subjectName: 'Physics', unit: 'Mechanics', subsection: '', type: 'general' as const, markingPoints: [], intervalDays: 3, easeFactor: 2.5, streak: 1, lastReviewedAt: '2026-09-20T08:00:00.000Z', updatedAt: '2026-09-20T08:00:00.000Z' };
   state.cues = [
     { ...common, id: 'regular', prompt: 'Regular', status: 'stable', nextReviewDate: '2026-09-21', createdAt: '2026-09-18T08:00:00.000Z' },
     { ...common, id: 'weak', prompt: 'Weak', status: 'partial', nextReviewDate: '2026-09-30', createdAt: '2026-09-18T08:00:00.000Z' },
-    { ...common, id: 'today', prompt: 'Today', status: 'stable', nextReviewDate: '2026-09-30', createdAt: '2026-09-21T03:00:00.000Z' },
+    { ...common, id: 'today', prompt: 'Today', status: undefined, nextReviewDate: undefined, lastReviewedAt: undefined, createdAt: '2026-09-21T03:00:00.000Z' },
     { ...common, id: 'future', prompt: 'Future', status: 'stable', nextReviewDate: '2026-09-30', createdAt: '2026-09-18T08:00:00.000Z' },
   ];
 
   const review = tasksForDate(state, new Date(2026, 8, 21, 12)).find((task) => task.type === 'cue-review');
 
-  assert.deepEqual(new Set(review?.cueIds), new Set(['regular', 'weak', 'today']));
-  assert.match(review?.detail ?? '', /常规到期 1 · 黄色 \/ 红色 1 · 今日新增 1/);
+  assert.deepEqual(new Set(review?.cueIds), new Set(['regular', 'today']));
+  assert.match(review?.detail ?? '', /常规到期 1 · 今日新增 1/);
 });
 
 test('a changed Cue is reviewed again even when its old interval date is still in the future', () => {
@@ -892,9 +918,9 @@ test('Cue study ratings save immediately, can be corrected, and are not duplicat
   assert.equal(corrected.cues[0].status, 'partial');
   assert.equal(corrected.cueReviews.length, 1);
   assert.equal(corrected.cueReviews[0].status, 'partial');
-  assert.equal(corrected.cues[0].intervalDays, 1);
+  assert.equal(corrected.cues[0].intervalDays, 3);
   assert.equal(corrected.cues[0].streak, 0);
-  assert.equal(corrected.cueReviews[0].intervalDays, 1);
+  assert.equal(corrected.cueReviews[0].intervalDays, 3);
   assert.equal(corrected.cues[0].version, 2);
   assert.equal(corrected.cues[0].updatedAt, createdAt);
 
