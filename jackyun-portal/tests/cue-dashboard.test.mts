@@ -46,13 +46,21 @@ test('deleted draft content is excluded and entry params are safely encoded', ()
   assert.equal(dateKey(new Date(2026, 9, 12, 0, 0, 0)), '2026-10-12');
 });
 
-test('15/30/60 minute previews are deterministic, read-only and prioritize overdue then fresh', () => {
-  const cues = Array.from({ length: 20 }, (_, i) => cue(String(i).padStart(2, '0'), { status: 'unclear' }));
-  cues.push(cue('due-stable', { status: 'stable', updatedAt: '2026-10-01T04:00:00Z', lastReviewedAt: '2026-10-01T04:00:00Z', nextReviewDate: '2026-10-12' }));
+test('15/30/60 minute previews prioritize unstable, fresh and recovering Cues ahead of stable backlog', () => {
+  const lastReviewedAt = '2026-10-01T04:00:00Z';
+  const old = { status: 'stable' as const, updatedAt: lastReviewedAt, lastReviewedAt, nextReviewDate: '2026-10-04' };
+  const stable = Array.from({ length: 200 }, (_, i) => cue(`stable-${i}`, old));
+  const cues = [...stable, cue('recovering', old), cue('new'), cue('partial', { ...old, status: 'partial' }),
+    cue('unclear', { ...old, status: 'unclear' }), cue('edited', { ...old, updatedAt: at })];
+  const reviews = [
+    { id: 'weak', cueId: 'recovering', status: 'unclear' as const, reviewedAt: '2026-09-28T04:00:00Z', nextReviewDate: '2026-09-29' },
+    { id: 'green', cueId: 'recovering', status: 'stable' as const, reviewedAt: lastReviewedAt, nextReviewDate: old.nextReviewDate },
+  ];
   const raw = JSON.stringify(cues);
   for (const [budget, count] of [[15, 3], [30, 7], [60, 15]] as const) {
-    const batch = recommendCueBudget(cues, '2026-10-12', budget);
-    assert.equal(batch.selected.length, count); assert.equal(batch.selected[0].id, 'due-stable');
+    const batch = recommendCueBudget(cues, reviews, budget);
+    assert.equal(batch.selected.length, count);
+    assert.deepEqual(batch.ordered.slice(0, 5).map(({ id }) => id), ['edited', 'unclear', 'partial', 'new', 'recovering']);
     assert.equal(batch.selected.length + batch.remaining.length, cues.length);
   }
   assert.equal(JSON.stringify(cues), raw);

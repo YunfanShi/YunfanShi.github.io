@@ -3,14 +3,14 @@ import { createRequire } from 'node:module';
 import { mkdir } from 'node:fs/promises';
 import { createEmptyScheduleState, dateKey, saveCueStudyDraft, type StudyCue } from '../src/lib/learning/schedule-control.ts';
 const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.JACKYUN_PLAYWRIGHT_PATH || 'C:/Users/syf26/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const { chromium } = require(process.env.JACKYUN_PLAYWRIGHT_PATH || 'playwright');
 const base = process.env.JACKYUN_TEST_URL || 'http://127.0.0.1:3100';
 const screenshots = process.env.JACKYUN_SCREENSHOT_DIR || 'artifacts/verification/cue-roadmap';
 await mkdir(screenshots, { recursive: true });
 const now = new Date(); const today = dateKey(now);
 const cue = (id: string, subjectId = 'math'): StudyCue => ({ id, subjectId, subjectName: subjectId === 'math' ? '数学' : '英语', unit: '函数', subsection: '', type: 'definition', prompt: `检索 ${id}`, answer: '参考答案', markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: now.toISOString(), updatedAt: now.toISOString(), status: 'unclear' });
 const state = { ...createEmptyScheduleState(), cueReviews: [{ id: 'r1', cueId: 'one', status: 'unclear' as const, reviewedAt: now.toISOString(), nextReviewDate: today }, { id: 'r2', cueId: 'two', status: 'partial' as const, reviewedAt: new Date(now.getTime() - 20 * 86400000).toISOString(), nextReviewDate: today }], cues: [cue('one'), cue('two'), cue('three', 'english')], settings: { ...createEmptyScheduleState().settings, tutorialSeenVersion: 1 } };
-const browser = await chromium.launch({ headless: true, channel: 'msedge' });
+const browser = await chromium.launch({ headless: true, ...(process.env.JACKYUN_BROWSER_EXECUTABLE_PATH ? { executablePath: process.env.JACKYUN_BROWSER_EXECUTABLE_PATH } : { channel: 'msedge' }) });
 try {
   for (const width of [390, 1440]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } });
@@ -32,7 +32,7 @@ try {
     await page.locator('section[aria-labelledby="next-action-heading"]').screenshot({ path: `${screenshots}/dashboard-${width}.png`, animations: 'disabled' });
     await board.getByRole('link', { name: '开始学习 →', exact: true }).first().click();
     const preview = page.getByRole('region', { name: 'CUE 学习预览' });
-    await preview.getByText('当前范围 2 条 CUE · 预计 8 分钟。', { exact: true }).waitFor();
+    await preview.getByText('已选 2 条 · 预计 8 分钟 · 剩余待学 0 条', { exact: true }).waitFor();
     const before = await page.evaluate(() => JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')!).cueStudyDrafts);
     assert.equal(Object.keys(before || {}).length, 0, 'preview does not create sessions');
     await preview.getByRole('button', { name: '开始学习', exact: true }).click();
@@ -69,10 +69,10 @@ try {
   await budgetPreview.getByRole('combobox', { name: '每日学习预算' }).selectOption('15');
   await budgetPreview.getByText('已选 3 条 · 预计 12 分钟 · 剩余待学 17 条', { exact: true }).waitFor();
   assert.equal(await budgetPage.evaluate(() => JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')!).manualTasks.length), 0, 'changing budgets never schedules');
-  await budgetPreview.getByText(/调整范围与超出预算内容/).click();
+  await budgetPreview.getByText(/查看或调整本轮题目/).click();
   await budgetPreview.getByRole('checkbox', { name: '选择 检索 budget-19', exact: true }).check();
   await budgetPreview.getByText('已选 4 条 · 预计 16 分钟 · 剩余待学 16 条', { exact: true }).waitFor();
-  await budgetPreview.getByText(/调整范围与超出预算内容/).click();
+  await budgetPreview.getByText(/查看或调整本轮题目/).click();
   await budgetPreview.screenshot({ path: `${screenshots}/budget-390.png`, animations: 'disabled' });
   await budgetPreview.getByRole('button', { name: '确认加入今日日程' }).click();
   await budgetPage.waitForFunction(() => JSON.parse(localStorage.getItem('jackyun_schedule_control_v1')!).manualTasks.length === 1);

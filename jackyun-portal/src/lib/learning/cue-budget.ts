@@ -1,14 +1,14 @@
-import { cueActivityTag, dateKey, type ScheduleControlState, type StudyCue } from './schedule-control.ts';
+import { prioritizeCueReviews, dateKey, type CueReview, type ScheduleControlState, type StudyCue } from './schedule-control.ts';
 import { todayCueQueue } from './cue-dashboard.ts';
 
 export const CUE_MINUTES = 4;
 export type CueBudget = 15 | 30 | 60;
-export function recommendCueBudget(cues: StudyCue[], today: string, budget: CueBudget = 30) {
-  const fresh = (cue: StudyCue) => ['new', 'updated'].includes(cueActivityTag(cue, today)) ? 1 : 0;
-  const weakness = (cue: StudyCue) => cue.status === 'unclear' ? 2 : cue.status === 'partial' ? 1 : 0;
-  const ordered = [...new Map(cues.map(cue => [cue.id, cue])).values()].sort((a, b) => fresh(a) - fresh(b) || weakness(b) - weakness(a) || (a.nextReviewDate || today).localeCompare(b.nextReviewDate || today) || a.id.localeCompare(b.id));
+export function recommendCueBudget(cues: StudyCue[], reviews: CueReview[], budget: CueBudget = 30) {
+  const ranked = prioritizeCueReviews(cues, reviews);
+  const ordered = ranked.map(({ cue }) => cue);
+  const priorityById = new Map(ranked.map(({ cue, priority }) => [cue.id, priority]));
   const count = Math.floor(budget / CUE_MINUTES);
-  return { selected: ordered.slice(0, count), remaining: ordered.slice(count), ordered };
+  return { selected: ordered.slice(0, count), remaining: ordered.slice(count), ordered, priorityById };
 }
 
 /** Only called after an explicit user action; recommendation itself is read-only. */

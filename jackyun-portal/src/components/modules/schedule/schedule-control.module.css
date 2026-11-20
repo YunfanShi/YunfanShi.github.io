@@ -362,24 +362,26 @@
 .ratingFeedback[data-rating="stable"] { color: var(--brand); }
 .roundComplete { color: var(--brand); }
 @keyframes cueArrive {
-  from { opacity: .4; transform: translateY(12px); }
+  from { opacity: .6; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes cueReveal {
-  from { opacity: .4; transform: perspective(900px) rotateX(-8deg); }
-  to { opacity: 1; transform: perspective(900px) rotateX(0); }
+  from { opacity: .55; }
+  to { opacity: 1; }
 }
 @keyframes cueFeedback {
-  from { opacity: .4; transform: scale(.96); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: .6; }
+  to { opacity: 1; }
 }
-.studyOverlay[data-animations="true"] .studyTransition { animation: cueArrive .22s ease-out; }
-.studyOverlay[data-animations="true"] .studyTransition[data-revealed="true"] { animation: cueReveal .28s ease-out; }
+.studyOverlay[data-animations="true"] .studyTransition { animation: cueArrive .16s ease-out; }
+.studyOverlay[data-animations="true"] .studyTransition[data-revealed="true"],
+.studyOverlay[data-animations="true"] [data-cue-definition-face] { animation: cueReveal .16s ease-out; }
 .studyOverlay[data-animations="true"] .answerComparison,
 .studyOverlay[data-animations="true"] .ratingFeedback,
-.studyOverlay[data-animations="true"] .roundComplete { animation: cueFeedback .25s ease-out; }
+.studyOverlay[data-animations="true"] .roundComplete { animation: cueFeedback .16s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .studyOverlay[data-animations="true"] .studyTransition,
+  .studyOverlay[data-animations="true"] [data-cue-definition-face],
   .studyOverlay[data-animations="true"] .answerComparison,
   .studyOverlay[data-animations="true"] .ratingFeedback,
   .studyOverlay[data-animations="true"] .roundComplete { animation: none !important; }
