@@ -68,10 +68,14 @@ test('notices expire after 8 seconds without extending on retries and never repl
   window.dispatchEvent(new Event('blur'));assert.equal(api.getNotices().length,0);assert.equal(timers.size,0);
 });
 
-test('every standalone HTML page loads shared errors directly or through its dialog runtime',()=>{
+test('standalone HTML tools load shared errors and the offline fallback stays self-contained',()=>{
   const root=new URL('../public/',import.meta.url);
   for(const name of readdirSync(root).filter(file=>file.endsWith('.html'))){
     const html=readFileSync(new URL(name,root),'utf8');
+    if (name === 'offline.html') {
+      assert.doesNotMatch(html, /<script\b[^>]*\bsrc\s*=/i, name);
+      continue;
+    }
     assert.match(html,/\/shared\/(?:site-dialog|error-notices)\.js/,name);
   }
 });
