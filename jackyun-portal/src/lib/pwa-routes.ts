@@ -77,5 +77,5 @@ export const OFFLINE_ROUTES = [
 ] as const;
 
 export function isOfflinePagePath(pathname: string) {
-  return !/^\/(?:api|admin|login|reset-password|update-password|oauth|unauthorized|account-status)(?:\/|$)/.test(pathname) && !pathname.startsWith('/__');
+  return !/^\/(?:api|admin|auth|login|reset-password|update-password|oauth|unauthorized|account-status)(?:\/|$)/.test(pathname) && !pathname.startsWith('/__');
 }

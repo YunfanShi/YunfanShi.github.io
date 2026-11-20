@@ -56,12 +56,12 @@ test('page banners disappear immediately on navigation and do not render a modal
     'next/navigation': { usePathname: () => path },
     '@/components/auth/auth-mode-provider': { useAuthMode: () => ({ signedIn: true, userId: 'tester' }) },
     '@/lib/notification-client': { useNotificationSnapshot: () => ({ snapshot: { items: [item] } }) },
-    '@/lib/announcements': domain, './announcement-content': badges, './markdown-renderer': markdown,
-
+    '@/lib/announcements': domain, './announcement-content': badges,
+    'next/dynamic': { __esModule: true, default: () => markdown.default },
     '@/actions/admin': {},
   }).default;
   const banner = renderToStaticMarkup(React.createElement(component));
-  assert.match(banner, /当前页面公告/); assert.match(banner, /CUE 功能暂时维护/); assert.doesNotMatch(banner, /role="dialog"/);
+  assert.match(banner, /当前页面公告/); assert.match(banner, /CUE 功能暂时维护/); assert.match(banner, /正在修复，请先使用答题卡/); assert.doesNotMatch(banner, /role="dialog"/);
   path = '/music'; assert.equal(renderToStaticMarkup(React.createElement(component)), '');
   path = '/scheduler'; assert.equal(renderToStaticMarkup(React.createElement(component)), '');
 });

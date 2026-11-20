@@ -13,9 +13,26 @@ export default function PagePreferences({ initialValue, signedIn }: { initialVal
   const { userId } = useAuthMode();
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
-    const bind = () => { const worker = navigator.serviceWorker.controller; worker?.postMessage({ type: 'BIND_USER_CACHE', userId }); worker?.postMessage({ type: 'WARM_OFFLINE_ROUTES' }); };
-    bind(); navigator.serviceWorker.addEventListener('controllerchange', bind);
-    return () => navigator.serviceWorker.removeEventListener('controllerchange', bind);
+    let timer: number | undefined;
+    const warm = () => {
+      if (!navigator.onLine || document.hidden) return;
+      navigator.serviceWorker.controller?.postMessage({ type: 'WARM_OFFLINE_ROUTES' });
+    };
+    const bind = () => {
+      const worker = navigator.serviceWorker.controller;
+      if (!worker) return;
+      worker.postMessage({ type: 'BIND_USER_CACHE', userId });
+      window.clearTimeout(timer);
+      timer = window.setTimeout(warm, 1500);
+    };
+    bind();
+    navigator.serviceWorker.addEventListener('controllerchange', bind);
+    window.addEventListener('online', warm);
+    return () => {
+      window.clearTimeout(timer);
+      navigator.serviceWorker.removeEventListener('controllerchange', bind);
+      window.removeEventListener('online', warm);
+    };
   }, [userId]);
 
   useEffect(() => {
