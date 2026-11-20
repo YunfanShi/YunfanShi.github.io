@@ -1,16 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cueContentSignature, cueNeedsAiAnalysis, effectiveCueDifficulty, learningProfile, parseLearningAdvice } from '../src/lib/learning/learning-assistance.ts';
-import { completeCueReviews, createEmptyScheduleState, dateKey, planCueReview, tasksForDate, type CueReview, type StudyCue } from '../src/lib/learning/schedule-control.ts';
+import { completeCueReviews, createEmptyScheduleState, dateKey, dateFromKey, normalizeCueMetadata, planCueReview, tasksForDate, type CueReview, type StudyCue } from '../src/lib/learning/schedule-control.ts';
 const at = '2026-09-01T08:00:00.000Z';
 const cue: StudyCue = { id: 'c1', subjectId: 'math', subjectName: 'Math', unit: 'Indices', subsection: '', prompt: 'State the index laws.', type: 'state', markingPoints: [], intervalDays: 0, easeFactor: 2.5, streak: 0, createdAt: at, updatedAt: at };
 const advice = { signature: cueContentSignature(cue), difficulty: 'easy' as const, reason: 'Basic retrieval', generatedAt: at };
 function history(status: 'stable' | 'partial' | 'unclear', day: number): CueReview { return { id: `${day}`, cueId: cue.id, status, reviewedAt: `2026-09-${String(day).padStart(2, '0')}T08:00:00.000Z`, nextReviewDate: `2026-09-${String(day + 1).padStart(2, '0')}` }; }
 
-test('difficulty is auxiliary, actual weak results always need a one-day repair', () => {
+test('difficulty is auxiliary and each weak grade keeps its own short interval', () => {
   const easy = { ...cue, aiAdvice: advice };
   assert.equal(planCueReview(easy, [], 'unclear', new Date(at)).intervalDays, 1);
-  assert.equal(planCueReview(easy, [], 'partial', new Date(at)).intervalDays, 1);
+  assert.equal(planCueReview(easy, [], 'partial', new Date(at)).intervalDays, 3);
   assert.ok(planCueReview(easy, [], 'stable', new Date(at)).intervalDays > planCueReview({ ...cue, userDifficulty: 'hard' }, [], 'stable', new Date(at)).intervalDays);
   assert.equal(effectiveCueDifficulty({ ...easy, userDifficulty: 'extreme' }), 'extreme');
   assert.equal(effectiveCueDifficulty({ ...easy, prompt: 'New content' }), 'medium');
@@ -23,24 +23,27 @@ test('repeated failures raise effective difficulty using distinct days', () => {
   assert.equal(effectiveCueDifficulty(easy, [history('unclear', 1), history('unclear', 1), history('unclear', 1)]), 'easy');
 });
 
-test('stable easy Cues stop daily repetition but never get an interval above eighteen days', () => {
+test('stable easy Cues grow gradually and never exceed ninety days', () => {
   let state = createEmptyScheduleState(); state.cues = [{ ...cue, aiAdvice: advice }];
   for (let index = 0; index < 12; index += 1) {
-    const reviewedAt = new Date(2026, 8, 1 + index * 18, 20);
+    const reviewedAt = index ? dateFromKey(state.cues[0].nextReviewDate!) : new Date(2026, 8, 1, 20);
     state = completeCueReviews(state, [{ cueId: cue.id, status: 'stable' }], reviewedAt);
-    assert.ok(state.cues[0].intervalDays <= 18 && state.cues[0].intervalDays >= 3);
+    assert.ok(state.cues[0].intervalDays <= 90 && state.cues[0].intervalDays >= 3);
     const tomorrow = new Date(reviewedAt); tomorrow.setDate(tomorrow.getDate() + 1);
     assert.equal(tasksForDate(state, tomorrow).some((task) => task.type === 'cue-review' && task.cueIds?.includes(cue.id)), false);
   }
-  assert.equal(state.cues[0].intervalDays, 18);
+  assert.equal(state.cues[0].intervalDays, 90);
 });
 
-test('AI cannot bypass capacity or hide an eighteen-day deadline', () => {
-  const date = new Date(2026, 8, 19, 12); const state = createEmptyScheduleState();
+test('AI cannot bypass capacity or suppress the ninety-day deadline', () => {
+  const date = new Date(2026, 10, 30, 12); const state = createEmptyScheduleState();
   state.dailyLearningAdvice = { date: dateKey(date), batchLimit: 1, reason: 'Rest' };
-  state.cues = [{ ...cue, status: 'stable', lastReviewedAt: at, nextReviewDate: '2027-01-01', intervalDays: 100, streak: 9 }, ...['two', 'three'].map((id) => ({ ...cue, id, subjectId: id, status: 'unclear' as const }))];
+  state.cues = [normalizeCueMetadata({ ...cue, status: 'stable', lastReviewedAt: at, nextReviewDate: '2027-01-01', intervalDays: 100, streak: 9 }, at), { ...cue, id: 'two', subjectId: 'other', status: 'unclear' }];
   const tasks = tasksForDate(state, date).filter((task) => task.type === 'cue-review');
-  assert.equal(tasks.length, 2); assert.ok(tasks[0].cueIds?.includes(cue.id));
+  assert.equal(tasks.length, 2);
+  assert.ok(tasks.some(task => task.cueIds?.includes(cue.id)));
+  state.cues.push({ ...cue, id: 'three', subjectId: 'another', status: 'partial' });
+  assert.equal(tasksForDate(state, date).filter(task => task.type === 'cue-review').length, 2);
 });
 
 test('AI suggestions validate IDs, difficulty, completeness and bounded capacity', () => {
