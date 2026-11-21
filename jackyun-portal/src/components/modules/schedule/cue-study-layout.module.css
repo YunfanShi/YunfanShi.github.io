@@ -33,17 +33,18 @@
 .session [aria-label="触屏学习卡片"] > :is(button, article) { flex: 1; min-height: min(52dvh, 460px) !important; }
 .session [data-feature="study-history"] { margin-block: 6px; padding: 6px 10px; }
 @media (max-width: 599px) {
-  .session header > div:first-child { display: grid; grid-template-columns: 32px minmax(0, 1fr) repeat(4, 40px); gap: 4px; }
+  .session header > div:first-child { display: grid; grid-template-columns: 32px minmax(0, 1fr) repeat(3, 40px) 28px 40px; gap: 4px; }
   .session header > div:first-child > button:first-child { grid-column: 1; grid-row: 1; width: 32px; }
   .session header > div:first-child > div { grid-column: 2; grid-row: 1; }
   .session header > div:first-child > div > p { display: none; }
   .session header > div:first-child > button:nth-child(3) { grid-column: 3; grid-row: 1; width: 40px; }
-  .session header > div:first-child > details { grid-column: 4; grid-row: 1; }
+  .session header > div:first-child > [data-cue-actions] { grid-column: 4; grid-row: 1; z-index: 2; }
+  .session header > div:first-child > [data-cue-practice-settings] { grid-column: 5; grid-row: 1; }
   .session header > div:first-child > details > summary { justify-content: center; }
-  .session header > div:first-child > span { grid-column: 5; grid-row: 1; font-size: 11px; text-align: center; }
-  .session header > div:first-child > button:last-child { grid-column: 6; grid-row: 1; width: 40px; padding-inline: 6px; }
+  .session header > div:first-child > span { grid-column: 6; grid-row: 1; font-size: 11px; text-align: center; }
+  .session header > div:first-child > button:last-child { grid-column: 7; grid-row: 1; width: 40px; padding-inline: 6px; }
   .session [data-cue-study-meta] { display: none !important; }
-  .session [data-cue-actions] > summary { display: block; padding: 6px 4px; font-size: 11px; cursor: pointer; color: var(--muted-foreground); }
+  .session [data-cue-actions] > summary { display: grid; place-items: center; }
   .session header { padding: 6px 10px !important; }
   .session [data-cue-study-page] { padding: 8px 12px !important; }
   .session header h1 { font-size: 13px; }

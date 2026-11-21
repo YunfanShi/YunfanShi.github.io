@@ -201,6 +201,8 @@ export interface ManualLearningTask {
 export interface StudyCue extends CueSourceFields {
   deepUnderstanding?: CueDeepUnderstanding;
   masteredIntervalDays?: number;
+  reviewSkippedOn?: string;
+  reviewImportant?: boolean;
   masterySignature?: string;
   userDifficulty?: CueDifficulty;
   aiAdvice?: CueAiAdvice;
@@ -628,7 +630,7 @@ export const DEFAULT_SCHEDULE_SETTINGS: ScheduleSettings = {
 export function createEmptyScheduleState(): ScheduleControlState {
   return {
     schemaVersion: 1,
-    cueScheduleRevision: 5,
+    cueScheduleRevision: 6,
     timedPracticeRecords: [],
     timetable: null,
     settings: { ...DEFAULT_SCHEDULE_SETTINGS },
@@ -1137,7 +1139,7 @@ export function applyCueUnitMappings(operations: CueBulkOperation[], mappings: R
   });
 }
 
-export const CUE_MAX_REVIEW_DAYS = 90;
+export const CUE_MAX_REVIEW_DAYS = 180;
 export const CUE_WEAK_REVIEW_INTERVALS = { unclear: 1, partial: 3 } as const;
 
 export function cueReviewLevel(cue: StudyCue) {
@@ -1149,7 +1151,7 @@ export function cueReviewLevel(cue: StudyCue) {
   return '稳定';
 }
 
-const CUE_REVIEW_INTERVALS = [3, 7, 14, 21, 30, 45, 60, CUE_MAX_REVIEW_DAYS];
+const CUE_REVIEW_INTERVALS = [3, 7, 14, 30, 60, 90, 120, CUE_MAX_REVIEW_DAYS];
 
 function nextCueInterval(previous: number): number {
   return CUE_REVIEW_INTERVALS.find((interval) => interval > previous) ?? CUE_MAX_REVIEW_DAYS;
@@ -1173,8 +1175,8 @@ function cueChangedSinceReview(cue: StudyCue): boolean {
 export function cueMatchesStatusFilter(cue: StudyCue, filter: CueStatusFilter, today: string, reviews: CueReview[] = []): boolean {
   if (filter === 'all') return true;
   if (filter === 'unreviewed') return !cue.lastReviewedAt;
-  if (filter === 'due') return cueChangedSinceReview(cue) || (!cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < today)
-    && (!cue.nextReviewDate || cue.nextReviewDate <= today || Boolean(cue.lastReviewedAt && addCalendarDays(dateKey(new Date(cue.lastReviewedAt)), CUE_MAX_REVIEW_DAYS) <= today));
+  if (filter === 'due') return !isCueSkippedToday(cue, today) && (cueChangedSinceReview(cue) || (!cue.lastReviewedAt || dateKey(new Date(cue.lastReviewedAt)) < today)
+    && (!cue.nextReviewDate || cue.nextReviewDate <= today || Boolean(cue.lastReviewedAt && addCalendarDays(dateKey(new Date(cue.lastReviewedAt)), CUE_MAX_REVIEW_DAYS) <= today)));
   if (filter === 'weak') return cue.status === 'partial' || cue.status === 'unclear';
   if (filter === 'unstable' || filter === 'repeated-weak' || filter === 'recovering') {
     const history = reviews.filter((review) => review.cueId === cue.id)
@@ -1520,7 +1522,30 @@ function cueIsRecovering(cue: StudyCue, orderedHistory: CueReview[]): boolean {
     && weightedWeakRisk(orderedHistory, dateKey(new Date(latest.reviewedAt))) >= 0.5;
 }
 
-export const CUE_REVIEW_PRIORITY_LABELS = ['已修改', '忘记', '不熟', '新 CUE', '待巩固', '稳定到期'] as const;
+export const CUE_REVIEW_PRIORITY_LABELS = ['优先', '巩固', '维持'] as const;
+
+export function cueReviewPriority(cue: StudyCue, reviews: CueReview[]) {
+  const recent = recentCueReviewDays(reviews).slice(0, 5);
+  const misses = recent.filter((review) => review.status !== 'stable').length;
+  const changed = cueChangedSinceReview(cue);
+  const fresh = !cue.lastReviewedAt && !cue.status;
+  const tested = cue.examStatus === 'tested';
+  const important = cue.reviewImportant === true;
+  const stable = cue.status === 'stable' && !changed && misses === 0;
+  const reason = important ? '已标为重点' : cue.status === 'unclear' ? '上次没想起'
+    : misses >= 2 ? `近 ${recent.length} 次有 ${misses} 次不稳`
+    : tested && !stable ? '有考查记录'
+    : changed ? '内容已修改'
+    : cue.status === 'partial' ? '上次只想起一部分'
+    : fresh ? '首次复习'
+    : !stable ? '近期仍需巩固'
+    : tested ? '有考查记录，已稳定'
+    : '近期回忆稳定';
+  const priority = important || cue.status === 'unclear' || misses >= 2 || (tested && !stable) ? 0 : stable ? 2 : 1;
+  const score = Number(important) * 12 + Number(tested) * 4 + misses * 3 + Number(cue.status === 'unclear') * 5
+    + Number(changed) * 3 + Number(cue.status === 'partial') * 2 + Number(fresh);
+  return { priority, score, reason };
+}
 
 export function prioritizeCueReviews(cues: StudyCue[], reviews: CueReview[]) {
   const history = new Map<string, CueReview[]>();
@@ -1532,13 +1557,9 @@ export function prioritizeCueReviews(cues: StudyCue[], reviews: CueReview[]) {
     else history.set(review.cueId, [review]);
   }
   return [...byId.values()].map((cue) => {
-    const priority = cueChangedSinceReview(cue) ? 0
-      : cue.status === 'unclear' ? 1
-      : cue.status === 'partial' ? 2
-      : !cue.lastReviewedAt ? 3
-      : cueIsRecovering(cue, (history.get(cue.id) ?? []).sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt))) ? 4 : 5;
-    return { cue, priority, dueDate: priority === 0 ? cue.updatedAt.slice(0, 10) : cue.nextReviewDate ?? cue.createdAt.slice(0, 10) };
-  }).sort((a, b) => a.priority - b.priority || a.dueDate.localeCompare(b.dueDate) || a.cue.id.localeCompare(b.cue.id));
+    const { priority, score, reason } = cueReviewPriority(cue, history.get(cue.id) ?? []);
+    return { cue, priority, score, reason, dueDate: cue.nextReviewDate ?? cue.createdAt.slice(0, 10) };
+  }).sort((a, b) => a.priority - b.priority || b.score - a.score || a.dueDate.localeCompare(b.dueDate) || a.cue.id.localeCompare(b.cue.id));
 }
 
 function dailyCueReviewBatchLimit(state: ScheduleControlState, date: Date, protectQuestionDeadline = false): number {
@@ -1936,21 +1957,30 @@ function spacedGreenRun(history: CueReview[], reviewedDate: string): number {
   return days.size;
 }
 
-/** Earlier failures matter less only after successful recall on later dates. */
+/** A day of repeated attempts contributes a single result, keeping its weakest evidence. */
+function recentCueReviewDays(history: CueReview[]) {
+  const days = new Map<string, { date: string; status: LearningStatus }>();
+  const severity = { stable: 0, partial: 1, unclear: 2 };
+  for (const review of history) {
+    if (review.practiceOnly || !Number.isFinite(Date.parse(review.reviewedAt))) continue;
+    const date = dateKey(new Date(review.reviewedAt));
+    const status = review.weakestStatus ?? (review.sameDayWeak && review.status === 'stable' ? 'partial' : review.status);
+    const existing = days.get(date);
+    if (!existing || severity[status] > severity[existing.status]) days.set(date, { date, status });
+  }
+  return [...days.values()].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** Recent misses matter most. A later clean recall reduces their influence. */
 function weightedWeakRisk(history: CueReview[], reviewedDate: string): number {
-  // These are conservative product weights, not fitted FSRS parameters. One red
-  // has more impact than one yellow; each later spaced success retains 70% of it.
-  const decayPerGreenDay = 0.7;
-  const successfulDays = new Set([reviewedDate]);
+  let cleanDays = 1;
   let risk = 0;
-  for (let index = history.length - 1; index >= 0; index -= 1) {
-    const review = history[index];
-    if (review.status === 'stable' && !review.sameDayWeak) {
-      successfulDays.add(dateKey(new Date(review.reviewedAt)));
-      continue;
+  for (const { status, date } of recentCueReviewDays(history).slice(0, 8)) {
+    if (status === 'stable') {
+      if (date !== reviewedDate) cleanDays++;
+    } else {
+      risk += (status === 'unclear' ? 1.65 : 0.8) * 0.7 ** cleanDays;
     }
-    const severity = (review.weakestStatus ?? review.status) === 'unclear' ? 1.65 : 0.8;
-    risk += severity * decayPerGreenDay ** successfulDays.size;
   }
   return risk;
 }
@@ -1978,7 +2008,8 @@ export function planCueReview(
   }, status === 'stable' ? 5 : status === 'partial' ? 2 : 1, reviewedAt);
 
   if (status !== 'stable') {
-    const intervalDays = CUE_WEAK_REVIEW_INTERVALS[status];
+    const repeats = status === 'partial' && recentCueReviewDays(cueHistory).slice(0, 4).filter(day => day.status !== 'stable').length >= 2;
+    const intervalDays = repeats ? 2 : CUE_WEAK_REVIEW_INTERVALS[status];
     return {
       intervalDays,
       easeFactor: scheduled.easeFactor,
@@ -2043,7 +2074,8 @@ export function planCueReview(
 
 /** Replays old ratings once so existing Cues receive the same plan as newly reviewed Cues. */
 export function recalculateLegacyCueSchedules(state: ScheduleControlState): ScheduleControlState {
-  if ((state.cueScheduleRevision ?? 0) >= 5) return state;
+  const revision = state.cueScheduleRevision ?? 0;
+  if (revision >= 6) return state;
   const reviewsByCue = new Map<string, CueReview[]>();
   for (const review of state.cueReviews) {
     const history = reviewsByCue.get(review.cueId) ?? [];
@@ -2057,10 +2089,28 @@ export function recalculateLegacyCueSchedules(state: ScheduleControlState): Sche
     if (!history || !latest || !cue.lastReviewedAt || cue.lastReviewedAt !== latest.reviewedAt
       || cue.status !== latest.status || !cue.nextReviewDate || cue.nextReviewDate !== latest.nextReviewDate
       || (latest.intervalDays !== undefined && cue.intervalDays !== latest.intervalDays)
-      || cue.updatedAt > latest.reviewedAt) return cue;
+      || cueChangedSinceReview(cue)) return cue;
 
     if (history.some((review) => !Number.isFinite(Date.parse(review.reviewedAt))
       || !['stable', 'partial', 'unclear'].includes(review.status))) return cue;
+
+    if (revision >= 5) {
+      if (cue.status !== 'stable' || cue.masteredIntervalDays || latest.practiceOnly) return cue;
+      const recent = recentCueReviewDays(history);
+      const firstMiss = recent.findIndex(day => day.status !== 'stable');
+      const clean = recent.slice(0, Math.min(5, firstMiss === -1 ? recent.length : firstMiss));
+      if (clean.length < 3) return cue;
+      const gaps = clean.slice(1).map((day, index) => calendarDaysBetween(day.date, clean[index].date));
+      const longest = Math.max(...gaps);
+      if (longest < 7) return cue;
+      const proven = Math.min(longest * 3, CUE_REVIEW_INTERVALS[Math.min(clean.length + 1, CUE_REVIEW_INTERVALS.length) - 1]);
+      const stagger = [...cue.id].reduce((sum, character) => (sum * 31 + character.codePointAt(0)!) % 7, 0);
+      const intervalDays = Math.min(CUE_MAX_REVIEW_DAYS, proven + stagger);
+      const nextReviewDate = addCalendarDays(dateKey(new Date(latest.reviewedAt)), intervalDays);
+      if (nextReviewDate <= cue.nextReviewDate) return cue;
+      replacements.set(cue.id, { ...latest, intervalDays, nextReviewDate, scheduleReason: `近期已有跨天稳定回忆，按实际间隔重新排至 ${nextReviewDate}。` });
+      return { ...cue, intervalDays, nextReviewDate };
+    }
 
     let replayCue: StudyCue = { ...cue, intervalDays: 0, easeFactor: 2.5, streak: 0 };
     const replayed: CueReview[] = [];
@@ -2082,7 +2132,7 @@ export function recalculateLegacyCueSchedules(state: ScheduleControlState): Sche
   });
   return {
     ...state,
-    cueScheduleRevision: 5,
+    cueScheduleRevision: 6,
     cues,
     cueReviews: state.cueReviews.map((review) => {
       const replacement = replacements.get(review.cueId);
@@ -2201,6 +2251,16 @@ export function deriveLearningStatus(cueIds: string[], assessments: CueAssessmen
 
 /** Resolves the Cue deck for a scheduled task, preferring explicit Cue ids over its subject/unit scope. */
 /** Explicit mastery is independent of AI difficulty and persists in the synced Cue record. */
+export function isCueSkippedToday(cue: StudyCue, date: string): boolean {
+  return cue.reviewSkippedOn === date;
+}
+
+export function setCueReviewSkipped(state: ScheduleControlState, cueId: string, date: string, skip: boolean): ScheduleControlState {
+  const cue = state.cues.find(item => item.id === cueId);
+  if (!cue || isCueSkippedToday(cue, date) === skip) return state;
+  return { ...state, cues: state.cues.map(item => item.id === cueId ? { ...item, reviewSkippedOn: skip ? date : undefined } : item) };
+}
+
 export function isCueMasteryPaused(cue: StudyCue, date: string): boolean {
   return Boolean(cue.masteredIntervalDays && cue.masterySignature === cueContentSignature(cue) && cue.status === 'stable' && cue.nextReviewDate && cue.nextReviewDate > date && !cueChangedSinceReview(cue));
 }
@@ -2220,7 +2280,7 @@ export function cuesForLearningTask(cues: StudyCue[], task: LearningTask): Study
   const reviewTask = new Set<LearningTask['type']>(['course-review', 'interval-review', 'weekly-review', 'cue-review', 'unit-review', 'cumulative-review']).has(task.type);
   const reviewDate = task.date;
   const eligibleForReview = (cue: StudyCue) =>
-    !isCueMasteryPaused(cue, reviewDate || dateKey(new Date()))
+    !isCueSkippedToday(cue, reviewDate || dateKey(new Date())) && !isCueMasteryPaused(cue, reviewDate || dateKey(new Date()))
     && (!reviewTask || !reviewDate || cueMatchesStatusFilter(cue, 'due', reviewDate));
   if (explicitIds !== undefined) {
     const order = new Map(explicitIds.map((id, index) => [id, index]));

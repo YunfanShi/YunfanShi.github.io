@@ -37,6 +37,7 @@ try {
   await manager.getByRole('button',{name:'关闭',exact:true}).click();
   await page.reload();const preview=page.getByRole('region',{name:'CUE 学习预览'});await preview.getByRole('button',{name:'开始学习',exact:true}).click();
   const session=page.getByRole('dialog').filter({has:page.locator('[data-cue-study-page]')});const training=session.locator('[data-cue-understanding]');
+  await session.getByText('卡片详情与训练', { exact: true }).click();
   await training.locator('summary').click();
   assert.equal(await training.locator('[data-deep-cue-answer]').count(),0);
   const reveal=training.getByRole('button',{name:'核对Conditions 何时适用参考解释',exact:true});assert.equal(await reveal.isDisabled(),true);

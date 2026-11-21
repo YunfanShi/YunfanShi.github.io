@@ -23,22 +23,22 @@ test('repeated failures raise effective difficulty using distinct days', () => {
   assert.equal(effectiveCueDifficulty(easy, [history('unclear', 1), history('unclear', 1), history('unclear', 1)]), 'easy');
 });
 
-test('stable easy Cues grow gradually and never exceed ninety days', () => {
+test('stable easy Cues grow gradually and never exceed 180 days', () => {
   let state = createEmptyScheduleState(); state.cues = [{ ...cue, aiAdvice: advice }];
   for (let index = 0; index < 12; index += 1) {
     const reviewedAt = index ? dateFromKey(state.cues[0].nextReviewDate!) : new Date(2026, 8, 1, 20);
     state = completeCueReviews(state, [{ cueId: cue.id, status: 'stable' }], reviewedAt);
-    assert.ok(state.cues[0].intervalDays <= 90 && state.cues[0].intervalDays >= 3);
+    assert.ok(state.cues[0].intervalDays <= 180 && state.cues[0].intervalDays >= 3);
     const tomorrow = new Date(reviewedAt); tomorrow.setDate(tomorrow.getDate() + 1);
     assert.equal(tasksForDate(state, tomorrow).some((task) => task.type === 'cue-review' && task.cueIds?.includes(cue.id)), false);
   }
-  assert.equal(state.cues[0].intervalDays, 90);
+  assert.equal(state.cues[0].intervalDays, 180);
 });
 
-test('AI cannot bypass capacity or suppress the ninety-day deadline', () => {
-  const date = new Date(2026, 10, 30, 12); const state = createEmptyScheduleState();
+test('AI cannot bypass capacity or suppress the 180-day deadline', () => {
+  const date = new Date(2027, 1, 28, 12); const state = createEmptyScheduleState();
   state.dailyLearningAdvice = { date: dateKey(date), batchLimit: 1, reason: 'Rest' };
-  state.cues = [normalizeCueMetadata({ ...cue, status: 'stable', lastReviewedAt: at, nextReviewDate: '2027-01-01', intervalDays: 100, streak: 9 }, at), { ...cue, id: 'two', subjectId: 'other', status: 'unclear' }];
+  state.cues = [normalizeCueMetadata({ ...cue, status: 'stable', lastReviewedAt: at, nextReviewDate: '2027-04-01', intervalDays: 200, streak: 9 }, at), { ...cue, id: 'two', subjectId: 'other', status: 'unclear' }];
   const tasks = tasksForDate(state, date).filter((task) => task.type === 'cue-review');
   assert.equal(tasks.length, 2);
   assert.ok(tasks.some(task => task.cueIds?.includes(cue.id)));

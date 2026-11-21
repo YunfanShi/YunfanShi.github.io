@@ -32,10 +32,12 @@ export default function CueExchangeDialog({ cues, reviews, drafts, onClose, onAp
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [visibleRows, setVisibleRows] = useState(20);
   const byId = useMemo(() => new Map(cues.map((cue) => [cue.id, cue])), [cues]);
 
   function resetPreview() {
     setRows([]);
+    setVisibleRows(20);
     setError('');
     setMessage('');
   }
@@ -72,6 +74,13 @@ export default function CueExchangeDialog({ cues, reviews, drafts, onClose, onAp
   function updateRow(index: number, update: Partial<CueExchangeSelection>) {
     setError('');
     setRows((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, ...update } : item));
+  }
+
+  function selectMatchedUpdates() {
+    setError('');
+    setRows(items => items.map(item => item.match === 'id' && item.local && cueExchangeChangedFields(item.local, item.incoming).length
+      ? { ...item, action: 'update', selectedLocalId: item.local.id }
+      : item));
   }
 
   function apply() {
@@ -135,7 +144,11 @@ export default function CueExchangeDialog({ cues, reviews, drafts, onClose, onAp
               {exportedAt && ` · 导出于 ${timestamp(exportedAt)}`}
             </p>
           )}
-          {rows.map((row, index) => {
+          {rows.length > 0 && <div className="flex flex-wrap gap-2">
+            <button type="button" className={secondaryButton} onClick={selectMatchedUpdates}>选中全部同 ID 的修改</button>
+            <button type="button" className={secondaryButton} onClick={() => setRows(items => items.map(item => ({ ...item, action: item.selectedLocalId ? 'keep' : 'skip' })))}>清除选择</button>
+          </div>}
+          {rows.slice(0, visibleRows).map((row, index) => {
             const local = byId.get(row.selectedLocalId);
             const changed = local ? cueExchangeChangedFields(local, row.incoming) : [];
             const localProgress = local ? cueExchangeProgress(local, reviews, drafts) : undefined;
@@ -191,6 +204,7 @@ export default function CueExchangeDialog({ cues, reviews, drafts, onClose, onAp
               </article>
             );
           })}
+          {rows.length > visibleRows && <button type="button" className={secondaryButton} onClick={() => setVisibleRows(count => count + 20)}>显示更多（还有 {rows.length - visibleRows} 张）</button>}
         </div>
         <footer className="border-t border-[var(--card-border)] p-4">
           {rows.length > 0 && error && <p role="alert" className="mb-3 text-sm text-rose-600 dark:text-rose-300">{error}</p>}

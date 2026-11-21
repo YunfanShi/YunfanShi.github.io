@@ -362,8 +362,8 @@
 .ratingFeedback[data-rating="stable"] { color: var(--brand); }
 .roundComplete { color: var(--brand); }
 @keyframes cueArrive {
-  from { opacity: .6; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: .86; }
+  to { opacity: 1; }
 }
 @keyframes cueReveal {
   from { opacity: .55; }
@@ -373,12 +373,12 @@
   from { opacity: .6; }
   to { opacity: 1; }
 }
-.studyOverlay[data-animations="true"] .studyTransition { animation: cueArrive .16s ease-out; }
+.studyOverlay[data-animations="true"] .studyTransition { animation: cueArrive .10s ease-out; }
 .studyOverlay[data-animations="true"] .studyTransition[data-revealed="true"],
-.studyOverlay[data-animations="true"] [data-cue-definition-face] { animation: cueReveal .16s ease-out; }
+.studyOverlay[data-animations="true"] [data-cue-definition-face] { animation: cueReveal .12s ease-out; }
 .studyOverlay[data-animations="true"] .answerComparison,
 .studyOverlay[data-animations="true"] .ratingFeedback,
-.studyOverlay[data-animations="true"] .roundComplete { animation: cueFeedback .16s ease-out; }
+.studyOverlay[data-animations="true"] .roundComplete { animation: cueFeedback .10s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .studyOverlay[data-animations="true"] .studyTransition,
   .studyOverlay[data-animations="true"] [data-cue-definition-face],
@@ -441,3 +441,17 @@
   .touchTitle { font-size: 28px; }
   .touchControls { width: 100%; padding-inline: max(24px, calc((100vw - 880px) / 2)); }
 }
+
+.skipNotices {
+  position: absolute;
+  z-index: 80;
+  inset-block-start: max(12px, env(safe-area-inset-top));
+  inset-inline-start: 12px;
+  display: flex;
+  max-width: calc(100vw - 24px);
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.skipNotices > div { pointer-events: auto; }
