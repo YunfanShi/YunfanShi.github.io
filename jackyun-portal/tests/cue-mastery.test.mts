@@ -12,9 +12,9 @@ test('mastery pauses all study starts for ten days and repeated K does not exten
  assert.equal(cuesForLearningTask(state.cues, task('2026-10-22')).length, 1);
  assert.equal(markCueMastered(state, cue.id, new Date('2026-10-14T04:00:00Z'), 'other'), state);
 });
-test('successful due retrievals gradually grow from 10 days to a 90-day ceiling', () => {
+test('successful due retrievals gradually grow from 10 days to a 180-day ceiling', () => {
  let state = marked();
- for(const days of [14,21,30,45,60,90,90]) {
+ for(const days of [14,30,60,90,120,180,180]) {
   const when = new Date(state.cues[0].nextReviewDate+'T04:00:00Z');
   const restored = normalizeCueMetadata(state.cues[0], at.toISOString());
   assert.equal(restored.nextReviewDate, state.cues[0].nextReviewDate);

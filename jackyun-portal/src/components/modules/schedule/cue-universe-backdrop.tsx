@@ -17,13 +17,14 @@ function lightSprite(color: string) {
   return sprite;
 }
 
-export default function CueUniverseBackdrop({ stars, animations, highlight, celebration, theme }: { theme?: string; stars: CueStar[]; animations: boolean; highlight?: string; celebration?: { situation: CueAnimationSituation; variant: number } }) {
+export default function CueUniverseBackdrop({ stars, animations, highlight, celebration, theme, quiet = false }: { quiet?: boolean; theme?: string; stars: CueStar[]; animations: boolean; highlight?: string; celebration?: { situation: CueAnimationSituation; variant: number } }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const phaseRef = useRef(-.55);
   const previousPaint = useRef<number | null>(null);
   const arrivals = useRef(new Map<string, number>());
   const knownStars = useRef<Set<string> | null>(null);
   useEffect(() => {
+    if (quiet) return;
     const canvas = canvasRef.current;
     const context = canvas?.getContext('2d', { alpha: false });
     if (!canvas || !context) return;
@@ -111,6 +112,6 @@ export default function CueUniverseBackdrop({ stars, animations, highlight, cele
     window.addEventListener('resize', resize); document.addEventListener('visibilitychange', refresh); reduced.addEventListener('change', refresh);
     resize();
     return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', resize); document.removeEventListener('visibilitychange', refresh); reduced.removeEventListener('change', refresh); };
-  }, [stars, animations, highlight, celebration, theme]);
-  return <div className={styles.backdrop} data-cue-universe-background data-cue-theme={theme ?? 'ice'} data-motion={animations} data-stars={stars.length} role="img" aria-label={`已点亮 ${stars.length} 颗星的学习星空`}><canvas ref={canvasRef} aria-hidden="true" /><div className={styles.vignette} /></div>;
+  }, [stars, animations, highlight, celebration, theme, quiet]);
+  return <div className={styles.backdrop} data-cue-universe-background data-cue-theme={theme ?? 'ice'} data-motion={animations} data-quiet={quiet || undefined} data-stars={stars.length} role="img" aria-label={`已点亮 ${stars.length} 颗星的学习星空`}>{!quiet && <canvas ref={canvasRef} aria-hidden="true" />}<div className={styles.vignette} /></div>;
 }

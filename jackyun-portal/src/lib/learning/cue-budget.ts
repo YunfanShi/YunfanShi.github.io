@@ -7,8 +7,9 @@ export function recommendCueBudget(cues: StudyCue[], reviews: CueReview[], budge
   const ranked = prioritizeCueReviews(cues, reviews);
   const ordered = ranked.map(({ cue }) => cue);
   const priorityById = new Map(ranked.map(({ cue, priority }) => [cue.id, priority]));
+  const reasonsById = new Map(ranked.map(({ cue, reason }) => [cue.id, reason]));
   const count = Math.floor(budget / CUE_MINUTES);
-  return { selected: ordered.slice(0, count), remaining: ordered.slice(count), ordered, priorityById };
+  return { selected: ordered.slice(0, count), remaining: ordered.slice(count), ordered, priorityById, reasonsById };
 }
 
 /** Only called after an explicit user action; recommendation itself is read-only. */

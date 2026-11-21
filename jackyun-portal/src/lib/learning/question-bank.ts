@@ -1,5 +1,5 @@
 import type { CueTrainingEvidence } from './cue-understanding.ts';
-import { isCueMasteryPaused, addCalendarDays, dateKey, matchLearningCatalogSubject, type LearningCatalogSubject, type LearningStatus, type LearningTask, type StudyCue } from './schedule-control.ts';
+import { isCueMasteryPaused, isCueSkippedToday, addCalendarDays, dateKey, matchLearningCatalogSubject, type LearningCatalogSubject, type LearningStatus, type LearningTask, type StudyCue } from './schedule-control.ts';
 
 export const QUESTION_BANK_KEY = 'jackyun_schedule_questions_v1';
 export type QuestionType = 'single' | 'multiple' | 'boolean' | 'written';
@@ -225,7 +225,7 @@ export function questionMatchesFilter(question: StudyQuestion, bank: QuestionBan
 }
 /** Orders only the selected items. Links never expand a learning session. */
 export function buildStudyQueue(cues: StudyCue[], questions: StudyQuestion[], date = dateKey(new Date())): StudyItemRef[] {
-  cues = cues.filter(cue => !isCueMasteryPaused(cue, date));
+  cues = cues.filter(cue => !isCueMasteryPaused(cue, date) && !isCueSkippedToday(cue, date));
   const result: StudyItemRef[] = [];
   const usedCues = new Set<string>();
   const usedQuestions = new Set<string>();

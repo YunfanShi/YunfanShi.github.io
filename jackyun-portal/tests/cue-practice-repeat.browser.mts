@@ -32,6 +32,7 @@ try {
   await settings.getByRole('spinbutton',{name:'间隔分钟'}).fill('5');
   await settings.locator('summary').click();
   const prompt=session.getByRole('region',{name:'触屏学习卡片'});
+  await session.getByRole('button',{name:'打开题目目录与帮助'}).click();
   const rail=session.locator('[aria-label="Cue 学习进度"]');
   await rail.evaluate(element=>{element.style.flexWrap='nowrap';element.style.width='100px';element.style.overflowX='auto';});
   await rail.locator('button').nth(1).evaluate((button:HTMLButtonElement)=>button.click());

@@ -244,10 +244,10 @@ test('Cue review intervals expand with repeated green results and contract after
     intervals.push(state.cues[0].intervalDays);
   }
 
-  assert.deepEqual(intervals, [3, 7, 14, 21, 30, 45, 60, 60]);
+  assert.deepEqual(intervals, [3, 7, 14, 30, 60, 90, 120, 120]);
   assert.equal(state.cues[0].streak, 8);
   assert.match(state.cueReviews[2].scheduleReason ?? '', /连续通过 3 次/);
-  assert.equal(state.cueReviews[7].intervalDays, 60);
+  assert.equal(state.cueReviews[7].intervalDays, 120);
 
   const yellowPlan = planCueReview(state.cues[0], state.cueReviews, 'partial', new Date('2027-10-01T08:00:00.000Z'));
   assert.equal(yellowPlan.intervalDays, 3);
@@ -338,7 +338,7 @@ test('existing same-day red plans are moved to tomorrow on the next schedule sca
   state.cues = [{ id: 'old-red', subjectId: 'physics', subjectName: 'Physics', unit: 'Motion', subsection: '', prompt: 'Velocity', type: 'general', markingPoints: [], status: 'unclear', intervalDays: 0, easeFactor: 2.3, streak: 0, nextReviewDate: '2026-09-21', lastReviewedAt: '2026-09-21T08:00:00.000Z', createdAt: '2026-09-20T08:00:00.000Z', updatedAt: '2026-09-20T08:00:00.000Z' }];
   state.cueReviews = [{ id: 'old-red-review', cueId: 'old-red', status: 'unclear', reviewedAt: '2026-09-21T08:00:00.000Z', intervalDays: 0, nextReviewDate: '2026-09-21' }];
   const rescanned = recalculateLegacyCueSchedules(state);
-  assert.equal(rescanned.cueScheduleRevision, 5);
+  assert.equal(rescanned.cueScheduleRevision, 6);
   assert.equal(rescanned.cues[0].nextReviewDate, '2026-09-22');
   assert.equal(rescanned.cueReviews[0].nextReviewDate, '2026-09-22');
   assert.strictEqual(recalculateLegacyCueSchedules(rescanned), rescanned);
@@ -353,7 +353,7 @@ test('an edited Cue with two green reviews retains its evidence without a false 
     { id: 'second', cueId: 'velocity', status: 'stable', reviewedAt: '2026-09-24T14:02:00.000Z', intervalDays: 1, nextReviewDate: '2026-09-25' },
   ];
   const migrated = recalculateLegacyCueSchedules(state);
-  assert.equal(migrated.cueScheduleRevision, 5);
+  assert.equal(migrated.cueScheduleRevision, 6);
   assert.equal(migrated.cues[0].status, 'stable');
   assert.equal(migrated.cues[0].streak, 2);
   assert.equal(migrated.cues[0].intervalDays, 3);
@@ -435,7 +435,7 @@ test('old Cue plans are recalculated from saved ratings once without changing un
   ];
 
   const migrated = recalculateLegacyCueSchedules(state);
-  assert.equal(migrated.cueScheduleRevision, 5);
+  assert.equal(migrated.cueScheduleRevision, 6);
   assert.equal(migrated.cues.find((cue) => cue.id === 'yellow')?.nextReviewDate, '2026-09-07');
   assert.equal(migrated.cues.find((cue) => cue.id === 'yellow')?.intervalDays, 3);
   assert.equal(migrated.cues.find((cue) => cue.id === 'red')?.nextReviewDate, '2026-09-04');

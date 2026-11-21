@@ -29,11 +29,12 @@ try {
   const pageErrors: string[] = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   const openManager = async () => {
+    await page.getByText('管理与星空', { exact: true }).click();
     await page.getByRole('button', { name: '管理 CUE', exact: true }).click();
     return page.getByRole('dialog', { name: '知识 CUE 管理' });
   };
 
-  await page.goto(`${base}/schedule?view=cue`);
+  await page.goto(`${base}/schedule?view=cue`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('region', { name: 'CUE 学习预览' }).waitFor();
   await page.evaluate(async (value) => {
     const persisted = new Promise<void>((resolve) => {
@@ -48,18 +49,19 @@ try {
     localStorage.setItem('jackyun_settings_learning_preferences', JSON.stringify({ cueGameEnabled: false, cueShuffle: false }));
     await persisted;
   }, seed);
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
   const manager = await openManager();
+  await manager.getByText('导出', { exact: true }).click();
   const choice = manager.getByLabel('包含 AI 提示词');
-  const copy = manager.getByRole('button', { name: '复制全部科目 CUE JSON' });
+  const copy = manager.getByRole('button', { name: '复制 JSON' });
   const readClipboard = () => page.evaluate(async () => JSON.parse(await navigator.clipboard.readText()));
   assert.equal(await choice.isChecked(), false);
   await copy.click();
-  await manager.getByText('已复制全部 1 张 CUE。', { exact: true }).waitFor();
+  await manager.getByText('已复制 1 张 CUE。', { exact: true }).waitFor();
   assert.equal(Object.hasOwn(await readClipboard(), 'aiPrompt'), false);
   await choice.check();
   await copy.click();
-  await manager.getByText('已复制全部 1 张 CUE（含 AI 提示词）。', { exact: true }).waitFor();
+  await manager.getByText('已复制 1 张 CUE（含 AI 提示词）。', { exact: true }).waitFor();
   assert.match((await readClipboard()).aiPrompt, /correctChoice/);
   const downloadPromise = page.waitForEvent('download');
   await manager.getByRole('button', { name: '下载 JSON' }).click();
@@ -69,7 +71,8 @@ try {
   for await (const chunk of downloadStream) chunks.push(Buffer.from(chunk));
   assert.match(JSON.parse(Buffer.concat(chunks).toString()).aiPrompt, /jackyun-cue-exchange/);
 
-  await manager.getByRole('button', { name: '导入 CUE 并逐条对比' }).click();
+  await manager.getByText('导入', { exact: true }).click();
+  await manager.getByRole('button', { name: '卡片 JSON · 逐条对比' }).click();
   const dialog = manager.getByRole('dialog', { name: '导入外部 CUE 并逐条对比' });
   const input = dialog.getByLabel('粘贴 CUE JSON');
   const preview = dialog.getByRole('button', { name: '预览粘贴内容' });
@@ -101,10 +104,11 @@ try {
     const stored = JSON.parse(localStorage.getItem('jackyun_schedule_control_v1') ?? '{}');
     return stored.cues?.length === 2;
   });
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
   const reloaded = await openManager();
-  await reloaded.getByRole('button', { name: '复制全部科目 CUE JSON' }).click();
-  await reloaded.getByText('已复制全部 2 张 CUE。', { exact: true }).waitFor();
+  await reloaded.getByText('导出', { exact: true }).click();
+  await reloaded.getByRole('button', { name: '复制 JSON' }).click();
+  await reloaded.getByText('已复制 2 张 CUE。', { exact: true }).waitFor();
   const saved = (await readClipboard()).cues as StudyCue[];
   assert.equal(saved[0].answer, incoming.answer);
   assert.equal(saved[0].status, local.status);
@@ -112,6 +116,20 @@ try {
   assert.equal(saved[1].subsection, external.subsection);
   assert.equal(saved[1].status, undefined);
   assert.notEqual(saved[1].id, external.id);
+  await reloaded.getByRole('combobox', { name: '范围', exact: true }).selectOption('cards');
+  await reloaded.getByRole('checkbox', { name: /如何判断函数的定义域/ }).check();
+  await reloaded.getByRole('button', { name: '复制 JSON' }).click();
+  await reloaded.getByText('已复制 1 张 CUE。', { exact: true }).waitFor();
+  assert.deepEqual((await readClipboard()).cues.map((cue: StudyCue) => cue.id), [saved[1].id]);
+
+  await reloaded.getByText('导入', { exact: true }).click();
+  await reloaded.getByRole('button', { name: '卡片 JSON · 逐条对比' }).click();
+  await input.fill(JSON.stringify(createCueExchangeBundle(saved.map(cue => ({ ...cue, answer: `更新 ${cue.id}` })))));
+  await preview.click();
+  await dialog.getByRole('button', { name: '选中全部同 ID 的修改' }).click();
+  await dialog.getByText('已选 2 项操作', { exact: true }).waitFor();
+  await dialog.getByRole('button', { name: '应用所选操作' }).click();
+  await dialog.getByText('已应用：新增 0 张，修改 2 张。').waitFor();
   assert.deepEqual(pageErrors, []);
   console.log('PASS CUE export, paste/upload comparison and local persistence on a narrow viewport');
   await context.close();

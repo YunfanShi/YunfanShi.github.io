@@ -115,3 +115,16 @@
 @media (prefers-reduced-motion: reduce) {
   .starPulse, .newStar, .milestoneAccent { animation: none; }
 }
+
+.backdrop[data-quiet='true'] {
+  --sky-tint: #142139;
+  background: radial-gradient(ellipse at 78% 18%, var(--sky-tint), transparent 62%), #070d17;
+}
+.backdrop[data-quiet='true']:is([data-cue-theme='emerald'], [data-cue-theme='aurora']) { --sky-tint: #142b2c; }
+.backdrop[data-quiet='true']:is([data-cue-theme='violet'], [data-cue-theme='nebula'], [data-cue-theme='rose']) { --sky-tint: #201c37; }
+.backdrop[data-quiet='true']:is([data-cue-theme='sunset'], [data-cue-theme='amber']) { --sky-tint: #30231f; }
+.backdrop[data-quiet='true'][data-motion='true'] .vignette { animation: quietSky 16s ease-in-out infinite alternate; }
+@keyframes quietSky { from { opacity: .7; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .backdrop[data-quiet='true'] .vignette { animation: none; }
+}

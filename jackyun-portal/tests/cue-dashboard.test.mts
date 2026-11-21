@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEmptyScheduleState, dateKey, markCueMastered, saveCueStudyDraft, type StudyCue } from '../src/lib/learning/schedule-control.ts';
+import { createEmptyScheduleState, dateKey, recalculateLegacyCueSchedules, setCueReviewSkipped, markCueMastered, saveCueStudyDraft, type StudyCue } from '../src/lib/learning/schedule-control.ts';
 import { cueDashboard, cueEntryHref, todayCueQueue } from '../src/lib/learning/cue-dashboard.ts';
 import { readScheduleState } from '../src/lib/learning/workspace-reader.ts';
 import { addCueBudgetTask, recommendCueBudget } from '../src/lib/learning/cue-budget.ts';
@@ -51,7 +51,8 @@ test('15/30/60 minute previews prioritize unstable, fresh and recovering Cues ah
   const old = { status: 'stable' as const, updatedAt: lastReviewedAt, lastReviewedAt, nextReviewDate: '2026-10-04' };
   const stable = Array.from({ length: 200 }, (_, i) => cue(`stable-${i}`, old));
   const cues = [...stable, cue('recovering', old), cue('new'), cue('partial', { ...old, status: 'partial' }),
-    cue('unclear', { ...old, status: 'unclear' }), cue('edited', { ...old, updatedAt: at })];
+    cue('unclear', { ...old, status: 'unclear' }), cue('edited', { ...old, updatedAt: at }),
+    cue('manual-priority', { ...old, reviewImportant: true }), cue('exam', { examStatus: 'tested' })];
   const reviews = [
     { id: 'weak', cueId: 'recovering', status: 'unclear' as const, reviewedAt: '2026-09-28T04:00:00Z', nextReviewDate: '2026-09-29' },
     { id: 'green', cueId: 'recovering', status: 'stable' as const, reviewedAt: lastReviewedAt, nextReviewDate: old.nextReviewDate },
@@ -60,7 +61,10 @@ test('15/30/60 minute previews prioritize unstable, fresh and recovering Cues ah
   for (const [budget, count] of [[15, 3], [30, 7], [60, 15]] as const) {
     const batch = recommendCueBudget(cues, reviews, budget);
     assert.equal(batch.selected.length, count);
-    assert.deepEqual(batch.ordered.slice(0, 5).map(({ id }) => id), ['edited', 'unclear', 'partial', 'new', 'recovering']);
+    assert.deepEqual(batch.ordered.slice(0, 7).map(({ id }) => id), ['manual-priority', 'unclear', 'exam', 'edited', 'recovering', 'partial', 'new']);
+    assert.equal(batch.reasonsById.get('manual-priority'), '已标为重点');
+    assert.equal(batch.priorityById.get('exam'), 0);
+    assert.equal(batch.priorityById.get('stable-0'), 2);
     assert.equal(batch.selected.length + batch.remaining.length, cues.length);
   }
   assert.equal(JSON.stringify(cues), raw);
@@ -73,4 +77,35 @@ test('confirmed budget schedules exact eligible IDs once and keeps ineligible co
   assert.equal(added.state.manualTasks[0].durationMinutes, 4);
   assert.equal(addCueBudgetTask(added.state, ['a'], new Date(at), 'other').created, false);
   assert.equal(addCueBudgetTask(empty, ['deleted'], new Date(at)).state, empty);
+});
+
+test('existing stable evidence spreads 300 of 400 expired cards without changing ratings', () => {
+  const state = createEmptyScheduleState();
+  state.cueScheduleRevision = 5;
+  const mostRecent = '2026-10-01T04:00:00Z';
+  state.cues = Array.from({ length: 400 }, (_, i) => i < 300
+    ? cue(`old-${i}`, { updatedAt: mostRecent, lastReviewedAt: mostRecent, nextReviewDate: '2026-10-08', status: 'stable', intervalDays: 7, streak: 3 })
+    : cue(`needs-${i}`, { status: 'partial' }));
+  state.cueReviews = state.cues.slice(0, 300).flatMap(item => ['2026-09-11', '2026-09-21', '2026-10-01'].map(day => ({
+    id: `${item.id}:${day}`, cueId: item.id, status: 'stable' as const, reviewedAt: `${day}T04:00:00Z`, nextReviewDate: item.nextReviewDate!, intervalDays: 7,
+  })));
+  const today = '2026-10-12';
+  assert.equal(todayCueQueue(state, today).length, 400);
+  const updated = recalculateLegacyCueSchedules(state);
+  assert.equal(todayCueQueue(updated, today).length, 100);
+  assert.ok(new Set(updated.cues.slice(0, 300).map(item => item.nextReviewDate)).size > 1);
+  assert.deepEqual(updated.cueReviews.map(item => [item.id, item.status, item.reviewedAt]), state.cueReviews.map(item => [item.id, item.status, item.reviewedAt]));
+  assert.equal(recalculateLegacyCueSchedules(updated), updated);
+});
+
+test('K snoozes one date and undo restores eligibility without creating a review', () => {
+  const state = { ...createEmptyScheduleState(), cues: [cue('a'), cue('b')] };
+  const today = '2026-10-12';
+  const skipped = setCueReviewSkipped(state, 'a', today, true);
+  assert.deepEqual(todayCueQueue(skipped, today).map(item => item.id), ['b']);
+  assert.equal(todayCueQueue(skipped, '2026-10-13').length, 2);
+  assert.equal(skipped.cueReviews, state.cueReviews);
+  const undone = setCueReviewSkipped(skipped, 'a', today, false);
+  assert.equal(todayCueQueue(undone, today).length, 2);
+  assert.equal(undone.cueReviews, state.cueReviews);
 });

@@ -87,7 +87,8 @@ test('desktop background renders real star history, accessible experience and re
   assert.match(html, /data-motion="false"/);
   assert.match(html, /data-cue-universe-background/);
   assert.match(html, /data-stars="23"/);
-  assert.match(html, /<canvas[^>]*aria-hidden="true"/);
+  assert.match(html, /data-quiet="true"/);
+  assert.doesNotMatch(html, /<canvas/);
   assert.match(html, /紫晶巡航舰/);
   assert.match(html, /aria-label="等级经验"[^>]*value="30"/);
   assert.match(html, /已点亮 23 颗星的学习星空/);

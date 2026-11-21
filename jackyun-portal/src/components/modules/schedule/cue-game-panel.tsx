@@ -116,7 +116,7 @@ function CueGamePanel({ reviews, cues = emptyCues, records = emptyRecords, anima
   }, [resultMessage, feedback?.id, summary]);
   const variant = celebrationAnimations ? accent?.variant : undefined;
   return <>
-    {!summary && <CueUniverseBackdrop theme={theme} stars={todayStars} animations={ambientAnimations} />}
+    {!summary && <CueUniverseBackdrop quiet theme={theme} stars={todayStars} animations={ambientAnimations} />}
     <aside data-feature="star-results" data-frame={cueEquippedValue(account, 'frame')} className={styles.dock} data-cue-game data-collapsed={!summary && collapsed} data-motion={animations} data-summary={summary} aria-label="CUE 星空侧栏">
     {variant !== undefined && resultMessage && <span key={accent?.id} className={styles.milestoneAccent} data-cue-practice-burst data-variant={variant} style={{ '--accent-hue': variant * 37 + 210 } as CSSProperties} aria-hidden="true" />}
     {!summary && collapsed && <div className={styles.actions}>
