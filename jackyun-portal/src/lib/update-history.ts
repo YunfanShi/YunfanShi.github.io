@@ -15,6 +15,7 @@ export interface UpdateEntry {
 export const UPDATE_CATEGORIES: UpdateCategory[] = ['学习体验', '阅读与内容', '平台体验', '稳定性'];
 
 const UPDATE_HISTORY_ENTRIES: UpdateEntry[] = [
+  { version: '3.85.0', date: '2026-11-21', dateLabel: '2026 年 11 月 21 日', title: 'CUE 按优先级复习', summary: '优先复习重点和近期薄弱卡片。已有多次跨天稳定回忆的旧卡按证据重新排期。', categories: ['学习体验', '平台体验'], accent: 'mint', featured: true, highlights: ['每张卡显示复习优先级及原因，可手动标为重点。稳定卡间隔最长 180 天。', '按 K 跳过当前卡片一天，左上角五秒内可撤销。', '卡片导入支持逐张或批量更新，导出支持按科目和选卡，学习背景改为轻量渐变。'] },
   { version: '3.84.1', date: '2026-11-20', dateLabel: '2026 年 11 月 20 日', title: '常用页面优先打开缓存', summary: '首页和日程等常用页面优先显示近期缓存。断网或服务器故障时，可从离线页面打开已保存的工作区。', categories: ['平台体验', '稳定性'], accent: 'blue', featured: true, highlights: ['离线列表可直接打开已保存的页面，日程等页面会保留原有链接参数。', '首页、日程和学习任务在后台准备缓存，减少与首屏加载竞争的请求。', '公告正文按需加载，图标使用体积更小的字体文件。'] },
   { version: '3.84.0', date: '2026-11-20', dateLabel: '2026 年 11 月 20 日', title: 'CUE 分级复习与简化学习入口', summary: '每次回忆后更新掌握等级和下次复习日期。学习页可直接做一轮优先复习，也可按科目、单元或题目自选范围。', categories: ['学习体验'], accent: 'mint', highlights: ['○ 次日重学，△ 三天后巩固，√ 根据跨天回忆逐步延长间隔，最长 90 天。', '单科、跨科、纯题目和混合复习集中在自选范围，未完成进度可继续。', '星空面板精简为星数、等级和常用操作，详情按需展开，答题后仅保留轻微动效。'] },
   { version: '3.83.2', date: '2026-11-19', dateLabel: '2026 年 11 月 19 日', title: 'CUE 交换支持 AI 提示词与粘贴导入', summary: '复制或下载 CUE JSON 时可附带 AI 修改说明。粘贴或上传后可逐条对比并选择要采用的内容。', categories: ['学习体验'], accent: 'mint', highlights: ['导出可附带卡片更新规则、字段和 JSON 格式说明。', '预览展示每张卡的字段差异与新增内容。采用修改会保留本地学习进度。'] },
